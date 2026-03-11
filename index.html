@@ -4,10 +4,132 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fe_duantotnghiep_banvexemphim</title>
+    <title>CINETOON - Thế Giới Phim Hoạt Hình</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 6 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
+
+      :root {
+        --primary-gradient: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+        --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --bg-gradient: linear-gradient(180deg, #0f172a 0%, #1e1b4b 50%, #4c1d95 100%);
+        --toon-shadow: 0 8px 0 rgba(0,0,0,0.2);
+      }
+
+      body {
+        font-family: 'Quicksand', sans-serif;
+        background: var(--bg-gradient);
+        background-attachment: fixed;
+        color: #ffffff;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      .toon-bg {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background: var(--bg-gradient);
+        background-attachment: fixed;
+      }
+
+      .navbar {
+        background: rgba(15, 23, 42, 0.8) !important;
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .nav-link { color: rgba(255,255,255,0.8) !important; }
+      .nav-link:hover { color: #fff !important; }
+
+      .btn-gradient {
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 0 #d64545;
+        transition: all 0.2s ease;
+      }
+      .btn-gradient:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 0 #d64545;
+        color: white;
+      }
+
+      .card {
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        color: #fff;
+      }
+
+      /* ĐIỀU CHỈNH MÀU CHỮ TRONG INPUT, SELECT, TEXTAREA */
+      input.form-control, 
+      select.form-select, 
+      textarea.form-control {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      }
+
+      input.form-control:focus, 
+      select.form-select:focus, 
+      textarea.form-control:focus {
+        background-color: rgba(255, 255, 255, 0.15) !important;
+        box-shadow: 0 0 0 0.25rem rgba(255, 107, 107, 0.25) !important;
+        border-color: #FF6B6B !important;
+        color: #fff !important;
+      }
+
+      /* Màu chữ cho Placeholder */
+      input.form-control::placeholder, 
+      textarea.form-control::placeholder {
+        color: rgba(255, 255, 255, 0.5) !important;
+      }
+
+      /* Màu chữ cho các Option trong Select (để hiển thị được trên nền tối) */
+      select.form-select option {
+        background-color: #1e1b4b;
+        color: #ffffff;
+      }
+
+      .text-dark { color: #fff !important; }
+      .text-muted { color: rgba(255,255,255,0.6) !important; }
+      .bg-white { background: rgba(255, 255, 255, 0.05) !important; }
+      .bg-light { background: rgba(255, 255, 255, 0.1) !important; }
+
+      .text-gradient {
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800;
+      }
+
+      .movie-poster-container {
+        border-radius: 15px;
+        overflow: hidden;
+        border: 2px solid rgba(255,255,255,0.1);
+      }
+
+      .animate-bounce-soft {
+        animation: bounceSoft 2s infinite;
+      }
+      @keyframes bounceSoft {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+    </style>
   </head>
   <body>
+    <div class="toon-bg"></div>
     <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
