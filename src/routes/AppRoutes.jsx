@@ -2,61 +2,25 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Home from '../pages/common/Home';
 import Login from '../pages/auth/Login';
-import SuperAdminDashboard from '../pages/super-admin/Dashboard';
-import AdminDashboard from '../pages/admin/Dashboard';
-import EmployeeDashboard from '../pages/employee/Dashboard';
-import Profile from '../pages/user/Profile';
+import Register from '../pages/auth/Register';
+import MovieDetail from '../pages/common/MovieDetail';
+import Booking from '../pages/common/Booking';
+import Checkout from '../pages/common/Checkout';
+import Success from '../pages/common/Success';
+import Movies from '../pages/common/Movies';
 import NotFound from '../pages/common/NotFound';
-import RoleGuard from './guards/RoleGuard';
 
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Public Routes */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
-
-      {/* Super Admin Routes */}
-      <Route
-        path="/super-admin/dashboard"
-        element={
-          <RoleGuard allowedRoles={['SUPER_ADMIN']}>
-            <SuperAdminDashboard />
-          </RoleGuard>
-        }
-      />
-
-      {/* Admin Routes */}
-      <Route
-        path="/admin/dashboard"
-        element={
-          <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
-            <AdminDashboard />
-          </RoleGuard>
-        }
-      />
-
-      {/* Employee Routes */}
-      <Route
-        path="/employee/dashboard"
-        element={
-          <RoleGuard allowedRoles={['STAFF', 'ADMIN', 'SUPER_ADMIN']}>
-            <EmployeeDashboard />
-          </RoleGuard>
-        }
-      />
-
-      {/* User Routes */}
-      <Route
-        path="/profile"
-        element={
-          <RoleGuard allowedRoles={['USER', 'STAFF', 'ADMIN', 'SUPER_ADMIN']}>
-            <Profile />
-          </RoleGuard>
-        }
-      />
-
-      {/* Not Found Route */}
+      <Route path="/register" element={<Register />} />
+      <Route path="/movie/:id" element={<MovieDetail />} />
+      <Route path="/booking/:id" element={<Booking />} />
+      <Route path="/checkout" element={<Checkout />} />
+      <Route path="/success" element={<Success />} />
+      <Route path="/movies" element={<Movies />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
