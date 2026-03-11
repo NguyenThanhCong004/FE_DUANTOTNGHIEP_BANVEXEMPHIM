@@ -1,13 +1,16 @@
-import React from 'react'
-import './App.css'
+import React from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
+import AppRoutes from './routes/AppRoutes';
+import './App.css';
 
 function App() {
   return (
-    <div className="App">
-      <h1>Dự án Đặt Vé Xem Phim</h1>
-      <p>Cấu trúc thư mục và thư viện đã sẵn sàng. Hãy bắt đầu phát triển các tính năng chính!</p>
-    </div>
-  )
+    <Router>
+      <div className="App">
+        <AppRoutes />
+      </div>
+    </Router>
+  );
 }
 
-export default App
+export default App;
