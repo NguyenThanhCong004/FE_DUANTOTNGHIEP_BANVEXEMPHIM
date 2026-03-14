@@ -33,6 +33,33 @@ import CreateVoucher from '../pages/super-admin/CreateVoucher';
 import NewsManagement from '../pages/super-admin/News';
 import CreateNews from '../pages/super-admin/CreateNews';
 import SuperAdminLayout from '../components/layout/SuperAdminLayout';
+import AdminLayout from '../components/layout/AdminLayout';
+
+// Admin Pages
+import AdminDashboard from '../pages/admin/Dashboard';
+import StaffManagement from '../pages/admin/StaffManagement';
+import AddStaff from '../pages/admin/AddStaff';
+import EditStaff from '../pages/admin/EditStaff';
+import ViewStaff from '../pages/admin/ViewStaff';
+import UserManagementAdmin from '../pages/admin/UserManagement';
+import EditUser from '../pages/admin/EditUser';
+import ViewUser from '../pages/admin/ViewUser';
+import PromotionManagement from '../pages/admin/PromotionManagement';
+import AddPromotion from '../pages/admin/AddPromotion';
+import EditPromotion from '../pages/admin/EditPromotion';
+import ShiftManagement from '../pages/admin/ShiftManagement';
+import AddShift from '../pages/admin/AddShift';
+import EditShift from '../pages/admin/EditShift';
+import SeatManagement from '../pages/admin/SeatManagement';
+import ProductManagementAdmin from '../pages/admin/ProductManagement';
+import ShowtimeManagement from '../pages/admin/ShowtimeManagement';
+import AddShowtime from '../pages/admin/AddShowtime';
+import EditShowtime from '../pages/admin/EditShowtime';
+import RoomManagement from '../pages/admin/RoomManagement';
+import AddRoom from '../pages/admin/AddRoom';
+import EditRoom from '../pages/admin/EditRoom';
+import InvoiceManagement from '../pages/admin/InvoiceManagement';
+import AdminProfile from '../pages/admin/Profile';
 
 // Guard
 import RoleGuard from './guards/RoleGuard';
@@ -48,6 +75,42 @@ const AppRoutes = () => {
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/success" element={<Success />} />
       <Route path="/movies" element={<Movies />} />
+
+      {/* Admin Route */}
+      <Route
+        path="/admin/*"
+        element={
+          <RoleGuard allowedRoles={['ADMIN']}>
+            <AdminLayout />
+          </RoleGuard>
+        }
+      >
+        <Route index element={<AdminDashboard />} />
+        <Route path="staff" element={<StaffManagement />} />
+        <Route path="staff/add" element={<AddStaff />} />
+        <Route path="staff/edit/:id" element={<EditStaff />} />
+        <Route path="staff/view/:id" element={<ViewStaff />} />
+        <Route path="users" element={<UserManagementAdmin />} />
+        <Route path="users/edit/:id" element={<EditUser />} />
+        <Route path="users/view/:id" element={<ViewUser />} />
+        <Route path="promotions" element={<PromotionManagement />} />
+        <Route path="promotions/add" element={<AddPromotion />} />
+        <Route path="promotions/edit/:id" element={<EditPromotion />} />
+        <Route path="shifts" element={<ShiftManagement />} />
+        <Route path="shifts/add" element={<AddShift />} />
+        <Route path="shifts/edit/:id" element={<EditShift />} />
+        <Route path="seats" element={<SeatManagement />} />
+        <Route path="products" element={<ProductManagementAdmin />} />
+        <Route path="showtimes" element={<ShowtimeManagement />} />
+        <Route path="showtimes/add" element={<AddShowtime />} />
+        <Route path="showtimes/edit/:id" element={<EditShowtime />} />
+        <Route path="rooms" element={<RoomManagement />} />
+        <Route path="rooms/add" element={<AddRoom />} />
+        <Route path="rooms/edit/:id" element={<EditRoom />} />
+        <Route path="invoices" element={<InvoiceManagement />} />
+        <Route path="profile" element={<AdminProfile />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
 
       {/* Super Admin Route */}
       <Route
