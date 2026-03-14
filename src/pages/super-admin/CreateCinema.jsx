@@ -1,23 +1,61 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const CreateCinema = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editData = location.state?.editData;
+
   const [formData, setFormData] = useState({
     name: '',
     address: '',
     status: 'Active'
   });
 
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (editData) {
+      setFormData({
+        name: editData.name || '',
+        address: editData.address || '',
+        status: editData.status || 'Active'
+      });
+    }
+  }, [editData]);
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (!formData.name.trim()) {
+      newErrors.name = 'Tên cụm rạp không được để trống';
+    }
+    if (!formData.address.trim()) {
+      newErrors.address = 'Địa chỉ không được để trống';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Dữ liệu rạp mới:', formData);
-    alert('Thêm rạp thành công!');
+    if (!validateForm()) return;
+
+    if (editData) {
+      console.log('Cập nhật rạp:', formData);
+      alert('Cập nhật rạp thành công!');
+    } else {
+      console.log('Dữ liệu rạp mới:', formData);
+      alert('Thêm rạp thành công!');
+    }
     navigate('/super-admin/cinemas');
   };
 
@@ -76,6 +114,13 @@ const CreateCinema = () => {
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
+        .error-message {
+          color: #dc3545;
+          font-size: 0.8rem;
+          margin-top: 5px;
+          font-weight: 500;
+        }
+
         .btn-save {
           background: black;
           color: white;
@@ -106,7 +151,7 @@ const CreateCinema = () => {
           font-weight: 800;
           letter-spacing: 1px;
           text-transform: uppercase;
-          color: black
+          color: black;
           margin-bottom: 25px;
           padding-bottom: 10px;
           border-bottom: 3px solid black;
@@ -115,14 +160,16 @@ const CreateCinema = () => {
       `}</style>
 
       <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>Thêm Cụm Rạp Mới</h1>
-        <button className="btn btn-link text-muted p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/cinemas')}>
+        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
+          {editData ? 'Cập Nhật Cụm Rạp' : 'Thêm Cụm Rạp Mới'}
+        </h1>
+        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/cinemas')}>
           <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
         </button>
       </div>
 
       <div className="form-container">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <h5 className="section-title">THÔNG TIN CHI TIẾT RẠP</h5>
           
           <div className="form-group-custom">
@@ -130,24 +177,24 @@ const CreateCinema = () => {
             <input 
               type="text" 
               name="name"
-              className="custom-input" 
+              className={`custom-input ${errors.name ? 'is-invalid' : ''}`}
               placeholder="Ví dụ: CGV Vincom Center..." 
-              required 
               value={formData.name}
               onChange={handleChange}
             />
+            {errors.name && <div className="error-message">{errors.name}</div>}
           </div>
 
           <div className="form-group-custom">
             <label className="form-label">Địa chỉ chi tiết</label>
             <textarea 
               name="address"
-              className="custom-textarea" 
+              className={`custom-textarea ${errors.address ? 'is-invalid' : ''}`}
               placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố..." 
-              required 
               value={formData.address}
               onChange={handleChange}
             ></textarea>
+            {errors.address && <div className="error-message">{errors.address}</div>}
           </div>
 
           <div className="form-group-custom">
@@ -168,7 +215,7 @@ const CreateCinema = () => {
               HỦY BỎ
             </button>
             <button type="submit" className="btn btn-save">
-              XÁC NHẬN LƯU RẠP
+              {editData ? 'XÁC NHẬN CẬP NHẬT' : 'XÁC NHẬN LƯU RẠP'}
             </button>
           </div>
         </form>
