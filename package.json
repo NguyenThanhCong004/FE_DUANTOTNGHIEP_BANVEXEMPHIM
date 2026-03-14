@@ -14,9 +14,19 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "axios": "^1.13.6",
+<<<<<<< Updated upstream
     "date-fns": "^4.1.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
+=======
+    "bootstrap": "^5.3.8",
+    "chart.js": "^4.5.1",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.0",
+    "react-bootstrap": "^2.10.10",
+    "react-chartjs-2": "^5.3.1",
+>>>>>>> Stashed changes
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
