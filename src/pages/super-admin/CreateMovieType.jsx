@@ -1,14 +1,46 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const CreateMovieType = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editData = location.state?.editData;
   const [genreName, setGenreName] = useState('');
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (editData) {
+      setGenreName(editData.name || '');
+    }
+  }, [editData]);
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (!genreName.trim()) {
+      newErrors.genreName = 'Tên thể loại không được để trống';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
+    setGenreName(e.target.value);
+    if (errors.genreName) {
+      setErrors(prev => ({ ...prev, genreName: '' }));
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Thêm thể loại mới:', genreName);
-    alert('Thêm thể loại thành công!');
+    if (!validateForm()) return;
+
+    if (editData) {
+      console.log('Cập nhật thể loại:', genreName);
+      alert('Cập nhật thể loại thành công!');
+    } else {
+      console.log('Thêm thể loại mới:', genreName);
+      alert('Thêm thể loại thành công!');
+    }
     navigate('/super-admin/movie-types');
   };
 
@@ -56,6 +88,13 @@ const CreateMovieType = () => {
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
+        .error-message {
+          color: #dc3545;
+          font-size: 0.8rem;
+          margin-top: 5px;
+          font-weight: 500;
+        }
+
         .btn-save {
           background: black;
           color: white;
@@ -95,26 +134,28 @@ const CreateMovieType = () => {
       `}</style>
 
       <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>Thêm Thể Loại Phim</h1>
-        <button className="btn btn-link text-muted p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/movie-types')}>
+        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
+          {editData ? 'Cập Nhật Thể Loại Phim' : 'Thêm Thể Loại Phim'}
+        </h1>
+        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/movie-types')}>
           <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
         </button>
       </div>
 
       <div className="form-container">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <h5 className="section-title">THÔNG TIN THỂ LOẠI</h5>
           
           <div className="form-group-custom">
             <label className="form-label">Tên thể loại phim</label>
             <input 
               type="text" 
-              className="custom-input" 
+              className={`custom-input ${errors.genreName ? 'is-invalid' : ''}`}
               placeholder="Ví dụ: Hành động, Kinh dị, Tâm lý..." 
-              required 
               value={genreName}
-              onChange={(e) => setGenreName(e.target.value)}
+              onChange={handleChange}
             />
+            {errors.genreName && <div className="error-message">{errors.genreName}</div>}
           </div>
 
           <div className="mt-5 border-top pt-4 text-center">
@@ -122,7 +163,7 @@ const CreateMovieType = () => {
               HỦY BỎ
             </button>
             <button type="submit" className="btn btn-save">
-              XÁC NHẬN LƯU THỂ LOẠI
+              {editData ? 'XÁC NHẬN CẬP NHẬT' : 'XÁC NHẬN LƯU THỂ LOẠI'}
             </button>
           </div>
         </form>

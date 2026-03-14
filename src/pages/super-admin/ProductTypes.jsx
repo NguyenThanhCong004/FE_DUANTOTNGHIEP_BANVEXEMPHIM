@@ -147,7 +147,11 @@ const ProductTypeManagement = () => {
                   <td className="text-center fw-bold">{indexOfFirstItem + index + 1}</td>
                   <td className="px-4 fw-bold">{type.name}</td>
                   <td className="text-center">
-                    <button className="btn btn-sm btn-outline-dark" title="Sửa">
+                    <button 
+                      className="btn btn-sm btn-outline-dark" 
+                      title="Sửa"
+                      onClick={() => navigate('/super-admin/product-types/create', { state: { editData: type } })}
+                    >
                       Sửa
                     </button>
                   </td>
@@ -158,7 +162,7 @@ const ProductTypeManagement = () => {
         </div>
 
         <div className="d-flex justify-content-between align-items-center mt-4 px-2">
-          <div className="text-muted small">
+          <div className="text-dark small">
             Tổng cộng: <b>{filteredTypes.length}</b> loại sản phẩm
           </div>
           <div className="d-flex gap-2">

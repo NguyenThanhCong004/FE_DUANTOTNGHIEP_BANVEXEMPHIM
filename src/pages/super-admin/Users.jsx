@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const UserManagement = () => {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
   // Dữ liệu mẫu cho khách hàng (Users)
@@ -68,6 +72,32 @@ const UserManagement = () => {
           border-radius: 15px;
           padding: 25px;
           box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+          color: black !important;
+        }
+
+        .user-table-container table td,
+        .user-table-container table th,
+        .user-table-container table div,
+        .user-table-container table span,
+        .user-table-container table i {
+          color: black !important;
+        }
+
+        /* Ngoại lệ cho badges trạng thái để không bị mất màu đặc trưng */
+        .user-table-container .status-badge.status-active {
+          background-color: #e8f5e9 !important;
+          color: #2e7d32 !important;
+        }
+
+        .user-table-container .status-badge.status-inactive {
+          background-color: #ffebee !important;
+          color: #c62828 !important;
+        }
+
+        .user-table-container .table-light th {
+          background-color: #f8f9fa !important;
+          color: black !important;
+          border-bottom: 2px solid #dee2e6 !important;
         }
 
         /* Ô tìm kiếm đồng bộ với Employee */
@@ -139,7 +169,7 @@ const UserManagement = () => {
           border-radius: 8px;
           border: 1px solid #dee2e6;
           background: white;
-          color: #333;
+          color: black;
           transition: all 0.2s;
         }
 
@@ -151,6 +181,79 @@ const UserManagement = () => {
 
         .pagination-btn:hover:not(.active) {
           background: #f8f9fa;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal-content-custom {
+          background: white;
+          border-radius: 20px;
+          width: 100%;
+          max-width: 500px;
+          position: relative;
+          padding: 30px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+          color: black !important;
+        }
+
+        .modal-content-custom h3,
+        .modal-content-custom p,
+        .modal-content-custom div,
+        .modal-content-custom span,
+        .modal-content-custom label,
+        .modal-content-custom i {
+          color: black !important;
+        }
+
+        .modal-close {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          border: none;
+          background: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          color: black;
+        }
+
+        .user-detail-avatar {
+          width: 120px;
+          height: 120px;
+          border-radius: 50%;
+          object-fit: cover;
+          margin: 0 auto 20px;
+          display: block;
+          border: 4px solid whitesmoke;
+        }
+
+        .detail-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 12px 0;
+          border-bottom: 1px solid #eee;
+        }
+
+        .detail-label {
+          font-weight: bold;
+          color: black;
+        }
+
+        .detail-value {
+          color: black;
+          font-weight: 600;
         }
       `}</style>
 
@@ -192,12 +295,12 @@ const UserManagement = () => {
                       <img src={user.avatar} alt={user.username} className="user-avatar-img" />
                       <div>
                         <div className="fw-bold">{user.fullname}</div>
-                        <div className="text-muted small">ID: #{user.id}</div>
+                        <div className="text-dark small">ID: #{user.id}</div>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <span className="fw-medium text-primary">@{user.username}</span>
+                    <span className="fw-medium text-dark">@{user.username}</span>
                   </td>
                   <td>
                     <div className="small">
@@ -212,10 +315,21 @@ const UserManagement = () => {
                   </td>
                   <td>
                     <div className="d-flex justify-content-center gap-2">
-                      <button className="btn btn-sm btn-outline-dark" title="Chi tiết">
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        title="Chi tiết"
+                        onClick={() => {
+                          setSelectedItem(user);
+                          setShowModal(true);
+                        }}
+                      >
                         Xem 
                       </button>
-                      <button className="btn btn-sm btn-outline-primary" title="Chỉnh sửa">
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        title="Chỉnh sửa"
+                        onClick={() => navigate('/super-admin/users')}
+                      >
                         Sửa
                       </button>                    
                     </div>
@@ -228,7 +342,7 @@ const UserManagement = () => {
 
         {/* Phân trang */}
         <div className="d-flex justify-content-between align-items-center mt-4 px-2">
-          <div className="text-muted small">
+          <div className="text-dark small">
             Hiển thị <b>{currentItems.length}</b> trên <b>{filteredUsers.length}</b> khách hàng
           </div>
           <div className="d-flex gap-2">
@@ -244,6 +358,53 @@ const UserManagement = () => {
           </div>
         </div>
       </div>
+
+      {/* View Modal */}
+      {showModal && selectedItem && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content-custom" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowModal(false)}>
+              <i className="bi bi-x-lg"></i>
+            </button>
+            
+            <h3 className="text-center fw-bold mb-4">Thông Tin Khách Hàng</h3>
+            
+            <img src={selectedItem.avatar} alt={selectedItem.username} className="user-detail-avatar" />
+            
+            <div className="detail-row">
+              <span className="detail-label">Họ và tên:</span>
+              <span className="detail-value">{selectedItem.fullname}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Username:</span>
+              <span className="detail-value">@{selectedItem.username}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Email:</span>
+              <span className="detail-value">{selectedItem.email}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Số điện thoại:</span>
+              <span className="detail-value">{selectedItem.phone}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Trạng thái:</span>
+              <span className={`status-badge ${selectedItem.status === 'Active' ? 'status-active' : 'status-inactive'}`}>
+                {selectedItem.status === 'Active' ? 'Đang hoạt động' : 'Đã khóa'}
+              </span>
+            </div>
+
+            <div className="mt-4 pt-3 text-center">
+              <button 
+                className="btn btn-dark px-5 fw-bold"
+                onClick={() => setShowModal(false)}
+              >
+                ĐÓNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -88,7 +88,7 @@ const MovieTypeManagement = () => {
           border-radius: 8px;
           font-weight: 600;
           border: 1px solid #dee2e6;
-          color: #333;
+          color: black;
         }
 
         /* Đồng bộ phân trang với trang Users/Employees */
@@ -120,7 +120,7 @@ const MovieTypeManagement = () => {
           color: black !important;
         }
         .table thead th {
-          color: #333 !important;
+          color: black !important;
         }
       `}</style>
 
@@ -158,6 +158,7 @@ const MovieTypeManagement = () => {
               <tr>
                 <th className="py-3 text-center" style={{ width: '100px' }}>STT</th>
                 <th className="py-3 px-4">Tên thể loại</th>
+                <th className="py-3 text-center" style={{ width: '150px' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -169,6 +170,14 @@ const MovieTypeManagement = () => {
                   <td className="px-4">
                     <span className="genre-badge">{genre.name}</span>
                   </td>
+                  <td className="text-center">
+                    <button 
+                      className="btn btn-sm btn-outline-primary fw-bold"
+                      onClick={() => navigate('/super-admin/movie-types/create', { state: { editData: genre } })}
+                    >
+                      Sửa
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -177,7 +186,7 @@ const MovieTypeManagement = () => {
 
         {/* Phân trang đồng bộ */}
         <div className="d-flex justify-content-between align-items-center mt-4 px-2">
-          <div className="text-muted small">
+          <div className="text-dark small">
             Tổng cộng: <b>{filteredGenres.length}</b> thể loại phim
           </div>
           <div className="d-flex gap-2">

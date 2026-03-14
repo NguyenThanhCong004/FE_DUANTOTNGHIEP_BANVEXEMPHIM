@@ -1,14 +1,46 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const CreateProductType = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editData = location.state?.editData;
   const [typeName, setTypeName] = useState('');
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (editData) {
+      setTypeName(editData.name || '');
+    }
+  }, [editData]);
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (!typeName.trim()) {
+      newErrors.typeName = 'Tên loại sản phẩm không được để trống';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
+    setTypeName(e.target.value);
+    if (errors.typeName) {
+      setErrors(prev => ({ ...prev, typeName: '' }));
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Thêm loại sản phẩm mới:', typeName);
-    alert('Thêm loại sản phẩm thành công!');
+    if (!validateForm()) return;
+
+    if (editData) {
+      console.log('Cập nhật loại sản phẩm:', typeName);
+      alert('Cập nhật loại sản phẩm thành công!');
+    } else {
+      console.log('Thêm loại sản phẩm mới:', typeName);
+      alert('Thêm loại sản phẩm thành công!');
+    }
     navigate('/super-admin/product-types');
   };
 
@@ -55,6 +87,13 @@ const CreateProductType = () => {
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
+        .error-message {
+          color: #dc3545;
+          font-size: 0.8rem;
+          margin-top: 5px;
+          font-weight: 500;
+        }
+
         .btn-save {
           background: black;
           color: white;
@@ -94,26 +133,28 @@ const CreateProductType = () => {
       `}</style>
 
       <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>Thêm Loại Sản Phẩm</h1>
-        <button className="btn btn-link text-muted p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/product-types')}>
+        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
+          {editData ? 'Cập Nhật Loại Sản Phẩm' : 'Thêm Loại Sản Phẩm'}
+        </h1>
+        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/product-types')}>
           <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
         </button>
       </div>
 
       <div className="form-container">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <h5 className="section-title">THÔNG TIN LOẠI SẢN PHẨM</h5>
           
           <div className="form-group-custom">
             <label className="form-label">Tên loại sản phẩm</label>
             <input 
               type="text" 
-              className="custom-input" 
+              className={`custom-input ${errors.typeName ? 'is-invalid' : ''}`}
               placeholder="Ví dụ: Bắp, Nước, Combo..." 
-              required 
               value={typeName}
-              onChange={(e) => setTypeName(e.target.value)}
+              onChange={handleChange}
             />
+            {errors.typeName && <div className="error-message">{errors.typeName}</div>}
           </div>
 
           <div className="mt-5 border-top pt-4 text-center">
@@ -121,7 +162,7 @@ const CreateProductType = () => {
               HỦY BỎ
             </button>
             <button type="submit" className="btn btn-save">
-              XÁC NHẬN LƯU LOẠI
+              {editData ? 'XÁC NHẬN CẬP NHẬT' : 'XÁC NHẬN LƯU LOẠI'}
             </button>
           </div>
         </form>

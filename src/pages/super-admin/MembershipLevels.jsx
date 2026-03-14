@@ -5,6 +5,8 @@ const MembershipLevelManagement = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
   // Dữ liệu mẫu cho mức độ hội viên
@@ -111,6 +113,60 @@ const MembershipLevelManagement = () => {
           color: black !important;
           padding: 15px 20px;
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal-content-custom {
+          background: white;
+          border-radius: 20px;
+          width: 100%;
+          max-width: 500px;
+          position: relative;
+          padding: 30px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+          color: black !important;
+        }
+
+        .modal-close {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          border: none;
+          background: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          color: black;
+        }
+
+        .detail-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 12px 0;
+          border-bottom: 1px solid #eee;
+        }
+
+        .detail-label {
+          font-weight: bold;
+          color: black;
+        }
+
+        .detail-value {
+          color: black;
+          font-weight: 600;
+        }
       `}</style>
 
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -161,16 +217,32 @@ const MembershipLevelManagement = () => {
                   <td>
                     <span className="rank-badge">{level.rank_name}</span>
                   </td>
-                  <td className="text-end fw-bold text-primary">
+                  <td className="text-end fw-bold text-dark">
                     {level.min_spending.toLocaleString('vi-VN')} đ
                   </td>
-                  <td className="small text-muted" style={{ maxWidth: '200px' }}>{level.description}</td>
+                  <td className="small text-dark" style={{ maxWidth: '200px' }}>{level.description}</td>
                   <td className="text-center fw-bold">{level.discount_percent}%</td>
-                  <td className="text-center fw-bold text-success">x{level.bonus_point}</td>
+                  <td className="text-center fw-bold text-dark">x{level.bonus_point}</td>
                   <td className="text-center">
-                    <button className="btn btn-sm btn-outline-dark" title="Sửa">
-                      Sửa 
-                    </button>
+                    <div className="d-flex justify-content-center gap-2">
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        title="Xem chi tiết"
+                        onClick={() => {
+                          setSelectedItem(level);
+                          setShowModal(true);
+                        }}
+                      >
+                        Xem
+                      </button>
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        title="Sửa"
+                        onClick={() => navigate('/super-admin/membership-levels/create', { state: { editData: level } })}
+                      >
+                        Sửa 
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -179,7 +251,7 @@ const MembershipLevelManagement = () => {
         </div>
 
         <div className="d-flex justify-content-between align-items-center mt-4 px-2">
-          <div className="text-muted small">
+          <div className="text-dark small">
             Tổng cộng: <b>{filteredLevels.length}</b> mức độ hội viên
           </div>
           <div className="d-flex gap-2">
@@ -195,6 +267,51 @@ const MembershipLevelManagement = () => {
           </div>
         </div>
       </div>
+
+      {/* View Modal */}
+      {showModal && selectedItem && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content-custom" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowModal(false)}>
+              <i className="bi bi-x-lg"></i>
+            </button>
+            
+            <h3 className="text-center fw-bold mb-4 text-uppercase">Chi tiết hạng {selectedItem.rank_name}</h3>
+            
+            <div className="detail-row">
+              <span className="detail-label">Tên hạng:</span>
+              <span className="detail-value text-dark">{selectedItem.rank_name}</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Chi tiêu tối thiểu:</span>
+              <span className="detail-value">{selectedItem.min_spending.toLocaleString('vi-VN')} đ</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Giảm giá vé:</span>
+              <span className="detail-value">{selectedItem.discount_percent}%</span>
+            </div>
+            <div className="detail-row">
+              <span className="detail-label">Hệ số điểm thưởng:</span>
+              <span className="detail-value">x{selectedItem.bonus_point}</span>
+            </div>
+            <div className="mt-3">
+              <label className="detail-label d-block mb-2">Mô tả đặc quyền:</label>
+              <div className="p-3 bg-light rounded small">
+                {selectedItem.description}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 text-center">
+              <button 
+                className="btn btn-dark px-5 fw-bold"
+                onClick={() => setShowModal(false)}
+              >
+                ĐÓNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

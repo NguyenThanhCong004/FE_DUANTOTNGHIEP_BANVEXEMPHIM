@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const CreateProduct = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editData = location.state?.editData;
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -11,11 +14,50 @@ const CreateProduct = () => {
     image: null
   });
 
+  const [errors, setErrors] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
+
+  useEffect(() => {
+    if (editData) {
+      setFormData({
+        name: editData.name || '',
+        description: editData.description || '',
+        price: editData.price || '',
+        status: editData.status || 'Active',
+        image: null
+      });
+      if (editData.image) {
+        setPreviewImage(editData.image);
+      }
+    }
+  }, [editData]);
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (!formData.name.trim()) {
+      newErrors.name = ' Tên sản phẩm không được để trống';
+    }
+
+    if (!formData.price) {
+      newErrors.price = 'Giá bán không được để trống';
+    } else if (parseFloat(formData.price) <= 0) {
+      newErrors.price = 'Giá bán phải là số dương';
+    }
+
+    if (!editData && !formData.image) {
+      newErrors.image = 'Vui lòng tải ảnh sản phẩm';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -23,13 +65,21 @@ const CreateProduct = () => {
     if (file) {
       setFormData(prev => ({ ...prev, image: file }));
       setPreviewImage(URL.createObjectURL(file));
+      setErrors(prev => ({ ...prev, image: '' }));
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Dữ liệu sản phẩm mới:', formData);
-    alert('Thêm sản phẩm thành công!');
+    if (!validateForm()) return;
+
+    if (editData) {
+      console.log('Cập nhật sản phẩm:', formData);
+      alert('Cập nhật sản phẩm thành công!');
+    } else {
+      console.log('Thêm sản phẩm mới:', formData);
+      alert('Thêm sản phẩm thành công!');
+    }
     navigate('/super-admin/products');
   };
 
@@ -86,6 +136,13 @@ const CreateProduct = () => {
 
         .custom-input:focus, .custom-textarea:focus, .custom-select:focus {
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .error-message {
+          color: #dc3545;
+          font-size: 0.8rem;
+          margin-top: 5px;
+          font-weight: 500;
         }
 
         /* Phần tải ảnh */
@@ -156,27 +213,30 @@ const CreateProduct = () => {
       `}</style>
 
       <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>Thêm Sản Phẩm Mới</h1>
-        <button className="btn btn-link text-muted p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/products')}>
+        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
+          {editData ? 'Cập Nhật Sản Phẩm' : 'Thêm Sản Phẩm Mới'}
+        </h1>
+        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/products')}>
           <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
         </button>
       </div>
 
       <div className="form-container">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           {/* Image Upload */}
           <div className="image-upload-section text-center">
             <h5 className="section-title">HÌNH ẢNH SẢN PHẨM</h5>
-            <div className="preview-box mb-3" onClick={() => document.getElementById('product-image-input').click()}>
+            <div className={`preview-box mb-3 ${errors.image ? 'border-danger' : ''}`} onClick={() => document.getElementById('product-image-input').click()}>
               {previewImage ? (
                 <img src={previewImage} alt="Preview" />
               ) : (
                 <div className="text-center p-3">
-                  <i className="bi bi-cloud-arrow-up fs-1 text-muted"></i>
-                  <div className="small fw-bold text-muted mt-2">TẢI ẢNH LÊN</div>
+                  <i className="bi bi-cloud-arrow-up fs-1 text-dark"></i>
+                  <div className="small fw-bold text-dark mt-2">TẢI ẢNH LÊN</div>
                 </div>
               )}
             </div>
+            {errors.image && <div className="error-message mb-2">{errors.image}</div>}
             <input 
               type="file" 
               id="product-image-input" 
@@ -184,7 +244,7 @@ const CreateProduct = () => {
               accept="image/*" 
               onChange={handleFileChange}
             />
-            <p className="text-muted small">Khuyên dùng ảnh vuông (1:1), định dạng JPG/PNG.</p>
+            <p className="text-dark small">Khuyên dùng ảnh vuông (1:1), định dạng JPG/PNG.</p>
           </div>
 
           <h5 className="section-title">THÔNG TIN CHI TIẾT</h5>
@@ -195,12 +255,12 @@ const CreateProduct = () => {
               <input 
                 type="text" 
                 name="name"
-                className="custom-input" 
+                className={`custom-input ${errors.name ? 'is-invalid' : ''}`}
                 placeholder="Ví dụ: Bắp rang bơ vị Phô mai..." 
-                required 
                 value={formData.name}
                 onChange={handleChange}
               />
+              {errors.name && <div className="error-message">{errors.name}</div>}
             </div>
 
             <div className="col-md-4 form-group-custom">
@@ -208,12 +268,12 @@ const CreateProduct = () => {
               <input 
                 type="number" 
                 name="price"
-                className="custom-input" 
+                className={`custom-input ${errors.price ? 'is-invalid' : ''}`}
                 placeholder="Ví dụ: 45000" 
-                required 
                 value={formData.price}
                 onChange={handleChange}
               />
+              {errors.price && <div className="error-message">{errors.price}</div>}
             </div>
 
             <div className="col-12 form-group-custom">
@@ -246,7 +306,7 @@ const CreateProduct = () => {
               HỦY BỎ
             </button>
             <button type="submit" className="btn btn-save">
-              XÁC NHẬN LƯU SẢN PHẨM
+              {editData ? 'XÁC NHẬN CẬP NHẬT' : 'XÁC NHẬN LƯU SẢN PHẨM'}
             </button>
           </div>
         </form>

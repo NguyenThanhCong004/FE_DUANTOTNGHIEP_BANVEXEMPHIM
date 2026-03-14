@@ -5,6 +5,8 @@ const NewsManagement = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 8;
 
   // Dữ liệu mẫu cho Tin tức
@@ -148,6 +150,77 @@ const NewsManagement = () => {
           margin-bottom: 4px;
           display: block;
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal-content-custom {
+          background: white;
+          border-radius: 20px;
+          width: 100%;
+          max-width: 800px;
+          max-height: 90vh;
+          overflow-y: auto;
+          position: relative;
+          padding: 30px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+          color: black !important;
+        }
+
+        .modal-close {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          border: none;
+          background: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          color: black;
+        }
+
+        .news-detail-img {
+          width: 100%;
+          height: 350px;
+          object-fit: cover;
+          border-radius: 15px;
+          margin-bottom: 25px;
+        }
+
+        .news-detail-title {
+          font-size: 1.8rem;
+          font-weight: 800;
+          color: black;
+          margin-bottom: 15px;
+          line-height: 1.3;
+        }
+
+        .news-detail-meta {
+          display: flex;
+          gap: 20px;
+          margin-bottom: 25px;
+          padding-bottom: 15px;
+          border-bottom: 1px solid #eee;
+          font-weight: 500;
+        }
+
+        .news-detail-content {
+          font-size: 1.1rem;
+          line-height: 1.8;
+          color: black !important;
+          white-space: pre-wrap;
+        }
       `}</style>
 
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -200,7 +273,7 @@ const NewsManagement = () => {
                   <td>
                     <span className="news-title-text">{news.title}</span>
                   </td>
-                  <td className="text-muted small">{new Date(news.date).toLocaleDateString('vi-VN')}</td>
+                  <td className="text-dark small">{new Date(news.date).toLocaleDateString('vi-VN')}</td>
                   <td className="text-center">
                     <span className={news.status === 'Active' ? 'status-active' : 'status-inactive'}>
                       {news.status === 'Active' ? 'Công khai' : 'Bản nháp'}
@@ -208,7 +281,21 @@ const NewsManagement = () => {
                   </td>
                   <td className="text-center">
                     <div className="d-flex justify-content-center gap-2">
-                      <button className="btn btn-sm btn-outline-dark" title="Sửa">
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        title="Xem chi tiết"
+                        onClick={() => {
+                          setSelectedItem(news);
+                          setShowModal(true);
+                        }}
+                      >
+                        Xem
+                      </button>
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        title="Sửa"
+                        onClick={() => navigate('/super-admin/news/create', { state: { editData: news } })}
+                      >
                         Sửa
                       </button>
                     </div>
@@ -220,7 +307,7 @@ const NewsManagement = () => {
         </div>
 
         <div className="d-flex justify-content-between align-items-center mt-4 px-2">
-          <div className="text-muted small">
+          <div className="text-dark small">
             Tổng cộng: <b>{filteredNews.length}</b> bài viết
           </div>
           <div className="d-flex gap-2">
@@ -236,6 +323,44 @@ const NewsManagement = () => {
           </div>
         </div>
       </div>
+
+      {/* View Modal */}
+      {showModal && selectedItem && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-content-custom" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowModal(false)}>
+              <i className="bi bi-x-lg"></i>
+            </button>
+            
+            <img src={selectedItem.image} alt={selectedItem.title} className="news-detail-img" />
+            
+            <div className="news-detail-meta">
+              <span className={selectedItem.status === 'Active' ? 'status-active' : 'status-inactive'}>
+                {selectedItem.status === 'Active' ? 'Công khai' : 'Bản nháp'}
+              </span>
+              <span className="text-dark">
+                <i className="bi bi-calendar3 me-2"></i>
+                {new Date(selectedItem.date).toLocaleDateString('vi-VN')}
+              </span>
+            </div>
+
+            <h2 className="news-detail-title">{selectedItem.title}</h2>
+            
+            <div className="news-detail-content">
+              {selectedItem.content}
+            </div>
+
+            <div className="mt-5 pt-4 border-top text-end">
+              <button 
+                className="btn btn-dark px-4 fw-bold"
+                onClick={() => setShowModal(false)}
+              >
+                ĐÓNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

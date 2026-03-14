@@ -5,6 +5,8 @@ const VoucherManagement = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
   // Dữ liệu mẫu cho Voucher
@@ -209,7 +211,7 @@ const VoucherManagement = () => {
                     <div>Bắt đầu: {new Date(voucher.start_date).toLocaleDateString('vi-VN')}</div>
                     <div>Kết thúc: {new Date(voucher.end_date).toLocaleDateString('vi-VN')}</div>
                   </td>
-                  <td className="text-center fw-bold text-primary">
+                  <td className="text-center fw-bold text-dark">
                     {voucher.point_voucher} điểm
                   </td>
                   <td className="text-center">
@@ -218,9 +220,25 @@ const VoucherManagement = () => {
                     </span>
                   </td>
                   <td className="text-center">
-                    <button className="btn btn-sm btn-outline-dark" title="Sửa">
-                      Sửa 
-                    </button>
+                    <div className="d-flex justify-content-center gap-2">
+                      <button 
+                        className="btn btn-sm btn-outline-primary" 
+                        title="Xem chi tiết"
+                        onClick={() => {
+                          setSelectedItem(voucher);
+                          setShowModal(true);
+                        }}
+                      >
+                        Xem
+                      </button>
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        title="Sửa"
+                        onClick={() => navigate('/super-admin/vouchers/create', { state: { editData: voucher } })}
+                      >
+                        Sửa 
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -228,8 +246,116 @@ const VoucherManagement = () => {
           </table>
         </div>
 
+        {/* Modal Chi tiết */}
+        {showModal && selectedItem && (
+          <div className="modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="modal-content-custom" onClick={e => e.stopPropagation()}>
+              <div className="modal-header-custom">
+                <h4 className="m-0 fw-bold">Chi Tiết Voucher</h4>
+                <button className="btn-close" onClick={() => setShowModal(false)}></button>
+              </div>
+              <div className="modal-body-custom">
+                <div className="row">
+                  <div className="col-md-6">
+                    <div className="detail-info">
+                      <label>Mã Voucher:</label>
+                      <p className="fw-bold fs-4 text-dark"><span className="code-badge">{selectedItem.code}</span></p>
+                      
+                      <label>Loại giảm giá:</label>
+                      <p>{selectedItem.discount_type === 'PERCENTAGE' ? 'Giảm theo phần trăm (%)' : 'Giảm số tiền cố định (đ)'}</p>
+                      
+                      <label>Giá trị giảm:</label>
+                      <p className="fw-bold fs-5 text-dark">
+                        {selectedItem.discount_type === 'PERCENTAGE' 
+                          ? `${selectedItem.value}%` 
+                          : `${selectedItem.value.toLocaleString('vi-VN')} đ`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="detail-info">
+                      <label>Đơn tối thiểu:</label>
+                      <p className="fw-bold">{selectedItem.min_order_value.toLocaleString('vi-VN')} đ</p>
+                      
+                      <label>Điểm cần đổi:</label>
+                      <p className="fw-bold text-dark">{selectedItem.point_voucher} điểm</p>
+
+                      <label>Thời gian hiệu lực:</label>
+                      <p>
+                        Từ: <b>{new Date(selectedItem.start_date).toLocaleDateString('vi-VN')}</b><br/>
+                        Đến: <b>{new Date(selectedItem.end_date).toLocaleDateString('vi-VN')}</b>
+                      </p>
+
+                      <label>Trạng thái:</label>
+                      <div>
+                        <span className={selectedItem.status === 'Active' ? 'status-active' : 'status-inactive'}>
+                          {selectedItem.status === 'Active' ? 'Đang áp dụng' : 'Ngưng/Hết hạn'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer-custom">
+                <button className="btn btn-dark px-4 fw-bold" onClick={() => setShowModal(false)}>ĐÓNG</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <style>{`
+          .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1050;
+            backdrop-filter: blur(5px);
+          }
+          .modal-content-custom {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            color: black !important;
+          }
+          .modal-header-custom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+          }
+          .detail-info label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: black !important;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-top: 15px;
+            display: block;
+          }
+          .modal-footer-custom {
+            margin-top: 25px;
+            padding-top: 15px;
+            border-top: 2px solid #f0f0f0;
+            text-align: right;
+          }
+        `}</style>
+
         <div className="d-flex justify-content-between align-items-center mt-4 px-2">
-          <div className="text-muted small">
+          <div className="text-dark small">
             Tổng cộng: <b>{filteredVouchers.length}</b> mã voucher
           </div>
           <div className="d-flex gap-2">

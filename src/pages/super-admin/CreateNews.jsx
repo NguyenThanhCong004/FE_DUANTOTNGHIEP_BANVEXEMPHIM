@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const CreateNews = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editData = location.state?.editData;
+
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -10,11 +13,44 @@ const CreateNews = () => {
     image: null
   });
 
+  const [errors, setErrors] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
+
+  useEffect(() => {
+    if (editData) {
+      setFormData({
+        title: editData.title || '',
+        content: editData.content || '',
+        status: editData.status || 'Active',
+        image: null // Giữ null cho file upload mới
+      });
+      if (editData.image) {
+        setPreviewImage(editData.image);
+      }
+    }
+  }, [editData]);
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (!formData.title.trim()) {
+      newErrors.title = 'Tiêu đề không được để trống';
+    }
+    if (!formData.content.trim()) {
+      newErrors.content = 'Nội dung không được để trống';
+    }
+    if (!editData && !formData.image) {
+      newErrors.image = 'Vui lòng chọn ảnh minh họa';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -22,11 +58,14 @@ const CreateNews = () => {
     if (file) {
       setFormData(prev => ({ ...prev, image: file }));
       setPreviewImage(URL.createObjectURL(file));
+      setErrors(prev => ({ ...prev, image: '' }));
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     console.log('Dữ liệu Tin tức mới:', formData);
     alert('Đăng tin tức thành công!');
     navigate('/super-admin/news');
@@ -85,6 +124,13 @@ const CreateNews = () => {
 
         .custom-input:focus, .custom-textarea:focus, .custom-select:focus {
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .error-message {
+          color: #dc3545;
+          font-size: 0.8rem;
+          margin-top: 5px;
+          font-weight: 500;
         }
 
         /* Phần tải ảnh */
@@ -156,27 +202,30 @@ const CreateNews = () => {
       `}</style>
 
       <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>Viết Tin Tức Mới</h1>
-        <button className="btn btn-link text-muted p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/news')}>
+        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
+          {editData ? 'Cập Nhật Tin Tức' : 'Viết Tin Tức Mới'}
+        </h1>
+        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/news')}>
           <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
         </button>
       </div>
 
       <div className="form-container">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           {/* Image Upload */}
           <div className="image-upload-section text-center">
             <h5 className="section-title">HÌNH ẢNH MINH HỌA</h5>
-            <div className="preview-box mb-3" onClick={() => document.getElementById('news-image-input').click()}>
+            <div className={`preview-box mb-3 ${errors.image ? 'border-danger' : ''}`} onClick={() => document.getElementById('news-image-input').click()}>
               {previewImage ? (
                 <img src={previewImage} alt="Preview" />
               ) : (
                 <div className="text-center p-3">
-                  <i className="bi bi-image fs-1 text-muted"></i>
-                  <div className="small fw-bold text-muted mt-2">CHỌN ẢNH TIN TỨC</div>
+                  <i className="bi bi-image fs-1 text-dark"></i>
+                  <div className="small fw-bold text-dark mt-2">CHỌN ẢNH TIN TỨC</div>
                 </div>
               )}
             </div>
+            {errors.image && <div className="error-message mb-2">{errors.image}</div>}
             <input 
               type="file" 
               id="news-image-input" 
@@ -184,7 +233,7 @@ const CreateNews = () => {
               accept="image/*" 
               onChange={handleFileChange}
             />
-            <p className="text-muted small">Khuyên dùng ảnh ngang (16:9), định dạng JPG/PNG.</p>
+            <p className="text-dark small">Khuyên dùng ảnh ngang (16:9), định dạng JPG/PNG.</p>
           </div>
 
           <h5 className="section-title">NỘI DUNG BÀI VIẾT</h5>
@@ -194,24 +243,24 @@ const CreateNews = () => {
             <input 
               type="text" 
               name="title"
-              className="custom-input" 
+              className={`custom-input ${errors.title ? 'is-invalid' : ''}`}
               placeholder="Nhập tiêu đề hấp dẫn cho bài viết..." 
-              required 
               value={formData.title}
               onChange={handleChange}
             />
+            {errors.title && <div className="error-message">{errors.title}</div>}
           </div>
 
           <div className="form-group-custom">
             <label className="form-label">Nội dung chi tiết</label>
             <textarea 
               name="content"
-              className="custom-textarea" 
+              className={`custom-textarea ${errors.content ? 'is-invalid' : ''}`}
               placeholder="Viết nội dung bài viết tại đây..." 
-              required
               value={formData.content}
               onChange={handleChange}
             ></textarea>
+            {errors.content && <div className="error-message">{errors.content}</div>}
           </div>
 
           <div className="row">
@@ -234,7 +283,7 @@ const CreateNews = () => {
               HỦY BỎ
             </button>
             <button type="submit" className="btn btn-save">
-              XÁC NHẬN ĐĂNG TIN
+              {editData ? 'CẬP NHẬT TIN TỨC' : 'XÁC NHẬN ĐĂNG TIN'}
             </button>
           </div>
         </form>
