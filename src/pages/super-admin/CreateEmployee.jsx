@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const CreateEmployee = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editData = location.state?.editData;
   
   // State quản lý form
   const [formData, setFormData] = useState({
@@ -17,11 +19,66 @@ const CreateEmployee = () => {
     avatar: null
   });
 
+  const [errors, setErrors] = useState({});
   const [previewAvatar, setPreviewAvatar] = useState(null);
+
+  useEffect(() => {
+    if (editData) {
+      setFormData({
+        email: editData.email || '',
+        password: '', // Thường không load lại mật khẩu
+        fullname: editData.name || editData.fullname || '',
+        status: editData.status || 'Active',
+        phone: editData.phone || '',
+        birthday: editData.birthday || '',
+        role: editData.role || 'STAFF',
+        cinema: editData.cinema || '',
+        avatar: null
+      });
+      if (editData.avatar) setPreviewAvatar(editData.avatar);
+    }
+  }, [editData]);
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (!formData.fullname.trim()) {
+      newErrors.fullname = 'Họ và tên không được để trống';
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email không được để trống';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Email không đúng định dạng';
+    }
+
+    if (!editData && !formData.password) {
+      newErrors.password = 'Mật khẩu không được để trống';
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Số điện thoại không được để trống';
+    } else if (!/^\d{10}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Số điện thoại phải có 10 chữ số';
+    }
+
+    if (!formData.birthday) {
+      newErrors.birthday = 'Ngày sinh không được để trống';
+    }
+
+    if (!formData.cinema) {
+      newErrors.cinema = 'Vui lòng chọn rạp trực thuộc';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleAvatarChange = (e) => {
@@ -34,6 +91,8 @@ const CreateEmployee = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+    
     // Ở đây sẽ gọi API để lưu nhân viên. ID sẽ do Backend tự tăng.
     console.log('Dữ liệu gửi đi:', formData);
     alert('Thêm nhân viên thành công! (Dữ liệu ảo)');
@@ -85,6 +144,13 @@ const CreateEmployee = () => {
 
         .custom-input::placeholder {
           color: #666;
+        }
+
+        .error-message {
+          color: #dc3545;
+          font-size: 0.8rem;
+          margin-top: 5px;
+          font-weight: 500;
         }
 
         /* Phần ảnh đại diện */
@@ -158,14 +224,16 @@ const CreateEmployee = () => {
       `}</style>
 
       <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>Thêm Nhân Viên Mới</h1>
-        <button className="btn btn-link text-muted p-3 mb-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/employees')}>
+        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
+          {editData ? 'Cập Nhật Nhân Viên' : 'Thêm Nhân Viên Mới'}
+        </h1>
+        <button className="btn btn-link text-dark p-3 mb-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/employees')}>
           <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
         </button>
       </div>
 
       <div className="form-container">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           {/* Avatar Section */}
           <div className="avatar-section text-center d-flex flex-column align-items-center">
             <h5 className="section-title w-100">ẢNH ĐẠI DIỆN NHÂN VIÊN</h5>
@@ -174,8 +242,8 @@ const CreateEmployee = () => {
                 <img src={previewAvatar} alt="Preview" />
               ) : (
                 <div className="text-center">
-                  <i className="bi bi-cloud-arrow-up fs-1 text-primary mb-1"></i>
-                  <div className="small fw-bold text-muted">TẢI ẢNH LÊN</div>
+                  <i className="bi bi-cloud-arrow-up fs-1 text-dark mb-1"></i>
+                  <div className="small fw-bold text-dark">TẢI ẢNH LÊN</div>
                 </div>
               )}
             </div>
@@ -186,7 +254,7 @@ const CreateEmployee = () => {
               accept="image/*" 
               onChange={handleAvatarChange}
             />
-            <p className="text-muted small mt-2 mb-0">Hỗ trợ JPG, PNG. Tối đa 2MB.</p>
+            <p className="text-dark small mt-2 mb-0">Hỗ trợ JPG, PNG. Tối đa 2MB.</p>
           </div>
 
           <h5 className="section-title">THÔNG TIN TÀI KHOẢN & CÁ NHÂN</h5>
@@ -196,12 +264,12 @@ const CreateEmployee = () => {
               <input 
                 type="text" 
                 name="fullname"
-                className="custom-input" 
+                className={`custom-input ${errors.fullname ? 'is-invalid' : ''}`}
                 placeholder="Ví dụ: Nguyễn Văn A" 
-                required
                 value={formData.fullname}
                 onChange={handleChange}
               />
+              {errors.fullname && <div className="error-message">{errors.fullname}</div>}
             </div>
 
             <div className="col-md-6 form-group-custom">
@@ -209,12 +277,12 @@ const CreateEmployee = () => {
               <input 
                 type="email" 
                 name="email"
-                className="custom-input" 
+                className={`custom-input ${errors.email ? 'is-invalid' : ''}`}
                 placeholder="email@example.com" 
-                required
                 value={formData.email}
                 onChange={handleChange}
               />
+              {errors.email && <div className="error-message">{errors.email}</div>}
             </div>
 
             <div className="col-md-6 form-group-custom">
@@ -222,12 +290,12 @@ const CreateEmployee = () => {
               <input 
                 type="password" 
                 name="password"
-                className="custom-input" 
+                className={`custom-input ${errors.password ? 'is-invalid' : ''}`}
                 placeholder="Nhập mật khẩu bảo mật" 
-                required
                 value={formData.password}
                 onChange={handleChange}
               />
+              {errors.password && <div className="error-message">{errors.password}</div>}
             </div>
 
             <div className="col-md-6 form-group-custom">
@@ -235,12 +303,12 @@ const CreateEmployee = () => {
               <input 
                 type="tel" 
                 name="phone"
-                className="custom-input" 
+                className={`custom-input ${errors.phone ? 'is-invalid' : ''}`}
                 placeholder="09xx xxx xxx" 
-                required
                 value={formData.phone}
                 onChange={handleChange}
               />
+              {errors.phone && <div className="error-message">{errors.phone}</div>}
             </div>
 
             <div className="col-md-6 form-group-custom">
@@ -248,11 +316,11 @@ const CreateEmployee = () => {
               <input 
                 type="date" 
                 name="birthday"
-                className="custom-input" 
-                required
+                className={`custom-input ${errors.birthday ? 'is-invalid' : ''}`}
                 value={formData.birthday}
                 onChange={handleChange}
               />
+              {errors.birthday && <div className="error-message">{errors.birthday}</div>}
             </div>
 
             <div className="col-md-6 form-group-custom">
@@ -272,8 +340,7 @@ const CreateEmployee = () => {
               <label className="form-label">Trực thuộc rạp</label>
               <select 
                 name="cinema"
-                className="custom-input"
-                required
+                className={`custom-input ${errors.cinema ? 'is-invalid' : ''}`}
                 value={formData.cinema}
                 onChange={handleChange}
               >
@@ -284,6 +351,7 @@ const CreateEmployee = () => {
                 <option value="bhd_star">BHD Star Thảo Điền</option>
                 <option value="galaxy_cinema">Galaxy Nguyễn Du</option>
               </select>
+              {errors.cinema && <div className="error-message">{errors.cinema}</div>}
             </div>
 
             <div className="col-md-6 form-group-custom">
@@ -305,7 +373,7 @@ const CreateEmployee = () => {
                 HỦY BỎ
               </button>
               <button type="submit" className="btn btn-save">
-                XÁC NHẬN LƯU NHÂN VIÊN
+                {editData ? 'CẬP NHẬT NHÂN VIÊN' : 'XÁC NHẬN LƯU NHÂN VIÊN'}
               </button>
             </div>
           </div>

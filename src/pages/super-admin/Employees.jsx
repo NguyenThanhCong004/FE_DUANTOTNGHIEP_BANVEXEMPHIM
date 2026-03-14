@@ -5,6 +5,8 @@ const EmployeeManagement = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
   // Dữ liệu ảo (Mock Data)
@@ -53,6 +55,43 @@ const EmployeeManagement = () => {
           border-radius: 15px;
           padding: 25px;
           box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+          color: black !important;
+        }
+
+        .table-container table td,
+        .table-container table th,
+        .table-container table div,
+        .table-container table span,
+        .table-container table i {
+          color: black !important;
+        }
+
+        /* Ngoại lệ cho badges và trạng thái */
+        .table-container .role-badge.role-admin {
+          background: #000 !important;
+          color: #fff !important;
+        }
+
+        .table-container .role-badge.role-staff {
+          background: #eee !important;
+          color: #000 !important;
+          border: 1px solid #ccc !important;
+        }
+
+        .table-container .status-active {
+          color: #28a745 !important;
+          font-weight: 500;
+        }
+
+        .table-container .status-inactive {
+          color: #dc3545 !important;
+          font-weight: 500;
+        }
+
+        .table-container .table-light th {
+          background-color: #f8f9fa !important;
+          color: black !important;
+          border-bottom: 2px solid #dee2e6 !important;
         }
 
         /* Ô tìm kiếm mới */
@@ -115,6 +154,53 @@ const EmployeeManagement = () => {
           color: white;
           background: black;
         }
+
+        .custom-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1100;
+          padding: 20px;
+        }
+
+        .custom-modal-content {
+          background: white;
+          border-radius: 15px;
+          width: 100%;
+          max-width: 800px;
+          max-height: 90vh;
+          overflow-y: auto;
+          position: relative;
+          padding: 30px;
+          border: 2px solid black;
+          color: black !important;
+        }
+
+        .custom-modal-content h2,
+        .custom-modal-content h3,
+        .custom-modal-content p,
+        .custom-modal-content div,
+        .custom-modal-content span,
+        .custom-modal-content strong,
+        .custom-modal-content label,
+        .custom-modal-content i {
+          color: black !important;
+        }
+
+        .close-modal {
+          position: absolute;
+          top: 15px;
+          right: 20px;
+          font-size: 2rem;
+          cursor: pointer;
+          color: black;
+        }
       `}</style>
 
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -164,7 +250,7 @@ const EmployeeManagement = () => {
                   <td className="fw-bold">#{emp.id}</td>
                   <td>
                     <div className="fw-bold">{emp.name}</div>
-                    <div className="small text-muted">{emp.email}</div>
+                    <div className="small text-dark">{emp.email}</div>
                   </td>
                   <td>{emp.phone}</td>
                   <td>
@@ -179,8 +265,21 @@ const EmployeeManagement = () => {
                   </td>
                   <td>
                     <div className="d-flex justify-content-center gap-2">
-                      <button className="btn btn-sm btn-outline-dark">Xem</button>
-                      <button className="btn btn-sm btn-outline-danger">Sửa</button>
+                      <button 
+                        className="btn btn-sm btn-outline-dark"
+                        onClick={() => {
+                          setSelectedItem(emp);
+                          setShowModal(true);
+                        }}
+                      >
+                        Xem
+                      </button>
+                      <button 
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => navigate('/super-admin/employees/create', { state: { editData: emp } })}
+                      >
+                        Sửa
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -189,9 +288,44 @@ const EmployeeManagement = () => {
           </table>
         </div>
 
+        {/* Detail Modal */}
+        {showModal && selectedItem && (
+          <div className="custom-modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="custom-modal-content" onClick={e => e.stopPropagation()}>
+              <span className="close-modal" onClick={() => setShowModal(false)}>&times;</span>
+              <h2 className="fw-bold mb-4">Chi tiết nhân viên</h2>
+              <div className="row g-3">
+                <div className="col-md-4 text-center">
+                  <div className="bg-light rounded border p-3 mb-3">
+                    <i className="bi bi-person-circle" style={{ fontSize: '5rem' }}></i>
+                  </div>
+                  <span className={`role-badge ${selectedItem.role === 'ADMIN' ? 'role-admin' : 'role-staff'}`}>
+                    {selectedItem.role}
+                  </span>
+                </div>
+                <div className="col-md-8">
+                  <h3 className="text-dark fw-bold mb-3">{selectedItem.name}</h3>
+                  <div className="row g-3">
+                    <div className="col-12">
+                      <p><strong>Email:</strong> {selectedItem.email}</p>
+                      <p><strong>Số điện thoại:</strong> {selectedItem.phone}</p>
+                      <p><strong>Trạng thái:</strong> 
+                        <span className={selectedItem.status === 'Active' ? 'ms-2 status-active' : 'ms-2 status-inactive'}>
+                          {selectedItem.status === 'Active' ? 'Đang hoạt động' : 'Đã khóa'}
+                        </span>
+                      </p>
+                      <p><strong>Vai trò:</strong> {selectedItem.role === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Phân trang */}
         <div className="d-flex justify-content-between align-items-center mt-4">
-          <div className="text-muted small">
+          <div className="text-dark small">
             Tổng cộng: {sortedEmployees.length} nhân viên
           </div>
           <nav>

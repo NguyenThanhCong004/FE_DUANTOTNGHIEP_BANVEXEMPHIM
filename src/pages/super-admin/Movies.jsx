@@ -5,6 +5,8 @@ const MovieManagement = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 8;
 
   // Dữ liệu ảo (Mock Data) cho phim
@@ -80,6 +82,32 @@ const MovieManagement = () => {
           border-radius: 15px;
           padding: 25px;
           box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+          color: black !important;
+        }
+
+        .table-container table td,
+        .table-container table th,
+        .table-container table div,
+        .table-container table span,
+        .table-container table i {
+          color: black !important;
+        }
+
+        /* Ngoại lệ cho badges trạng thái để không bị mất màu đặc trưng */
+        .table-container .status-active {
+          color: #28a745 !important;
+          font-weight: bold;
+        }
+
+        .table-container .status-inactive {
+          color: #dc3545 !important;
+          font-weight: bold;
+        }
+
+        .table-container .table-light th {
+          background-color: #f8f9fa !important;
+          color: black !important;
+          border-bottom: 2px solid #dee2e6 !important;
         }
 
         .new-search-container {
@@ -141,6 +169,52 @@ const MovieManagement = () => {
           font-size: 0.75rem;
           font-weight: bold;
         }
+
+        .custom-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1100;
+          padding: 20px;
+        }
+
+        .custom-modal-content {
+          background: white;
+          border-radius: 15px;
+          width: 100%;
+          max-width: 800px;
+          max-height: 90vh;
+          overflow-y: auto;
+          position: relative;
+          padding: 30px;
+          border: 2px solid black;
+          color: black !important;
+        }
+
+        .custom-modal-content h2,
+        .custom-modal-content h3,
+        .custom-modal-content p,
+        .custom-modal-content div,
+        .custom-modal-content span,
+        .custom-modal-content strong,
+        .custom-modal-content label {
+          color: black !important;
+        }
+
+        .close-modal {
+          position: absolute;
+          top: 15px;
+          right: 20px;
+          font-size: 2rem;
+          cursor: pointer;
+          color: black;
+        }
       `}</style>
 
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -193,7 +267,7 @@ const MovieManagement = () => {
                       <img src={movie.poster} alt={movie.title} className="movie-poster-mini" />
                       <div>
                         <div className="fw-bold">{movie.title}</div>
-                        <div className="small text-muted">Đạo diễn: {movie.author}</div>
+                        <div className="small text-dark">Đạo diễn: {movie.author}</div>
                         <span className="age-badge">{movie.age_limit}</span>
                       </div>
                     </div>
@@ -201,7 +275,7 @@ const MovieManagement = () => {
                   <td className="text-center">{movie.duration} phút</td>
                   <td>{movie.nation}</td>
                   <td>{new Date(movie.release_date).toLocaleDateString('vi-VN')}</td>
-                  <td className="text-end fw-bold text-primary">
+                  <td className="text-end fw-bold text-dark">
                     {movie.base_price.toLocaleString('vi-VN')}đ
                   </td>
                   <td className="text-center">
@@ -210,12 +284,22 @@ const MovieManagement = () => {
                     </span>
                   </td>
                   <td>
-                    <div className="d-flex justify-content-ce
-                    nter gap-2">
-                      <button className="btn btn-sm btn-outline-dark" title="Chi tiết">
+                    <div className="d-flex justify-content-center gap-2">
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        title="Chi tiết"
+                        onClick={() => {
+                          setSelectedItem(movie);
+                          setShowModal(true);
+                        }}
+                      >
                         Xem
                       </button>
-                      <button className="btn btn-sm btn-outline-primary" title="Sửa">
+                      <button 
+                        className="btn btn-sm btn-outline-primary" 
+                        title="Sửa"
+                        onClick={() => navigate('/super-admin/movies/create', { state: { editData: movie } })}
+                      >
                         Sửa
                       </button>
                     </div>
@@ -226,9 +310,52 @@ const MovieManagement = () => {
           </table>
         </div>
 
+        {/* Detail Modal */}
+        {showModal && selectedItem && (
+          <div className="custom-modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="custom-modal-content" onClick={e => e.stopPropagation()}>
+              <span className="close-modal" onClick={() => setShowModal(false)}>&times;</span>
+              <h2 className="fw-bold mb-4">Chi tiết phim</h2>
+              <div className="row">
+                <div className="col-md-4">
+                  <img src={selectedItem.poster} alt={selectedItem.title} className="img-fluid rounded border mb-3" />
+                  <div className="text-center">
+                    <span className="age-badge fs-6">{selectedItem.age_limit}</span>
+                  </div>
+                </div>
+                <div className="col-md-8">
+                  <h3 className="text-dark fw-bold mb-3">{selectedItem.title}</h3>
+                  <div className="row g-3">
+                    <div className="col-6">
+                      <p className="text-dark"><strong>Đạo diễn:</strong> {selectedItem.author}</p>
+                      <p className="text-dark"><strong>Thời lượng:</strong> {selectedItem.duration} phút</p>
+                      <p className="text-dark"><strong>Quốc gia:</strong> {selectedItem.nation}</p>
+                    </div>
+                    <div className="col-6">
+                      <p className="text-dark"><strong>Ngày chiếu:</strong> {new Date(selectedItem.release_date).toLocaleDateString('vi-VN')}</p>
+                      <p className="text-dark"><strong>Thể loại:</strong> {selectedItem.genre}</p>
+                      <p className="text-dark"><strong>Trạng thái:</strong> {selectedItem.status === 'Active' ? 'Đang chiếu' : 'Ngưng chiếu'}</p>
+                    </div>
+                    <div className="col-12">
+                      <p className="text-dark"><strong>Giá vé cơ bản:</strong> <span className="text-dark fw-bold">{selectedItem.base_price.toLocaleString('vi-VN')}đ</span></p>
+                      <p className="text-dark"><strong>Mô tả:</strong> {selectedItem.description}</p>
+                      <p className="text-dark"><strong>Nội dung chi tiết:</strong></p>
+                      <p className="text-dark">{selectedItem.describe}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-12 mt-3">
+                  <p><strong>Banner:</strong></p>
+                  <img src={selectedItem.banner} alt="Banner" className="img-fluid rounded border" style={{ maxHeight: '200px', width: '100%', objectFit: 'cover' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Phân trang đồng bộ */}
         <div className="d-flex justify-content-between align-items-center mt-4">
-          <div className="text-muted small">Tổng cộng: {filteredMovies.length} phim</div>
+          <div className="text-dark small">Tổng cộng: {filteredMovies.length} phim</div>
           <nav>
             <ul className="pagination mb-0 gap-1">
               {Array.from({ length: totalPages }, (_, i) => (

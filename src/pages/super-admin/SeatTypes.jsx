@@ -81,7 +81,7 @@ const SeatTypeManagement = () => {
 
         .price-text {
           font-weight: 700;
-          color: #d32f2f;
+          color: black;
         }
 
         .pagination-btn {
@@ -105,6 +105,9 @@ const SeatTypeManagement = () => {
         .table tbody td {
           color: black !important;
           padding: 15px 20px;
+        }
+        .table thead th {
+          color: black !important;
         }
       `}</style>
 
@@ -143,6 +146,7 @@ const SeatTypeManagement = () => {
                 <th className="py-3 text-center" style={{ width: '100px' }}>STT</th>
                 <th className="py-3">Tên loại ghế</th>
                 <th className="py-3 text-end">Giá loại ghế (VNĐ)</th>
+                <th className="py-3 text-center" style={{ width: '150px' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -153,6 +157,14 @@ const SeatTypeManagement = () => {
                   <td className="text-end price-text">
                     {type.price.toLocaleString('vi-VN')} đ
                   </td>
+                  <td className="text-center">
+                    <button 
+                      className="btn btn-sm btn-outline-primary fw-bold"
+                      onClick={() => navigate('/super-admin/seat-types/create', { state: { editData: type } })}
+                    >
+                      Sửa
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -160,7 +172,7 @@ const SeatTypeManagement = () => {
         </div>
 
         <div className="d-flex justify-content-between align-items-center mt-4">
-          <div className="text-muted small">
+          <div className="text-dark small">
             Tổng cộng: <b>{filteredTypes.length}</b> loại ghế
           </div>
           <div className="d-flex gap-2">
