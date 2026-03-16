@@ -79,7 +79,7 @@ const Home = () => {
             title="Combo Bắp Nước" 
             gradient="linear-gradient(45deg, #FFD700, #FFA500)" 
             linkText="Thực đơn" 
-            linkTo="/movies" 
+            linkTo="/foodorder" 
             icon="fas fa-popcorn"
             linkColorClass="text-warning"
           />
