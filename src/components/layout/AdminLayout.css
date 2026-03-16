@@ -1,0 +1,189 @@
+.admin-container {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f4f7f6;
+}
+
+/* Sidebar Styling */
+.admin-sidebar {
+  width: 260px;
+  background-color: #ffffff; /* Changed from #2c3e50 to white */
+  color: #333333; /* Changed from white to black/dark gray */
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  height: 100vh;
+  left: 0;
+  top: 0;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  border-right: 1px solid #e0e0e0; /* Added border for white sidebar */
+}
+
+.sidebar-header {
+  padding: 20px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333333; /* Black text */
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.sidebar-menu {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  color: #333333 !important; /* Force black color */
+  text-decoration: none;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+  gap: 12px;
+}
+
+.menu-item span {
+  color: #333333 !important; /* Specifically target the text inside span */
+}
+
+.menu-item svg {
+  color: #555555; /* Icon color */
+}
+
+/* Hide default Bootstrap caret (the extra "v") */
+.dropdown-toggle::after {
+  display: none !important;
+}
+
+.admin-profile-dropdown .dropdown-toggle::after {
+  content: none !important;
+}
+
+.menu-item:hover {
+  background-color: #f0f2f5;
+  color: #000000 !important;
+}
+
+.menu-item:hover span {
+  color: #000000 !important;
+}
+
+.menu-item.active {
+  background-color: #e3f2fd;
+  color: #1976d2 !important; /* Active text color */
+  border-left: 4px solid #1976d2;
+  font-weight: 600;
+}
+
+.menu-item.active span {
+  color: #1976d2 !important; /* Active span color */
+}
+
+.menu-item.active svg {
+  color: #1976d2; /* Active icon color */
+}
+
+.sidebar-footer {
+  border-top: 1px solid #e0e0e0;
+  padding: 15px 10px;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  justify-content: center; /* Center logout button text */
+  color: #e74c3c;
+  width: 100%;
+  background: none;
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background-color: rgba(231, 76, 60, 0.1);
+}
+
+/* Main Content Area */
+.admin-main {
+  flex: 1;
+  margin-left: 260px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header Styling */
+.admin-header {
+  height: 64px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 30px;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+.admin-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-name {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.admin-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.content-wrapper {
+  padding: 24px;
+  flex: 1;
+}
+
+/* Fix input text color in Admin */
+.admin-main input, 
+.admin-main select, 
+.admin-main textarea,
+.admin-main .form-control,
+.admin-main .form-select {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+  border: 1px solid #ced4da !important;
+}
+
+.admin-main input:focus, 
+.admin-main select:focus, 
+.admin-main textarea:focus,
+.admin-main .form-control:focus,
+.admin-main .form-select:focus {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+  border-color: #0d6efd !important;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15) !important;
+  outline: none !important;
+}
+
+.admin-main input::placeholder {
+  color: #6c757d !important;
+}
+
+.admin-main label {
+  color: #333333 !important;
+  font-weight: 600;
+}
