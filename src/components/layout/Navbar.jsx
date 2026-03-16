@@ -12,7 +12,7 @@ import {
 const NAV_LINKS = [
   { label: "Sự kiện",       to: "/"          },
   { label: "Phim",          to: "/movies"    },
-  { label: "Phim yêu thích",to: "/favorites" },
+  { label: "Phim yêu thích",to: "/movieFavorite" },
   { label: "Đổi voucher",   to: "/voucher"   },
 ];
 
@@ -308,7 +308,7 @@ export default function CinemaNavbar() {
                 {/* Bắp nước → /items */}
                 <Button
                   as={Link}
-                  to="/items"
+                  to="/foodorder"
                   className="btn-bap"
                   size="sm"
                 >
