@@ -9,6 +9,12 @@ import Checkout from '../pages/common/Checkout';
 import Success from '../pages/common/Success';
 import Movies from '../pages/common/Movies';
 import NotFound from '../pages/common/NotFound';
+import Vouchers from '../pages/common/Vouchers';
+import MovieFavorite from '../pages/common/MovieFavorite';
+import ForgetPassword from '../pages/auth/ForgetPassword';
+import LoginEmployee from '../pages/employee/LoginEmployee';
+import Foodorder from '../pages/common/Foodorder';
+
 // Role-based pages
 import SuperAdminDashboard from '../pages/super-admin/Dashboard';
 import EmployeeManagement from '../pages/super-admin/Employees';
@@ -48,6 +54,11 @@ const AppRoutes = () => {
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/success" element={<Success />} />
       <Route path="/movies" element={<Movies />} />
+      <Route path="/voucher" element={<Vouchers />} />
+      <Route path="/movieFavorite" element={<MovieFavorite />} />
+      <Route path="/forgetPassword" element={<ForgetPassword />} />
+      <Route path="/loginEmployee" element={<LoginEmployee />} />
+      <Route path="/foodorder" element={<Foodorder />} />
 
       {/* Super Admin Route */}
       <Route
