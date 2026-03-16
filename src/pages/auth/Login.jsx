@@ -34,7 +34,7 @@ const Login = () => {
             </div>
             
             <div className="text-end mb-4 small">
-              <a href="#" className="text-decoration-none text-warning fw-bold hover-white">Quên mật khẩu?</a>
+              <a href="/forgetPassword" className="text-decoration-none text-warning fw-bold hover-white">Quên mật khẩu?</a>
             </div>
             
             <button type="button" className="btn btn-gradient w-100 rounded-pill py-2 fw-bold shadow">ĐĂNG NHẬP</button>
