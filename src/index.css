@@ -26,3 +26,84 @@ body {
 }
 
 .w-100 { width: 100% !important; }
+
+/* ── GLOBAL MODAL TEXT FIX ── */
+/* Ép tất cả văn bản trong các modal của Admin phải màu đen */
+.modal-content-custom, 
+.custom-modal-content,
+.modal-dialog,
+.modal-content,
+.custom-modal-overlay,
+/* Thêm cả các trang quản lý chính và form */
+.user-management,
+.movie-management,
+.employee-management,
+.cinema-management,
+.voucher-management,
+.product-management,
+.create-cinema,
+.create-employee,
+.create-movie,
+.create-voucher,
+.create-product {
+  color: black !important;
+}
+
+.modal-content-custom *, 
+.custom-modal-content *,
+.modal-dialog *,
+.modal-content *,
+.custom-modal-overlay *,
+.user-management *,
+.movie-management *,
+.employee-management *,
+.cinema-management *,
+.voucher-management *,
+.product-management *,
+.create-cinema *,
+.create-employee *,
+.create-movie *,
+.create-voucher *,
+.create-product * {
+  color: black !important;
+}
+
+/* Ngoại lệ cho các nút bấm và nhãn trạng thái để không bị mất màu */
+.btn, .btn *, .status-badge, .status-badge *, .role-badge, .role-badge *, .age-badge, .age-badge *, .error-message {
+  color: inherit !important;
+}
+
+/* Ép lại màu cho thông báo lỗi vì color: inherit có thể lấy màu đen từ cha */
+.error-message {
+  color: #dc3545 !important;
+}
+
+/* ── BUTTONS GLOBAL FIX ── */
+/* Nút Hủy: Chữ đen, nền trắng, viền đen */
+.btn-cancel, .btn-cancel * {
+  color: black !important;
+  background-color: white !important;
+  border: 2px solid black !important;
+  opacity: 1 !important;
+}
+
+.btn-cancel:hover {
+  background-color: #f8f9fa !important;
+}
+
+/* Nút Lưu/Xác nhận: Chữ trắng, nền đen */
+.btn-save, .btn-save * {
+  color: white !important;
+  background-color: black !important;
+  border: 2px solid black !important;
+  opacity: 1 !important;
+}
+
+.btn-save:hover {
+  background-color: #333 !important;
+  color: white !important;
+}
+
+.btn-dark, .btn-primary {
+  color: white !important;
+}
