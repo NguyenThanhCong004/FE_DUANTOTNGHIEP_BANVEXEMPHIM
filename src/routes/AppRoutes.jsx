@@ -14,6 +14,7 @@ import MovieFavorite from '../pages/common/MovieFavorite';
 import ForgetPassword from '../pages/auth/ForgetPassword';
 import LoginEmployee from '../pages/employee/LoginEmployee';
 import Foodorder from '../pages/common/Foodorder';
+import TransactionHistory from '../pages/user/TransactionHistory';
 
 // Role-based pages
 import SuperAdminDashboard from '../pages/super-admin/Dashboard';
@@ -59,6 +60,7 @@ const AppRoutes = () => {
       <Route path="/forgetPassword" element={<ForgetPassword />} />
       <Route path="/loginEmployee" element={<LoginEmployee />} />
       <Route path="/foodorder" element={<Foodorder />} />
+      <Route path="/transactionHistory" element={<TransactionHistory />} />
 
       {/* Super Admin Route */}
       <Route
