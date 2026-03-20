@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 
 const RoleGuard = ({ children, allowedRoles }) => {
   // Mock user role - changed to 'SUPER_ADMIN' for testing
-  const userRole = 'SUPER_ADMIN'; 
+  const userRole = 'ADMIN'; 
 
 
   if (!allowedRoles.includes(userRole)) {
