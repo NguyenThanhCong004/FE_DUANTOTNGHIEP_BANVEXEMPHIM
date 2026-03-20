@@ -8,7 +8,40 @@ const Booking = () => {
   
   const rows = ['A', 'B', 'C', 'D', 'E', 'F'];
   const seatsPerRow = 10;
-  const SEAT_PRICE = 95000;
+  
+  // Logic phân loại ghế dựa trên hàng (6 hàng: 2 Thường, 3 VIP, 1 Đôi)
+  const getSeatType = (row) => {
+    if (row === 'F') return 'Đôi';
+    if (['C', 'D', 'E'].includes(row)) return 'VIP';
+    return 'Thường';
+  };
+
+  const getSeatColor = (type, isSelected) => {
+    if (isSelected) return 'var(--primary-gradient)';
+    if (type === 'Đôi') return 'rgba(220, 53, 69, 0.1)'; // Màu đỏ nhạt
+    if (type === 'VIP') return 'rgba(255, 193, 7, 0.1)'; // Màu vàng nhạt
+    return 'rgba(255, 255, 255, 0.05)';
+  };
+
+  const getTextColor = (type, isSelected) => {
+    if (isSelected) return 'white';
+    if (type === 'Đôi') return '#dc3545';
+    if (type === 'VIP') return '#ffc107';
+    return 'rgba(255,255,255,0.6)';
+  };
+
+  const getBorder = (type, isSelected) => {
+    if (isSelected) return '1px solid rgba(255,255,255,0.1)';
+    if (type === 'Đôi') return '1px solid rgba(220, 53, 69, 0.3)';
+    if (type === 'VIP') return '1px solid rgba(255, 193, 7, 0.3)';
+    return '1px solid rgba(255,255,255,0.1)';
+  };
+
+  const SEAT_PRICE_MAP = {
+    'Thường': 95000,
+    'VIP': 135000,
+    'Đôi': 185000
+  };
 
   const toggleSeat = (id) => {
     if (selectedSeats.includes(id)) {
@@ -18,20 +51,12 @@ const Booking = () => {
     }
   };
 
-  const combos = [
-    { id: 1, name: "Combo Hoạt Hình", price: 85000, desc: "1 Bắp lớn + 1 Nước ngọt" },
-    { id: 2, name: "Combo Đôi Bạn", price: 125000, desc: "1 Bắp lớn + 2 Nước ngọt" }
-  ];
-
-  const updateCombo = (id, delta) => {
-    setSelectedCombos(prev => {
-      const currentQty = prev[id] || 0;
-      const newQty = Math.max(0, currentQty + delta);
-      return { ...prev, [id]: newQty };
-    });
-  };
-
-  const seatPriceTotal = selectedSeats.length * SEAT_PRICE;
+  // Tính tổng tiền ghế dựa trên loại
+  const seatPriceTotal = selectedSeats.reduce((total, id) => {
+    const row = id.charAt(0);
+    const type = getSeatType(row);
+    return total + SEAT_PRICE_MAP[type];
+  }, 0);
   const comboPriceTotal = combos.reduce((total, combo) => {
     return total + (combo.price * (selectedCombos[combo.id] || 0));
   }, 0);
@@ -81,17 +106,17 @@ const Booking = () => {
                         {[...Array(seatsPerRow)].map((_, i) => {
                           const id = `${row}${i+1}`;
                           const isSelected = selectedSeats.includes(id);
-                          const isVip = row === 'E' || row === 'F';
+                          const type = getSeatType(row);
                           return (
                             <button
                               key={id}
                               onClick={() => toggleSeat(id)}
                               className="border-0 rounded-3 d-flex align-items-center justify-content-center fw-bold transition-all"
                               style={{
-                                width: '36px', height: '36px',
-                                background: isSelected ? 'var(--primary-gradient)' : (isVip ? 'rgba(251, 140, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)'),
-                                color: isSelected ? 'white' : (isVip ? '#FB8C00' : 'rgba(255,255,255,0.6)'),
-                                border: isVip && !isSelected ? '1px solid rgba(251, 140, 0, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                width: type === 'Đôi' ? '80px' : '36px', height: '36px',
+                                background: getSeatColor(type, isSelected),
+                                color: getTextColor(type, isSelected),
+                                border: getBorder(type, isSelected),
                                 transform: isSelected ? 'scale(1.1) translateY(-3px)' : 'none'
                               }}
                             >
@@ -143,7 +168,7 @@ const Booking = () => {
                     <span className="text-light opacity-50 small fw-bold">GHẾ ({selectedSeats.length}):</span>
                     <div className="text-end">
                        <div className="text-primary fw-bold small">{selectedSeats.length > 0 ? selectedSeats.join(', ') : '---'}</div>
-                       {selectedSeats.length > 0 && <small className="text-light opacity-50">[{SEAT_PRICE.toLocaleString()}đ/ghế]</small>}
+                       {selectedSeats.length > 0 && <small className="text-light opacity-50">[Nhiều loại ghế]</small>}
                     </div>
                  </div>
                  
