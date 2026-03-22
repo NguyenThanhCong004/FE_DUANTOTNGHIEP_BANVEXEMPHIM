@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
 
 const ProductTypeManagement = () => {
   const navigate = useNavigate();
@@ -7,14 +9,30 @@ const ProductTypeManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 10;
 
-  // Dữ liệu mẫu cho loại sản phẩm
-  const [productTypes] = useState([
-    { id: 1, name: 'Bắp (Popcorn)' },
-    { id: 2, name: 'Nước uống (Drink)' },
-    { id: 3, name: 'Combo Bắp Nước' },
-    { id: 4, name: 'Đồ ăn nhẹ (Snack)' },
-    { id: 5, name: 'Quà tặng (Merchandise)' },
-  ]);
+  const [productTypes, setProductTypes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(PRODUCT_CATEGORIES.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        if (!mounted) return;
+        setProductTypes(arr.map((c) => ({ id: c.id, name: c.name ?? '' })));
+      } catch {
+        if (mounted) setProductTypes([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Logic lọc
   const filteredTypes = productTypes.filter(type => 
@@ -142,7 +160,14 @@ const ProductTypeManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((type, index) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={3} className="text-center py-4 text-muted">
+                    Đang tải...
+                  </td>
+                </tr>
+              ) : (
+              currentItems.map((type, index) => (
                 <tr key={type.id}>
                   <td className="text-center fw-bold">{indexOfFirstItem + index + 1}</td>
                   <td className="px-4 fw-bold">{type.name}</td>
@@ -156,7 +181,7 @@ const ProductTypeManagement = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

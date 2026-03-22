@@ -8,11 +8,6 @@ const maskEmail = (email) => {
   return user.slice(0, 2) + "****" + user.slice(-1) + "@" + domain;
 };
 
-const MOCK_ACCOUNTS = {
-  "user@gmail.com": { email: "user@gmail.com" },
-  "testuser": { email: "testuser@gmail.com" },
-};
-
 /* ══════════════════════════════════════════
    STEP INDICATOR
 ══════════════════════════════════════════ */
@@ -52,16 +47,13 @@ function StepIndicator({ current }) {
 /* ══════════════════════════════════════════
    STEP 1 – Nhập tài khoản
 ══════════════════════════════════════════ */
-function Step1({ onNext }) {
+function Step1() {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = () => {
     if (!value.trim()) { setError("Tài khoản không được để trống"); return; }
-    const found = MOCK_ACCOUNTS[value.trim().toLowerCase()];
-    if (!found) { setError("Tài khoản không tồn tại trong hệ thống"); return; }
-    setError("");
-    onNext({ account: value.trim(), email: found.email });
+    setError("Quên mật khẩu cần API backend — chưa tích hợp.");
   };
 
   return (
@@ -90,9 +82,7 @@ function Step1({ onNext }) {
 /* ══════════════════════════════════════════
    STEP 2 – Xác minh OTP
 ══════════════════════════════════════════ */
-const MOCK_OTP = "123456";
-
-function Step2({ email, onNext }) {
+function Step2({ email }) {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(60);
@@ -118,9 +108,7 @@ function Step2({ email, onNext }) {
 
   const handleSubmit = () => {
     if (!otp.trim()) { setError("Vui lòng nhập mã xác nhận"); return; }
-    if (otp.trim() !== MOCK_OTP) { setError("Mã xác nhận không đúng. Hãy thử lại"); return; }
-    setError("");
-    onNext();
+    setError("Xác minh OTP cần API backend — chưa tích hợp.");
   };
 
   return (
@@ -138,7 +126,7 @@ function Step2({ email, onNext }) {
         Vui lòng nhập mã xác nhận email để xác minh danh tính
       </p>
       <p style={{ textAlign: "center", fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: 2, color: "var(--yellow)", marginBottom: 20 }}>
-        {maskEmail(email)}
+        {email ? maskEmail(email) : "—"}
       </p>
       <div className={`fp-input-wrap otp-wrap ${error ? "has-error" : ""}`}>
         <input
@@ -158,9 +146,6 @@ function Step2({ email, onNext }) {
         </button>
       </div>
       {error && <p className="fp-error">{error}</p>}
-      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center", marginBottom: 20, fontWeight: 600 }}>
-        💡 Mã demo: <span style={{ color: "var(--yellow)", fontFamily: "'Bebas Neue'", letterSpacing: 2 }}>123456</span>
-      </p>
       <button
         className={`fp-btn${!otp.trim() ? " disabled" : ""}`}
         onClick={handleSubmit}
@@ -316,8 +301,6 @@ export default function ForgotPassword() {
   return (
     <Layout>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
-
         :root {
           --navy:   #2d3151;
           --purple: #7b1fa2;
@@ -336,7 +319,7 @@ export default function ForgotPassword() {
           align-items: center;
           justify-content: center;
           padding: 60px 16px;
-          font-family: 'Syne', sans-serif;
+          font-family: var(--font-ui), system-ui, sans-serif;
         }
 
         /* ── CARD ── */
@@ -464,7 +447,7 @@ export default function ForgotPassword() {
           border: none;
           outline: none;
           color: #fff;
-          font-family: 'Syne', sans-serif;
+          font-family: var(--font-ui), system-ui, sans-serif;
           font-size: 14px;
           font-weight: 600;
           padding: 14px 0;
@@ -485,7 +468,7 @@ export default function ForgotPassword() {
           background: none;
           border: none;
           color: rgba(255,255,255,0.2);
-          font-family: 'Syne', sans-serif;
+          font-family: var(--font-ui), system-ui, sans-serif;
           font-weight: 700;
           font-size: 12px;
           padding: 0 16px;
@@ -549,7 +532,7 @@ export default function ForgotPassword() {
           border-radius: 12px;
           background: linear-gradient(135deg, var(--purple), var(--pink));
           color: #fff;
-          font-family: 'Syne', sans-serif;
+          font-family: var(--font-ui), system-ui, sans-serif;
           font-weight: 800;
           font-size: 14px;
           letter-spacing: 1px;
@@ -584,7 +567,7 @@ export default function ForgotPassword() {
         }
       `}</style>
 
-      <div className="fp-page">
+      <div className="fp-page auth-public-page">
         <div className="fp-card">
           <h2 className="fp-card-title">
             QUÊN <span>MẬT KHẨU</span>
@@ -595,9 +578,9 @@ export default function ForgotPassword() {
           {done ? (
             <SuccessView />
           ) : step === 1 ? (
-            <Step1 onNext={(d) => { setData(d); setStep(2); }} />
+            <Step1 />
           ) : step === 2 ? (
-            <Step2 email={data.email} onNext={() => setStep(3)} />
+            <Step2 email={data.email} />
           ) : (
             <Step3 onDone={() => setDone(true)} />
           )}

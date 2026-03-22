@@ -1,83 +1,12 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import MovieCard from '../../components/common/MovieCard';
-import { Container, Row, Col } from 'react-bootstrap';
-
-/* ── Mock Data ── */
-const MOCK_FAVORITES = [
-  {
-    favorite_id: 1,
-    user_id: 101,
-    movie_id: 1,
-    movie: {
-      id: 1,
-      title: 'MAI',
-      genre: 'Tâm lý',
-      posterUrl: 'https://cdn-media.sforum.vn/storage/app/media/CTVSEO_Maihue/Phim%20chi%E1%BA%BFu%20r%E1%BA%A1p/phim-chieu-rap-3.jpg',
-      ageLimit: 'T18',
-      type: 'now',
-    },
-    review: { rating: 5, comment: 'Bộ phim cảm xúc nhất tôi từng xem!' },
-  },
-  {
-    favorite_id: 2,
-    user_id: 101,
-    movie_id: 2,
-    movie: {
-      id: 2,
-      title: 'KUNG FU PANDA 4',
-      genre: 'Hoạt hình',
-      posterUrl: 'https://aeonmall-review-rikkei.cdn.vccloud.vn/public/wp/21/news/eYMabpzR2xAghCdee11Fb1PRg2wSbzaG1tNZ0xfa.jpg',
-      ageLimit: 'P',
-      type: 'now',
-    },
-    review: { rating: 4, comment: 'Hài hước và đầy màu sắc, rất đáng xem!' },
-  },
-  {
-    favorite_id: 3,
-    user_id: 101,
-    movie_id: 3,
-    movie: {
-      id: 3,
-      title: 'AVENGERS',
-      genre: 'Hành động',
-      posterUrl: 'https://www.elleman.vn/app/uploads/2018/04/25/Avengers-Infinity-War-ELLE-Man-featured-01-01.jpg',
-      ageLimit: 'T13',
-      type: 'now',
-    },
-    review: null,
-  },
-  {
-    favorite_id: 4,
-    user_id: 101,
-    movie_id: 4,
-    movie: {
-      id: 4,
-      title: 'DUNE 2',
-      genre: 'Viễn tưởng',
-      posterUrl: 'https://wallpaperaccess.com/full/1561986.jpg',
-      ageLimit: 'T13',
-      type: 'now',
-    },
-    review: { rating: 5, comment: 'Kiệt tác điện ảnh thế kỷ 21.' },
-  },
-  {
-    favorite_id: 5,
-    user_id: 101,
-    movie_id: 5,
-    movie: {
-      id: 5,
-      title: 'SPIDER-MAN',
-      genre: 'Hành động',
-      posterUrl: 'https://m.media-amazon.com/images/M/MV5BMzI0NmVkMjEtYmY4MS00ZDMxLTlkZmEtMzU4MDQxYTMzMjU2XkEyXkFqcGdeQXVyMzQ0MzA0NTM@._V1_.jpg',
-      ageLimit: 'T13',
-      type: 'soon',
-      releaseDate: '15/08/2026',
-    },
-    review: null,
-  },
-];
+import { Container, Row, Col, Spinner } from 'react-bootstrap';
+import { apiFetch } from '../../utils/apiClient';
+import { ME } from '../../constants/apiEndpoints';
+import { getAccessToken } from '../../utils/authStorage';
+import { mapFavoriteRowToFavCard } from '../../utils/customerMeApi';
 
 const STARS = [1, 2, 3, 4, 5];
 
@@ -104,13 +33,51 @@ function StarRating({ rating, onRate, readonly = false }) {
 }
 
 export default function Favorites() {
-  const [favorites, setFavorites] = useState(MOCK_FAVORITES);
+  const navigate = useNavigate();
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [filter, setFilter] = useState('all');
   const [reviewModal, setReviewModal] = useState(null); // { favorite_id, movie }
   const [draftRating, setDraftRating] = useState(0);
   const [draftComment, setDraftComment] = useState('');
   const [removeConfirm, setRemoveConfirm] = useState(null);
   const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setLoading(false);
+      setFavorites([]);
+      return;
+    }
+    let c = false;
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const res = await apiFetch(ME.FAVORITES);
+        const body = await res.json().catch(() => null);
+        if (c) return;
+        if (res.status === 401) {
+          navigate('/login', { state: { from: '/movieFavorite' } });
+          return;
+        }
+        if (!res.ok) {
+          setLoadError(body?.message || 'Không tải được danh sách yêu thích');
+          setFavorites([]);
+          return;
+        }
+        const rows = Array.isArray(body?.data) ? body.data : [];
+        setFavorites(rows.map(mapFavoriteRowToFavCard));
+      } catch {
+        if (!c) setLoadError('Lỗi kết nối');
+      } finally {
+        if (!c) setLoading(false);
+      }
+    })();
+    return () => { c = true; };
+  }, [navigate]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -123,10 +90,26 @@ export default function Favorites() {
     return true;
   });
 
-  const handleRemove = (favorite_id) => {
-    setFavorites((prev) => prev.filter((f) => f.favorite_id !== favorite_id));
-    setRemoveConfirm(null);
-    showToast('Đã xóa khỏi danh sách yêu thích');
+  const handleRemove = async (fav) => {
+    const mid = fav?.movie?.id;
+    if (mid == null) return;
+    try {
+      const res = await apiFetch(ME.FAVORITE_BY_MOVIE(mid), { method: 'DELETE' });
+      if (res.status === 401) {
+        navigate('/login', { state: { from: '/movieFavorite' } });
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        showToast(body?.message || 'Không xóa được');
+        return;
+      }
+      setFavorites((prev) => prev.filter((f) => f.favorite_id !== fav.favorite_id));
+      setRemoveConfirm(null);
+      showToast('Đã xóa khỏi danh sách yêu thích');
+    } catch {
+      showToast('Lỗi kết nối');
+    }
   };
 
   const handleSaveReview = () => {
@@ -156,8 +139,6 @@ export default function Favorites() {
   return (
     <Layout>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
-
         :root {
           --navy:    #2d3151;
           --purple:  #7b1fa2;
@@ -491,6 +472,24 @@ export default function Favorites() {
         }
       `}</style>
 
+      {loading ? (
+        <div className="text-center py-5 mt-5">
+          <Spinner animation="border" variant="warning" />
+          <p className="text-white-50 small mt-2">Đang tải danh sách yêu thích…</p>
+        </div>
+      ) : null}
+      {!loading && !getAccessToken() ? (
+        <div className="container py-5 mt-4">
+          <div className="alert alert-warning border-0">Đăng nhập để xem phim yêu thích.</div>
+        </div>
+      ) : null}
+      {loadError && getAccessToken() ? (
+        <div className="container py-3 mt-3">
+          <div className="alert alert-danger border-0">{loadError}</div>
+        </div>
+      ) : null}
+
+      {!loading && getAccessToken() ? (
       <div className="fav-page mt-4">
         <Container fluid="xl">
 
@@ -615,6 +614,7 @@ export default function Favorites() {
 
         </Container>
       </div>
+      ) : null}
 
       {/* ── REVIEW MODAL ── */}
       {reviewModal && (
@@ -678,7 +678,7 @@ export default function Favorites() {
               <button className="btn-modal-cancel" style={{ border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 10 }} onClick={() => setRemoveConfirm(null)}>
                 Giữ lại
               </button>
-              <button className="btn-confirm-remove" onClick={() => handleRemove(removeConfirm.favorite_id)}>
+              <button className="btn-confirm-remove" onClick={() => handleRemove(removeConfirm)}>
                 Xóa
               </button>
             </div>

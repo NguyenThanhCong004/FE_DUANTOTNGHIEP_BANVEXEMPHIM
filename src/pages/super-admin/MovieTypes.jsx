@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { GENRES } from '../../constants/apiEndpoints';
 
 const MovieTypeManagement = () => {
   const navigate = useNavigate();
@@ -7,18 +9,39 @@ const MovieTypeManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 10;
 
-  // Dữ liệu ảo cho thể loại phim
-  const [genres] = useState([
-    { id: 1, name: 'Hành động' }, { id: 2, name: 'Tình cảm' },
-    { id: 3, name: 'Kinh dị' }, { id: 4, name: 'Hoạt hình' },
-    { id: 5, name: 'Hài hước' }, { id: 6, name: 'Khoa học viễn tưởng' },
-    { id: 7, name: 'Tâm lý' }, { id: 8, name: 'Phiêu lưu' },
-    { id: 9, name: 'Gia đình' }, { id: 10, name: 'Tài liệu' }
-  ]);
+  const [genres, setGenres] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(GENRES.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        if (!mounted) return;
+        const arr = Array.isArray(list) ? list : [];
+        setGenres(
+          arr.map((g) => ({
+            id: g.genreId ?? g.id,
+            name: g.name ?? '',
+          }))
+        );
+      } catch {
+        if (mounted) setGenres([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Logic lọc và tìm kiếm
   const filteredGenres = genres.filter(genre => 
-    genre.name.toLowerCase().includes(searchTerm.toLowerCase())
+    String(genre.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -162,7 +185,15 @@ const MovieTypeManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((genre, index) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={3} className="text-center py-5 text-muted">Đang tải thể loại...</td>
+                </tr>
+              ) : currentItems.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="text-center py-5 text-muted">Không có thể loại.</td>
+                </tr>
+              ) : currentItems.map((genre, index) => (
                 <tr key={genre.id}>
                   <td className="text-center fw-bold text-dark">
                     {indexOfFirstItem + index + 1}

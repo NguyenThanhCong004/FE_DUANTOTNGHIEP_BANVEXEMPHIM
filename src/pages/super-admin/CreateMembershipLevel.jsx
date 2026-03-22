@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { MEMBERSHIP_RANKS } from '../../constants/apiEndpoints';
 
 const CreateMembershipLevel = () => {
   const navigate = useNavigate();
@@ -67,13 +69,34 @@ const CreateMembershipLevel = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    console.log('Dữ liệu mức độ hội viên:', formData);
-    alert(editData ? 'Cập nhật mức độ hội viên thành công!' : 'Thêm mức độ hội viên thành công!');
-    navigate('/super-admin/membership-levels');
+    const body = {
+      rankName: formData.rank_name.trim(),
+      minSpending: parseFloat(formData.min_spending),
+      description: formData.description || '',
+      discountPercent: parseFloat(formData.discount_percent),
+      bonusPoint: parseInt(formData.bonus_point, 10),
+    };
+    const rid = editData?.id;
+    const url = rid ? MEMBERSHIP_RANKS.BY_ID(rid) : MEMBERSHIP_RANKS.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: rid ? 'PUT' : 'POST',
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Lưu hạng thất bại');
+        return;
+      }
+      alert(rid ? 'Cập nhật mức độ hội viên thành công!' : 'Thêm mức độ hội viên thành công!');
+      navigate('/super-admin/membership-levels');
+    } catch {
+      alert('Không thể kết nối server');
+    }
   };
 
   return (

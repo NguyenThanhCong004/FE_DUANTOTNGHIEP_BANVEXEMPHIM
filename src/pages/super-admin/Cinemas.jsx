@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { CINEMAS } from '../../constants/apiEndpoints';
 
 const CinemaManagement = () => {
   const navigate = useNavigate();
@@ -9,18 +11,42 @@ const CinemaManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
-  // Dữ liệu mẫu cho rạp chiếu phim
-  const [cinemas] = useState([
-    { id: 1, name: 'CGV Vincom Center', address: '72 Lê Thánh Tôn, Bến Nghé, Quận 1, TP.HCM', status: 'Active' },
-    { id: 2, name: 'Lotte Cinema Gò Vấp', address: '242 Nguyễn Văn Lượng, Gò Vấp, TP.HCM', status: 'Active' },
-    { id: 3, name: 'BHD Star Thảo Điền', address: 'Tầng 5, Vincom Mega Mall, Thảo Điền, Quận 2, TP.HCM', status: 'Active' },
-    { id: 4, name: 'Galaxy Nguyễn Du', address: '116 Nguyễn Du, Quận 1, TP.HCM', status: 'Inactive' },
-  ]);
+  const [cinemas, setCinemas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(CINEMAS.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        if (!mounted) return;
+        const arr = Array.isArray(list) ? list : [];
+        setCinemas(
+          arr.map((c) => ({
+            id: c.cinemaId ?? c.id,
+            name: c.name ?? '',
+            address: c.address ?? '',
+            status: c.status === 1 ? 'Active' : 'Inactive',
+          }))
+        );
+      } catch {
+        if (mounted) setCinemas([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Logic lọc
   const filteredCinemas = cinemas.filter(cinema => 
-    cinema.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cinema.address.toLowerCase().includes(searchTerm.toLowerCase())
+    String(cinema.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(cinema.address || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -164,7 +190,15 @@ const CinemaManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((cinema, index) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-5 text-muted">Đang tải danh sách rạp...</td>
+                </tr>
+              ) : currentItems.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-5 text-muted">Không có dữ liệu rạp.</td>
+                </tr>
+              ) : currentItems.map((cinema, index) => (
                 <tr key={cinema.id}>
                   <td className="text-center fw-bold">{indexOfFirstItem + index + 1}</td>
                   <td className="fw-bold">{cinema.name}</td>

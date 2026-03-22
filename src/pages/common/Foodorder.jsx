@@ -1,75 +1,73 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
-import { Container, Row, Col } from "react-bootstrap";
+import { Container, Row, Col, Spinner, Form, Alert } from "react-bootstrap";
+import { apiFetch } from "../../utils/apiClient";
+import { CINEMAS, FOOD_ORDERS } from "../../constants/apiEndpoints";
+import { getAccessToken } from "../../utils/authStorage";
 
-/* ── Mock Products ── */
-const CATEGORIES = ["Tất cả", "Combo", "Bắp Rang", "Nước Uống", "Snack"];
+const fmt = (n) => (Number(n) || 0).toLocaleString("vi-VN") + "đ";
 
-const PRODUCTS = [
-  { id: 1, name: "Combo Hoạt Hình",     category: "Combo",    price: 85000,  originalPrice: 105000, desc: "1 Bắp lớn + 1 Nước lớn",        emoji: "🍿",  hot: true,  tag: "Bán chạy" },
-  { id: 2, name: "Combo Đôi Bạn",       category: "Combo",    price: 125000, originalPrice: 160000, desc: "1 Bắp lớn + 2 Nước lớn",        emoji: "🎬",  hot: true,  tag: "Tiết kiệm" },
-  { id: 3, name: "Combo Gia Đình",      category: "Combo",    price: 195000, originalPrice: 250000, desc: "2 Bắp lớn + 4 Nước lớn",        emoji: "👨‍👩‍👧‍👦", hot: false, tag: "Siêu deal" },
-  { id: 4, name: "Combo VIP",           category: "Combo",    price: 215000, originalPrice: 280000, desc: "2 Bắp phô mai + 2 Nước + Snack", emoji: "👑",  hot: false, tag: "Premium" },
-  { id: 5, name: "Bắp Rang Bơ Nhỏ",    category: "Bắp Rang", price: 35000,  originalPrice: null,   desc: "Size S - Bơ thơm béo",           emoji: "🌽",  hot: false, tag: null },
-  { id: 6, name: "Bắp Rang Bơ Lớn",    category: "Bắp Rang", price: 45000,  originalPrice: null,   desc: "Size L - Bơ thơm béo",           emoji: "🌽",  hot: false, tag: null },
-  { id: 7, name: "Bắp Phô Mai Nhỏ",    category: "Bắp Rang", price: 45000,  originalPrice: null,   desc: "Size S - Phô mai đặc biệt",      emoji: "🧀",  hot: true,  tag: "Mới" },
-  { id: 8, name: "Bắp Phô Mai Lớn",    category: "Bắp Rang", price: 55000,  originalPrice: null,   desc: "Size L - Phô mai đặc biệt",      emoji: "🧀",  hot: false, tag: null },
-  { id: 9, name: "Nước Ngọt Nhỏ",      category: "Nước Uống",price: 25000,  originalPrice: null,   desc: "Pepsi / 7UP / Mirinda - 500ml",  emoji: "🥤",  hot: false, tag: null },
-  { id: 10, name: "Nước Ngọt Lớn",     category: "Nước Uống",price: 35000,  originalPrice: null,   desc: "Pepsi / 7UP / Mirinda - 1000ml", emoji: "🥤",  hot: false, tag: null },
-  { id: 11, name: "Nước Khoáng",       category: "Nước Uống",price: 20000,  originalPrice: null,   desc: "LaVie / Aquafina 500ml",         emoji: "💧",  hot: false, tag: null },
-  { id: 12, name: "Trà Đào Cam Sả",    category: "Nước Uống",price: 45000,  originalPrice: null,   desc: "Thức uống đặc biệt 700ml",       emoji: "🍑",  hot: true,  tag: "Mới" },
-  { id: 13, name: "Nachos Phô Mai",    category: "Snack",    price: 55000,  originalPrice: 65000,  desc: "Nachos giòn + Sốt phô mai",      emoji: "🌮",  hot: false, tag: null },
-  { id: 14, name: "Hotdog",            category: "Snack",    price: 45000,  originalPrice: null,   desc: "Xúc xích nướng thơm ngon",       emoji: "🌭",  hot: false, tag: null },
-  { id: 15, name: "Kẹo Gôm",          category: "Snack",    price: 15000,  originalPrice: null,   desc: "Kẹo gôm các vị",                emoji: "🍬",  hot: false, tag: null },
-];
+function normalizeProduct(o) {
+  const id = o.productId ?? o.product_id;
+  return {
+    productId: id != null ? Number(id) : null,
+    name: o.name ?? "—",
+    description: o.description ?? "",
+    price: Number(o.price ?? 0) || 0,
+    categoryName: o.categoryName ?? o.category_name ?? "Khác",
+    image: typeof o.image === "string" ? o.image.trim() : "",
+  };
+}
 
-const VOUCHERS = [
-  { code: "COMBO10", discount: 10000, label: "Giảm 10.000đ", minOrder: 100000 },
-  { code: "SAVE20",  discount: 20000, label: "Giảm 20.000đ", minOrder: 150000 },
-];
-
-const fmt = (n) => n.toLocaleString("vi-VN") + "đ";
-
-/* ── Product Card ── */
 function ProductCard({ product, qty, onAdd, onRemove }) {
-  const discount = product.originalPrice
-    ? Math.round((1 - product.price / product.originalPrice) * 100)
-    : null;
-
-  const hasBadge = product.tag || discount;
+  const img =
+    product.image && (product.image.startsWith("http") || product.image.startsWith("data:")) ? (
+      <img
+        src={product.image}
+        alt=""
+        className="rounded-3 mb-2"
+        style={{ width: "100%", height: 100, objectFit: "cover" }}
+      />
+    ) : (
+      <div
+        className="rounded-3 mb-2 d-flex align-items-center justify-content-center fw-black text-white-50"
+        style={{ width: "100%", height: 100, background: "rgba(255,255,255,0.06)", fontSize: 36 }}
+      >
+        🍿
+      </div>
+    );
 
   return (
-    <div className={`fd-card${qty > 0 ? " in-cart" : ""}`}>
-      {product.tag && (
-        <div className="fd-tag">{product.tag}</div>
-      )}
-      {discount && (
-        <div className="fd-discount-badge">-{discount}%</div>
-      )}
-
-      <div className="fd-emoji" style={{ marginTop: hasBadge ? 28 : 0 }}>{product.emoji}</div>
-
-      <div className="fd-card-body">
-        <h6 className="fd-name">{product.name}</h6>
-        <p className="fd-desc">{product.desc}</p>
-        <div className="fd-price-row">
-          <span className="fd-price">{fmt(product.price)}</span>
-          {product.originalPrice && (
-            <span className="fd-original">{fmt(product.originalPrice)}</span>
-          )}
-        </div>
-      </div>
-
-      <div className="fd-actions">
+    <div
+      className={`h-100 p-3 rounded-4 border ${qty > 0 ? "border-warning border-opacity-50" : "border-white border-opacity-10"}`}
+      style={{ background: "rgba(20,22,50,0.85)", backdropFilter: "blur(8px)" }}
+    >
+      {img}
+      <h6 className="text-white fw-bold small mb-1 text-truncate" title={product.name}>
+        {product.name}
+      </h6>
+      <p className="text-white-50 small mb-2" style={{ minHeight: 36, fontSize: 11, lineHeight: 1.35 }}>
+        {(product.description || "").slice(0, 80)}
+        {(product.description || "").length > 80 ? "…" : ""}
+      </p>
+      <div className="d-flex justify-content-between align-items-center gap-2">
+        <span className="text-warning fw-black">{fmt(product.price)}</span>
         {qty === 0 ? (
-          <button className="fd-add-btn" onClick={() => onAdd(product)}>
+          <button type="button" className="btn btn-sm btn-warning fw-bold rounded-pill px-3" onClick={() => onAdd(product.productId)}>
             + Thêm
           </button>
         ) : (
-          <div className="fd-qty-ctrl">
-            <button className="fd-qty-btn minus" onClick={() => onRemove(product)}>−</button>
-            <span className="fd-qty-num">{qty}</span>
-            <button className="fd-qty-btn plus" onClick={() => onAdd(product)}>+</button>
+          <div className="d-flex align-items-center gap-1">
+            <button type="button" className="btn btn-sm btn-outline-light py-0 px-2" onClick={() => onRemove(product.productId)}>
+              −
+            </button>
+            <span className="text-white fw-bold px-1" style={{ minWidth: 20, textAlign: "center" }}>
+              {qty}
+            </span>
+            <button type="button" className="btn btn-sm btn-outline-warning py-0 px-2" onClick={() => onAdd(product.productId)}>
+              +
+            </button>
           </div>
         )}
       </div>
@@ -77,786 +75,312 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
   );
 }
 
-/* ── Main Page ── */
 export default function FoodOrder() {
-  const [activeCategory, setActiveCategory] = useState("Tất cả");
-  const [cart, setCart]     = useState({});
-  const [voucherInput, setVoucherInput] = useState("");
-  const [appliedVoucher, setAppliedVoucher] = useState(null);
-  const [voucherError, setVoucherError]     = useState("");
-  const [showCart, setShowCart]   = useState(false);
-  const [orderDone, setOrderDone] = useState(false);
+  const navigate = useNavigate();
+  const [cinemas, setCinemas] = useState([]);
+  const [cinemaId, setCinemaId] = useState("");
+  const [loadingCinemas, setLoadingCinemas] = useState(true);
+  const [loadingMenu, setLoadingMenu] = useState(false);
+  const [menuError, setMenuError] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [cart, setCart] = useState({});
   const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("Tất cả");
+  const [paying, setPaying] = useState(false);
+  const [checkoutError, setCheckoutError] = useState(null);
 
-  /* cart helpers */
-  const addItem = (p) => setCart(c => ({ ...c, [p.id]: (c[p.id] || 0) + 1 }));
-  const removeItem = (p) => setCart(c => {
-    const next = { ...c, [p.id]: (c[p.id] || 0) - 1 };
-    if (next[p.id] <= 0) delete next[p.id];
-    return next;
-  });
+  useEffect(() => {
+    let c = false;
+    (async () => {
+      setLoadingCinemas(true);
+      try {
+        const res = await apiFetch(CINEMAS.LIST);
+        const body = await res.json().catch(() => null);
+        if (!c && res.ok && Array.isArray(body?.data)) {
+          setCinemas(body.data);
+          if (body.data.length === 1) {
+            const only = body.data[0];
+            setCinemaId(String(only.cinemaId ?? only.cinema_id ?? only.id ?? ""));
+          }
+        }
+      } catch {
+        if (!c) setCinemas([]);
+      } finally {
+        if (!c) setLoadingCinemas(false);
+      }
+    })();
+    return () => {
+      c = true;
+    };
+  }, []);
 
-  const cartItems   = PRODUCTS.filter(p => cart[p.id] > 0);
-  const totalQty    = Object.values(cart).reduce((a, b) => a + b, 0);
-  const subtotal    = cartItems.reduce((a, p) => a + p.price * cart[p.id], 0);
-  const discount    = appliedVoucher ? appliedVoucher.discount : 0;
-  const finalTotal  = Math.max(0, subtotal - discount);
-
-  const applyVoucher = () => {
-    const v = VOUCHERS.find(v => v.code === voucherInput.toUpperCase().trim());
-    if (!v) { setVoucherError("Mã voucher không hợp lệ"); return; }
-    if (subtotal < v.minOrder) {
-      setVoucherError(`Đơn tối thiểu ${fmt(v.minOrder)} để dùng mã này`);
+  const loadMenu = useCallback(async (cid) => {
+    const id = Number(cid);
+    if (!Number.isFinite(id) || id <= 0) {
+      setProducts([]);
       return;
     }
-    setAppliedVoucher(v);
-    setVoucherError("");
-  };
+    setLoadingMenu(true);
+    setMenuError(null);
+    try {
+      const res = await apiFetch(CINEMAS.PRODUCT_MENU(id));
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        setMenuError(body?.message || "Không tải được menu");
+        setProducts([]);
+        return;
+      }
+      const onSale = Array.isArray(body?.data?.onSale) ? body.data.onSale : [];
+      setProducts(onSale.map(normalizeProduct).filter((p) => p.productId != null));
+    } catch {
+      setMenuError("Không kết nối được máy chủ");
+      setProducts([]);
+    } finally {
+      setLoadingMenu(false);
+    }
+  }, []);
 
-  const handleOrder = () => {
-    setOrderDone(true);
-    setCart({});
-    setAppliedVoucher(null);
-    setShowCart(false);
-  };
+  useEffect(() => {
+    if (cinemaId) loadMenu(cinemaId);
+  }, [cinemaId, loadMenu]);
 
-  const filtered = PRODUCTS.filter(p => {
-    const matchCat = activeCategory === "Tất cả" || p.category === activeCategory;
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const categories = useMemo(() => {
+    const s = new Set();
+    for (const p of products) {
+      if (p.categoryName) s.add(p.categoryName);
+    }
+    return ["Tất cả", ...[...s].sort((a, b) => a.localeCompare(b, "vi"))];
+  }, [products]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return products.filter((p) => {
+      const catOk = activeCategory === "Tất cả" || p.categoryName === activeCategory;
+      const searchOk = !q || p.name.toLowerCase().includes(q);
+      return catOk && searchOk;
+    });
+  }, [products, activeCategory, search]);
+
+  const addItem = (productId) => setCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
+  const removeItem = (productId) =>
+    setCart((c) => {
+      const n = { ...c, [productId]: (c[productId] || 0) - 1 };
+      if (n[productId] <= 0) delete n[productId];
+      return n;
+    });
+
+  const cartItems = useMemo(
+    () => products.filter((p) => (cart[p.productId] || 0) > 0),
+    [products, cart]
+  );
+  const totalQty = useMemo(() => Object.values(cart).reduce((a, b) => a + b, 0), [cart]);
+  const subtotal = useMemo(
+    () => cartItems.reduce((sum, p) => sum + p.price * (cart[p.productId] || 0), 0),
+    [cartItems, cart]
+  );
+
+  const handlePayOS = async () => {
+    setCheckoutError(null);
+    const id = Number(cinemaId);
+    if (!Number.isFinite(id) || id <= 0) {
+      setCheckoutError("Chọn rạp nhận hàng");
+      return;
+    }
+    if (totalQty <= 0) {
+      setCheckoutError("Chọn ít nhất một món");
+      return;
+    }
+    if (!getAccessToken()) {
+      navigate("/login", { state: { from: "/foodorder" } });
+      return;
+    }
+    const items = Object.entries(cart)
+      .map(([k, q]) => ({ productId: Number(k), quantity: q }))
+      .filter((x) => Number.isFinite(x.productId) && x.quantity > 0);
+    setPaying(true);
+    const origin = window.location.origin;
+    try {
+      const res = await apiFetch(FOOD_ORDERS.CHECKOUT, {
+        method: "POST",
+        body: JSON.stringify({
+          cinemaId: id,
+          items,
+          returnUrl: `${origin}/payment/success`,
+          cancelUrl: `${origin}/payment/cancel`,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (res.status === 401) {
+        navigate("/login", { state: { from: "/foodorder" } });
+        return;
+      }
+      if (res.status === 403) {
+        setCheckoutError(body?.message || "Chỉ tài khoản khách được đặt online.");
+        return;
+      }
+      if (!res.ok) {
+        setCheckoutError(body?.message || "Không tạo được link thanh toán");
+        return;
+      }
+      const url = body?.data?.payos?.checkoutUrl;
+      if (!url) {
+        setCheckoutError("BE không trả về link PayOS");
+        return;
+      }
+      const payosOrderCode = body?.data?.payosOrderCode;
+      if (payosOrderCode != null) {
+        try {
+          sessionStorage.setItem("payos_pending_order_code", String(payosOrderCode));
+          sessionStorage.setItem("payos_pending_kind", "food");
+        } catch {
+          /* ignore */
+        }
+      }
+      window.location.assign(url);
+    } catch {
+      setCheckoutError("Lỗi kết nối");
+    } finally {
+      setPaying(false);
+    }
+  };
 
   return (
     <Layout>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
-
-        :root {
-          --navy:   #2d3151;
-          --purple: #7b1fa2;
-          --pink:   #e91e8c;
-          --yellow: #d4e219;
-          --dark:   #0f102a;
-          --card-bg: rgba(20,22,50,0.92);
-        }
-
-        .fd-page {
-          min-height: 100vh;
+      <div
+        className="py-4 py-md-5"
+        style={{
+          minHeight: "85vh",
           background:
-            radial-gradient(ellipse 70% 45% at 10% 20%, rgba(123,31,162,0.18) 0%, transparent 60%),
-            radial-gradient(ellipse 55% 40% at 90% 80%, rgba(233,30,140,0.13) 0%, transparent 60%),
-            #0f102a;
-          font-family: 'Syne', sans-serif;
-          padding: 32px 0 100px;
-        }
-
-        /* ── TITLE ── */
-        .fd-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(36px, 6vw, 58px);
-          letter-spacing: 4px;
-          line-height: 1;
-          color: #fff;
-        }
-        .fd-title span { color: var(--yellow); }
-
-        /* ── SEARCH ── */
-        .fd-search-wrap {
-          display: flex;
-          align-items: center;
-          background: rgba(255,255,255,0.05);
-          border: 1.5px solid rgba(255,255,255,0.1);
-          border-radius: 12px;
-          padding: 0 16px;
-          max-width: 300px;
-          transition: border-color 0.2s;
-        }
-        .fd-search-wrap:focus-within { border-color: var(--yellow); }
-        .fd-search-input {
-          background: transparent;
-          border: none;
-          outline: none;
-          color: #fff;
-          font-family: 'Syne', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          padding: 10px 0;
-          width: 100%;
-        }
-        .fd-search-input::placeholder { color: rgba(255,255,255,0.25); }
-
-        /* ── CATEGORY PILLS ── */
-        .fd-cats {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-bottom: 28px;
-        }
-        .fd-cat-btn {
-          font-family: 'Syne', sans-serif;
-          font-weight: 700;
-          font-size: 12px;
-          letter-spacing: 0.8px;
-          text-transform: uppercase;
-          padding: 7px 18px;
-          border-radius: 8px;
-          border: 1.5px solid rgba(255,255,255,0.1);
-          background: transparent;
-          color: rgba(255,255,255,0.4);
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .fd-cat-btn:hover { border-color: var(--yellow); color: var(--yellow); }
-        .fd-cat-btn.active { background: var(--yellow); border-color: var(--yellow); color: #0f102a; }
-
-        /* ── PRODUCT CARD ── */
-        .fd-card {
-          background: var(--card-bg);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 16px;
-          padding: 20px 16px 16px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          position: relative;
-          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-          height: 100%;
-          overflow: hidden;
-        }
-        .fd-card::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 3px;
-          background: linear-gradient(90deg, var(--purple), var(--pink));
-          opacity: 0;
-          transition: opacity 0.25s;
-        }
-        .fd-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.45); border-color: rgba(212,226,25,0.2); }
-        .fd-card:hover::before { opacity: 1; }
-        .fd-card.in-cart { border-color: rgba(212,226,25,0.4); }
-        .fd-card.in-cart::before { opacity: 1; background: var(--yellow); }
-
-        /* tag + discount */
-        .fd-tag {
-          position: absolute;
-          top: 12px; left: 12px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          color: #fff;
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          padding: 3px 8px;
-          border-radius: 5px;
-        }
-        .fd-discount-badge {
-          position: absolute;
-          top: 12px; right: 12px;
-          background: rgba(233,30,140,0.15);
-          border: 1px solid rgba(233,30,140,0.4);
-          color: var(--pink);
-          font-size: 11px;
-          font-weight: 800;
-          padding: 2px 7px;
-          border-radius: 6px;
-        }
-
-        .fd-emoji {
-          font-size: 52px;
-          margin-bottom: 12px;
-          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
-          line-height: 1;
-        }
-        .fd-card-body { flex: 1; width: 100%; }
-        .fd-name {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 17px;
-          letter-spacing: 2px;
-          color: #fff;
-          margin-bottom: 4px;
-        }
-        .fd-desc {
-          font-size: 11px;
-          color: rgba(255,255,255,0.35);
-          font-weight: 600;
-          margin-bottom: 10px;
-          line-height: 1.4;
-        }
-        .fd-price-row {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          margin-bottom: 14px;
-        }
-        .fd-price {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 22px;
-          letter-spacing: 1px;
-          color: var(--yellow);
-        }
-        .fd-original {
-          font-size: 12px;
-          color: rgba(255,255,255,0.2);
-          text-decoration: line-through;
-          font-weight: 600;
-        }
-
-        /* add / qty */
-        .fd-add-btn {
-          width: 100%;
-          padding: 9px;
-          border: none;
-          border-radius: 9px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          color: #fff;
-          font-family: 'Syne', sans-serif;
-          font-weight: 800;
-          font-size: 12px;
-          letter-spacing: 0.5px;
-          cursor: pointer;
-          transition: opacity 0.2s, transform 0.2s;
-          box-shadow: 0 0 14px rgba(233,30,140,0.2);
-        }
-        .fd-add-btn:hover { opacity: 0.88; transform: translateY(-1px); }
-
-        .fd-qty-ctrl {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0;
-          border-radius: 9px;
-          overflow: hidden;
-          border: 1.5px solid rgba(212,226,25,0.35);
-        }
-        .fd-qty-btn {
-          background: rgba(212,226,25,0.1);
-          border: none;
-          color: var(--yellow);
-          font-size: 18px;
-          font-weight: 700;
-          width: 36px;
-          height: 36px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.15s;
-          line-height: 1;
-        }
-        .fd-qty-btn:hover { background: rgba(212,226,25,0.2); }
-        .fd-qty-num {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 18px;
-          color: #fff;
-          letter-spacing: 1px;
-          min-width: 36px;
-          text-align: center;
-          background: rgba(255,255,255,0.04);
-        }
-
-        /* ── CART SIDEBAR ── */
-        .fd-cart-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.6);
-          backdrop-filter: blur(4px);
-          z-index: 2000;
-        }
-        .fd-cart-sidebar {
-          position: fixed;
-          top: 0; right: 0; bottom: 0;
-          width: 100%;
-          max-width: 420px;
-          background: #0d0e28;
-          border-left: 1px solid rgba(255,255,255,0.08);
-          z-index: 2001;
-          display: flex;
-          flex-direction: column;
-          animation: slideInRight 0.3s ease;
-        }
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to   { transform: translateX(0); }
-        }
-        .fd-cart-header {
-          padding: 24px 24px 16px;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .fd-cart-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 26px;
-          letter-spacing: 3px;
-          color: #fff;
-        }
-        .fd-cart-title span { color: var(--yellow); }
-        .fd-close-btn {
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 8px;
-          color: rgba(255,255,255,0.5);
-          width: 36px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          font-size: 18px;
-          transition: all 0.2s;
-        }
-        .fd-close-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
-
-        .fd-cart-items {
-          flex: 1;
-          overflow-y: auto;
-          padding: 16px 24px;
-        }
-        .fd-cart-items::-webkit-scrollbar { width: 4px; }
-        .fd-cart-items::-webkit-scrollbar-track { background: transparent; }
-        .fd-cart-items::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-
-        .fd-cart-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 0;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .fd-item-emoji { font-size: 28px; flex-shrink: 0; }
-        .fd-item-info { flex: 1; min-width: 0; }
-        .fd-item-name {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 15px;
-          letter-spacing: 1.5px;
-          color: #fff;
-          margin-bottom: 2px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .fd-item-price { font-size: 12px; font-weight: 700; color: var(--yellow); }
-        .fd-item-qty-ctrl {
-          display: flex;
-          align-items: center;
-          gap: 0;
-          border-radius: 7px;
-          overflow: hidden;
-          border: 1px solid rgba(255,255,255,0.1);
-          flex-shrink: 0;
-        }
-        .fd-item-qty-btn {
-          background: rgba(255,255,255,0.04);
-          border: none;
-          color: rgba(255,255,255,0.5);
-          width: 28px;
-          height: 28px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.15s;
-        }
-        .fd-item-qty-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
-        .fd-item-qty-num {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 14px;
-          color: #fff;
-          min-width: 28px;
-          text-align: center;
-          background: rgba(255,255,255,0.03);
-          padding: 0 2px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 28px;
-        }
-
-        /* empty cart */
-        .fd-cart-empty {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: rgba(255,255,255,0.2);
-          padding: 40px;
-          text-align: center;
-        }
-        .fd-cart-empty .ce-icon { font-size: 56px; margin-bottom: 12px; opacity: 0.35; }
-        .fd-cart-empty p { font-size: 13px; font-weight: 600; }
-
-        /* cart footer */
-        .fd-cart-footer {
-          padding: 16px 24px 28px;
-          border-top: 1px solid rgba(255,255,255,0.06);
-        }
-        .fd-summary-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 12px;
-          font-weight: 600;
-          color: rgba(255,255,255,0.4);
-          margin-bottom: 6px;
-        }
-        .fd-summary-row.total {
-          font-size: 16px;
-          color: #fff;
-          font-weight: 800;
-          margin: 12px 0;
-          padding-top: 10px;
-          border-top: 1px solid rgba(255,255,255,0.07);
-        }
-        .fd-summary-row.total .val { color: var(--yellow); font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; }
-        .fd-summary-row .discount-val { color: #81c784; }
-
-        /* voucher input */
-        .fd-voucher-row {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 14px;
-        }
-        .fd-voucher-input {
-          flex: 1;
-          background: rgba(255,255,255,0.05);
-          border: 1.5px solid rgba(255,255,255,0.1);
-          border-radius: 9px;
-          padding: 9px 14px;
-          color: #fff;
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 15px;
-          letter-spacing: 2px;
-          outline: none;
-          transition: border-color 0.2s;
-        }
-        .fd-voucher-input:focus { border-color: var(--yellow); }
-        .fd-voucher-input::placeholder { color: rgba(255,255,255,0.2); font-size: 12px; font-family: 'Syne', sans-serif; letter-spacing: 0.5px; }
-        .fd-voucher-apply {
-          background: rgba(212,226,25,0.1);
-          border: 1.5px solid rgba(212,226,25,0.3);
-          border-radius: 9px;
-          color: var(--yellow);
-          font-family: 'Syne', sans-serif;
-          font-weight: 800;
-          font-size: 12px;
-          padding: 0 16px;
-          cursor: pointer;
-          transition: background 0.2s;
-          white-space: nowrap;
-        }
-        .fd-voucher-apply:hover { background: rgba(212,226,25,0.2); }
-        .fd-voucher-err { font-size: 11px; color: var(--pink); font-weight: 700; margin-bottom: 8px; }
-        .fd-voucher-ok {
-          font-size: 11px;
-          color: #81c784;
-          font-weight: 700;
-          margin-bottom: 8px;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        /* checkout btn */
-        .fd-checkout-btn {
-          width: 100%;
-          padding: 14px;
-          border: none;
-          border-radius: 12px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          color: #fff;
-          font-family: 'Syne', sans-serif;
-          font-weight: 800;
-          font-size: 14px;
-          letter-spacing: 1px;
-          cursor: pointer;
-          box-shadow: 0 0 24px rgba(233,30,140,0.3);
-          transition: box-shadow 0.25s, transform 0.2s;
-        }
-        .fd-checkout-btn:hover { box-shadow: 0 0 40px rgba(233,30,140,0.55); transform: translateY(-1px); }
-        .fd-checkout-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
-
-        /* ── FLOATING CART BUTTON ── */
-        .fd-cart-fab {
-          position: fixed;
-          bottom: 32px;
-          right: 32px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          border: none;
-          border-radius: 16px;
-          padding: 14px 22px;
-          color: #fff;
-          font-family: 'Syne', sans-serif;
-          font-weight: 800;
-          font-size: 14px;
-          letter-spacing: 0.5px;
-          cursor: pointer;
-          box-shadow: 0 8px 32px rgba(233,30,140,0.4);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          z-index: 1000;
-          transition: box-shadow 0.25s, transform 0.2s;
-          animation: fabBounce 0.4s ease;
-        }
-        .fd-cart-fab:hover { box-shadow: 0 12px 44px rgba(233,30,140,0.6); transform: translateY(-2px); }
-        @keyframes fabBounce {
-          0%   { transform: scale(0.8); }
-          60%  { transform: scale(1.08); }
-          100% { transform: scale(1); }
-        }
-        .fd-fab-badge {
-          background: var(--yellow);
-          color: #0f102a;
-          border-radius: 50%;
-          width: 22px;
-          height: 22px;
-          font-size: 12px;
-          font-weight: 800;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        /* ── SUCCESS ── */
-        .fd-success {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.8);
-          backdrop-filter: blur(8px);
-          z-index: 3000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 16px;
-        }
-        .fd-success-card {
-          background: #0d0e28;
-          border: 1px solid rgba(212,226,25,0.25);
-          border-radius: 24px;
-          padding: 48px 36px;
-          text-align: center;
-          max-width: 400px;
-          width: 100%;
-          box-shadow: 0 24px 80px rgba(0,0,0,0.6);
-          animation: successPop 0.4s ease;
-        }
-        @keyframes successPop {
-          from { opacity: 0; transform: scale(0.85); }
-          to   { opacity: 1; transform: scale(1); }
-        }
-        .fd-success-icon { font-size: 72px; margin-bottom: 20px; }
-        .fd-success-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 32px;
-          letter-spacing: 4px;
-          color: #fff;
-          margin-bottom: 8px;
-        }
-        .fd-success-title span { color: var(--yellow); }
-        .fd-success-sub { font-size: 13px; color: rgba(255,255,255,0.4); font-weight: 600; margin-bottom: 28px; }
-        .fd-back-btn {
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          border: none;
-          border-radius: 12px;
-          color: #fff;
-          font-family: 'Syne', sans-serif;
-          font-weight: 800;
-          font-size: 14px;
-          padding: 13px 32px;
-          cursor: pointer;
-          letter-spacing: 0.5px;
-          transition: opacity 0.2s;
-        }
-        .fd-back-btn:hover { opacity: 0.88; }
-
-        /* ── EMPTY SEARCH ── */
-        .fd-empty { text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.2); }
-        .fd-empty .ei { font-size: 52px; opacity: 0.3; margin-bottom: 12px; }
-        .fd-empty p { font-size: 13px; font-weight: 600; }
-      `}</style>
-
-      {/* SUCCESS OVERLAY */}
-      {orderDone && (
-        <div className="fd-success">
-          <div className="fd-success-card">
-            <div className="fd-success-icon">🎉</div>
-            <div className="fd-success-title">ĐẶT HÀNG <span>THÀNH CÔNG!</span></div>
-            <p className="fd-success-sub">
-              Đơn hàng của bạn đang được chuẩn bị.<br/>
-              Vui lòng nhận tại quầy bắp nước.
-            </p>
-            <button className="fd-back-btn" onClick={() => setOrderDone(false)}>
-              Đặt thêm
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* CART SIDEBAR */}
-      {showCart && (
-        <>
-          <div className="fd-cart-overlay" onClick={() => setShowCart(false)} />
-          <div className="fd-cart-sidebar">
-            <div className="fd-cart-header">
-              <div className="fd-cart-title">GIỎ <span>HÀNG</span></div>
-              <button className="fd-close-btn" onClick={() => setShowCart(false)}>×</button>
-            </div>
-
-            {cartItems.length === 0 ? (
-              <div className="fd-cart-empty">
-                <div className="ce-icon">🛒</div>
-                <p>Giỏ hàng đang trống<br/>Thêm món ngay!</p>
-              </div>
-            ) : (
-              <div className="fd-cart-items">
-                {cartItems.map(p => (
-                  <div key={p.id} className="fd-cart-item">
-                    <div className="fd-item-emoji">{p.emoji}</div>
-                    <div className="fd-item-info">
-                      <div className="fd-item-name">{p.name}</div>
-                      <div className="fd-item-price">{fmt(p.price)} × {cart[p.id]} = {fmt(p.price * cart[p.id])}</div>
-                    </div>
-                    <div className="fd-item-qty-ctrl">
-                      <button className="fd-item-qty-btn" onClick={() => removeItem(p)}>−</button>
-                      <div className="fd-item-qty-num">{cart[p.id]}</div>
-                      <button className="fd-item-qty-btn" onClick={() => addItem(p)}>+</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {cartItems.length > 0 && (
-              <div className="fd-cart-footer">
-                {/* Voucher */}
-                <div className="fd-voucher-row">
-                  <input
-                    className="fd-voucher-input"
-                    placeholder="Nhập mã voucher..."
-                    value={voucherInput}
-                    onChange={e => { setVoucherInput(e.target.value); setVoucherError(""); }}
-                    onKeyDown={e => e.key === "Enter" && applyVoucher()}
-                    disabled={!!appliedVoucher}
-                  />
-                  {!appliedVoucher
-                    ? <button className="fd-voucher-apply" onClick={applyVoucher}>Áp dụng</button>
-                    : <button className="fd-voucher-apply" onClick={() => { setAppliedVoucher(null); setVoucherInput(""); }}>Xóa</button>
-                  }
-                </div>
-                {voucherError && <div className="fd-voucher-err">⚠ {voucherError}</div>}
-                {appliedVoucher && (
-                  <div className="fd-voucher-ok">
-                    <span>✓</span> {appliedVoucher.label} đã được áp dụng
-                  </div>
-                )}
-
-                {/* Summary */}
-                <div className="fd-summary-row">
-                  <span>Tạm tính ({totalQty} món)</span>
-                  <span>{fmt(subtotal)}</span>
-                </div>
-                {appliedVoucher && (
-                  <div className="fd-summary-row">
-                    <span>Giảm giá</span>
-                    <span className="discount-val">-{fmt(discount)}</span>
-                  </div>
-                )}
-                <div className="fd-summary-row total">
-                  <span>Tổng cộng</span>
-                  <span className="val">{fmt(finalTotal)}</span>
-                </div>
-
-                {/* Demo hint */}
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", fontWeight: 600, letterSpacing: 0.5, marginBottom: 10, textAlign: "center" }}>
-                  Voucher demo: <span style={{ color: "rgba(212,226,25,0.5)", fontFamily: "'Bebas Neue'", letterSpacing: 2 }}>COMBO10</span> hoặc <span style={{ color: "rgba(212,226,25,0.5)", fontFamily: "'Bebas Neue'", letterSpacing: 2 }}>SAVE20</span>
-                </div>
-
-                <button className="fd-checkout-btn" onClick={handleOrder}>
-                  🍿 Xác nhận đặt hàng — {fmt(finalTotal)}
-                </button>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className="fd-page mt-4">
-        <Container fluid="xl">
-
-          {/* HEADER */}
-          <Row className="align-items-end mb-5 gy-3">
+            "radial-gradient(ellipse 70% 45% at 10% 20%, rgba(123,31,162,0.15) 0%, transparent 60%), radial-gradient(ellipse 55% 40% at 90% 80%, rgba(233,30,140,0.1) 0%, transparent 60%), #0f102a",
+        }}
+      >
+        <Container fluid="xl" className="px-3">
+          <Row className="align-items-end mb-4 gy-3">
             <Col>
-              <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
-                🍿 Đặt trước — Nhận tại quầy
+              <p className="small text-white-50 fw-bold text-uppercase mb-1" style={{ letterSpacing: 2 }}>
+                Đặt trước — nhận tại quầy rạp
               </p>
-              <h1 className="fd-title mb-0">ĐẶT <span>BẮP NƯỚC</span></h1>
+              <h1 className="text-white fw-black mb-0" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: 3, fontSize: "clamp(2rem,5vw,3rem)" }}>
+                BẮP NƯỚC <span className="text-warning">ONLINE</span>
+              </h1>
             </Col>
-            <Col xs="auto">
-              <div className="fd-search-wrap">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" style={{ flexShrink: 0, marginRight: 8 }}>
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                </svg>
-                <input
-                  className="fd-search-input"
-                  placeholder="Tìm món ăn..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
+            <Col xs={12} md="auto">
+              <Form.Select
+                className="bg-dark text-white border-secondary rounded-pill"
+                value={cinemaId}
+                onChange={(e) => {
+                  setCinemaId(e.target.value);
+                  setCart({});
+                }}
+                disabled={loadingCinemas}
+              >
+                <option value="">— Chọn rạp —</option>
+                {cinemas.map((c) => {
+                  const cid = c.cinemaId ?? c.cinema_id ?? c.id;
+                  const name = c.name ?? `Rạp #${cid}`;
+                  return (
+                    <option key={cid} value={cid}>
+                      {name}
+                    </option>
+                  );
+                })}
+              </Form.Select>
             </Col>
           </Row>
 
-          {/* CATEGORIES */}
-          <div className="fd-cats">
-            {CATEGORIES.map(c => (
-              <button
-                key={c}
-                className={`fd-cat-btn${activeCategory === c ? " active" : ""}`}
-                onClick={() => setActiveCategory(c)}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
+          {menuError ? <Alert variant="warning">{menuError}</Alert> : null}
+          {checkoutError ? <Alert variant="danger">{checkoutError}</Alert> : null}
 
-          {/* PRODUCTS */}
-          {filtered.length === 0 ? (
-            <div className="fd-empty">
-              <div className="ei">🔍</div>
-              <p>Không tìm thấy sản phẩm</p>
-            </div>
-          ) : (
-            <Row className="g-3">
-              {filtered.map(p => (
-                <Col key={p.id} xs={6} sm={4} md={3} xl={2}>
-                  <ProductCard
-                    product={p}
-                    qty={cart[p.id] || 0}
-                    onAdd={addItem}
-                    onRemove={removeItem}
+          <Row className="g-4">
+            <Col lg={8}>
+              {loadingMenu ? (
+                <div className="text-center py-5 text-white">
+                  <Spinner animation="border" variant="warning" />
+                  <p className="small mt-2 opacity-75">Đang tải menu…</p>
+                </div>
+              ) : !cinemaId ? (
+                <p className="text-white-50 text-center py-5">Chọn rạp để xem món đang bán.</p>
+              ) : filtered.length === 0 ? (
+                <p className="text-white-50 text-center py-5">Không có món phù hợp hoặc menu trống.</p>
+              ) : (
+                <>
+                  <div className="d-flex flex-wrap gap-2 mb-3">
+                    {categories.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={`btn btn-sm rounded-pill fw-bold ${activeCategory === c ? "btn-warning text-dark" : "btn-outline-light"}`}
+                        onClick={() => setActiveCategory(c)}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  <Form.Control
+                    className="mb-3 bg-dark text-white border-secondary rounded-pill"
+                    placeholder="Tìm món…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                   />
-                </Col>
-              ))}
-            </Row>
-          )}
+                  <Row className="g-3">
+                    {filtered.map((p) => (
+                      <Col key={p.productId} xs={6} md={4} xl={3}>
+                        <ProductCard product={p} qty={cart[p.productId] || 0} onAdd={addItem} onRemove={removeItem} />
+                      </Col>
+                    ))}
+                  </Row>
+                </>
+              )}
+            </Col>
+
+            <Col lg={4}>
+              <div
+                className="p-4 rounded-4 border border-white border-opacity-10 sticky-top"
+                style={{ top: 96, background: "rgba(20,22,50,0.9)", backdropFilter: "blur(12px)" }}
+              >
+                <h5 className="text-white fw-black text-uppercase mb-3 border-bottom border-white border-opacity-10 pb-2">Giỏ hàng</h5>
+                {cartItems.length === 0 ? (
+                  <p className="text-white-50 small mb-0">Chưa có món — thêm từ danh sách bên trái.</p>
+                ) : (
+                  <div className="d-flex flex-column gap-2 mb-3" style={{ maxHeight: 280, overflowY: "auto" }}>
+                    {cartItems.map((p) => (
+                      <div key={p.productId} className="d-flex justify-content-between align-items-start small">
+                        <div className="text-white me-2">
+                          <div className="fw-bold">{p.name}</div>
+                          <div className="text-white-50">
+                            {fmt(p.price)} × {cart[p.productId]}
+                          </div>
+                        </div>
+                        <div className="text-warning fw-bold text-nowrap">{fmt(p.price * cart[p.productId])}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="d-flex justify-content-between text-white fw-bold mb-3 pt-2 border-top border-white border-opacity-10">
+                  <span>Tạm tính ({totalQty} món)</span>
+                  <span className="text-warning">{fmt(subtotal)}</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-warning w-100 rounded-pill fw-black py-3"
+                  disabled={paying || totalQty === 0 || !cinemaId}
+                  onClick={handlePayOS}
+                >
+                  {paying ? (
+                    <>
+                      <Spinner size="sm" className="me-2" />
+                      Đang tạo link PayOS…
+                    </>
+                  ) : (
+                    <>Thanh toán PayOS — {fmt(subtotal)}</>
+                  )}
+                </button>
+                <p className="small text-white-50 text-center mt-2 mb-0">Cần đăng nhập tài khoản khách. Thanh toán xong nhận tại quầy rạp đã chọn.</p>
+              </div>
+            </Col>
+          </Row>
         </Container>
       </div>
-
-      {/* FLOATING CART BUTTON */}
-      {totalQty > 0 && !showCart && (
-        <button className="fd-cart-fab" onClick={() => setShowCart(true)}>
-          <span>🛒 Giỏ hàng</span>
-          <div className="fd-fab-badge">{totalQty}</div>
-          <span style={{ fontSize: 13, opacity: 0.75 }}>{fmt(subtotal)}</span>
-        </button>
-      )}
     </Layout>
   );
 }

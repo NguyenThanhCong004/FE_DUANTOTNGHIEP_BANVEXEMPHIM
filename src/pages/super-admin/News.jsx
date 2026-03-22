@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { NEWS } from '../../constants/apiEndpoints';
 
 const NewsManagement = () => {
   const navigate = useNavigate();
@@ -9,45 +11,43 @@ const NewsManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 8;
 
-  // Dữ liệu mẫu cho Tin tức
-  const [newsList] = useState([
-    { 
-      id: 1, 
-      title: 'Khai trương cụm rạp mới tại Quận 7', 
-      content: 'Chào mừng cụm rạp thứ 10 đi vào hoạt động với nhiều ưu đãi...', 
-      image: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=200&auto=format&fit=crop', 
-      date: '2024-03-10',
-      status: 'Active' 
-    },
-    { 
-      id: 2, 
-      title: 'Bom tấn Lật Mặt 7 chính thức mở bán vé sớm', 
-      content: 'Nhanh tay đặt vé để nhận ngay combo quà tặng giới hạn...', 
-      image: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?q=80&w=200&auto=format&fit=crop', 
-      date: '2024-03-12',
-      status: 'Active' 
-    },
-    { 
-      id: 3, 
-      title: 'Thông báo bảo trì hệ thống thanh toán ngày 15/03', 
-      content: 'Hệ thống sẽ tạm ngưng giao dịch từ 0h00 đến 04h00...', 
-      image: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=200&auto=format&fit=crop', 
-      date: '2024-03-14',
-      status: 'Inactive' 
-    },
-    ...Array.from({ length: 15 }, (_, i) => ({
-      id: i + 4,
-      title: `Tin tức sự kiện mẫu số ${i + 4}`,
-      content: 'Nội dung tóm tắt của bản tin sự kiện mẫu...',
-      image: 'https://via.placeholder.com/100x60',
-      date: '2024-03-01',
-      status: i % 3 === 0 ? 'Inactive' : 'Active'
-    }))
-  ]);
+  const [newsList, setNewsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(NEWS.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        if (!mounted) return;
+        setNewsList(
+          arr.map((n) => ({
+            id: n.id,
+            title: n.title ?? '',
+            content: n.content ?? '',
+            image: n.image || 'https://placehold.co/600x360?text=News',
+            status: n.status === 1 ? 'Active' : 'Inactive',
+            date: n.createdAt || new Date().toISOString(),
+          }))
+        );
+      } catch {
+        if (mounted) setNewsList([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Logic lọc
-  const filteredNews = newsList.filter(news => 
-    news.title.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredNews = newsList.filter((news) =>
+    String(news.title || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -264,7 +264,14 @@ const NewsManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((news, index) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-4 text-muted">
+                    Đang tải...
+                  </td>
+                </tr>
+              ) : (
+              currentItems.map((news, index) => (
                 <tr key={news.id}>
                   <td className="text-center fw-bold">{indexOfFirstItem + index + 1}</td>
                   <td>
@@ -301,7 +308,7 @@ const NewsManagement = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

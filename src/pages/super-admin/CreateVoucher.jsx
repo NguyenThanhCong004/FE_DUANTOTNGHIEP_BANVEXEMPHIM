@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { VOUCHERS } from '../../constants/apiEndpoints';
 
 const CreateVoucher = () => {
   const navigate = useNavigate();
@@ -85,18 +87,37 @@ const CreateVoucher = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (editData) {
-      console.log('Cập nhật Voucher:', formData);
-      alert('Cập nhật voucher thành công!');
-    } else {
-      console.log('Dữ liệu Voucher mới:', formData);
-      alert('Tạo voucher thành công!');
+    const body = {
+      code: formData.code.trim(),
+      discountType: formData.discount_type,
+      value: parseFloat(formData.value),
+      minOrderValue: parseFloat(formData.min_order_value),
+      startDate: formData.start_date,
+      endDate: formData.end_date,
+      pointVoucher: parseInt(formData.point_voucher, 10),
+      status: formData.status === 'Active' ? 1 : 0,
+    };
+    const vid = editData?.id;
+    const url = vid ? VOUCHERS.BY_ID(vid) : VOUCHERS.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: vid ? 'PUT' : 'POST',
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Lưu voucher thất bại');
+        return;
+      }
+      alert(vid ? 'Cập nhật voucher thành công!' : 'Tạo voucher thành công!');
+      navigate('/super-admin/vouchers');
+    } catch {
+      alert('Không thể kết nối server');
     }
-    navigate('/super-admin/vouchers');
   };
 
   return (

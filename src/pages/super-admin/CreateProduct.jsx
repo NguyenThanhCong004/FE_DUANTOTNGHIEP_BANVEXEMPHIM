@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { PRODUCTS, PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 
 const CreateProduct = () => {
   const navigate = useNavigate();
@@ -11,19 +22,68 @@ const CreateProduct = () => {
     description: '',
     price: '',
     status: 'Active',
+    category_id: '',
     image: null
   });
 
   const [errors, setErrors] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
+  const [categoryOptions, setCategoryOptions] = useState([]);
 
   useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiFetch(PRODUCT_CATEGORIES.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        if (mounted) setCategoryOptions(Array.isArray(list) ? list : []);
+      } catch {
+        if (mounted) setCategoryOptions([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const pid = editData?.id;
+    if (!pid) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiFetch(PRODUCTS.BY_ID(pid));
+        const json = await res.json().catch(() => null);
+        const p = json?.data ?? json;
+        if (!mounted || !res.ok || !p) return;
+        setFormData({
+          name: p.name || '',
+          description: p.description || '',
+          price: p.price != null ? String(p.price) : '',
+          status: p.status === 1 ? 'Active' : 'Inactive',
+          category_id: p.categoryId != null ? String(p.categoryId) : '',
+          image: null,
+        });
+        if (p.image) setPreviewImage(p.image);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [editData?.id]);
+
+  useEffect(() => {
+    if (editData?.id) return;
     if (editData) {
       setFormData({
         name: editData.name || '',
         description: editData.description || '',
         price: editData.price || '',
         status: editData.status || 'Active',
+        category_id: editData.category_id != null ? String(editData.category_id) : '',
         image: null
       });
       if (editData.image) {
@@ -44,8 +104,16 @@ const CreateProduct = () => {
       newErrors.price = 'Giá bán phải là số dương';
     }
 
-    if (!editData && !formData.image) {
+    if (!formData.category_id) {
+      newErrors.category_id = 'Vui lòng chọn loại sản phẩm';
+    }
+
+    const editing = Boolean(editData?.id);
+    if (!editing && !formData.image) {
       newErrors.image = 'Vui lòng tải ảnh sản phẩm';
+    }
+    if (editing && !formData.image && !previewImage) {
+      newErrors.image = 'Cần ảnh (giữ ảnh cũ hoặc chọn ảnh mới)';
     }
 
     setErrors(newErrors);
@@ -69,18 +137,49 @@ const CreateProduct = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (editData) {
-      console.log('Cập nhật sản phẩm:', formData);
-      alert('Cập nhật sản phẩm thành công!');
-    } else {
-      console.log('Thêm sản phẩm mới:', formData);
-      alert('Thêm sản phẩm thành công!');
+    let imageStr = previewImage;
+    if (formData.image instanceof File) {
+      try {
+        imageStr = await fileToDataUrl(formData.image);
+      } catch {
+        alert('Không đọc được file ảnh');
+        return;
+      }
     }
-    navigate('/super-admin/products');
+    if (!imageStr || typeof imageStr !== 'string') {
+      setErrors((prev) => ({ ...prev, image: 'Thiếu ảnh sản phẩm' }));
+      return;
+    }
+
+    const body = {
+      name: formData.name.trim(),
+      description: formData.description || '',
+      price: parseFloat(formData.price),
+      image: imageStr,
+      status: formData.status === 'Active' ? 1 : 0,
+      categoryId: Number(formData.category_id),
+    };
+    const pid = editData?.id;
+    const url = pid ? PRODUCTS.BY_ID(pid) : PRODUCTS.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: pid ? 'PUT' : 'POST',
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Lưu sản phẩm thất bại');
+        return;
+      }
+      alert(pid ? 'Cập nhật sản phẩm thành công!' : 'Thêm sản phẩm thành công!');
+      navigate('/super-admin/catalog-products');
+    } catch {
+      alert('Không thể kết nối server');
+    }
   };
 
   return (
@@ -216,7 +315,7 @@ const CreateProduct = () => {
         <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
           {editData ? 'Cập Nhật Sản Phẩm' : 'Thêm Sản Phẩm Mới'}
         </h1>
-        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/products')}>
+        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/catalog-products')}>
           <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
         </button>
       </div>
@@ -288,6 +387,24 @@ const CreateProduct = () => {
             </div>
 
             <div className="col-md-6 form-group-custom">
+              <label className="form-label">Loại sản phẩm</label>
+              <select
+                name="category_id"
+                className={`custom-select ${errors.category_id ? 'is-invalid' : ''}`}
+                value={formData.category_id}
+                onChange={handleChange}
+              >
+                <option value="">— Chọn loại —</option>
+                {categoryOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {errors.category_id && <div className="error-message">{errors.category_id}</div>}
+            </div>
+
+            <div className="col-md-6 form-group-custom">
               <label className="form-label">Trạng thái kinh doanh</label>
               <select 
                 name="status"
@@ -302,7 +419,7 @@ const CreateProduct = () => {
           </div>
 
           <div className="mt-5 border-top pt-4 text-center">
-            <button type="button" className="btn btn-cancel" onClick={() => navigate('/super-admin/products')}>
+            <button type="button" className="btn btn-cancel" onClick={() => navigate('/super-admin/catalog-products')}>
               HỦY BỎ
             </button>
             <button type="submit" className="btn btn-save">

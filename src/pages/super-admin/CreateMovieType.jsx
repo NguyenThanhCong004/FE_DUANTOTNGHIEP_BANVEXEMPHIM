@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { GENRES } from '../../constants/apiEndpoints';
 
 const CreateMovieType = () => {
   const navigate = useNavigate();
@@ -30,18 +32,27 @@ const CreateMovieType = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (editData) {
-      console.log('Cập nhật thể loại:', genreName);
-      alert('Cập nhật thể loại thành công!');
-    } else {
-      console.log('Thêm thể loại mới:', genreName);
-      alert('Thêm thể loại thành công!');
+    const gid = editData?.id;
+    const url = gid ? GENRES.BY_ID(gid) : GENRES.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: gid ? 'PUT' : 'POST',
+        body: JSON.stringify({ name: genreName.trim() }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Lưu thể loại thất bại');
+        return;
+      }
+      alert(gid ? 'Cập nhật thể loại thành công!' : 'Thêm thể loại thành công!');
+      navigate('/super-admin/movie-types');
+    } catch {
+      alert('Không thể kết nối server');
     }
-    navigate('/super-admin/movie-types');
   };
 
   return (
