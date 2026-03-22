@@ -1,61 +1,53 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { getAccessToken } from '../../utils/authStorage';
+import { apiUrl } from '../../utils/apiClient';
+import { USERS } from '../../constants/apiEndpoints';
 
 const UserManagement = () => {
-  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
-  // Dữ liệu mẫu cho khách hàng (Users)
-  const allUsers = [
-    { 
-      id: 1, 
-      username: 'customer01', 
-      fullname: 'Trần Văn An', 
-      email: 'an.tran@gmail.com', 
-      phone: '0901234567', 
-      avatar: 'https://ui-avatars.com/api/?name=Tran+Van+An&background=0D8ABC&color=fff', 
-      status: 'Active' 
-    },
-    { 
-      id: 2, 
-      username: 'linh_chi99', 
-      fullname: 'Phạm Linh Chi', 
-      email: 'chi.pham@gmail.com', 
-      phone: '0987654321', 
-      avatar: 'https://ui-avatars.com/api/?name=Pham+Linh+Chi&background=FF4081&color=fff', 
-      status: 'Active' 
-    },
-    { 
-      id: 3, 
-      username: 'hoang_long', 
-      fullname: 'Lê Hoàng Long', 
-      email: 'long.le@gmail.com', 
-      phone: '0912345678', 
-      avatar: 'https://ui-avatars.com/api/?name=Le+Hoang+Long&background=7B1FA2&color=fff',
-      status: 'Inactive'
-    },
-    ...Array.from({ length: 25 }, (_, i) => ({
-      id: i + 4,
-      username: `user_test_${i + 4}`,
-      fullname: `Khách hàng ${i + 4}`,
-      email: `user${i + 4}@example.com`,
-      phone: `03456789${(i + 10).toString().slice(0, 2)}`,
-      avatar: `https://ui-avatars.com/api/?name=User+${i + 4}&background=random`,
-      status: i % 4 === 0 ? 'Inactive' : 'Active'
-    }))
-  ];
+  const [allUsers, setAllUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const token = getAccessToken();
+        const res = await fetch(apiUrl(USERS.LIST), {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        if (mounted) setAllUsers(Array.isArray(list) ? list : []);
+      } catch {
+        if (mounted) setAllUsers([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Logic lọc và tìm kiếm
-  const filteredUsers = allUsers.filter(user => 
-    user.fullname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.phone.includes(searchTerm)
-  );
+  const filteredUsers = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return allUsers;
+    return allUsers.filter((user) => {
+      const fullname = String(user.fullname ?? '').toLowerCase();
+      const username = String(user.username ?? '').toLowerCase();
+      const email = String(user.email ?? '').toLowerCase();
+      const phone = String(user.phone ?? '');
+      return fullname.includes(q) || username.includes(q) || email.includes(q) || phone.includes(q);
+    });
+  }, [allUsers, searchTerm]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -288,14 +280,29 @@ const UserManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((user) => (
-                <tr key={user.id}>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-5 fw-bold text-muted">
+                    Đang tải dữ liệu...
+                  </td>
+                </tr>
+              ) : currentItems.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-5 fw-bold text-muted">
+                    Không có dữ liệu người dùng.
+                  </td>
+                </tr>
+              ) : (
+                currentItems.map((user) => {
+                  const isActive = user.status === 1 || user.status === 'Active';
+                  return (
+                    <tr key={user.userId ?? user.id}>
                   <td className="px-4">
                     <div className="d-flex align-items-center">
                       <img src={user.avatar} alt={user.username} className="user-avatar-img" />
                       <div>
                         <div className="fw-bold">{user.fullname}</div>
-                        <div className="text-dark small">ID: #{user.id}</div>
+                        <div className="text-dark small">ID: #{user.userId}</div>
                       </div>
                     </div>
                   </td>
@@ -309,8 +316,8 @@ const UserManagement = () => {
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge ${user.status === 'Active' ? 'status-active' : 'status-inactive'}`}>
-                      {user.status === 'Active' ? 'Đang hoạt động' : 'Đã khóa'}
+                    <span className={`status-badge ${isActive ? 'status-active' : 'status-inactive'}`}>
+                      {isActive ? 'Đang hoạt động' : 'Đã khóa'}
                     </span>
                   </td>
                   <td>
@@ -325,17 +332,12 @@ const UserManagement = () => {
                       >
                         Xem 
                       </button>
-                      <button 
-                        className="btn btn-sm btn-outline-dark" 
-                        title="Chỉnh sửa"
-                        onClick={() => navigate('/super-admin/users')}
-                      >
-                        Sửa
-                      </button>                    
                     </div>
                   </td>
                 </tr>
-              ))}
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -389,8 +391,8 @@ const UserManagement = () => {
             </div>
             <div className="detail-row">
               <span className="detail-label">Trạng thái:</span>
-              <span className={`status-badge ${selectedItem.status === 'Active' ? 'status-active' : 'status-inactive'}`}>
-                {selectedItem.status === 'Active' ? 'Đang hoạt động' : 'Đã khóa'}
+              <span className={`status-badge ${(selectedItem.status === 1 || selectedItem.status === 'Active') ? 'status-active' : 'status-inactive'}`}>
+                {(selectedItem.status === 1 || selectedItem.status === 'Active') ? 'Đang hoạt động' : 'Đã khóa'}
               </span>
             </div>
 

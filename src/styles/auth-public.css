@@ -1,0 +1,29 @@
+/**
+ * Đồng bộ giao diện: đăng nhập / đăng ký / quên mật khẩu / đăng nhập nhân viên.
+ * Dùng chung với design-tokens (--font-ui, màu site-chrome).
+ */
+html.cinetoon-public .auth-public-page,
+html.admin-panel .staff-auth-page {
+  font-family: var(--font-ui, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Card đăng nhập/đăng ký (trang user) */
+.auth-public-page .card.bg-opacity-10 {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.auth-public-page .text-gradient,
+.auth-public-page h2 {
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+/* Quên mật khẩu — bổ sung biến đồng bộ */
+.fp-page,
+.fp-shell {
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+/* Staff login: thay Syne bằng token (override trong component) */

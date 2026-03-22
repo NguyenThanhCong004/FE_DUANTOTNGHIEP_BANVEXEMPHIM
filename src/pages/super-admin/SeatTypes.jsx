@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { SEAT_TYPES } from '../../constants/apiEndpoints';
 
 const SeatTypeManagement = () => {
   const navigate = useNavigate();
@@ -7,13 +9,36 @@ const SeatTypeManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 10;
 
-  // Dữ liệu mẫu cho loại ghế
-  const [seatTypes] = useState([
-    { id: 1, name: 'Ghế Thường', price: 60000 },
-    { id: 2, name: 'Ghế VIP', price: 90000 },
-    { id: 3, name: 'Ghế Sweetbox (Đôi)', price: 150000 },
-    { id: 4, name: 'Ghế Deluxe', price: 110000 },
-  ]);
+  const [seatTypes, setSeatTypes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(SEAT_TYPES.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        if (!mounted) return;
+        setSeatTypes(
+          arr.map((t) => ({
+            id: t.seatTypeId ?? t.id,
+            name: t.name ?? '',
+            price: t.surcharge != null ? t.surcharge : 0,
+          }))
+        );
+      } catch {
+        if (mounted) setSeatTypes([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Logic lọc
   const filteredTypes = seatTypes.filter(type => 
@@ -150,7 +175,14 @@ const SeatTypeManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((type, index) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-4 text-muted">
+                    Đang tải...
+                  </td>
+                </tr>
+              ) : (
+              currentItems.map((type, index) => (
                 <tr key={type.id}>
                   <td className="text-center fw-bold">{indexOfFirstItem + index + 1}</td>
                   <td className="fw-bold">{type.name}</td>
@@ -166,7 +198,7 @@ const SeatTypeManagement = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

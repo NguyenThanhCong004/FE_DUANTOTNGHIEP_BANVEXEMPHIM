@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { VOUCHERS } from '../../constants/apiEndpoints';
 
 const VoucherManagement = () => {
   const navigate = useNavigate();
@@ -9,46 +11,46 @@ const VoucherManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
-  // Dữ liệu mẫu cho Voucher
-  const [vouchers] = useState([
-    { 
-      id: 1, 
-      code: 'SUMMER2024', 
-      discount_type: 'PERCENTAGE', 
-      value: 20, 
-      min_order_value: 200000, 
-      start_date: '2024-06-01', 
-      end_date: '2024-08-31', 
-      point_voucher: 100, 
-      status: 'Active' 
-    },
-    { 
-      id: 2, 
-      code: 'WELCOME50K', 
-      discount_type: 'FIXED_AMOUNT', 
-      value: 50000, 
-      min_order_value: 150000, 
-      start_date: '2024-01-01', 
-      end_date: '2024-12-31', 
-      point_voucher: 50, 
-      status: 'Active' 
-    },
-    { 
-      id: 3, 
-      code: 'EXPIRED10', 
-      discount_type: 'PERCENTAGE', 
-      value: 10, 
-      min_order_value: 100000, 
-      start_date: '2023-01-01', 
-      end_date: '2023-12-31', 
-      point_voucher: 20, 
-      status: 'Inactive' 
-    },
-  ]);
+  const [vouchers, setVouchers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(VOUCHERS.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        if (!mounted) return;
+        setVouchers(
+          arr.map((v) => ({
+            id: v.id,
+            code: v.code ?? '',
+            discount_type: v.discountType ?? 'PERCENTAGE',
+            value: v.value ?? 0,
+            min_order_value: v.minOrderValue ?? 0,
+            start_date: v.startDate ?? '',
+            end_date: v.endDate ?? '',
+            point_voucher: v.pointVoucher ?? 0,
+            status: v.status === 1 ? 'Active' : 'Inactive',
+          }))
+        );
+      } catch {
+        if (mounted) setVouchers([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Logic lọc
-  const filteredVouchers = vouchers.filter(v => 
-    v.code.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredVouchers = vouchers.filter(v =>
+    String(v.code || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -189,7 +191,14 @@ const VoucherManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((voucher) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-4 text-muted">
+                    Đang tải...
+                  </td>
+                </tr>
+              ) : (
+              currentItems.map((voucher) => (
                 <tr key={voucher.id}>
                   <td>
                     <span className="code-badge">{voucher.code}</span>
@@ -241,7 +250,7 @@ const VoucherManagement = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

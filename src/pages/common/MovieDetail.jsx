@@ -1,172 +1,521 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '../../components/layout/Layout';
-import MoviePoster from '../../components/common/MoviePoster';
-import TrailerCard from '../../components/common/TrailerCard';
-import ReviewItem from '../../components/common/ReviewItem';
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { Form, Spinner, Badge } from "react-bootstrap";
+import Layout from "../../components/layout/Layout";
+import EmptyState from "../../components/common/EmptyState";
+import { apiFetch } from "../../utils/apiClient";
+import { MOVIES, CINEMAS, SHOWTIMES, ME } from "../../constants/apiEndpoints";
+import { getAccessToken } from "../../utils/authStorage";
+import { releaseDateToYmd } from "../../utils/movieApiMap";
+
+function formatReleaseLabel(releaseDate) {
+  const ymd = releaseDateToYmd(releaseDate);
+  if (!ymd) return "—";
+  try {
+    return new Date(ymd + "T12:00:00").toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return ymd;
+  }
+}
+
+function normalizeShowtime(st) {
+  const id = st.id ?? st.showtimeId;
+  const movieId = st.movie_id ?? st.movieId;
+  return {
+    id,
+    date: st.date,
+    time: st.time,
+    movieId,
+    movieTitle: st.movie_title ?? st.movieTitle,
+    roomName: st.room_name ?? st.roomName,
+    status: st.status,
+    price: st.price != null ? Number(st.price) : null,
+  };
+}
+
+/** Các ngày yyyy-MM-dd có suất, sắp xếp tăng dần */
+function extractSortedDates(showtimes) {
+  const set = new Set();
+  for (const s of showtimes || []) {
+    if (s.date && String(s.date).trim()) set.add(String(s.date).slice(0, 10));
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function formatDateChipVi(ymd) {
+  if (!ymd) return "";
+  try {
+    const d = new Date(`${ymd}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return ymd;
+    const wd = d.toLocaleDateString("vi-VN", { weekday: "short" });
+    const rest = d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return `${wd}, ${rest}`;
+  } catch {
+    return ymd;
+  }
+}
 
 const MovieDetail = () => {
-  const [selectedDate, setSelectedDate] = useState(0);
+  const { id: idParam } = useParams();
+  const navigate = useNavigate();
+  const movieId = Number(idParam);
 
-  // Tạo danh sách 7 ngày tới mẫu
-  const dates = [
-    { day: 'Thứ 4', date: '11/03' },
-    { day: 'Thứ 5', date: '12/03' },
-    { day: 'Thứ 6', date: '13/03' },
-    { day: 'Thứ 7', date: '14/03' },
-    { day: 'Chủ Nhật', date: '15/03' },
-    { day: 'Thứ 2', date: '16/03' },
-    { day: 'Thứ 3', date: '17/03' },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [movie, setMovie] = useState(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favBusy, setFavBusy] = useState(false);
 
-  const showtimes = ['10:00', '13:30', '16:45', '20:15', '22:30'];
+  const [cinemas, setCinemas] = useState([]);
+  const [cinemaLoading, setCinemasLoading] = useState(true);
+  const [selectedCinemaId, setSelectedCinemaId] = useState("");
 
-  const reviews = [
-    { id: 1, user: 'Nguyễn Văn A', rating: 5, comment: 'Phim quá hay, kỹ xảo đỉnh cao!', avatar: 'https://via.placeholder.com/55' }
-  ];
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState(null);
+  const [showtimes, setShowtimes] = useState([]);
+  /** yyyy-MM-dd — chỉ hiện suất của ngày này */
+  const [selectedDateYmd, setSelectedDateYmd] = useState("");
 
-  const movie = {
-    id: 1,
-    title: 'AVENGERS: ENDGAME',
-    genre: 'Hành động, Viễn tưởng',
-    posterUrl: 'https://www.elleman.vn/app/uploads/2018/04/25/Avengers-Infinity-War-ELLE-Man-featured-01-01.jpg',
-    backdropUrl: 'https://wallpaperaccess.com/full/1561986.jpg',
-    ageLimit: 'T13',
-    status: 'Đang chiếu',
-    director: 'ANTHONY RUSSO',
-    country: 'MỸ',
-    duration: '181 PHÚT',
-    releaseDate: '26/04/2019',
-    trailerUrl: 'https://www.youtube.com/embed/TcMBFSGVi1c',
-    description: 'Dàn diễn viên: Robert Downey Jr., Chris Evans, Mark Ruffalo... Phim được quay chủ yếu tại Pinewood Atlanta Studios. Đây là dự án tham vọng nhất của Marvel Studios, đánh dấu mốc kết thúc cho chặng đường hơn 10 năm của vũ trụ điện ảnh Marvel.',
-    content: 'Sau những sự kiện tàn khốc của Avengers: Infinity War (2018), vũ trụ đang bị hủy hoại. Với sự giúp đỡ của các đồng minh còn lại, Avengers tập hợp một lần nữa để đảo ngược hành động của Thanos và khôi phục sự cân bằng cho vũ trụ.'
+  useEffect(() => {
+    if (!Number.isFinite(movieId) || movieId <= 0) {
+      setError("Mã phim không hợp lệ");
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await apiFetch(MOVIES.BY_ID(movieId));
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(body?.message || "Không tìm thấy phim");
+          setMovie(null);
+        } else {
+          setMovie(body?.data || null);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Không kết nối được máy chủ.");
+          setMovie(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [movieId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(movieId) || movieId <= 0) {
+      setIsFavorite(false);
+      return;
+    }
+    const token = getAccessToken();
+    if (!token) {
+      setIsFavorite(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch(ME.FAVORITES);
+        const body = await res.json().catch(() => null);
+        if (cancelled || !res.ok) return;
+        const rows = Array.isArray(body?.data) ? body.data : [];
+        setIsFavorite(rows.some((r) => Number(r.movieId) === movieId));
+      } catch {
+        if (!cancelled) setIsFavorite(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [movieId]);
+
+  const toggleFavorite = async () => {
+    if (!Number.isFinite(movieId) || movieId <= 0) return;
+    if (!getAccessToken()) {
+      navigate("/login", { state: { from: `/movie/${movieId}` } });
+      return;
+    }
+    setFavBusy(true);
+    try {
+      if (isFavorite) {
+        const res = await apiFetch(ME.FAVORITE_BY_MOVIE(movieId), { method: "DELETE" });
+        if (res.ok) setIsFavorite(false);
+      } else {
+        const res = await apiFetch(ME.FAVORITES, {
+          method: "POST",
+          body: JSON.stringify({ movieId }),
+        });
+        if (res.ok) setIsFavorite(true);
+      }
+    } finally {
+      setFavBusy(false);
+    }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCinemasLoading(true);
+      try {
+        const res = await apiFetch(CINEMAS.LIST);
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        const list = Array.isArray(body?.data) ? body.data : [];
+        const active = list.filter((c) => c.status === 1 || c.status == null);
+        setCinemas(active.length ? active : list);
+      } catch {
+        if (!cancelled) setCinemas([]);
+      } finally {
+        if (!cancelled) setCinemasLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!Number.isFinite(movieId) || movieId <= 0) return;
+    if (!selectedCinemaId) {
+      setShowtimes([]);
+      setSlotsError(null);
+      setSelectedDateYmd("");
+      return;
+    }
+    const cid = Number(selectedCinemaId);
+    let cancelled = false;
+    (async () => {
+      setSlotsLoading(true);
+      setSlotsError(null);
+      try {
+        const q = `?movieId=${movieId}&cinemaId=${cid}`;
+        const res = await apiFetch(`${SHOWTIMES.LIST}${q}`);
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (!res.ok) {
+          setSlotsError(body?.message || "Không tải được suất chiếu");
+          setShowtimes([]);
+          return;
+        }
+        const raw = Array.isArray(body?.data) ? body.data : [];
+        const mapped = raw.map(normalizeShowtime).filter((s) => s.id != null);
+        mapped.sort((a, b) => {
+          const da = `${a.date || ""} ${a.time || ""}`;
+          const db = `${b.date || ""} ${b.time || ""}`;
+          return da.localeCompare(db);
+        });
+        setShowtimes(mapped);
+      } catch {
+        if (!cancelled) {
+          setSlotsError("Lỗi mạng khi tải suất chiếu");
+          setShowtimes([]);
+        }
+      } finally {
+        if (!cancelled) setSlotsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [movieId, selectedCinemaId]);
+
+  const availableDates = useMemo(() => extractSortedDates(showtimes), [showtimes]);
+
+  useEffect(() => {
+    if (availableDates.length === 0) {
+      setSelectedDateYmd("");
+      return;
+    }
+    setSelectedDateYmd((prev) => (prev && availableDates.includes(prev) ? prev : availableDates[0]));
+  }, [availableDates]);
+
+  const showtimesForSelectedDate = useMemo(() => {
+    if (!selectedDateYmd) return [];
+    return showtimes.filter((s) => String(s.date || "").slice(0, 10) === selectedDateYmd);
+  }, [showtimes, selectedDateYmd]);
+
+  const poster = movie?.posterUrl || movie?.poster || "";
+  const isStopped = movie && movie.status !== 1;
+
+  const metaLine = useMemo(() => {
+    if (!movie) return "";
+    const parts = [];
+    if (movie.genre) parts.push(movie.genre);
+    if (movie.duration) parts.push(`${movie.duration} phút`);
+    if (movie.ageLimit != null) parts.push(`T${movie.ageLimit}`);
+    if (movie.nation) parts.push(movie.nation);
+    return parts.join(" · ");
+  }, [movie]);
+
+  if (!Number.isFinite(movieId) || movieId <= 0) {
+    return (
+      <Layout>
+        <div className="container py-5 mt-5">
+          <EmptyState title="Mã phim không hợp lệ" subtitle="Quay lại danh sách phim." />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      {/* PHẦN 1: HERO SECTION */}
-      <div className="movie-hero py-5" style={{ background: `linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), url('${movie.backdropUrl}')`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'white' }}>
-        <div className="container">
-          <div className="row align-items-center">
-            <div className="col-md-4 text-center mb-4 mb-md-0">
-              <MoviePoster 
-                src={movie.posterUrl} 
-                alt={movie.title} 
-                className="shadow-lg border border-4 border-white border-opacity-10" 
-                style={{ maxWidth: '300px', margin: '0 auto' }} 
-              />
-            </div>
-            <div className="col-md-8">
-              <div className="d-flex gap-2 mb-3">
-                <span className="badge bg-danger fw-bold p-2 px-3 rounded-pill shadow-sm">{movie.ageLimit} (Trên 13 tuổi)</span>
-                <span className="badge bg-success fw-bold p-2 px-3 rounded-pill shadow-sm">{movie.status}</span>
-              </div>
-              <h1 className="display-4 fw-black mb-2 uppercase" style={{ fontWeight: 900 }}>{movie.title}</h1>
-              <p className="fs-5 text-warning mb-4 fw-bold">{movie.genre}</p>
-              
-              <div className="d-flex align-items-center flex-wrap gap-4 mb-4 opacity-75 fw-bold small text-uppercase">
-                <span><i className="fas fa-video me-2 text-danger"></i>ĐẠO DIỄN: {movie.director}</span>
-                <span><i className="fas fa-globe me-2 text-danger"></i>QUỐC GIA: {movie.country}</span>
-                <span><i className="fas fa-clock me-2 text-danger"></i>{movie.duration}</span>
-                <span><i className="fas fa-calendar-alt me-2 text-danger"></i>KHỞI CHIẾU: {movie.releaseDate}</span>
-              </div>
-
-              {/* KHỐI MÔ TẢ PHIM */}
-              <div className="bg-white bg-opacity-10 p-4 rounded-4 mb-3" style={{ backdropFilter: 'blur(10px)', border:'1px solid rgba(255,255,255,0.1)' }}>
-                <h5 className="fw-black text-info mb-2 text-uppercase small tracking-tighter">Mô tả phim</h5>
-                <p className="mb-0 fs-6 lh-base text-white opacity-90" style={{ textAlign: 'justify' }}>{movie.description}</p>
-              </div>
-
-              {/* KHỐI NỘI DUNG PHIM */}
-              <div className="bg-white bg-opacity-10 p-4 rounded-4 mb-3" style={{ backdropFilter: 'blur(10px)', border:'1px solid rgba(255,255,255,0.1)' }}>
-                <h5 className="fw-black text-warning mb-2 text-uppercase small tracking-tighter">Nội dung phim</h5>
-                <p className="mb-0 fs-6 lh-base text-white opacity-90" style={{ textAlign: 'justify' }}>{movie.content}</p>
-              </div>
-            </div>
-          </div>
+      <div className="container py-4 mt-4 text-white">
+        <div className="mb-4">
+          <Link to="/movies" className="btn btn-outline-light rounded-pill btn-sm fw-bold">
+            <i className="fas fa-arrow-left me-2" /> Quay lại
+          </Link>
         </div>
-      </div>
 
-      <div className="container py-5">
-        <div className="row g-4">
-          <div className="col-lg-8">
-            {/* PHẦN CHỌN NGÀY & SUẤT CHIẾU */}
-            <div className="card border-0 shadow-sm rounded-4 mb-4 bg-white bg-opacity-10" style={{ backdropFilter: 'blur(10px)' }}>
-              <div className="card-body p-4">
-                <h4 className="fw-black text-white mb-4 d-flex align-items-center tracking-tighter">
-                  <i className="fas fa-calendar-alt text-danger me-3"></i>LỊCH CHIẾU
-                </h4>
+        {loading ? (
+          <div className="text-center py-5">
+            <Spinner animation="border" variant="danger" />
+            <p className="mt-3 small opacity-75 mb-0">Đang tải phim…</p>
+          </div>
+        ) : null}
 
-                <div className="d-flex gap-2 overflow-auto pb-3 mb-4 custom-scrollbar">
-                  {dates.map((item, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedDate(index)}
-                      className={`btn rounded-4 p-3 flex-shrink-0 transition-all ${selectedDate === index ? 'btn-gradient shadow' : 'bg-white bg-opacity-5 text-white border-white border-opacity-10'}`}
-                      style={{ minWidth: '100px' }}
-                    >
-                      <div className="small opacity-75 fw-bold">{item.day}</div>
-                      <div className="fs-5 fw-black">{item.date}</div>
-                    </button>
-                  ))}
-                </div>
+        {!loading && error ? (
+          <EmptyState title="Không tải được phim" subtitle={error} />
+        ) : null}
 
-                <hr className="border-white border-opacity-10 mb-4" />
+        {!loading && movie ? (
+          <>
+            {isStopped ? (
+              <div className="alert alert-secondary border-0 shadow-sm mb-4">
+                Phim này đã <strong>ngừng chiếu</strong> — không hiển thị trên trang chủ / banner.
+              </div>
+            ) : null}
 
-                <h6 className="text-warning fw-bold text-uppercase small mb-3">Suất chiếu cho ngày {dates[selectedDate].date}:</h6>
-                <div className="row g-3">
-                  {showtimes.map(time => (
-                    <div key={time} className="col-6 col-md-3">
-                      <Link to={`/booking/${movie.id}`} className="btn btn-outline-light w-100 py-3 rounded-3 shadow-sm border-white border-opacity-10 bg-white bg-opacity-5 fw-bold fs-5">
-                        {time}
-                      </Link>
+            <div className="row g-4 align-items-start">
+              <div className="col-md-4 col-lg-3">
+                <div className="rounded-4 overflow-hidden shadow-lg bg-dark">
+                  {poster ? (
+                    <img src={poster} alt={movie.title} className="w-100" style={{ aspectRatio: "2/3", objectFit: "cover" }} />
+                  ) : (
+                    <div className="ratio ratio-2x3 bg-secondary d-flex align-items-center justify-content-center text-white-50 small p-3">
+                      Chưa có poster
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
-            </div>
-
-            {/* ĐÁNH GIÁ & BÌNH LUẬN */}
-            <div className="card border-0 shadow-sm rounded-4 bg-white bg-opacity-10" style={{ backdropFilter: 'blur(10px)' }}>
-              <div className="card-body p-4">
-                <div className="d-flex justify-content-between align-items-center mb-4 border-bottom border-white border-opacity-10 pb-3">
-                  <h4 className="fw-black text-white mb-0 tracking-tighter"><i className="fas fa-comments text-primary me-3"></i>ĐÁNH GIÁ PHIM</h4>
-                  <div className="bg-white bg-opacity-10 px-3 py-2 rounded-pill shadow-sm">
-                    <span className="fw-bold text-warning fs-5">4.9</span> <i className="fas fa-star text-warning"></i>
-                  </div>
+              <div className="col-md-8 col-lg-9">
+                <div className="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+                  <h1 className="fw-black text-uppercase m-0" style={{ letterSpacing: "0.04em" }}>
+                    {movie.title}
+                  </h1>
+                  <button
+                    type="button"
+                    className="btn btn-outline-light rounded-pill btn-sm fw-bold"
+                    disabled={favBusy}
+                    onClick={toggleFavorite}
+                    title={isFavorite ? "Bỏ yêu thích" : "Thêm yêu thích"}
+                  >
+                    {isFavorite ? "♥ Đã thích" : "♡ Yêu thích"}
+                  </button>
                 </div>
+                <p className="text-white-50 small mb-3">{metaLine}</p>
+                <p className="small mb-2">
+                  <span className="text-white-50">Khởi chiếu:</span>{" "}
+                  <strong className="text-white">{formatReleaseLabel(movie.releaseDate)}</strong>
+                </p>
+                {movie.author ? (
+                  <p className="small mb-2">
+                    <span className="text-white-50">Đạo diễn:</span> <strong>{movie.author}</strong>
+                  </p>
+                ) : null}
+                {movie.basePrice != null ? (
+                  <p className="small mb-3">
+                    <span className="text-white-50">Giá gốc vé:</span>{" "}
+                    <strong>{Number(movie.basePrice).toLocaleString("vi-VN")} đ</strong>
+                  </p>
+                ) : null}
 
-                <div className="bg-white bg-opacity-5 p-4 rounded-4 mb-5 border border-white border-opacity-10">
-                  <h6 className="fw-bold mb-3 text-white"><i className="fas fa-pen-fancy me-2 text-primary"></i>Viết đánh giá của bạn</h6>
+                {movie.description ? (
                   <div className="mb-3">
-                    <textarea className="form-control bg-white bg-opacity-10 border-white border-opacity-10 text-white shadow-none p-3" rows="3" placeholder="Chia sẻ cảm nghĩ của bạn về bộ phim..."></textarea>
+                    <h6 className="text-danger fw-bold text-uppercase small mb-2">Giới thiệu</h6>
+                    <p className="text-white-75 small mb-0" style={{ whiteSpace: "pre-line" }}>
+                      {movie.description}
+                    </p>
                   </div>
-                  <div className="text-end">
-                    <button className="btn btn-gradient rounded-pill px-5 fw-bold shadow">GỬI ĐÁNH GIÁ</button>
+                ) : null}
+                {movie.content ? (
+                  <div className="mb-4">
+                    <h6 className="text-danger fw-bold text-uppercase small mb-2">Nội dung</h6>
+                    <p className="text-white-75 small mb-0" style={{ whiteSpace: "pre-line" }}>
+                      {movie.content}
+                    </p>
                   </div>
-                </div>
+                ) : null}
 
-                <div className="review-list">
-                  {reviews.map(review => (
-                    <ReviewItem key={review.id} review={review} />
-                  ))}
+                <div className="border border-secondary border-opacity-25 rounded-4 p-3 p-md-4 bg-dark bg-opacity-40">
+                  <h5 className="fw-bold mb-3 d-flex align-items-center gap-2">
+                    <i className="fas fa-ticket-alt text-danger" /> Đặt vé theo rạp — ngày — suất
+                  </h5>
+                  <p className="small text-white-50 mb-3">
+                    Muốn chỉ mua{" "}
+                    <Link to="/foodorder" className="text-warning fw-bold text-decoration-none">
+                      bắp nước
+                    </Link>{" "}
+                    (PayOS, nhận tại quầy)? Hoặc thêm món khi đặt vé ở bước chọn ghế.
+                  </p>
+
+                  <div className="d-flex flex-wrap gap-2 small text-white-50 mb-3">
+                    <span className={`rounded-pill px-2 py-1 ${selectedCinemaId ? "bg-danger bg-opacity-25 text-white" : "bg-secondary bg-opacity-25"}`}>
+                      1. Chọn rạp
+                    </span>
+                    <span className="opacity-50">→</span>
+                    <span
+                      className={`rounded-pill px-2 py-1 ${
+                        selectedCinemaId && !slotsLoading && availableDates.length > 0 && selectedDateYmd
+                          ? "bg-danger bg-opacity-25 text-white"
+                          : "bg-secondary bg-opacity-25"
+                      }`}
+                    >
+                      2. Chọn ngày
+                    </span>
+                    <span className="opacity-50">→</span>
+                    <span
+                      className={`rounded-pill px-2 py-1 ${
+                        selectedDateYmd && showtimesForSelectedDate.length > 0 ? "bg-danger bg-opacity-25 text-white" : "bg-secondary bg-opacity-25"
+                      }`}
+                    >
+                      3. Chọn suất
+                    </span>
+                  </div>
+
+                  {cinemaLoading ? (
+                    <Spinner size="sm" animation="border" variant="light" />
+                  ) : (
+                    <Form.Group className="mb-4" controlId="cinemaPick">
+                      <Form.Label className="small text-white-50 fw-bold">Bước 1 — Rạp</Form.Label>
+                      <Form.Select
+                        className="bg-dark text-white border-secondary"
+                        value={selectedCinemaId}
+                        onChange={(e) => {
+                          setSelectedCinemaId(e.target.value);
+                          setSelectedDateYmd("");
+                        }}
+                      >
+                        <option value="">— Chọn rạp —</option>
+                        {cinemas.map((c) => {
+                          const cid = c.cinemaId ?? c.id;
+                          return (
+                            <option key={cid} value={cid}>
+                              {c.name}
+                              {c.address ? ` — ${c.address}` : ""}
+                            </option>
+                          );
+                        })}
+                      </Form.Select>
+                    </Form.Group>
+                  )}
+
+                  {!selectedCinemaId ? (
+                    <p className="small text-white-50 mb-0">Chọn rạp để xem các ngày và suất chiếu.</p>
+                  ) : slotsLoading ? (
+                    <div className="d-flex align-items-center gap-2 small text-white-50">
+                      <Spinner size="sm" animation="border" variant="danger" /> Đang tải lịch chiếu…
+                    </div>
+                  ) : slotsError ? (
+                    <div className="alert alert-warning py-2 small mb-0">{slotsError}</div>
+                  ) : showtimes.length === 0 ? (
+                    <p className="small text-white-50 mb-0">Chưa có suất chiếu cho phim này tại rạp đã chọn.</p>
+                  ) : (
+                    <>
+                      <div className="mb-4">
+                        <Form.Label className="small text-white-50 fw-bold d-block mb-2">Bước 2 — Ngày chiếu</Form.Label>
+                        <div
+                          className="d-flex flex-nowrap gap-2 pb-1 movie-detail-date-row"
+                          style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+                          role="tablist"
+                          aria-label="Chọn ngày chiếu"
+                        >
+                          {availableDates.map((ymd) => {
+                            const active = ymd === selectedDateYmd;
+                            return (
+                              <button
+                                key={ymd}
+                                type="button"
+                                role="tab"
+                                aria-selected={active}
+                                className={`btn btn-sm rounded-pill fw-bold px-3 flex-shrink-0 ${
+                                  active ? "btn-danger" : "btn-outline-light border-opacity-25"
+                                }`}
+                                onClick={() => setSelectedDateYmd(ymd)}
+                              >
+                                {formatDateChipVi(ymd)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Form.Label className="small text-white-50 fw-bold d-block mb-2">Bước 3 — Suất chiếu</Form.Label>
+                        {!selectedDateYmd ? (
+                          <p className="small text-white-50 mb-0">Chọn một ngày ở trên.</p>
+                        ) : showtimesForSelectedDate.length === 0 ? (
+                          <p className="small text-white-50 mb-0">Không có suất trong ngày này.</p>
+                        ) : (
+                          <div className="row g-2 g-md-3">
+                            {showtimesForSelectedDate.map((s) => {
+                              const ended = s.status === "Đã chiếu";
+                              return (
+                                <div key={s.id} className="col-6 col-sm-4 col-lg-3">
+                                  <div
+                                    className={`h-100 rounded-3 p-3 border d-flex flex-column ${
+                                      ended ? "border-secondary border-opacity-25 bg-black bg-opacity-25 opacity-60" : "border-danger border-opacity-40 bg-dark"
+                                    }`}
+                                  >
+                                    <div className="fs-4 fw-black text-danger mb-1">{s.time || "—"}</div>
+                                    <div className="small text-white-50 mb-1">{s.roomName || "Phòng"}</div>
+                                    <div className="small text-white mb-2">
+                                      {s.price != null ? `${s.price.toLocaleString("vi-VN")} đ` : "—"}
+                                    </div>
+                                    <Badge
+                                      bg={ended ? "secondary" : s.status === "Đang chiếu" ? "success" : "warning"}
+                                      className="align-self-start mb-2"
+                                    >
+                                      {s.status || "—"}
+                                    </Badge>
+                                    <div className="mt-auto">
+                                      {ended ? (
+                                        <span className="small text-white-50">Hết suất</span>
+                                      ) : (
+                                        <Link
+                                          to={`/booking/${s.id}`}
+                                          className="btn btn-sm btn-danger w-100 rounded-pill fw-bold"
+                                        >
+                                          Đặt vé
+                                        </Link>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="col-lg-4">
-            {/* TRAILER */}
-            <TrailerCard trailerUrl={movie.trailerUrl} title="TRAILER PHIM" />
-          </div>
-        </div>
+          </>
+        ) : null}
       </div>
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
-      `}</style>
     </Layout>
   );
 };

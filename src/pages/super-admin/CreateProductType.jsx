@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
 
 const CreateProductType = () => {
   const navigate = useNavigate();
@@ -30,18 +32,27 @@ const CreateProductType = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (editData) {
-      console.log('Cập nhật loại sản phẩm:', typeName);
-      alert('Cập nhật loại sản phẩm thành công!');
-    } else {
-      console.log('Thêm loại sản phẩm mới:', typeName);
-      alert('Thêm loại sản phẩm thành công!');
+    const tid = editData?.id;
+    const url = tid ? PRODUCT_CATEGORIES.BY_ID(tid) : PRODUCT_CATEGORIES.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: tid ? 'PUT' : 'POST',
+        body: JSON.stringify({ name: typeName.trim() }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Lưu loại sản phẩm thất bại');
+        return;
+      }
+      alert(tid ? 'Cập nhật loại sản phẩm thành công!' : 'Thêm loại sản phẩm thành công!');
+      navigate('/super-admin/product-types');
+    } catch {
+      alert('Không thể kết nối server');
     }
-    navigate('/super-admin/product-types');
   };
 
   return (

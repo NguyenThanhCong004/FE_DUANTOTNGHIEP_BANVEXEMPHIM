@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { MEMBERSHIP_RANKS } from '../../constants/apiEndpoints';
 
 const MembershipLevelManagement = () => {
   const navigate = useNavigate();
@@ -9,17 +11,43 @@ const MembershipLevelManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
-  // Dữ liệu mẫu cho mức độ hội viên
-  const [levels] = useState([
-    { id: 1, rank_name: 'MEMBER', min_spending: 0, description: 'Hạng thành viên mới đăng ký', discount_percent: 0, bonus_point: 1 },
-    { id: 2, rank_name: 'SILVER', min_spending: 2000000, description: 'Hạng bạc dành cho khách hàng thân thiết', discount_percent: 5, bonus_point: 2 },
-    { id: 3, rank_name: 'GOLD', min_spending: 5000000, description: 'Hạng vàng với nhiều ưu đãi hấp dẫn', discount_percent: 10, bonus_point: 3 },
-    { id: 4, rank_name: 'DIAMOND', min_spending: 10000000, description: 'Hạng kim cương cao cấp nhất', discount_percent: 15, bonus_point: 5 },
-  ]);
+  const [levels, setLevels] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(MEMBERSHIP_RANKS.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        if (!mounted) return;
+        setLevels(
+          arr.map((l) => ({
+            id: l.id,
+            rank_name: l.rankName ?? '',
+            min_spending: l.minSpending ?? 0,
+            description: l.description ?? '',
+            discount_percent: l.discountPercent ?? 0,
+            bonus_point: l.bonusPoint ?? 1,
+          }))
+        );
+      } catch {
+        if (mounted) setLevels([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Logic lọc
-  const filteredLevels = levels.filter(level => 
-    level.rank_name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredLevels = levels.filter((level) =>
+    String(level.rank_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -211,7 +239,14 @@ const MembershipLevelManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((level, index) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-4 text-muted">
+                    Đang tải...
+                  </td>
+                </tr>
+              ) : (
+                currentItems.map((level, index) => (
                 <tr key={level.id}>
                   <td className="text-center fw-bold">{indexOfFirstItem + index + 1}</td>
                   <td>
@@ -245,7 +280,8 @@ const MembershipLevelManagement = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

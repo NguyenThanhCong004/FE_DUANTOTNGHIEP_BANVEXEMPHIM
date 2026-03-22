@@ -1,73 +1,193 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
-import { Container, Row, Col } from "react-bootstrap";
+import {
+  User,
+  Calendar,
+  Mail,
+  Phone,
+  Shield,
+  Star,
+  History,
+  Award,
+  Settings,
+  LogOut,
+  Edit3,
+  X,
+  Check,
+  AlertCircle,
+  Camera,
+  Key,
+  TrendingUp,
+  Activity
+} from "lucide-react";
+import { getAccessToken, getRefreshToken, getStoredStaff, getStoredUser, setAuthSession } from "../../utils/authStorage";
+import { getUserIdFromToken } from "../../utils/jwt";
+import { apiFetch } from "../../utils/apiClient";
+import { USERS, ME } from "../../constants/apiEndpoints";
+import { mapMeTransactionToFe } from "../../utils/customerMeApi";
 
-/* ── Mock user data (based on Users ERD) ── */
-const MOCK_USER = {
-  user_id: 101,
-  username: "nguyenvana",
-  fullname: "Nguyễn Văn An",
-  email: "nguyenvana@gmail.com",
-  phone: "0912 345 678",
-  birthday: "1998-07-15",
-  avatar: null,
-  status: "active",
-  points: 760,
-  total_spending: 1850000,
-  rank: { rank_id: 2, rank_name: "Thành Viên Vàng", discount_percent: 5, min_spending: 1000000, Bonus_point: 1.5 },
-};
+// BE chỉ có endpoint user; không hiển thị dữ liệu mẫu.
+// Nếu chưa tải được dữ liệu từ BE thì UI sẽ ở trạng thái loading/empty.
 
-const RANKS = [
-  { rank_id: 1, rank_name: "Thành Viên",       min_spending: 0,       color: "#9e9e9e", icon: "🥈", discount_percent: 0,  Bonus_point: 1   },
-  { rank_id: 2, rank_name: "Thành Viên Vàng",  min_spending: 1000000, color: "#d4e219", icon: "🥇", discount_percent: 5,  Bonus_point: 1.5 },
-  { rank_id: 3, rank_name: "Thành Viên Bạch Kim", min_spending: 5000000, color: "#e91e8c", icon: "💎", discount_percent: 10, Bonus_point: 2   },
-  { rank_id: 4, rank_name: "VIP",               min_spending: 10000000, color: "#7b1fa2", icon: "👑", discount_percent: 15, Bonus_point: 3   },
-];
+// BE chưa có endpoint rank/membership plans riêng để FE hiển thị chính xác.
+// Vì vậy FE không tính/không render rank tiers nữa.
 
-const RECENT_ACTIVITY = [
-  { icon: "🎫", label: "Mua vé DUNE 2",       date: "10/03/2025", pts: "+270", pts_color: "#81c784" },
-  { icon: "🍿", label: "Combo Đôi Bạn",        date: "18/03/2025", pts: "+125", pts_color: "#81c784" },
-  { icon: "⭐", label: "Đổi voucher SAVE20PCT", date: "08/03/2025", pts: "-500", pts_color: "#e57373" },
-  { icon: "🎫", label: "Mua vé AVENGERS",       date: "15/01/2025", pts: "+150", pts_color: "#81c784" },
-];
+/** Chuẩn hóa ngày sinh từ BE (string yyyy-MM-dd hoặc mảng Jackson). */
+function toDateInputValue(birthday) {
+  if (birthday == null || birthday === "") return "";
+  if (typeof birthday === "string") return birthday.slice(0, 10);
+  if (Array.isArray(birthday) && birthday.length >= 3) {
+    const [y, m, d] = birthday;
+    return `${String(y)}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+  return "";
+}
+
+function normalizeUser(maybeUser) {
+  if (!maybeUser) return null;
+
+  // FE shape (đã chuẩn hóa trước đó)
+  if (maybeUser.user_id != null) {
+    const total = Number(maybeUser.total_spending ?? 0);
+    return {
+      ...maybeUser,
+      points: Number(maybeUser.points ?? 0),
+      total_spending: total,
+    };
+  }
+
+  // BE shape (UserDTO camelCase)
+  if (maybeUser.userId != null) {
+    const total = Number(maybeUser.totalSpending ?? 0);
+    return {
+      user_id: maybeUser.userId,
+      username: maybeUser.username ?? "",
+      fullname: maybeUser.fullname ?? "",
+      email: maybeUser.email ?? "",
+      phone: maybeUser.phone ?? "",
+      birthday: toDateInputValue(maybeUser.birthday),
+      avatar: maybeUser.avatar ?? "",
+      status: maybeUser.status,
+      points: Number(maybeUser.points ?? 0),
+      total_spending: total,
+      rank_name: maybeUser.rankName ?? null,
+    };
+  }
+
+  return null;
+}
+
+function transactionToActivity(tx) {
+  const d = new Date(tx.created_at);
+  const dateStr = Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("vi-VN");
+  const icon = tx.type === "points" ? "⭐" : tx.type === "food" ? "🍿" : "🎫";
+  const label = tx.items?.[0]?.label || tx.order_code || "Giao dịch";
+  let pts = "—";
+  let pts_color = "rgba(255,255,255,0.35)";
+  if (tx.type === "points") {
+    pts = `${tx.final_amount > 0 ? "+" : ""}${tx.final_amount} pts`;
+    pts_color = tx.final_amount >= 0 ? "#81c784" : "#e57373";
+  } else if (tx.points_earned > 0) {
+    pts = `+${tx.points_earned} pts`;
+    pts_color = "#81c784";
+  }
+  return { icon, label, date: dateStr, pts, pts_color };
+}
 
 const fmt = (n) => n.toLocaleString("vi-VN") + "đ";
 const fmtBirthday = (d) => {
-  const dt = new Date(d);
+  if (d == null || d === "") return "—";
+  const s = typeof d === "string" ? d.slice(0, 10) : d;
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return "—";
   return `${dt.getDate().toString().padStart(2, "0")}/${(dt.getMonth() + 1).toString().padStart(2, "0")}/${dt.getFullYear()}`;
 };
 
-/* ── Avatar initials ── */
-function Avatar({ name, size = 96 }) {
-  const initials = name.split(" ").slice(-2).map(w => w[0]).join("").toUpperCase();
+/* ── Avatar Component ── */
+function Avatar({ name, size = 96, avatarUrl, showEditButton = false, onEditClick }) {
+  const safeName = String(name || "?").trim() || "?";
+  const initials = safeName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]).join("").toUpperCase() || "?";
+  const url = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
+  const showImg = url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image");
+
   return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: "linear-gradient(135deg, #7b1fa2, #e91e8c)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Bebas Neue', sans-serif", fontSize: size * 0.35,
-      color: "#fff", letterSpacing: 2, flexShrink: 0,
-      boxShadow: "0 0 28px rgba(233,30,140,0.35)",
-    }}>
-      {initials}
+    <div className="relative">
+      {showImg ? (
+        <img
+          src={url}
+          alt=""
+          className={`${size === 96 ? 'w-24 h-24' : 'w-20 h-20'} rounded-full object-cover border-2 border-white/20 shadow-2xl`}
+        />
+      ) : (
+        <div className={`${size === 96 ? 'w-24 h-24' : 'w-20 h-20'} rounded-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white font-bold text-2xl shadow-2xl border-2 border-white/20`}>
+          {initials}
+        </div>
+      )}
+      {showEditButton && (
+        <button
+          onClick={onEditClick}
+          className="absolute bottom-0 right-0 bg-rose-500 hover:bg-rose-600 text-white p-2 rounded-full shadow-lg transition-colors border-2 border-zinc-900"
+        >
+          <Camera size={14} />
+        </button>
+      )}
     </div>
   );
 }
 
-/* ── Input field ── */
-function Field({ label, value, name, type = "text", onChange, disabled, error }) {
+/* ── Input Field ── */
+function Field({ label, icon, value, name, type = "text", onChange, disabled, error, placeholder }) {
   return (
-    <div className="pf-field">
-      <label className="pf-label">{label}</label>
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+        {icon}
+        {label}
+      </label>
       <input
-        className={`pf-input${error ? " err" : ""}${disabled ? " disabled" : ""}`}
+        className={`w-full px-4 py-3 rounded-xl border ${error ? 'border-red-500 bg-red-500/10' : 'border-zinc-700 bg-zinc-800/50'} text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         type={type}
         name={name}
         value={value}
         onChange={onChange}
         disabled={disabled}
+        placeholder={placeholder}
       />
-      {error && <p className="pf-field-err">{error}</p>}
+      {error && (
+        <p className="text-red-400 text-sm flex items-center gap-1">
+          <AlertCircle size={14} />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TextAreaField({ label, icon, value, name, onChange, error, rows = 3, hint, placeholder }) {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+        {icon}
+        {label}
+      </label>
+      <textarea
+        className={`w-full px-4 py-3 rounded-xl border ${error ? 'border-red-500 bg-red-500/10' : 'border-zinc-700 bg-zinc-800/50'} text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all resize-none`}
+        name={name}
+        rows={rows}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        style={{ minHeight: rows * 22 }}
+      />
+      {hint && (
+        <p className="text-zinc-500 text-xs">{hint}</p>
+      )}
+      {error && (
+        <p className="text-red-400 text-sm flex items-center gap-1">
+          <AlertCircle size={14} />
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -76,7 +196,7 @@ function Field({ label, value, name, type = "text", onChange, disabled, error })
    MAIN
 ══════════════════════════════════════ */
 export default function UserProfile() {
-  const [user, setUser]         = useState(MOCK_USER);
+  const [user, setUser]         = useState(null);
   const [editing, setEditing]   = useState(false);
   const [draft, setDraft]       = useState({});
   const [errors, setErrors]     = useState({});
@@ -84,20 +204,87 @@ export default function UserProfile() {
   const [pwModal, setPwModal]   = useState(false);
   const [pwData, setPwData]     = useState({ current: "", newPw: "", confirm: "" });
   const [pwErrors, setPwErrors] = useState({});
-  const [showPw, setShowPw]     = useState({ current: false, newPw: false, confirm: false });
   const [activeTab, setActiveTab] = useState("info");
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [recentActivity, setRecentActivity] = useState([]);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch(ME.TRANSACTIONS);
+        const body = await res.json().catch(() => null);
+        if (cancelled || !res.ok) return;
+        const raw = Array.isArray(body?.data) ? body.data : [];
+        const acts = raw.map(mapMeTransactionToFe).slice(0, 8).map(transactionToActivity);
+        setRecentActivity(acts);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    const stored = getStoredUser();
+    const uidFromJwt = token ? getUserIdFromToken(token) : null;
+    const uidFromStore = stored?.userId ?? stored?.user_id ?? null;
+    const userId = uidFromJwt ?? uidFromStore;
+
+    if (stored) {
+      const normalized = normalizeUser(stored);
+      if (normalized) setUser(normalized);
+    }
+
+    if (!token || !userId) {
+      setInitialLoad(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      setProfileLoading(true);
+      try {
+        const res = await apiFetch(USERS.BY_ID(userId));
+        const json = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.ok && json?.data) {
+          const normalized = normalizeUser(json.data);
+          if (normalized) {
+            setUser(normalized);
+            setAuthSession({
+              accessToken: token,
+              refreshToken: getRefreshToken(),
+              user: json.data,
+              staff: getStoredStaff(),
+            });
+          }
+        }
+      } catch {
+        /* giữ dữ liệu từ localStorage nếu có */
+      } finally {
+        if (!cancelled) {
+          setProfileLoading(false);
+          setInitialLoad(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 2800);
   };
-
-  /* next rank progress */
-  const currentRankIdx = RANKS.findIndex(r => r.rank_id === user.rank.rank_id);
-  const nextRank = RANKS[currentRankIdx + 1];
-  const progressPct = nextRank
-    ? Math.min(100, ((user.total_spending - user.rank.min_spending) / (nextRank.min_spending - user.rank.min_spending)) * 100)
-    : 100;
 
   /* edit handlers */
   const startEdit = () => { setDraft({ ...user }); setEditing(true); setErrors({}); };
@@ -109,16 +296,57 @@ export default function UserProfile() {
   const validateEdit = () => {
     const e = {};
     if (!draft.fullname?.trim()) e.fullname = "Họ tên không được để trống";
-    if (!draft.phone?.trim())    e.phone    = "Số điện thoại không được để trống";
-    else if (!/^[0-9\s]{9,12}$/.test(draft.phone.replace(/\s/g, ""))) e.phone = "Số điện thoại không hợp lệ";
+    const em = draft.email?.trim() || "";
+    if (!em) e.email = "Email không được để trống";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) e.email = "Email không hợp lệ";
+    if (!draft.phone?.trim()) e.phone = "Số điện thoại không được để trống";
+    else {
+      const digits = draft.phone.replace(/\D/g, "");
+      if (digits.length < 9 || digits.length > 12) e.phone = "Số điện thoại không hợp lệ";
+    }
     return e;
   };
-  const saveEdit = () => {
+  const saveEdit = async () => {
     const e = validateEdit();
     if (Object.keys(e).length) { setErrors(e); return; }
-    setUser(u => ({ ...u, ...draft }));
-    setEditing(false);
-    showToast("Cập nhật thông tin thành công!");
+
+    const token = getAccessToken();
+    if (!token || !user.user_id) {
+      showToast("Bạn cần đăng nhập để lưu thông tin", "error");
+      return;
+    }
+
+    try {
+      const body = {
+        fullname: draft.fullname.trim(),
+        email: draft.email.trim(),
+        phone: draft.phone.trim().replace(/\s/g, ""),
+        status: user.status ?? 1,
+        birthday: draft.birthday ? draft.birthday : null,
+        avatar: draft.avatar?.trim() ? draft.avatar.trim() : null,
+      };
+      const res = await apiFetch(USERS.BY_ID(user.user_id), {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.data) {
+        showToast(json?.message || "Cập nhật thất bại", "error");
+        return;
+      }
+      const normalized = normalizeUser(json.data);
+      if (normalized) setUser(normalized);
+      setAuthSession({
+        accessToken: token,
+        refreshToken: getRefreshToken(),
+        user: json.data,
+        staff: getStoredStaff(),
+      });
+      setEditing(false);
+      showToast("Cập nhật thông tin thành công!");
+    } catch {
+      showToast("Không thể kết nối máy chủ", "error");
+    }
   };
 
   /* password */
@@ -130,458 +358,140 @@ export default function UserProfile() {
     if (pwData.newPw !== pwData.confirm) e.confirm = "Mật khẩu xác nhận không khớp";
     return e;
   };
-  const savePw = () => {
+  const savePw = async () => {
     const e = validatePw();
     if (Object.keys(e).length) { setPwErrors(e); return; }
-    setPwModal(false);
-    setPwData({ current: "", newPw: "", confirm: "" });
-    showToast("Đổi mật khẩu thành công!");
+
+    const token = getAccessToken();
+    if (!token || !user?.user_id) {
+      showToast("Bạn cần đăng nhập", "error");
+      return;
+    }
+
+    try {
+      const res = await apiFetch(USERS.PASSWORD(user.user_id), {
+        method: "PUT",
+        body: JSON.stringify({
+          currentPassword: pwData.current,
+          newPassword: pwData.newPw,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        showToast(json?.message || "Đổi mật khẩu thất bại", "error");
+        return;
+      }
+      setPwModal(false);
+      setPwData({ current: "", newPw: "", confirm: "" });
+      showToast("Đổi mật khẩu thành công!");
+    } catch {
+      showToast("Không thể kết nối máy chủ", "error");
+    }
   };
 
-  const EyeBtn = ({ field }) => (
-    <button className="pf-eye" type="button" onClick={() => setShowPw(s => ({ ...s, [field]: !s[field] }))}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        {showPw[field]
-          ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
-          : <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
-        }
-      </svg>
-    </button>
-  );
+  if (!user) {
+    const token = getAccessToken();
+    if (token && initialLoad) {
+      return (
+        <Layout>
+          <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>      
+           <div style={{ color: "#fff", fontWeight: 700 }}>Đang tải hồ sơ...</div>
+          </div>
+        </Layout>
+      );
+    }
+    return (
+      <Layout>
+        <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>            
+        <div                                                                                                                       
+           style={{                                                                                                                 
+             width: "100%",                                                                                                         
+            maxWidth: 720,                                                                                                         
+             background: "rgba(20,22,50,0.92)",                                                                                     
+            border: "1px solid rgba(255,255,255,0.08)",                                                                            
+             borderRadius: 18,                                                                                                      
+             padding: 22,                                                                                                           
+            color: "#fff",                                                                                                         
+             textAlign: "center",                                                                                                   
+           }}                                                                                                                       
+         >                                                                                                                          
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 34, letterSpacing: 3, marginBottom: 8 }}>
+              {token ? "Không tải được hồ sơ" : "Vui lòng đăng nhập"}
+            </div>                                                                                                                   
+           <div style={{ color: "rgba(255,255,255,0.7)", fontWeight: 700, fontSize: 13, lineHeight: 1.6 }}>
+              {token
+                ? "Kiểm tra BE đang chạy và token còn hạn. Đăng nhập lại nếu cần."
+                : "Trang hồ sơ chỉ hiển thị khi bạn đăng nhập tài khoản khách."}
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
-        :root {
-          --navy:   #2d3151;
-          --purple: #7b1fa2;
-          --pink:   #e91e8c;
-          --yellow: #d4e219;
-          --dark:   #0f102a;
-          --card:   rgba(20,22,50,0.92);
-        }
-
-        .pf-page {
-          min-height: 100vh;
-          background:
-            radial-gradient(ellipse 65% 50% at 15% 20%, rgba(123,31,162,0.18) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 40% at 85% 80%, rgba(233,30,140,0.13) 0%, transparent 60%),
-            #0f102a;
-          font-family: 'Syne', sans-serif;
-          padding: 32px 0 80px;
-        }
-
-        /* ── HERO CARD ── */
-        .pf-hero {
-          background: var(--card);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 20px;
-          padding: 28px 32px;
-          display: flex;
-          align-items: center;
-          gap: 24px;
-          position: relative;
-          overflow: hidden;
-          margin-bottom: 24px;
-        }
-        .pf-hero::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 3px;
-          background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow));
-          background-size: 300%;
-          animation: gradMove 5s linear infinite;
-        }
-        @keyframes gradMove { 0%{background-position:0%} 100%{background-position:300%} }
-        .pf-hero-right { flex: 1; min-width: 0; }
-        .pf-username {
-          font-size: 12px;
-          font-weight: 700;
-          color: rgba(255,255,255,0.35);
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          margin-bottom: 2px;
-        }
-        .pf-fullname {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(26px, 4vw, 40px);
-          letter-spacing: 3px;
-          color: #fff;
-          line-height: 1;
-          margin-bottom: 10px;
-        }
-        .pf-rank-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          border-radius: 100px;
-          padding: 5px 14px;
-          border: 1px solid;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.5px;
-          margin-bottom: 16px;
-        }
-
-        /* rank progress */
-        .pf-progress-wrap { max-width: 380px; }
-        .pf-progress-label {
-          display: flex;
-          justify-content: space-between;
-          font-size: 11px;
-          font-weight: 600;
-          color: rgba(255,255,255,0.3);
-          margin-bottom: 6px;
-        }
-        .pf-progress-bar {
-          height: 6px;
-          background: rgba(255,255,255,0.08);
-          border-radius: 3px;
-          overflow: hidden;
-        }
-        .pf-progress-fill {
-          height: 100%;
-          border-radius: 3px;
-          background: linear-gradient(90deg, var(--purple), var(--pink));
-          transition: width 0.6s ease;
-        }
-
-        /* hero stats */
-        .pf-hero-stats {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          text-align: center;
-          flex-shrink: 0;
-        }
-        .pf-hs {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 12px;
-          padding: 12px 20px;
-          min-width: 110px;
-        }
-        .pf-hs-num {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 24px;
-          letter-spacing: 1px;
-          color: var(--yellow);
-          line-height: 1;
-        }
-        .pf-hs-lbl {
-          font-size: 10px;
-          font-weight: 700;
-          color: rgba(255,255,255,0.3);
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-top: 3px;
-        }
-
-        /* ── TABS ── */
-        .pf-tabs {
-          display: flex;
-          gap: 4px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 12px;
-          padding: 4px;
-          margin-bottom: 20px;
-          width: fit-content;
-        }
-        .pf-tab {
-          font-family: 'Syne', sans-serif;
-          font-weight: 700;
-          font-size: 12px;
-          letter-spacing: 0.8px;
-          text-transform: uppercase;
-          padding: 9px 20px;
-          border-radius: 9px;
-          border: none;
-          background: transparent;
-          color: rgba(255,255,255,0.35);
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .pf-tab.active {
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          color: #fff;
-          box-shadow: 0 0 14px rgba(233,30,140,0.3);
-        }
-        .pf-tab:hover:not(.active) { color: rgba(255,255,255,0.7); }
-
-        /* ── CARD ── */
-        .pf-card {
-          background: var(--card);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 16px;
-          padding: 24px;
-          height: 100%;
-        }
-        .pf-card-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 18px;
-          letter-spacing: 3px;
-          color: #fff;
-          margin-bottom: 20px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .pf-card-title span { color: var(--yellow); }
-
-        /* ── FORM FIELDS ── */
-        .pf-field { margin-bottom: 16px; }
-        .pf-label {
-          display: block;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          color: rgba(255,255,255,0.35);
-          margin-bottom: 7px;
-        }
-        .pf-input {
-          width: 100%;
-          background: rgba(255,255,255,0.05);
-          border: 1.5px solid rgba(255,255,255,0.09);
-          border-radius: 10px;
-          padding: 11px 16px;
-          color: #fff;
-          font-family: 'Syne', sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          outline: none;
-          transition: border-color 0.2s, background 0.2s;
-        }
-        .pf-input:focus { border-color: var(--yellow); background: rgba(212,226,25,0.03); }
-        .pf-input.disabled {
-          color: rgba(255,255,255,0.35);
-          cursor: default;
-          background: rgba(255,255,255,0.02);
-        }
-        .pf-input.err { border-color: var(--pink); }
-        .pf-field-err { font-size: 11.5px; font-weight: 700; color: var(--pink); margin-top: 4px; }
-
-        /* ── BUTTONS ── */
-        .pf-btn-primary {
-          background: linear-gradient(135deg, var(--purple), var(--pink));
-          border: none; color: #fff;
-          font-family: 'Syne', sans-serif; font-weight: 800;
-          font-size: 13px; letter-spacing: 0.5px;
-          border-radius: 10px; padding: 11px 24px;
-          cursor: pointer; transition: box-shadow 0.2s, transform 0.2s;
-          box-shadow: 0 0 16px rgba(233,30,140,0.25);
-        }
-        .pf-btn-primary:hover { box-shadow: 0 0 28px rgba(233,30,140,0.5); transform: translateY(-1px); }
-
-        .pf-btn-ghost {
-          background: transparent;
-          border: 1.5px solid rgba(255,255,255,0.12);
-          color: rgba(255,255,255,0.5);
-          font-family: 'Syne', sans-serif; font-weight: 700;
-          font-size: 13px; letter-spacing: 0.3px;
-          border-radius: 10px; padding: 11px 20px;
-          cursor: pointer; transition: all 0.2s;
-        }
-        .pf-btn-ghost:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
-
-        .pf-btn-yellow {
-          background: var(--yellow); border: none;
-          color: #0f102a;
-          font-family: 'Syne', sans-serif; font-weight: 800;
-          font-size: 13px; letter-spacing: 0.5px;
-          border-radius: 10px; padding: 11px 24px;
-          cursor: pointer; transition: box-shadow 0.2s, transform 0.2s;
-          box-shadow: 0 0 16px rgba(212,226,25,0.2);
-        }
-        .pf-btn-yellow:hover { box-shadow: 0 0 28px rgba(212,226,25,0.45); transform: translateY(-1px); }
-
-        /* ── RANK CARDS ── */
-        .pf-rank-card {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 12px;
-          padding: 16px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          transition: border-color 0.2s;
-          margin-bottom: 10px;
-        }
-        .pf-rank-card.current {
-          border-color: rgba(212,226,25,0.35);
-          background: rgba(212,226,25,0.04);
-        }
-        .pf-rank-icon { font-size: 28px; flex-shrink: 0; }
-        .pf-rank-info { flex: 1; }
-        .pf-rank-name { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 2px; }
-        .pf-rank-req  { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); margin-top: 2px; }
-        .pf-rank-perks {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          text-align: right;
-          font-size: 11px;
-          font-weight: 700;
-          color: rgba(255,255,255,0.4);
-          flex-shrink: 0;
-        }
-        .pf-current-tag {
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          background: var(--yellow);
-          color: #0f102a;
-          padding: 2px 8px;
-          border-radius: 4px;
-        }
-
-        /* ── ACTIVITY ── */
-        .pf-activity-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 11px 0;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .pf-activity-item:last-child { border-bottom: none; }
-        .pf-act-icon {
-          width: 36px; height: 36px;
-          border-radius: 10px;
-          background: rgba(255,255,255,0.05);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 18px; flex-shrink: 0;
-        }
-        .pf-act-info { flex: 1; min-width: 0; }
-        .pf-act-label { font-size: 13px; font-weight: 700; color: #fff; }
-        .pf-act-date  { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
-        .pf-act-pts   { font-family: 'Bebas Neue', sans-serif; font-size: 17px; letter-spacing: 1px; flex-shrink: 0; }
-
-        /* ── PASSWORD MODAL ── */
-        .pf-modal-overlay {
-          position: fixed; inset: 0;
-          background: rgba(0,0,0,0.7);
-          backdrop-filter: blur(5px);
-          z-index: 2000;
-          display: flex; align-items: center; justify-content: center;
-          padding: 16px;
-        }
-        .pf-modal {
-          background: #0d0e28;
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 20px;
-          width: 100%; max-width: 420px;
-          padding: 28px;
-          position: relative;
-          animation: pfPop 0.3s ease;
-        }
-        @keyframes pfPop {
-          from { opacity: 0; transform: scale(0.9); }
-          to   { opacity: 1; transform: scale(1); }
-        }
-        .pf-modal-close {
-          position: absolute; top: 14px; right: 16px;
-          background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 7px; color: rgba(255,255,255,0.4);
-          width: 30px; height: 30px; font-size: 17px; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          transition: all 0.2s;
-        }
-        .pf-modal-close:hover { color: #fff; }
-        .pf-modal-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 22px; letter-spacing: 3px; color: #fff; margin-bottom: 20px;
-        }
-        .pf-modal-title span { color: var(--yellow); }
-        .pf-pw-wrap {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .pf-pw-wrap .pf-input { padding-right: 44px; }
-        .pf-eye {
-          position: absolute; right: 12px;
-          background: none; border: none;
-          color: rgba(255,255,255,0.25);
-          cursor: pointer; padding: 0;
-          display: flex; align-items: center;
-          transition: color 0.2s;
-        }
-        .pf-eye:hover { color: var(--yellow); }
-
-        /* ── TOAST ── */
-        .pf-toast {
-          position: fixed; bottom: 32px; left: 50%;
-          transform: translateX(-50%);
-          border-radius: 12px;
-          padding: 13px 24px;
-          font-family: 'Syne', sans-serif; font-weight: 700;
-          font-size: 13px; letter-spacing: 0.4px;
-          z-index: 9999; white-space: nowrap;
-          animation: pfToast 0.3s ease;
-          display: flex; align-items: center; gap: 8px;
-        }
-        .pf-toast.success { background: #0d0e28; border: 1.5px solid #81c784; color: #81c784; }
-        .pf-toast.error   { background: #0d0e28; border: 1.5px solid var(--pink); color: var(--pink); }
-        @keyframes pfToast {
-          from { opacity: 0; transform: translateX(-50%) translateY(14px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-
-        /* ── INFO ROW (read mode) ── */
-        .pf-info-row {
-          display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          padding: 13px 0;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .pf-info-row:last-child { border-bottom: none; }
-        .pf-info-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-        .pf-info-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.3); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px; }
-        .pf-info-value { font-size: 14px; font-weight: 700; color: #fff; }
-
-        @media (max-width: 767px) {
-          .pf-hero { flex-direction: column; align-items: flex-start; }
-          .pf-hero-stats { flex-direction: row; }
-        }
-      `}</style>
-
       {/* PASSWORD MODAL */}
       {pwModal && (
-        <div className="pf-modal-overlay" onClick={() => setPwModal(false)}>
-          <div className="pf-modal" onClick={e => e.stopPropagation()}>
-            <button className="pf-modal-close" onClick={() => setPwModal(false)}>×</button>
-            <div className="pf-modal-title">ĐỔI <span>MẬT KHẨU</span></div>
+        <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={() => setPwModal(false)}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                <div className="p-2 bg-rose-500/10 rounded-lg">
+                  <Key className="text-rose-500" size={24} />
+                </div>
+                Đổi mật khẩu
+              </h3>
+              <button
+                onClick={() => setPwModal(false)}
+                className="text-zinc-400 hover:text-white transition-colors p-2 rounded-xl hover:bg-zinc-800"
+              >
+                <X size={24} />
+              </button>
+            </div>
 
-            {[
-              { name: "current", label: "Mật khẩu hiện tại" },
-              { name: "newPw",   label: "Mật khẩu mới" },
-              { name: "confirm", label: "Xác nhận mật khẩu mới" },
-            ].map(({ name, label }) => (
-              <div key={name} className="pf-field">
-                <label className="pf-label">{label}</label>
-                <div className="pf-pw-wrap">
+            <div className="space-y-5">
+              {[
+                { name: "current", label: "Mật khẩu hiện tại", icon: <Key size={18} /> },
+                { name: "newPw", label: "Mật khẩu mới", icon: <Shield size={18} /> },
+                { name: "confirm", label: "Xác nhận mật khẩu mới", icon: <Check size={18} /> },
+              ].map(({ name, label, icon }) => (
+                <div key={name} className="space-y-2">
+                  <label className="text-sm font-semibold text-zinc-400 flex items-center gap-2 ml-1">
+                    {icon}
+                    {label}
+                  </label>
                   <input
-                    className={`pf-input${pwErrors[name] ? " err" : ""}`}
-                    type={showPw[name] ? "text" : "password"}
+                    type="password"
                     name={name}
                     value={pwData[name]}
                     onChange={handlePwChange}
-                    style={{ width: "100%" }}
+                    className="w-full px-5 py-4 rounded-xl border border-zinc-800 bg-zinc-950 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
+                    placeholder="••••••••"
                   />
-                  <EyeBtn field={name} />
+                  {pwErrors[name] && (
+                    <p className="text-red-400 text-xs flex items-center gap-1 mt-1 ml-1 font-medium">
+                      <AlertCircle size={14} />
+                      {pwErrors[name]}
+                    </p>
+                  )}
                 </div>
-                {pwErrors[name] && <p className="pf-field-err">{pwErrors[name]}</p>}
-              </div>
-            ))}
+              ))}
+            </div>
 
-            <div className="d-flex gap-2 mt-3">
-              <button className="pf-btn-ghost" onClick={() => setPwModal(false)}>Hủy</button>
-              <button className="pf-btn-primary" style={{ flex: 1 }} onClick={savePw}>Lưu mật khẩu</button>
+            <div className="flex gap-4 mt-10">
+              <button
+                onClick={() => setPwModal(false)}
+                className="flex-1 px-6 py-4 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all font-bold"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={savePw}
+                className="flex-1 px-6 py-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-all font-bold shadow-lg shadow-rose-600/20"
+              >
+                Lưu mật khẩu
+              </button>
             </div>
           </div>
         </div>
@@ -589,291 +499,333 @@ export default function UserProfile() {
 
       {/* TOAST */}
       {toast && (
-        <div className={`pf-toast ${toast.type}`}>
-          {toast.type === "success" ? "✓" : "⚠"} {toast.msg}
+        <div className={`fixed top-24 right-6 z-[110] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300 ${
+          toast.type === "success" 
+            ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" 
+            : "bg-red-500/10 border border-red-500/20 text-red-400"
+        } backdrop-blur-xl`}>
+          <div className={`p-1.5 rounded-full ${toast.type === "success" ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
+            {toast.type === "success" ? <Check size={18} /> : <AlertCircle size={18} />}
+          </div>
+          <span className="text-sm font-bold tracking-tight">{toast.msg}</span>
         </div>
       )}
 
-      <div className="pf-page mt-4">
-        <Container fluid="xl">
+      <div className="min-h-screen bg-zinc-950 text-zinc-300 pb-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
 
-          {/* ── HERO ── */}
-          <div className="pf-hero">
-            <Avatar name={user.fullname} size={90} />
-
-            <div className="pf-hero-right">
-              <div className="pf-username">@{user.username}</div>
-              <div className="pf-fullname">{user.fullname}</div>
-
-              <div
-                className="pf-rank-badge"
-                style={{ color: user.rank.rank_name.includes("Vàng") ? "#d4e219" : "#9e9e9e", borderColor: "currentColor", background: "rgba(255,255,255,0.04)" }}
-              >
-                {RANKS.find(r => r.rank_id === user.rank.rank_id)?.icon} {user.rank.rank_name}
-                <span style={{ background: "rgba(255,255,255,0.08)", borderRadius: 4, padding: "1px 7px", fontSize: 10 }}>
-                  -{user.rank.discount_percent}% · ×{user.rank.Bonus_point} pts
-                </span>
-              </div>
-
-              {nextRank && (
-                <div className="pf-progress-wrap">
-                  <div className="pf-progress-label">
-                    <span>{fmt(user.total_spending)} đã chi</span>
-                    <span>Còn {fmt(nextRank.min_spending - user.total_spending)} → {nextRank.rank_name}</span>
+          {/* ── HERO SECTION ── */}
+          <div className="relative bg-zinc-900 border border-zinc-800 rounded-3xl p-8 md:p-12 mb-10 overflow-hidden shadow-2xl">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-pink-500 to-amber-400" />
+            
+            <div className="flex flex-col lg:flex-row items-center lg:items-center gap-8 md:gap-12 relative z-10">
+              <div className="relative group">
+                <Avatar name={user.fullname} size={128} avatarUrl={user.avatar} showEditButton={editing} onEditClick={() => {}} />
+                {editing && (
+                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="text-white" size={24} />
                   </div>
-                  <div className="pf-progress-bar">
-                    <div className="pf-progress-fill" style={{ width: `${progressPct}%` }} />
+                )}
+              </div>
+              
+              <div className="flex-1 text-center lg:text-left">
+                <div className="flex flex-col sm:flex-row items-center gap-4 mb-4 justify-center lg:justify-start">
+                  <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">@{user.username}</h1>
+                  {user.rank_name && (
+                    <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm font-black uppercase tracking-widest">
+                      <Star size={16} fill="currentColor" />
+                      {user.rank_name}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl md:text-2xl text-zinc-400 font-medium mb-8 tracking-tight">{user.fullname}</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto lg:mx-0">
+                  <div className="bg-zinc-950/50 rounded-2xl p-5 border border-zinc-800/50 backdrop-blur-sm transition-transform hover:scale-[1.02]">
+                    <div className="flex items-center gap-3 text-rose-500 mb-2 justify-center lg:justify-start">
+                      <Star size={18} />
+                      <span className="text-xs font-black uppercase tracking-widest opacity-60">Điểm</span>
+                    </div>
+                    <div className="text-3xl font-black text-white tabular-nums">{user.points.toLocaleString()}</div>
+                  </div>
+                  <div className="bg-zinc-950/50 rounded-2xl p-5 border border-zinc-800/50 backdrop-blur-sm transition-transform hover:scale-[1.02]">
+                    <div className="flex items-center gap-3 text-emerald-500 mb-2 justify-center lg:justify-start">
+                      <TrendingUp size={18} />
+                      <span className="text-xs font-black uppercase tracking-widest opacity-60">Tổng chi</span>
+                    </div>
+                    <div className="text-3xl font-black text-white tabular-nums">{(user.total_spending / 1000).toFixed(0)}K</div>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="pf-hero-stats">
-              <div className="pf-hs">
-                <div className="pf-hs-num">{user.points}</div>
-                <div className="pf-hs-lbl">Điểm ⭐</div>
-              </div>
-              <div className="pf-hs">
-                <div className="pf-hs-num" style={{ fontSize: 18 }}>{(user.total_spending / 1000).toFixed(0)}K</div>
-                <div className="pf-hs-lbl">Tổng chi</div>
-              </div>
+              {!editing && (
+                <button
+                  onClick={startEdit}
+                  className="px-8 py-4 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold transition-all shadow-xl hover:scale-105 active:scale-95 flex items-center gap-3"
+                >
+                  <Edit3 size={20} />
+                  Chỉnh sửa hồ sơ
+                </button>
+              )}
             </div>
           </div>
 
           {/* ── TABS ── */}
-          <div className="pf-tabs">
+          <div className="flex gap-2 p-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl mb-10 sticky top-24 z-40 backdrop-blur-md bg-zinc-900/90 shadow-2xl">
             {[
-              { key: "info",  label: "Thông tin" },
-              { key: "rank",  label: "Hạng thành viên" },
-              { key: "activity", label: "Hoạt động" },
-            ].map(({ key, label }) => (
+              { key: "info", label: "Thông tin cá nhân", icon: <User size={20} /> },
+              { key: "activity", label: "Hoạt động gần đây", icon: <Activity size={20} /> },
+            ].map(({ key, label, icon }) => (
               <button
                 key={key}
-                className={`pf-tab${activeTab === key ? " active" : ""}`}
                 onClick={() => setActiveTab(key)}
+                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold transition-all duration-300 ${
+                  activeTab === key
+                    ? "bg-rose-600 text-white shadow-lg shadow-rose-600/30"
+                    : "text-zinc-500 hover:text-white hover:bg-zinc-800"
+                }`}
               >
-                {label}
+                {icon}
+                <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
           </div>
 
           {/* ══ TAB: INFO ══ */}
           {activeTab === "info" && (
-            <Row className="g-3">
+            <div className="grid lg:grid-cols-3 gap-10">
               {/* Left: info / edit form */}
-              <Col xs={12} lg={7}>
-                <div className="pf-card">
-                  <div className="pf-card-title">
-                    <span>👤</span> THÔNG TIN <span>CÁ NHÂN</span>
-                    {!editing && (
-                      <button className="pf-btn-yellow ms-auto" style={{ fontSize: 11, padding: "6px 16px" }} onClick={startEdit}>
-                        ✏️ Chỉnh sửa
-                      </button>
-                    )}
+              <div className="lg:col-span-2">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-xl">
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="p-3 bg-rose-600 rounded-2xl shadow-lg shadow-rose-600/20">
+                      <User className="text-white" size={24} />
+                    </div>
+                    <h3 className="text-2xl font-black text-white tracking-tight uppercase">Chi tiết tài khoản</h3>
                   </div>
 
                   {editing ? (
-                    <>
-                      <Field label="Họ và tên" name="fullname" value={draft.fullname} onChange={handleChange} error={errors.fullname} />
-                      <Field label="Email"     name="email"    value={draft.email}    onChange={handleChange} disabled />
-                      <Field label="Số điện thoại" name="phone" value={draft.phone} onChange={handleChange} error={errors.phone} />
-                      <Field label="Ngày sinh" name="birthday" type="date" value={draft.birthday} onChange={handleChange} />
-                      <div className="d-flex gap-2 mt-2">
-                        <button className="pf-btn-ghost" onClick={cancelEdit}>Hủy</button>
-                        <button className="pf-btn-primary" onClick={saveEdit}>Lưu thay đổi</button>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Field label="Họ và tên" icon={<User size={18} />} name="fullname" value={draft.fullname ?? ""} onChange={handleChange} error={errors.fullname} placeholder="Nhập họ và tên" />
+                        <Field label="Email" icon={<Mail size={18} />} name="email" type="email" value={draft.email ?? ""} onChange={handleChange} error={errors.email} placeholder="email@example.com" />
+                        <Field label="Số điện thoại" icon={<Phone size={18} />} name="phone" value={draft.phone ?? ""} onChange={handleChange} error={errors.phone} placeholder="0123456789" />
+                        <Field label="Ngày sinh" icon={<Calendar size={18} />} name="birthday" type="date" value={draft.birthday ?? ""} onChange={handleChange} />
                       </div>
-                    </>
+                      <TextAreaField
+                        label="Liên kết ảnh đại diện"
+                        icon={<Camera size={18} />}
+                        name="avatar"
+                        rows={2}
+                        value={draft.avatar ?? ""}
+                        onChange={handleChange}
+                        hint="Hệ thống hỗ trợ link URL trực tiếp (https://...) hoặc chuỗi Base64."
+                        placeholder="https://images.unsplash.com/photo-..."
+                      />
+                      <div className="flex gap-4 pt-8">
+                        <button
+                          onClick={cancelEdit}
+                          className="flex-1 px-8 py-5 rounded-2xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all font-bold uppercase tracking-widest text-sm"
+                        >
+                          Hủy bỏ
+                        </button>
+                        <button
+                          onClick={saveEdit}
+                          disabled={profileLoading}
+                          className="flex-1 px-8 py-5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white transition-all font-bold uppercase tracking-widest text-sm shadow-xl shadow-rose-600/20 disabled:opacity-50"
+                        >
+                          {profileLoading ? "Đang lưu..." : "Cập nhật ngay"}
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {[
-                        { icon: "👤", label: "Họ và tên",        value: user.fullname },
-                        { icon: "✉️", label: "Email",             value: user.email },
-                        { icon: "📱", label: "Số điện thoại",     value: user.phone },
-                        { icon: "🎂", label: "Ngày sinh",          value: fmtBirthday(user.birthday) },
-                        { icon: "🔑", label: "Tên đăng nhập",      value: "@" + user.username },
-                      ].map(({ icon, label, value }) => (
-                        <div key={label} className="pf-info-row">
-                          <span className="pf-info-icon">{icon}</span>
-                          <div>
-                            <div className="pf-info-label">{label}</div>
-                            <div className="pf-info-value">{value}</div>
+                        { icon: <User size={20} />, label: "Họ và tên", value: user.fullname, color: "text-rose-500" },
+                        { icon: <Mail size={20} />, label: "Địa chỉ Email", value: user.email, color: "text-blue-500" },
+                        { icon: <Phone size={20} />, label: "Số điện thoại", value: user.phone, color: "text-emerald-500" },
+                        { icon: <Calendar size={20} />, label: "Ngày sinh nhật", value: fmtBirthday(user.birthday), color: "text-amber-500" },
+                        { icon: <Shield size={20} />, label: "Tên đăng nhập", value: "@" + user.username, color: "text-purple-500" },
+                        { icon: <Award size={20} />, label: "Hạng thành viên", value: user.rank_name || "Mới", color: "text-yellow-500" },
+                      ].map(({ icon, label, value, color }) => (
+                        <div key={label} className="group flex items-start gap-5 p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50 hover:border-zinc-700 transition-all">
+                          <div className={`${color} mt-1 p-2 bg-zinc-900 rounded-xl group-hover:scale-110 transition-transform`}>
+                            {icon}
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs font-black text-zinc-600 uppercase tracking-widest mb-1.5">{label}</div>
+                            <div className="text-white font-bold text-lg">{value || "—"}</div>
                           </div>
                         </div>
                       ))}
-                    </>
+                    </div>
                   )}
                 </div>
-              </Col>
+              </div>
 
               {/* Right: security */}
-              <Col xs={12} lg={5}>
-                <div className="pf-card">
-                  <div className="pf-card-title"><span>🔐</span> BẢO <span>MẬT</span></div>
-
-                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "16px", marginBottom: 14 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Mật khẩu</div>
-                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontWeight: 600, marginBottom: 12 }}>
-                      Bảo vệ tài khoản bằng mật khẩu mạnh
+              <div className="lg:col-span-1 space-y-8">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-xl">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-zinc-800 rounded-2xl">
+                      <Shield className="text-rose-500" size={24} />
                     </div>
-                    <button className="pf-btn-primary" style={{ fontSize: 12, padding: "9px 18px" }} onClick={() => setPwModal(true)}>
-                      🔑 Đổi mật khẩu
-                    </button>
+                    <h3 className="text-2xl font-black text-white tracking-tight uppercase">Bảo mật</h3>
                   </div>
 
-                  <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "16px" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Trạng thái tài khoản</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#81c784", boxShadow: "0 0 8px #81c784", display: "inline-block" }} />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#81c784" }}>Đang hoạt động</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", fontWeight: 600, marginTop: 6 }}>
-                      Tài khoản đã được xác minh email
-                    </div>
-                  </div>
-                </div>
-              </Col>
-            </Row>
-          )}
-
-          {/* ══ TAB: RANK ══ */}
-          {activeTab === "rank" && (
-            <Row className="g-3">
-              <Col xs={12} lg={7}>
-                <div className="pf-card">
-                  <div className="pf-card-title"><span>🏆</span> CÁC HẠNG <span>THÀNH VIÊN</span></div>
-                  {RANKS.map(rank => (
-                    <div key={rank.rank_id} className={`pf-rank-card${rank.rank_id === user.rank.rank_id ? " current" : ""}`}>
-                      <span className="pf-rank-icon">{rank.icon}</span>
-                      <div className="pf-rank-info">
-                        <div className="pf-rank-name" style={{ color: rank.color }}>{rank.rank_name}</div>
-                        <div className="pf-rank-req">
-                          {rank.min_spending === 0 ? "Mặc định" : `Chi từ ${fmt(rank.min_spending)}`}
+                  <div className="space-y-6">
+                    <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <Key className="text-zinc-500" size={20} />
+                          <span className="font-bold text-white text-lg">Mật khẩu</span>
                         </div>
                       </div>
-                      <div className="pf-rank-perks">
-                        {rank.discount_percent > 0 && (
-                          <span style={{ color: rank.color }}>-{rank.discount_percent}% vé</span>
-                        )}
-                        <span>×{rank.Bonus_point} điểm</span>
-                        {rank.rank_id === user.rank.rank_id && (
-                          <span className="pf-current-tag">Của bạn</span>
-                        )}
+                      <p className="text-sm text-zinc-500 mb-6 leading-relaxed">Nên đổi mật khẩu định kỳ để bảo vệ tài khoản của bạn tốt hơn.</p>
+                      <button
+                        onClick={() => setPwModal(true)}
+                        className="w-full px-6 py-4 rounded-xl bg-rose-600/10 border border-rose-600/20 text-rose-500 hover:bg-rose-600 hover:text-white transition-all font-bold text-sm uppercase tracking-widest"
+                      >
+                        Đổi mật khẩu mới
+                      </button>
+                    </div>
+
+                    <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <Activity className="text-zinc-500" size={20} />
+                          <span className="font-bold text-white text-lg">Trạng thái</span>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                          user.status === 1 ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                        }`}>
+                          {user.status === 1 ? "Đang hoạt động" : "Bị khóa"}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </Col>
-
-              <Col xs={12} lg={5}>
-                <div className="pf-card">
-                  <div className="pf-card-title"><span>📈</span> TIẾN ĐỘ <span>HẠNG</span></div>
-
-                  <div style={{ textAlign: "center", marginBottom: 20 }}>
-                    <div style={{ fontSize: 48, marginBottom: 8 }}>
-                      {RANKS.find(r => r.rank_id === user.rank.rank_id)?.icon}
-                    </div>
-                    <div style={{ fontFamily: "'Bebas Neue'", fontSize: 22, letterSpacing: 3, color: "var(--yellow)" }}>
-                      {user.rank.rank_name}
-                    </div>
-                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginTop: 4 }}>
-                      Tổng chi tiêu: <span style={{ color: "#fff" }}>{fmt(user.total_spending)}</span>
+                      <div className="flex items-center gap-3 p-4 bg-zinc-900 rounded-xl border border-zinc-800/50">
+                        <div className={`w-3 h-3 rounded-full ${user.status === 1 ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
+                        <p className="text-sm font-bold text-zinc-300">
+                          {user.status === 1 ? "Tài khoản đang ở trạng thái an toàn" : "Tài khoản của bạn đang bị giới hạn"}
+                        </p>
+                      </div>
                     </div>
                   </div>
-
-                  {nextRank && (
-                    <>
-                      <div className="pf-progress-label" style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
-                        <span>{user.rank.rank_name}</span>
-                        <span>{nextRank.rank_name}</span>
-                      </div>
-                      <div className="pf-progress-bar" style={{ marginBottom: 8 }}>
-                        <div className="pf-progress-fill" style={{ width: `${progressPct}%` }} />
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.35)", textAlign: "center" }}>
-                        Còn <span style={{ color: "var(--yellow)" }}>{fmt(nextRank.min_spending - user.total_spending)}</span> để lên hạng {nextRank.icon}
-                      </div>
-                    </>
-                  )}
-
-                  <div style={{ marginTop: 20, padding: "14px 16px", background: "rgba(212,226,25,0.06)", border: "1px solid rgba(212,226,25,0.15)", borderRadius: 12 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(212,226,25,0.7)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>
-                      Quyền lợi hiện tại
-                    </div>
-                    {[
-                      user.rank.discount_percent > 0 && `Giảm ${user.rank.discount_percent}% giá vé`,
-                      `Nhân ×${user.rank.Bonus_point} điểm tích lũy`,
-                      "Ưu tiên đặt vé sự kiện đặc biệt",
-                    ].filter(Boolean).map((perk, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
-                        <span style={{ color: "var(--yellow)" }}>✓</span> {perk}
-                      </div>
-                    ))}
-                  </div>
                 </div>
-              </Col>
-            </Row>
+              </div>
+            </div>
           )}
 
           {/* ══ TAB: ACTIVITY ══ */}
           {activeTab === "activity" && (
-            <Row className="g-3">
-              <Col xs={12} lg={7}>
-                <div className="pf-card">
-                  <div className="pf-card-title"><span>⚡</span> HOẠT ĐỘNG <span>GẦN ĐÂY</span></div>
-                  {RECENT_ACTIVITY.map((act, i) => (
-                    <div key={i} className="pf-activity-item">
-                      <div className="pf-act-icon">{act.icon}</div>
-                      <div className="pf-act-info">
-                        <div className="pf-act-label">{act.label}</div>
-                        <div className="pf-act-date">{act.date}</div>
+            <div className="grid lg:grid-cols-3 gap-10">
+              <div className="lg:col-span-2">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-xl">
+                  <div className="flex items-center justify-between mb-10">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-zinc-800 rounded-2xl">
+                        <History className="text-rose-500" size={24} />
                       </div>
-                      <div className="pf-act-pts" style={{ color: act.pts_color }}>
-                        {act.pts} pts
+                      <h3 className="text-2xl font-black text-white tracking-tight uppercase">Giao dịch gần đây</h3>
+                    </div>
+                  </div>
+                  
+                  {recentActivity.length === 0 ? (
+                    <div className="text-center py-20 bg-zinc-950 rounded-3xl border border-dashed border-zinc-800">
+                      <History className="w-16 h-16 text-zinc-800 mx-auto mb-6" />
+                      <div className="text-xl font-bold text-zinc-500 mb-2">Chưa có giao dịch nào</div>
+                      <p className="text-zinc-600 max-w-sm mx-auto mb-10">Bạn có thể bắt đầu trải nghiệm bằng cách đặt vé xem những bộ phim hoạt hình hấp dẫn nhất.</p>
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <Link to="/movies" className="px-8 py-4 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-500 transition-all shadow-lg shadow-rose-600/20">Khám phá phim</Link>
+                        <Link to="/foodorder" className="px-8 py-4 rounded-xl bg-zinc-800 text-white font-bold hover:bg-zinc-700 transition-all">Đặt bắp nước</Link>
                       </div>
                     </div>
-                  ))}
-                  <div style={{ marginTop: 16, textAlign: "center" }}>
-                    <a href="/transactions" style={{ fontSize: 12, fontWeight: 700, color: "var(--yellow)", textDecoration: "none", letterSpacing: 0.5 }}>
-                      Xem toàn bộ lịch sử giao dịch →
-                    </a>
-                  </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {recentActivity.map((act, i) => (
+                        <div key={i} className="group flex items-center gap-6 p-5 rounded-2xl bg-zinc-950 border border-zinc-800/50 hover:border-zinc-700 transition-all">
+                          <div className="w-14 h-14 rounded-2xl bg-zinc-900 flex items-center justify-center text-3xl shadow-inner group-hover:scale-110 transition-transform">
+                            {act.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white font-bold text-lg truncate mb-1">{act.label}</div>
+                            <div className="flex items-center gap-3 text-sm text-zinc-500">
+                              <Calendar size={14} />
+                              {act.date}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xl font-black tracking-tight" style={{ color: act.pts_color }}>
+                              {act.pts}
+                            </div>
+                            <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Tích lũy</div>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <div className="mt-10 pt-8 border-top border-zinc-800 text-center">
+                        <Link 
+                          to="/transactionHistory" 
+                          className="inline-flex items-center gap-3 text-rose-500 hover:text-rose-400 font-bold uppercase tracking-widest text-sm transition-all hover:gap-5"
+                        >
+                          Toàn bộ lịch sử giao dịch
+                          <TrendingUp size={18} />
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </Col>
+              </div>
 
-              <Col xs={12} lg={5}>
-                <div className="pf-card">
-                  <div className="pf-card-title"><span>⭐</span> ĐIỂM <span>TÍCH LŨY</span></div>
+              <div className="lg:col-span-1">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-xl sticky top-24">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-amber-500/10 rounded-2xl">
+                      <Award className="text-amber-500" size={24} />
+                    </div>
+                    <h3 className="text-2xl font-black text-white tracking-tight uppercase">Điểm thưởng</h3>
+                  </div>
 
-                  <div style={{ textAlign: "center", padding: "20px 0 24px" }}>
-                    <div style={{ fontFamily: "'Bebas Neue'", fontSize: 64, letterSpacing: 3, color: "var(--yellow)", lineHeight: 1 }}>
+                  <div className="text-center py-10 bg-zinc-950 rounded-2xl border border-zinc-800/50 mb-8 shadow-inner">
+                    <div className="text-6xl font-black text-amber-500 mb-2 drop-shadow-2xl tracking-tighter">
                       {user.points.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: 1, textTransform: "uppercase", marginTop: 4 }}>
-                      điểm hiện có
+                    <div className="text-xs font-black text-zinc-600 uppercase tracking-widest">
+                      điểm thưởng hiện có
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-                    {[
-                      { label: "Đã nhận",  value: "+1,260", color: "#81c784" },
-                      { label: "Đã dùng",  value: "-500",   color: "#e57373" },
-                    ].map(({ label, value, color }) => (
-                      <div key={label} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "12px", textAlign: "center" }}>
-                        <div style={{ fontFamily: "'Bebas Neue'", fontSize: 20, letterSpacing: 1, color }}>{value}</div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>{label}</div>
-                      </div>
-                    ))}
+                  <div className="space-y-4">
+                    <Link 
+                      to="/voucher" 
+                      className="flex items-center justify-center gap-3 w-full px-6 py-5 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 text-white font-black uppercase tracking-widest text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-rose-600/20"
+                    >
+                      🎟 Đổi ưu đãi ngay
+                    </Link>
+                    <Link 
+                      to="/myVouchers" 
+                      className="flex items-center justify-center gap-3 w-full px-6 py-5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white font-black uppercase tracking-widest text-sm transition-all"
+                    >
+                      🎫 Kho Voucher của tôi
+                    </Link>
                   </div>
-
-                  <a href="/voucher" style={{ display: "block", textAlign: "center", padding: "12px", background: "linear-gradient(135deg, var(--purple), var(--pink))", borderRadius: 12, color: "#fff", fontFamily: "'Syne'", fontWeight: 800, fontSize: 13, textDecoration: "none", letterSpacing: 0.5, boxShadow: "0 0 20px rgba(233,30,140,0.25)" }}>
-                    🎟 Đổi điểm lấy voucher
-                  </a>
+                  
+                  <div className="mt-10 p-6 rounded-2xl bg-amber-500/5 border border-amber-500/10">
+                    <div className="flex items-start gap-4">
+                      <div className="p-2 bg-amber-500/20 rounded-lg text-amber-500">
+                        <AlertCircle size={18} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-amber-500 mb-1">Mẹo tích điểm</div>
+                        <p className="text-xs text-zinc-500 leading-relaxed">Mua vé và bắp nước trực tuyến để được tích điểm lên đến 5% giá trị giao dịch.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </Col>
-            </Row>
+              </div>
+            </div>
           )}
 
-        </Container>
+        </div>
       </div>
     </Layout>
   );
