@@ -1,8 +1,11 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 
 const Success = () => {
+  const location = useLocation();
+  const orderCode = location.state?.orderCode ?? null;
+
   return (
     <Layout>
       <div className="container py-5 d-flex align-items-center justify-content-center" style={{ minHeight: '70vh' }}>
@@ -18,10 +21,12 @@ const Success = () => {
             Chúc bạn có những giây phút xem phim tuyệt vời!
           </p>
           
-          <div className="bg-light p-3 rounded-4 mb-4 border border-dashed">
-            <small className="text-uppercase text-muted fw-bold">Mã đơn hàng</small>
-            <h3 className="fw-bold text-dark mt-1 tracking-widest">#TOON-8888</h3>
-          </div>
+          {orderCode ? (
+            <div className="bg-light p-3 rounded-4 mb-4 border border-dashed">
+              <small className="text-uppercase text-muted fw-bold">Mã đơn hàng</small>
+              <h3 className="fw-bold text-dark mt-1 tracking-widest">{orderCode}</h3>
+            </div>
+          ) : null}
           
           <div className="d-grid gap-2">
             <Link to="/" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">

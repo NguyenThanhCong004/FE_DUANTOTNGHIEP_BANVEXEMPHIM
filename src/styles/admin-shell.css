@@ -1,0 +1,392 @@
+/**
+ * Shell admin — dùng chung Admin + Super Admin (sidebar, header, nav, khóa theo rạp).
+ * Import trước file layout cục bộ nếu cần override nhỏ.
+ */
+
+.app-shell-layout {
+  font-family: var(--font-ui, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 288px 1fr;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(99, 102, 241, 0.22), transparent 55%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(168, 85, 247, 0.2), transparent 45%),
+    #070b17;
+}
+
+.app-shell-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #090d1d;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px;
+}
+
+.app-shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 14px;
+}
+
+.app-shell-brand-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #60a5fa, #c084fc);
+  box-shadow: 0 0 16px rgba(147, 51, 234, 0.65);
+  flex-shrink: 0;
+}
+
+.app-shell-brand-title {
+  color: #f8fafc;
+  letter-spacing: 1px;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.app-shell-brand-sub {
+  color: #94a3b8;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+/* Chọn rạp */
+.app-shell-cinema-picker {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.55);
+  border-radius: 12px;
+  padding: 10px 10px 16px;
+  margin-bottom: 12px;
+}
+
+.app-shell-cinema-picker label {
+  display: block;
+  color: #94a3b8;
+  font-size: 11px;
+  margin-bottom: 6px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.app-shell-cinema-picker select {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(2, 6, 23, 0.85);
+  color: #e2e8f0;
+  border-radius: 10px;
+  height: 38px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.app-shell-cinema-picker small {
+  display: block;
+  margin-top: 8px;
+  color: #a5b4fc;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.app-shell-nav-scroll {
+  flex: 1;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.app-shell-nav-block {
+  margin-bottom: 4px;
+}
+
+.app-shell-nav-section-title {
+  color: #64748b;
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 14px 8px 8px;
+}
+
+/* Cả khối phân hệ rạp: xám khi chưa chọn rạp */
+.app-shell-nav-section--locked {
+  position: relative;
+  border-radius: 14px;
+  padding: 4px 10px 10px;
+  margin: 8px -10px 8px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px dashed rgba(148, 163, 184, 0.25);
+  transition: opacity 0.25s ease, filter 0.25s ease, border-color 0.25s ease;
+}
+
+.app-shell-nav-section--locked.is-disabled {
+  opacity: 0.48;
+  filter: grayscale(0.35);
+  pointer-events: none;
+}
+
+.app-shell-nav-section--locked.is-disabled .app-shell-nav-section-title {
+  color: #475569;
+}
+
+.app-shell-lock-hint {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+  margin: 0 8px 8px;
+  line-height: 1.35;
+}
+
+.app-shell-nav-section--locked:not(.is-disabled) .app-shell-lock-hint {
+  display: none;
+}
+
+/* 1 link: icon Lucide hoặc Bootstrap Icons */
+.app-shell-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #cbd5e1;
+  text-decoration: none;
+  border: 1px solid transparent;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  transition: 0.2s ease;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.app-shell-nav-link:hover {
+  border-color: rgba(148, 163, 184, 0.25);
+  background: rgba(30, 41, 59, 0.6);
+  color: #ffffff;
+}
+
+.app-shell-nav-link.active {
+  border-color: rgba(129, 140, 248, 0.65);
+  background: linear-gradient(135deg, rgba(67, 56, 202, 0.55), rgba(126, 34, 206, 0.5));
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.app-shell-nav-link--locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.app-shell-nav-link--locked:hover {
+  border-color: transparent;
+  background: transparent;
+  color: #94a3b8;
+}
+
+.app-shell-logout-btn {
+  margin-top: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.26);
+  color: #fecaca;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.app-shell-logout-btn:hover {
+  background: rgba(127, 29, 29, 0.4);
+  color: #fff;
+}
+
+.app-shell-main {
+  min-width: 0;
+  background: var(--admin-bg, #f8fafc);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 64px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #090d1d;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+}
+
+.app-shell-header-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-shell-header-kicker {
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.app-shell-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-shell-header-cinema-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+}
+
+/* Dropdown chọn rạp trên header — Super Admin: bắt buộc cho mọi dữ liệu có cinemaId */
+.app-shell-header-cinema-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(129, 140, 248, 0.45);
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 10px;
+  padding: 4px 4px 4px 10px;
+  min-height: 38px;
+  max-width: min(340px, 52vw);
+}
+
+.app-shell-header-cinema-icon {
+  color: #a5b4fc;
+}
+
+.app-shell-header-cinema-select {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
+  outline: none;
+}
+
+.app-shell-header-cinema-select option {
+  color: #0f172a;
+  background: #fff;
+}
+
+.app-shell-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.7);
+  color: #e2e8f0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.app-shell-icon-btn:hover {
+  border-color: rgba(129, 140, 248, 0.45);
+  background: rgba(30, 41, 59, 0.6);
+}
+
+.app-shell-cinema-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.65);
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  max-width: 220px;
+}
+
+.app-shell-cinema-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell-profile-chip {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 12px;
+  padding: 4px 10px 4px 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+a.text-decoration-none:hover .app-shell-profile-chip {
+  border-color: rgba(129, 140, 248, 0.45);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.2);
+}
+
+.app-shell-profile-chip img {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+}
+
+.app-shell-profile-name {
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.app-shell-profile-sub {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.app-shell-content {
+  padding: 16px;
+  color: var(--admin-text, #e2e8f0);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Vùng nội dung: chữ đậm + co giãn (nền xám từ .app-shell-main) */
+.app-shell-content--panel {
+  color: var(--admin-text, #1e293b);
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 991px) {
+  .app-shell-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell-sidebar {
+    position: relative;
+    height: auto;
+    min-height: auto;
+  }
+}
