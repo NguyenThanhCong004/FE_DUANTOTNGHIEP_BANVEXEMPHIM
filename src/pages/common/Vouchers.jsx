@@ -150,50 +150,49 @@ export default function VoucherExchange() {
     <Layout>
       <style>{`
         :root {
-          --purple:  #7b1fa2;
-          --pink:    #e91e8c;
-          --yellow:  #d4e219;
-          --dark:    #0f102a;
+          --purple:  #e11d48;
+          --pink:    #f43f5e;
+          --yellow:  #fb7185;
+          --dark:    #09090b;
         }
 
         .voucher-page {
           min-height: 100vh;
           background:
-            radial-gradient(ellipse 80% 50% at 20% 20%, rgba(123,31,162,0.18) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 40% at 80% 80%, rgba(233,30,140,0.13) 0%, transparent 60%),
-            #0f102a;
-          font-family: 'Syne', sans-serif;
+            radial-gradient(ellipse 80% 50% at 50% -15%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
+            linear-gradient(180deg, #09090b 0%, #18181b 100%);
+          font-family: var(--font-ui), system-ui, sans-serif;
           padding: 32px 0 60px;
         }
 
         .page-title { font-family:'Bebas Neue',sans-serif; font-size:clamp(38px,7vw,64px); letter-spacing:4px; line-height:1; color:#fff; }
-        .page-title span { color:#d4e219; }
+        .page-title span { color:#f43f5e; }
 
-        .points-badge { background:linear-gradient(135deg,#7b1fa2,#e91e8c); border-radius:14px; padding:14px 24px; display:inline-flex; align-items:center; gap:12px; box-shadow:0 0 32px rgba(233,30,140,0.3); }
-        .points-badge .pts-num { font-family:'Bebas Neue',sans-serif; font-size:36px; color:#d4e219; line-height:1; letter-spacing:2px; }
-        .points-badge .pts-label { font-size:11px; font-weight:700; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:1.5px; }
+        .points-badge { background:linear-gradient(135deg,#e11d48,#f43f5e); border-radius:14px; padding:14px 24px; display:inline-flex; align-items:center; gap:12px; box-shadow:0 0 32px rgba(244,63,94,0.28); }
+        .points-badge .pts-num { font-family:'Bebas Neue',sans-serif; font-size:36px; color:#fecdd3; line-height:1; letter-spacing:2px; }
+        .points-badge .pts-label { font-size:11px; font-weight:700; color:rgba(255,255,255,0.75); text-transform:uppercase; letter-spacing:1.5px; }
 
         .filter-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-        .filter-btn { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:1px; text-transform:uppercase; padding:8px 18px; border-radius:8px; border:1.5px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.45); cursor:pointer; transition:all 0.2s ease; }
-        .filter-btn:hover { border-color:#d4e219; color:#d4e219; }
-        .filter-btn.active { background:#d4e219; border-color:#d4e219; color:#0f102a; }
+        .filter-btn { font-family: var(--font-ui), system-ui, sans-serif; font-weight:700; font-size:12px; letter-spacing:1px; text-transform:uppercase; padding:8px 18px; border-radius:9999px; border:1.5px solid rgba(63,63,70,0.9); background:transparent; color:rgba(161,161,170,0.95); cursor:pointer; transition:all 0.2s ease; }
+        .filter-btn:hover { border-color:#f43f5e; color:#fb7185; }
+        .filter-btn.active { background:rgba(244,63,94,0.15); border-color:#f43f5e; color:#f43f5e; }
 
-        .search-box .form-control { background:rgba(255,255,255,0.06) !important; border:1.5px solid rgba(255,255,255,0.1) !important; border-right:none !important; color:#fff !important; font-family:'Syne',sans-serif; font-size:13px; border-radius:10px 0 0 10px !important; }
-        .search-box .form-control::placeholder { color:rgba(255,255,255,0.3); }
-        .search-box .form-control:focus { border-color:#d4e219 !important; box-shadow:none !important; }
-        .search-box .input-group-text { background:rgba(255,255,255,0.06) !important; border:1.5px solid rgba(255,255,255,0.1) !important; border-left:none !important; color:rgba(255,255,255,0.35); border-radius:0 10px 10px 0 !important; }
+        .search-box .form-control { background:rgba(24,24,27,0.9) !important; border:1.5px solid rgba(63,63,70,0.9) !important; border-right:none !important; color:#fff !important; font-size:13px; border-radius:10px 0 0 10px !important; }
+        .search-box .form-control::placeholder { color:rgba(161,161,170,0.8); }
+        .search-box .form-control:focus { border-color:#f43f5e !important; box-shadow:none !important; }
+        .search-box .input-group-text { background:rgba(24,24,27,0.9) !important; border:1.5px solid rgba(63,63,70,0.9) !important; border-left:none !important; color:rgba(161,161,170,0.9); border-radius:0 10px 10px 0 !important; }
 
-        .voucher-card { background:rgba(20,22,50,0.92); border:1px solid rgba(255,255,255,0.07); border-radius:16px; overflow:hidden; transition:transform 0.25s ease,box-shadow 0.25s ease,border-color 0.25s ease; position:relative; cursor:pointer; }
-        .voucher-card:hover { transform:translateY(-4px); box-shadow:0 16px 48px rgba(0,0,0,0.45); border-color:rgba(212,226,25,0.25); }
+        .voucher-card { background:rgba(24,24,27,0.95); border:1px solid rgba(63,63,70,0.85); border-radius:16px; overflow:hidden; transition:transform 0.25s ease,box-shadow 0.25s ease,border-color 0.25s ease; position:relative; cursor:pointer; }
+        .voucher-card:hover { transform:translateY(-4px); box-shadow:0 16px 48px rgba(0,0,0,0.45); border-color:rgba(244,63,94,0.35); }
         .voucher-card.expired { opacity:0.5; filter:grayscale(0.4); cursor:default; }
-        .voucher-card.redeemed-card { border-color:rgba(212,226,25,0.4); }
+        .voucher-card.redeemed-card { border-color:rgba(244,63,94,0.45); }
 
-        .card-stripe { position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,#7b1fa2,#e91e8c); }
+        .card-stripe { position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,#e11d48,#f43f5e); }
         .voucher-card.expired .card-stripe { background:rgba(255,255,255,0.2); }
-        .voucher-card.redeemed-card .card-stripe { background:#d4e219; }
+        .voucher-card.redeemed-card .card-stripe { background:#f43f5e; }
         .card-body-inner { padding:20px 20px 20px 24px; }
 
-        .discount-value { font-family:'Bebas Neue',sans-serif; font-size:42px; line-height:1; letter-spacing:1px; background:linear-gradient(135deg,#e91e8c,#7b1fa2); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .discount-value { font-family:'Bebas Neue',sans-serif; font-size:42px; line-height:1; letter-spacing:1px; background:linear-gradient(135deg,#fb7185,#f43f5e); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
         .discount-unit { font-family:'Bebas Neue',sans-serif; font-size:18px; color:rgba(255,255,255,0.5); letter-spacing:1px; }
 
         .code-chip { font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:3px; background:rgba(255,255,255,0.06); border:1px dashed rgba(255,255,255,0.2); color:rgba(255,255,255,0.7); padding:4px 12px; border-radius:6px; display:inline-block; }
@@ -201,13 +200,13 @@ export default function VoucherExchange() {
         .meta-row { font-size:11.5px; color:rgba(255,255,255,0.4); font-weight:600; letter-spacing:0.3px; }
         .meta-row strong { color:rgba(255,255,255,0.65); }
 
-        .point-cost { display:inline-flex; align-items:center; gap:5px; background:rgba(212,226,25,0.1); border:1px solid rgba(212,226,25,0.25); border-radius:8px; padding:5px 12px; font-family:'Bebas Neue',sans-serif; font-size:18px; color:#d4e219; letter-spacing:1.5px; }
+        .point-cost { display:inline-flex; align-items:center; gap:5px; background:rgba(244,63,94,0.1); border:1px solid rgba(244,63,94,0.28); border-radius:8px; padding:5px 12px; font-family:'Bebas Neue',sans-serif; font-size:18px; color:#fb7185; letter-spacing:1.5px; }
         .point-cost.not-enough { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.1); color:rgba(255,255,255,0.25); }
 
-        .btn-redeem { background:linear-gradient(135deg,#7b1fa2,#e91e8c) !important; border:none !important; color:#fff !important; font-family:'Syne',sans-serif; font-weight:800; font-size:12px; letter-spacing:0.5px; border-radius:8px !important; padding:8px 18px !important; box-shadow:0 0 16px rgba(233,30,140,0.25); transition:box-shadow 0.25s,transform 0.2s !important; }
-        .btn-redeem:hover { box-shadow:0 0 28px rgba(233,30,140,0.55) !important; transform:translateY(-1px); }
+        .btn-redeem { background:linear-gradient(135deg,#e11d48,#f43f5e) !important; border:none !important; color:#fff !important; font-weight:800; font-size:12px; letter-spacing:0.5px; border-radius:8px !important; padding:8px 18px !important; box-shadow:0 0 16px rgba(244,63,94,0.25); transition:box-shadow 0.25s,transform 0.2s !important; }
+        .btn-redeem:hover { box-shadow:0 0 28px rgba(244,63,94,0.45) !important; transform:translateY(-1px); }
         .btn-redeem:disabled { background:rgba(255,255,255,0.08) !important; box-shadow:none !important; color:rgba(255,255,255,0.25) !important; transform:none !important; }
-        .btn-redeemed { background:transparent !important; border:1.5px solid #d4e219 !important; color:#d4e219 !important; font-family:'Syne',sans-serif; font-weight:800; font-size:12px; letter-spacing:0.5px; border-radius:8px !important; padding:8px 18px !important; cursor:default !important; }
+        .btn-redeemed { background:transparent !important; border:1.5px solid #f43f5e !important; color:#fb7185 !important; font-weight:800; font-size:12px; letter-spacing:0.5px; border-radius:8px !important; padding:8px 18px !important; cursor:default !important; }
 
         .status-pill { font-family:'Syne',sans-serif; font-weight:700; font-size:10px; letter-spacing:1px; text-transform:uppercase; padding:3px 10px; border-radius:20px; }
         .status-pill.active-pill  { background:rgba(76,175,80,0.15);    color:#81c784;              border:1px solid rgba(76,175,80,0.3); }
@@ -222,34 +221,34 @@ export default function VoucherExchange() {
 
         /* ════ MODAL — override toàn bộ Bootstrap ════ */
         .modal-content {
-          background: #12133a !important;
-          border: 1px solid rgba(255,255,255,0.12) !important;
+          background: #18181b !important;
+          border: 1px solid rgba(63,63,70,0.95) !important;
           border-radius: 20px !important;
           color: #fff !important;
         }
         .modal-header {
-          background: #12133a !important;
-          border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+          background: #18181b !important;
+          border-bottom: 1px solid rgba(63,63,70,0.85) !important;
           padding: 20px 24px !important;
         }
         .modal-body {
-          background: #12133a !important;
+          background: #18181b !important;
           color: rgba(255,255,255,0.75) !important;
           padding: 24px !important;
         }
         .modal-footer {
-          background: #12133a !important;
-          border-top: 1px solid rgba(255,255,255,0.07) !important;
+          background: #18181b !important;
+          border-top: 1px solid rgba(63,63,70,0.85) !important;
           padding: 16px 24px !important;
         }
         /* Force tất cả text bên trong modal-body sang màu sáng */
         .modal-body * { color: rgba(255,255,255,0.75) !important; }
         /* Các helper class để override lại đúng màu */
         .modal-body .c-white    { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
-        .modal-body .c-yellow   { color: #d4e219 !important; -webkit-text-fill-color: #d4e219 !important; }
+        .modal-body .c-yellow   { color: #fb7185 !important; -webkit-text-fill-color: #fb7185 !important; }
         .modal-body .c-muted    { color: rgba(255,255,255,0.45) !important; -webkit-text-fill-color: rgba(255,255,255,0.45) !important; }
         .modal-body .c-gradient {
-          background: linear-gradient(135deg, #e91e8c, #7b1fa2) !important;
+          background: linear-gradient(135deg, #fb7185, #e11d48) !important;
           -webkit-background-clip: text !important;
           -webkit-text-fill-color: transparent !important;
           background-clip: text !important;
@@ -261,7 +260,7 @@ export default function VoucherExchange() {
 
       {loading ? (
         <div className="text-center py-5 mt-5">
-          <Spinner animation="border" variant="warning" />
+          <Spinner animation="border" variant="light" />
           <p className="text-white-50 small mt-2">Đang tải danh sách voucher…</p>
         </div>
       ) : null}
@@ -320,10 +319,10 @@ export default function VoucherExchange() {
 
           {/* SUCCESS BANNER */}
           {successCode && (
-            <div className="mb-4 p-3" style={{ background:"rgba(212,226,25,0.08)", border:"1.5px solid rgba(212,226,25,0.3)", borderRadius:12, display:"flex", alignItems:"center", gap:12, color:"#d4e219", fontWeight:700, fontSize:14 }}>
+            <div className="mb-4 p-3" style={{ background:"rgba(244,63,94,0.1)", border:"1.5px solid rgba(244,63,94,0.35)", borderRadius:12, display:"flex", alignItems:"center", gap:12, color:"#fb7185", fontWeight:700, fontSize:14 }}>
               <span style={{ fontSize:22 }}>🎉</span>
               Đổi thành công! Mã <span style={{ fontFamily:"'Bebas Neue'", letterSpacing:2, fontSize:16, margin:"0 6px" }}>{successCode}</span> đã được thêm vào tài khoản.
-              <button onClick={() => setSuccessCode(null)} style={{ marginLeft:"auto", background:"none", border:"none", color:"rgba(212,226,25,0.5)", cursor:"pointer", fontSize:18 }}>×</button>
+              <button onClick={() => setSuccessCode(null)} style={{ marginLeft:"auto", background:"none", border:"none", color:"rgba(244,63,94,0.6)", cursor:"pointer", fontSize:18 }}>×</button>
             </div>
           )}
 
@@ -424,7 +423,7 @@ export default function VoucherExchange() {
 
             {/* Điểm còn lại */}
             {selected.point_voucher > 0 && (
-              <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(212,226,25,0.06)", borderRadius:10, border:"1px solid rgba(212,226,25,0.2)", fontSize:13, fontWeight:600 }}>
+              <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(244,63,94,0.08)", borderRadius:10, border:"1px solid rgba(244,63,94,0.25)", fontSize:13, fontWeight:600 }}>
                 Số điểm sau khi đổi:{" "}
                 <span className="c-yellow" style={{ fontFamily:"'Bebas Neue'", fontSize:18, letterSpacing:1 }}>
                   {(userPoints - selected.point_voucher).toLocaleString()} điểm

@@ -379,6 +379,140 @@
   pointer-events: none;
 }
 
+/* Search input on gradient header (Super Admin / Admin list pages) */
+.admin-header .admin-search-on-gradient .admin-search-input {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+.admin-header .admin-search-on-gradient .admin-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.admin-header .admin-search-on-gradient .admin-search-input:focus {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
+}
+
+.admin-header .admin-search-on-gradient .admin-search-icon {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* Table row: avatar + compact action buttons */
+.admin-table-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--admin-bg-header);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.admin-table-action-group {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.admin-table-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  text-decoration: none;
+  transition: var(--admin-transition);
+  border: none;
+  cursor: pointer;
+}
+
+.admin-table-action-btn--view {
+  background: var(--admin-info);
+}
+
+.admin-table-action-btn--edit {
+  background: var(--admin-warning);
+}
+
+.admin-table-action-btn--danger {
+  background: var(--admin-danger);
+}
+
+.admin-table-action-btn:hover {
+  transform: scale(1.08);
+  color: #fff;
+}
+
+/* Square icon tile (rooms, promos) — complements round .admin-table-avatar */
+.admin-table-icon-tile {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-bg-header);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.admin-badge-neutral {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--admin-text-muted);
+}
+
+.admin-points-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--admin-warning);
+}
+
+.admin-pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--admin-space);
+  margin-top: var(--admin-space-lg);
+}
+
+.admin-pagination-meta {
+  color: var(--admin-text-muted);
+  font-size: 0.9rem;
+}
+
+/* ShowtimeManagement timeline: horizontal scroll inside page, avoid body overflow hacks */
+.showtime-schedule-page {
+  overflow-x: hidden;
+}
+
+.showtime-schedule-page .table-responsive {
+  overflow-x: auto !important;
+  scroll-behavior: smooth !important;
+}
+
+.admin-pagination-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--admin-space-lg);
+}
+
 /* ─────────────────────────────────────────────────────────
    Buttons
    ───────────────────────────────────────────────────────── */

@@ -19,6 +19,7 @@ import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "./useSuperAdminCinema";
 import CinemaPicker from "./CinemaPicker";
 import "../../styles/admin-shell.css";
+import "../../styles/admin-design-system.css";
 
 const sectionsGeneral = [
   {
@@ -198,7 +199,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <section className="app-shell-content">
+        <section className="app-shell-content app-shell-content--panel">
           <Outlet />
         </section>
       </main>

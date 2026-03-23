@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Badge, Button, Card, Form, Spinner, Table } from "react-bootstrap";
-import { ArrowDownLeft, ArrowUpRight, Package } from "lucide-react";
+import { Badge, Button, Form, Spinner, Table } from "react-bootstrap";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch } from "../../utils/apiClient";
 import { CINEMAS } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
@@ -179,97 +180,78 @@ export default function ProductManagement() {
   );
 
   return (
-    <div className="product-management px-2 px-md-3 pb-4">
-      <style>{`
-        .pm-header {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 1.75rem 1.5rem;
-          margin: 0 -0.5rem 1.5rem;
-          border-radius: 0 0 1rem 1rem;
-        }
-        @media (min-width: 768px) {
-          .pm-header { margin: 0 0 1.5rem; border-radius: 1rem; }
-        }
-      `}</style>
-
-      <div className="pm-header">
-        <div>
-          <h1 className="h4 mb-1 d-flex align-items-center gap-2">
-            <Package size={22} /> Sản phẩm &amp; Combo
-          </h1>
-          <p className="mb-0 small opacity-90">
+    <AdminPanelPage
+      icon="box-seam"
+      title="Sản phẩm & Combo"
+      description={
+        <>
+          <p className="lead mb-2">
             <strong>Đang bán</strong> = có trong <code>cinema_products</code>. <strong>Chưa bán</strong> = chưa có dòng đó. Xóa = gỡ bản ghi khỏi DB.
           </p>
           {cinemaLabel ? (
-            <p className="mb-0 mt-2 small">
-              <Badge bg="light" text="dark">
-                {cinemaLabel}
-              </Badge>
-            </p>
+            <Badge bg="light" text="dark" className="me-1">
+              {cinemaLabel}
+            </Badge>
           ) : null}
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {effectiveCinemaId == null ? (
-        <Card className="border-0 shadow-sm">
-          <Card.Body className="text-center py-5 text-muted">
+        <div className="admin-card admin-slide-up">
+          <div className="admin-card-body text-center py-5 text-muted">
             <h5 className="text-dark">Chưa chọn rạp</h5>
             <p className="mb-0 small">
               {isSuperAdmin
                 ? "Vui lòng chọn rạp ở sidebar (Super Admin)."
                 : "Tài khoản chưa được gán rạp (cinemaId). Liên hệ Super Admin."}
             </p>
-          </Card.Body>
-        </Card>
+          </div>
+        </div>
       ) : loading ? (
         <div className="text-center py-5">
           <Spinner animation="border" />
         </div>
       ) : (
         <div className="d-flex flex-column gap-4 w-100 pm-tables-stack">
-          <Card className="border-0 shadow-sm w-100">
-            <Card.Header className="d-flex flex-wrap align-items-center justify-content-between gap-2 bg-success bg-opacity-10 border-0">
-              <div className="d-flex align-items-center gap-2 fw-bold text-success">
+          <div className="admin-card admin-slide-up overflow-hidden">
+            <div className="admin-card-header flex-wrap gap-2 border-start border-4 border-success">
+              <h4 className="mb-0 d-flex align-items-center gap-2 flex-wrap text-success">
                 <ArrowUpRight size={18} />
-                Bảng 1 — Đang bán tại rạp
+                Đang bán tại rạp
                 <Badge bg="success">{onSale.length}</Badge>
-              </div>
+              </h4>
               <Form.Control
                 size="sm"
                 placeholder="Tìm đang bán…"
                 className="pm-search"
+                style={{ maxWidth: "min(100%, 280px)" }}
                 value={searchA}
                 onChange={(e) => setSearchA(e.target.value)}
               />
-            </Card.Header>
-            <Card.Body className="p-0">{renderTable(filteredOnSale, "on")}</Card.Body>
-          </Card>
+            </div>
+            <div className="admin-card-body p-0">{renderTable(filteredOnSale, "on")}</div>
+          </div>
 
-          <Card className="border-0 shadow-sm w-100">
-            <Card.Header className="d-flex flex-wrap align-items-center justify-content-between gap-2 bg-secondary bg-opacity-10 border-0">
-              <div className="d-flex align-items-center gap-2 fw-bold text-secondary">
+          <div className="admin-card admin-slide-up overflow-hidden">
+            <div className="admin-card-header flex-wrap gap-2 border-start border-4 border-secondary">
+              <h4 className="mb-0 d-flex align-items-center gap-2 flex-wrap text-secondary">
                 <ArrowDownLeft size={18} />
-                Bảng 2 — Chưa bán (chưa mở tại rạp)
+                Chưa bán (chưa mở tại rạp)
                 <Badge bg="secondary">{notOnSale.length}</Badge>
-              </div>
+              </h4>
               <Form.Control
                 size="sm"
                 placeholder="Tìm chưa bán…"
                 className="pm-search"
+                style={{ maxWidth: "min(100%, 280px)" }}
                 value={searchB}
                 onChange={(e) => setSearchB(e.target.value)}
               />
-            </Card.Header>
-            <Card.Body className="p-0">{renderTable(filteredNotOnSale, "off")}</Card.Body>
-          </Card>
+            </div>
+            <div className="admin-card-body p-0">{renderTable(filteredNotOnSale, "off")}</div>
+          </div>
         </div>
       )}
-
-      <style>{`
-        .pm-tables-stack { max-width: 100%; }
-        .pm-search { max-width: min(100%, 280px); }
-      `}</style>
-    </div>
+    </AdminPanelPage>
   );
 }

@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, Users } from "lucide-react";
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch } from "../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
-import "../../styles/admin-design-system.css";
-
 const getWeekStart = (date) => {
   const d = new Date(date);
   const day = d.getDay();
@@ -164,34 +163,35 @@ export default function ShiftManagement() {
     }
   };
 
+  const shiftHeaderRight = (
+    <Link to={`${prefix}/shifts/add`} className="admin-btn text-decoration-none d-inline-flex align-items-center gap-1" style={{ background: "white", color: "#6366f1" }}>
+      <Plus size={18} />
+      Phân ca mới
+    </Link>
+  );
+
   if (!effectiveCinemaId) {
     return (
-      <div className="admin-page admin-fade-in">
-        <div className="alert alert-warning border-0 shadow-sm">
+      <AdminPanelPage icon="calendar-check" title="Ca làm theo rạp" description="Chọn rạp để xem và phân ca.">
+        <div className="alert alert-warning border-0 shadow-sm mb-0">
           <strong>Chưa chọn rạp.</strong>{" "}
           {isSuperAdmin ? "Super Admin: chọn rạp trên header." : "Tài khoản admin cần được gán rạp (cinemaId)."}
         </div>
-      </div>
+      </AdminPanelPage>
     );
   }
 
   return (
-    <div className="admin-page admin-fade-in">
-      <div className="admin-action-bar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <div>
-          <h2 className="admin-section-title m-0">
-            <Clock size={20} className="me-2" style={{ verticalAlign: "middle" }} />
-            Ca làm theo rạp
-          </h2>
-          <p className="text-muted small mb-0">
-            Mỗi ca gồm 3 nhân viên: <strong>Bán vé</strong>, <strong>Soát vé</strong>, <strong>Phục vụ</strong> (khớp BE). Đồng bộ lịch tuần với API.
-          </p>
-        </div>
-        <Link to={`${prefix}/shifts/add`} className="admin-btn admin-btn-primary text-decoration-none d-inline-flex align-items-center gap-1">
-          <Plus size={18} />
-          Phân ca mới
-        </Link>
-      </div>
+    <AdminPanelPage
+      icon="calendar-check"
+      title="Ca làm theo rạp"
+      description={
+        <p className="lead mb-0">
+          Mỗi ca gồm 3 nhân viên: <strong>Bán vé</strong>, <strong>Soát vé</strong>, <strong>Phục vụ</strong> (khớp BE). Đồng bộ lịch tuần với API.
+        </p>
+      }
+      headerRight={shiftHeaderRight}
+    >
 
       {error ? (
         <div className="alert alert-danger border-0 shadow-sm small mb-3">{error}</div>
@@ -303,6 +303,6 @@ export default function ShiftManagement() {
           </div>
         </div>
       )}
-    </div>
+    </AdminPanelPage>
   );
 }

@@ -20,6 +20,7 @@ const CreateMembershipLevel = () => {
 
   useEffect(() => {
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         rank_name: editData.rank_name || '',
         min_spending: editData.min_spending || '',

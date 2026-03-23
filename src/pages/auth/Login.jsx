@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import { clearAuthSession, setAuthSession } from '../../utils/authStorage';
@@ -7,17 +7,17 @@ import { AUTH } from '../../constants/apiEndpoints';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
+  const [error, setError] = useState(() => {
     const stored = sessionStorage.getItem('fe_admin_cinema_error');
     if (stored) {
-      setError(stored);
       sessionStorage.removeItem('fe_admin_cinema_error');
+      return stored;
     }
-  }, []);
+    return "";
+  });
 
   const handleLogin = async () => {
     setError("");
@@ -44,6 +44,7 @@ const Login = () => {
 
       /* Có staff → ưu tiên điều hướng nội bộ (admin / super-admin / ca làm) */
       if (data.staff) {
+        clearAuthSession();
         setAuthSession({
           accessToken: data.token,
           refreshToken: data.refreshToken,
@@ -70,6 +71,7 @@ const Login = () => {
 
       /* Chỉ khách hàng */
       if (data.user) {
+        clearAuthSession();
         setAuthSession({
           accessToken: data.token,
           refreshToken: data.refreshToken,
@@ -92,10 +94,11 @@ const Login = () => {
 
   return (
     <Layout>
-      <div className="auth-public-page d-flex align-items-center justify-content-center py-5" style={{ minHeight: '90vh', background: "url('https://cdn.wallpapersafari.com/24/74/zgeTuV.jpg') no-repeat center/cover", backgroundAttachment: 'fixed', position: 'relative' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)' }}></div>
-        
-        <div className="card border-0 shadow-lg p-4 rounded-4 bg-white bg-opacity-10" style={{ width: '100%', maxWidth: '420px', position: 'relative', zIndex: 1, backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+      <div className="auth-public-page auth-public-page--navbar">
+        <div
+          className="card border-0 shadow-lg p-4 rounded-4 bg-white bg-opacity-10 backdrop-blur-md"
+          style={{ width: "100%", maxWidth: "420px" }}
+        >
           <div className="text-center mb-4">
             <h2 className="fw-black text-white text-gradient d-inline-block tracking-tighter uppercase mb-0" style={{ fontWeight: 900 }}>ĐĂNG NHẬP</h2>
           </div>
@@ -138,11 +141,13 @@ const Login = () => {
             </div>
             
             <div className="text-end mb-4 small">
-              <a href="/forgetPassword" className="text-decoration-none text-warning fw-bold hover-white">Quên mật khẩu?</a>
+              <Link to="/forgetPassword" className="text-decoration-none text-rose-400 fw-bold hover:text-white">
+                Quên mật khẩu?
+              </Link>
             </div>
             
             {error && (
-              <p style={{ color: "#ff6b6b", fontWeight: 700, marginBottom: 12, textAlign: "center" }}>
+              <p className="text-center fw-bold mb-3 text-rose-400 small">
                 {error}
               </p>
             )}
@@ -151,8 +156,11 @@ const Login = () => {
             </button>
           </form>
           
-          <div className="text-center mt-4 small text-white fw-bold">
-            Chưa có tài khoản? <Link to="/register" className="fw-bold text-warning text-decoration-none hover-white">Đăng ký ngay</Link>
+          <div className="text-center mt-4 small text-zinc-300 fw-bold">
+            Chưa có tài khoản?{" "}
+            <Link to="/register" className="fw-bold text-rose-400 text-decoration-none hover:text-white">
+              Đăng ký ngay
+            </Link>
           </div>
         </div>
       </div>

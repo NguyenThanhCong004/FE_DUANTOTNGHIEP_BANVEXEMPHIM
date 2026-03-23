@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../../styles/admin-design-system.css';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { STAFF } from '../../constants/apiEndpoints';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
@@ -85,15 +85,19 @@ const EmployeeManagement = () => {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
-    <div className="admin-page employee-management admin-fade-in">
-      {/* Header */}
-      <div className="admin-action-bar">
-        <h2 className="admin-section-title m-0">
-          <i className="bi bi-person-badge"></i>
-          Quản trị viên rạp
-        </h2>
-        <button 
-          className="admin-btn admin-btn-success"
+    <AdminPanelPage
+      icon="person-badge"
+      title="Quản trị viên rạp"
+      description={
+        selectedCinemaId == null
+          ? "Chọn rạp trên header để xem danh sách ADMIN theo rạp."
+          : "Danh sách quản trị viên rạp (ADMIN) theo rạp đã chọn."
+      }
+      headerRight={
+        <button
+          type="button"
+          className="admin-btn"
+          style={{ background: "white", color: "#6366f1" }}
           disabled={selectedCinemaId == null}
           title={selectedCinemaId == null ? "Chọn rạp trên header trước" : undefined}
           onClick={() => navigate('/super-admin/employees/create')}
@@ -101,9 +105,8 @@ const EmployeeManagement = () => {
           <i className="bi bi-person-plus me-2"></i>
           Thêm quản trị viên
         </button>
-      </div>
-
-      {/* Table Container */}
+      }
+    >
       <div className="admin-table-container">
         {/* Search Bar */}
         <div className="admin-search-wrapper mb-4" style={{ maxWidth: '400px' }}>
@@ -282,7 +285,7 @@ const EmployeeManagement = () => {
           </div>
         </div>
       )}
-    </div>
+    </AdminPanelPage>
   );
 };
 

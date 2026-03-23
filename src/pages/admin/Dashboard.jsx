@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Container, Row, Col, Card, Spinner } from "react-bootstrap";
+import { Row, Col, Spinner } from "react-bootstrap";
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
 import { apiFetch } from "../../utils/apiClient";
@@ -12,7 +13,6 @@ import {
   ORDERS_ONLINE,
   CINEMAS,
 } from "../../constants/apiEndpoints";
-import "../../styles/admin-design-system.css";
 
 function formatMoney(v) {
   if (v == null || Number.isNaN(Number(v))) return "0";
@@ -196,106 +196,101 @@ const AdminDashboard = () => {
     []
   );
 
+  const headerDescription = (
+    <>
+      <p className="lead mb-1">
+        {effectiveCinemaId != null
+          ? cinemaLabel || `Rạp #${effectiveCinemaId}`
+          : "Chưa có rạp — chọn rạp ở sidebar (nếu có) hoặc liên hệ Super Admin gán rạp."}
+      </p>
+      <p className="small text-white-50 mb-0">
+        Doanh thu/ngày tính trên <strong>tất cả đơn online hoàn thành</strong> (BE chưa gắn cinema cho đơn).
+      </p>
+    </>
+  );
+
   return (
-    <div className="admin-page admin-dashboard admin-fade-in">
-      <Container fluid>
-        <div className="admin-header">
-          <div className="admin-header-content">
-            <div>
-              <h1>
-                <i className="bi bi-speedometer2 me-3"></i>
-                Bảng điều khiển
-              </h1>
-              <p className="lead mb-1">
-                {effectiveCinemaId != null
-                  ? cinemaLabel || `Rạp #${effectiveCinemaId}`
-                  : "Chưa có rạp — chọn rạp ở sidebar (nếu có) hoặc liên hệ Super Admin gán rạp."}
-              </p>
-              <p className="small text-white-50 mb-0">
-                Doanh thu/ngày tính trên <strong>tất cả đơn online hoàn thành</strong> (BE chưa gắn cinema cho
-                đơn).
-              </p>
-            </div>
-          </div>
+    <AdminPanelPage icon="speedometer2" title="Bảng điều khiển" description={headerDescription}>
+      {loading ? (
+        <div className="text-center py-5">
+          <Spinner animation="border" variant="primary" />
+          <p className="text-muted mt-2 small">Đang tải số liệu…</p>
         </div>
-
-        {loading ? (
-          <div className="text-center py-5">
-            <Spinner animation="border" variant="light" />
-            <p className="text-white-50 mt-2 small">Đang tải số liệu…</p>
+      ) : (
+        <>
+          <div className="admin-stats-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+            {statCards.map((stat, index) => (
+              <div
+                key={stat.title}
+                className="admin-stat-card admin-slide-up"
+                style={{
+                  "--stat-color": stat.color,
+                  "--icon-bg": `${stat.color}15`,
+                  animationDelay: `${index * 0.08}s`,
+                }}
+              >
+                <div className="admin-stat-icon">
+                  <i className={`bi ${stat.icon}`}></i>
+                </div>
+                <div className="admin-stat-value">{stat.value}</div>
+                <div className="admin-stat-label">{stat.subtitle}</div>
+                <div className="fw-semibold small mt-2" style={{ color: "var(--admin-text)" }}>
+                  {stat.title}
+                </div>
+                <div className="small text-muted mt-1">{stat.hint}</div>
+              </div>
+            ))}
           </div>
-        ) : (
-          <>
-            <div className="admin-stats-grid">
-              {statCards.map((stat, index) => (
-                <Card
-                  key={index}
-                  className="admin-stat-card h-100"
-                  style={{ "--stat-color": stat.color, "--icon-bg": `${stat.color}15` }}
-                >
-                  <div className="admin-stat-icon">
-                    <i className={`bi ${stat.icon}`}></i>
-                  </div>
-                  <div className="admin-stat-value">{stat.value}</div>
-                  <div className="admin-stat-label">{stat.subtitle}</div>
-                  <div className="fw-semibold small mt-2" style={{ opacity: 0.95 }}>
-                    {stat.title}
-                  </div>
-                  <div className="small text-white-50 mt-1 opacity-75">{stat.hint}</div>
-                </Card>
-              ))}
-            </div>
 
-            <Row className="g-4 mt-1">
-              <Col lg={12}>
-                <Card className="admin-card admin-slide-up">
-                  <div className="admin-card-header">
-                    <h4>
-                      <i className="bi bi-lightning-charge me-2 text-warning"></i>
-                      Truy cập nhanh
-                    </h4>
-                  </div>
-                  <div className="admin-card-body">
-                    <Row className="g-2">
-                      {quickLinks.map((q) => (
-                        <Col xs={6} md={4} lg={2} key={q.to}>
-                          <Link
-                            to={q.to}
-                            className="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2 py-3"
-                          >
-                            <i className={`bi ${q.icon}`}></i>
-                            <span>{q.label}</span>
-                          </Link>
-                        </Col>
-                      ))}
-                    </Row>
-                  </div>
-                </Card>
-              </Col>
-              <Col lg={12}>
-                <Card className="admin-card">
-                  <div className="admin-card-header">
-                    <h4>
-                      <i className="bi bi-tags me-2 text-info"></i>
-                      Khuyến mãi tại rạp
-                    </h4>
-                  </div>
-                  <div className="admin-card-body">
-                    <p className="text-muted mb-0">
-                      Đang có <strong>{stats.promoCount}</strong> nhóm khuyến mãi
-                      {effectiveCinemaId != null ? "" : " (chọn rạp để đếm)"}.
-                      <Link to="/admin/promotions" className="ms-2">
-                        Quản lý →
-                      </Link>
-                    </p>
-                  </div>
-                </Card>
-              </Col>
-            </Row>
-          </>
-        )}
-      </Container>
-    </div>
+          <Row className="g-4 mt-1">
+            <Col lg={12}>
+              <div className="admin-card admin-slide-up">
+                <div className="admin-card-header">
+                  <h4>
+                    <i className="bi bi-lightning-charge me-2 text-warning"></i>
+                    Truy cập nhanh
+                  </h4>
+                </div>
+                <div className="admin-card-body">
+                  <Row className="g-2">
+                    {quickLinks.map((q) => (
+                      <Col xs={6} md={4} lg={2} key={q.to}>
+                        <Link
+                          to={q.to}
+                          className="admin-btn admin-btn-outline w-100 d-flex align-items-center justify-content-center gap-2 py-3 text-decoration-none"
+                        >
+                          <i className={`bi ${q.icon}`}></i>
+                          <span>{q.label}</span>
+                        </Link>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              </div>
+            </Col>
+            <Col lg={12}>
+              <div className="admin-card">
+                <div className="admin-card-header">
+                  <h4>
+                    <i className="bi bi-tags me-2 text-info"></i>
+                    Khuyến mãi tại rạp
+                  </h4>
+                </div>
+                <div className="admin-card-body">
+                  <p className="text-muted mb-0">
+                    Đang có <strong>{stats.promoCount}</strong> nhóm khuyến mãi
+                    {effectiveCinemaId != null ? "" : " (chọn rạp để đếm)"}.
+                    <Link to="/admin/promotions" className="ms-2">
+                      Quản lý →
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </>
+      )}
+    </AdminPanelPage>
   );
 };
 

@@ -4,7 +4,6 @@ import { apiFetch } from '../../utils/apiClient';
 import { ORDERS_ONLINE } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
-import { ReceiptText, Search, Eye, Trash2, DollarSign, User, Film, Clock } from 'lucide-react';
 
 const InvoiceManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,7 +89,7 @@ const InvoiceManagement = () => {
 
   const filteredInvoices = useMemo(() => {
     const q = searchTerm.toLowerCase();
-    return invoices.filter(invoice => 
+    return invoices.filter(invoice =>
       String(invoice.displayCode || '').toLowerCase().includes(q) ||
       String(invoice.apiId || '').toLowerCase().includes(q) ||
       String(invoice.customerName || '').toLowerCase().includes(q) ||
@@ -107,429 +106,100 @@ const InvoiceManagement = () => {
   }, [invoices]);
 
   const getStatusBadge = (status) => {
-    switch(status) {
+    switch (status) {
       case 'completed':
-        return <span className="status-badge status-completed">Hoàn thành</span>;
+        return <span className="admin-badge admin-badge-success">Hoàn thành</span>;
       case 'pending':
-        return <span className="status-badge status-pending">Chờ thanh toán</span>;
+        return <span className="admin-badge admin-badge-warning">Chờ thanh toán</span>;
       case 'cancelled':
-        return <span className="status-badge status-cancelled">Đã hủy</span>;
+        return <span className="admin-badge admin-badge-danger">Đã hủy</span>;
       default:
-        return <span className="status-badge status-unknown">Không xác định</span>;
+        return <span className="admin-badge admin-badge-neutral">Không xác định</span>;
     }
   };
 
-  const getPaymentMethodBadge = (method) => {
-    switch(method) {
-      case 'credit_card':
-        return <span className="payment-badge payment-card">Thẻ tín dụng</span>;
-      case 'bank_transfer':
-        return <span className="payment-badge payment-bank">Chuyển khoản</span>;
-      case 'cash':
-        return <span className="payment-badge payment-cash">Tiền mặt</span>;
-      default:
-        return <span className="payment-badge payment-unknown">Khác</span>;
-    }
-  };
+  const statItems = [
+    {
+      label: 'Tổng doanh thu',
+      value: `${invoiceStats.totalRev.toLocaleString('vi-VN')}đ`,
+      icon: 'bi-currency-exchange',
+      color: '#10b981',
+    },
+    {
+      label: 'Chờ thanh toán',
+      value: String(invoiceStats.pending),
+      icon: 'bi-clock-history',
+      color: '#f59e0b',
+    },
+    {
+      label: 'Đã hoàn thành',
+      value: String(invoiceStats.completed),
+      icon: 'bi-receipt',
+      color: '#3b82f6',
+    },
+    {
+      label: 'Đã hủy',
+      value: String(invoiceStats.cancelled),
+      icon: 'bi-trash',
+      color: '#ef4444',
+    },
+  ];
 
   return (
-    <div className="invoice-management">
-      <style jsx>{`
-        .admin-header {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 2rem 0;
-          margin-bottom: 2rem;
-          border-radius: 0 0 1rem 1rem;
-        }
-        
-        .admin-header-content {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 2rem;
-        }
-        
-        .search-container {
-          max-width: 400px;
-          position: relative;
-        }
-        
-        .search-input {
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: white;
-          padding: 0.75rem 1rem 0.75rem 3rem;
-          border-radius: 50px;
-          font-weight: 500;
-          transition: all 0.3s ease;
-          width: 100%;
-        }
-        
-        .search-input::placeholder {
-          color: rgba(255, 255, 255, 0.7);
-        }
-        
-        .search-input:focus {
-          outline: none;
-          background: rgba(255, 255, 255, 0.15);
-          border-color: rgba(255, 255, 255, 0.3);
-          box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
-        }
-        
-        .search-icon {
-          position: absolute;
-          left: 1rem;
-          top: 50%;
-          transform: translateY(-50%);
-          color: rgba(255, 255, 255, 0.8);
-        }
-        
-        .add-btn {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          border: none;
-          color: white;
-          padding: 0.75rem 2rem;
-          border-radius: 50px;
-          font-weight: 600;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        .add-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-          color: white;
-        }
-        
-        .main-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 2rem;
-        }
-        
-        .invoice-table {
-          background: white;
-          border-radius: 1rem;
-          overflow: hidden;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        }
-        
-        .table-header {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          padding: 1.5rem;
-          border-bottom: 2px solid #dee2e6;
-        }
-        
-        .table-title {
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: #2c3e50;
-          margin: 0;
-        }
-        
-        .modern-table {
-          border-collapse: separate;
-          border-spacing: 0;
-        }
-        
-        .modern-table thead th {
-          background: #f8f9fa;
-          color: #6c757d;
-          font-weight: 600;
-          text-transform: uppercase;
-          font-size: 0.75rem;
-          letter-spacing: 0.5px;
-          border: none;
-          padding: 1rem;
-        }
-        
-        .modern-table tbody tr {
-          transition: all 0.2s ease;
-          border-bottom: 1px solid #f1f3f4;
-        }
-        
-        .modern-table tbody tr:hover {
-          background: #f8f9fa;
-          transform: scale(1.01);
-        }
-        
-        .modern-table tbody td {
-          padding: 1rem;
-          vertical-align: middle;
-          border: none;
-        }
-        
-        .invoice-info {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-        
-        .invoice-avatar {
-          width: 40px;
-          height: 40px;
-          border-radius: 8px;
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-weight: 600;
-          font-size: 1.2rem;
-        }
-        
-        .invoice-details h6 {
-          margin: 0;
-          font-weight: 600;
-          color: #2c3e50;
-        }
-        
-        .invoice-details small {
-          color: #6c757d;
-          display: block;
-          margin-top: 0.25rem;
-        }
-        
-        .amount-display {
-          font-weight: 700;
-          font-size: 1.1rem;
-        }
-        
-        .amount-display.total {
-          color: #10b981;
-        }
-        
-        .status-badge {
-          padding: 0.35rem 0.75rem;
-          border-radius: 50px;
-          font-size: 0.75rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        
-        .status-completed {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          color: white;
-        }
-        
-        .status-pending {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-          color: white;
-        }
-        
-        .status-cancelled {
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-          color: white;
-        }
-        
-        .payment-badge {
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.7rem;
-          font-weight: 500;
-          text-transform: uppercase;
-        }
-        
-        .payment-card {
-          background: #dbeafe;
-          color: #1e40af;
-        }
-        
-        .payment-bank {
-          background: #dcfce7;
-          color: #166534;
-        }
-        
-        .payment-cash {
-          background: #fef3c7;
-          color: #92400e;
-        }
-        
-        .action-buttons {
-          display: flex;
-          gap: 0.5rem;
-          justify-content: center;
-        }
-        
-        .action-btn {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          border: none;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-          text-decoration: none;
-          color: white;
-        }
-        
-        .view-btn {
-          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        }
-        
-        .download-btn {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        }
-        
-        .edit-btn {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        }
-        
-        .delete-btn {
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        }
-        
-        .action-btn:hover {
-          transform: scale(1.1);
-          color: white;
-        }
-        
-        .empty-state {
-          text-align: center;
-          padding: 3rem;
-          color: #6c757d;
-        }
-        
-        .empty-state i {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-          opacity: 0.5;
-        }
-        
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 1.5rem;
-          margin-bottom: 2rem;
-        }
-        
-        .stat-card {
-          background: white;
-          border-radius: 12px;
-          padding: 1.5rem;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-          border-left: 4px solid;
-        }
-        
-        .stat-card.total {
-          border-left-color: #10b981;
-        }
-        
-        .stat-card.pending {
-          border-left-color: #f59e0b;
-        }
-        
-        .stat-card.completed {
-          border-left-color: #3b82f6;
-        }
-        
-        .stat-card.cancelled {
-          border-left-color: #ef4444;
-        }
-        
-        .stat-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-size: 1.5rem;
-          margin-bottom: 1rem;
-        }
-        
-        .stat-value {
-          font-size: 2rem;
-          font-weight: 700;
-          margin-bottom: 0.5rem;
-        }
-        
-        .stat-label {
-          color: #6c757d;
-          font-size: 0.9rem;
-        }
-      `}</style>
-
-      {/* Header Section */}
+    <div className="admin-page superadmin-page admin-fade-in">
       <div className="admin-header">
         <div className="admin-header-content">
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h1 className="mb-2" style={{ fontSize: '2rem', fontWeight: '700' }}>
-                <ReceiptText className="me-3" />Quản lý Hóa đơn
-              </h1>
-              <p className="mb-0" style={{ opacity: 0.9 }}>Theo dõi và quản lý hóa đơn vé phim</p>
-            </div>
-            <div className="d-flex align-items-center gap-3">
-              <div className="search-container">
-                <Search className="search-icon" />
-                <input 
-                  type="text" 
-                  className="search-input" 
-                  placeholder="Tìm hóa đơn..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
+          <div>
+            <h1>
+              <i className="bi bi-receipt-cutoff me-3"></i>
+              Quản lý Hóa đơn
+            </h1>
+            <p className="lead">Theo dõi và quản lý hóa đơn vé phim</p>
+          </div>
+          <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
+            <i className="bi bi-search admin-search-icon" aria-hidden />
+            <input
+              type="search"
+              className="admin-search-input"
+              placeholder="Tìm hóa đơn..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Tìm hóa đơn"
+            />
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="main-container">
-        {/* Statistics Cards */}
-        <div className="stats-grid">
-          <div className="stat-card total">
-            <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
-              <DollarSign />
+      <div className="admin-stats-grid mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        {statItems.map((s, index) => (
+          <div
+            key={s.label}
+            className="admin-stat-card admin-slide-up"
+            style={{
+              '--stat-color': s.color,
+              '--icon-bg': `${s.color}15`,
+              animationDelay: `${index * 0.05}s`,
+            }}
+          >
+            <div className="admin-stat-icon">
+              <i className={`bi ${s.icon}`}></i>
             </div>
-            <div className="stat-value">{invoiceStats.totalRev.toLocaleString('vi-VN')}đ</div>
-            <div className="stat-label">Tổng doanh thu</div>
+            <div className="admin-stat-value">{s.value}</div>
+            <div className="admin-stat-label">{s.label}</div>
           </div>
-          
-          <div className="stat-card pending">
-            <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
-              <Clock />
-            </div>
-            <div className="stat-value">{invoiceStats.pending}</div>
-            <div className="stat-label">Chờ thanh toán</div>
-          </div>
-          
-          <div className="stat-card completed">
-            <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' }}>
-              <ReceiptText />
-            </div>
-            <div className="stat-value">{invoiceStats.completed}</div>
-            <div className="stat-label">Đã hoàn thành</div>
-          </div>
-          
-          <div className="stat-card cancelled">
-            <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
-              <Trash2 />
-            </div>
-            <div className="stat-value">{invoiceStats.cancelled}</div>
-            <div className="stat-label">Đã hủy</div>
-          </div>
-        </div>
+        ))}
+      </div>
 
-        {/* Table Section */}
-        <div className="invoice-table">
-          <div className="table-header">
-            <h3 className="table-title">
-              <ReceiptText className="me-2" />Danh sách Hóa đơn
-            </h3>
-          </div>
-          
+      <div className="admin-card admin-slide-up">
+        <div className="admin-card-header">
+          <h4>
+            <i className="bi bi-list-ul me-2 text-primary"></i>
+            Danh sách Hóa đơn
+          </h4>
+        </div>
+        <div className="admin-card-body p-0">
           <div className="table-responsive">
-            <table className="modern-table table">
+            <table className="admin-table mb-0">
               <thead>
                 <tr>
                   <th>Mã hóa đơn</th>
@@ -554,65 +224,63 @@ const InvoiceManagement = () => {
                 ) : filteredInvoices.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
-                      <div className="empty-state">
-                        <ReceiptText />
-                        <h5>Không có hóa đơn</h5>
-                        <p>Chưa có hóa đơn nào trong hệ thống</p>
+                      <div className="admin-empty">
+                        <div className="admin-empty-icon">
+                          <i className="bi bi-receipt"></i>
+                        </div>
+                        <h5 className="mb-2">Không có hóa đơn</h5>
+                        <p className="mb-0">Chưa có hóa đơn nào trong hệ thống</p>
                       </div>
                     </td>
                   </tr>
-                ) : filteredInvoices.map(invoice => (
+                ) : filteredInvoices.map((invoice) => (
                   <tr key={invoice.apiId}>
                     <td className="fw-bold">{invoice.displayCode}</td>
                     <td>
-                      <div className="invoice-info">
-                        <div className="invoice-avatar">
-                          <User />
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="admin-table-icon-tile" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+                          <i className="bi bi-person"></i>
                         </div>
-                        <div className="invoice-details">
-                          <h6>{invoice.customerName}</h6>
-                          <small>{invoice.customerEmail}</small>
+                        <div>
+                          <div className="fw-semibold text-dark">{invoice.customerName}</div>
+                          <small className="text-muted">{invoice.customerEmail}</small>
                         </div>
                       </div>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-2">
-                        <Film size={16} className="text-primary" />
+                        <i className="bi bi-film text-primary"></i>
                         <span>{invoice.movieTitle}</span>
                       </div>
                     </td>
                     <td>
-                      <div className="d-flex flex-column">
-                        <small className="text-muted">
-                          <Clock size={12} className="me-1" />
-                          {invoice.showtime}
-                        </small>
-                      </div>
+                      <small className="text-muted">
+                        <i className="bi bi-clock me-1"></i>
+                        {invoice.showtime}
+                      </small>
                     </td>
                     <td>
-                      <div className="amount-display total">
+                      <span className="fw-bold" style={{ color: 'var(--admin-success)' }}>
                         {invoice.total.toLocaleString()}đ
-                      </div>
+                      </span>
                     </td>
-                    <td>
-                      {getStatusBadge(invoice.status)}
-                    </td>
+                    <td>{getStatusBadge(invoice.status)}</td>
                     <td className="text-center">
-                      <div className="action-buttons d-inline-flex">
+                      <div className="admin-table-action-group d-inline-flex">
                         <Link
                           to={`${prefix}/invoices/view/${invoice.apiId}`}
-                          className="action-btn view-btn"
+                          className="admin-table-action-btn admin-table-action-btn--view"
                           title="Xem chi tiết"
                         >
-                          <Eye />
+                          <i className="bi bi-eye"></i>
                         </Link>
                         <button
                           type="button"
-                          className="action-btn delete-btn"
+                          className="admin-table-action-btn admin-table-action-btn--danger"
                           title="Xóa đơn"
                           onClick={() => handleDelete(invoice.apiId)}
                         >
-                          <Trash2 size={14} />
+                          <i className="bi bi-trash"></i>
                         </button>
                       </div>
                     </td>

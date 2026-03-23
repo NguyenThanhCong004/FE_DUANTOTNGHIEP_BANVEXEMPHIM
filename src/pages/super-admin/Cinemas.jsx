@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { CINEMAS } from '../../constants/apiEndpoints';
 
@@ -43,8 +44,7 @@ const CinemaManagement = () => {
     };
   }, []);
 
-  // Logic lọc
-  const filteredCinemas = cinemas.filter(cinema => 
+  const filteredCinemas = cinemas.filter(cinema =>
     String(cinema.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     String(cinema.address || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -54,290 +54,174 @@ const CinemaManagement = () => {
   const currentItems = filteredCinemas.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredCinemas.length / itemsPerPage);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
   return (
-    <div className="cinema-management p-4">
-      <style>{`
-        .table-container {
-          background: white;
-          border-radius: 15px;
-          padding: 25px;
-          box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-        }
-
-        .new-search-container {
-          position: relative;
-          max-width: 500px;
-          margin-bottom: 30px;
-        }
-
-        .new-search-input {
-          width: 100%;
-          height: 50px;
-          padding: 10px 20px 10px 50px;
-          background-color: whitesmoke !important;
-          border: 2px solid black !important;
-          border-radius: 10px;
-          color: black !important;
-          font-weight: 500;
-          outline: none;
-        }
-
-        .new-search-icon {
-          position: absolute;
-          left: 15px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: black !important;
-          font-size: 1.3rem;
-          pointer-events: none;
-        }
-
-        .btn-add {
-          background: blue;
-          color: white;
-          border: none;
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-weight: 500;
-        }
-
-        .btn-add:hover {
-          background: black;
-          color: white;
-        }
-
-        .status-active { 
-          color: #2e7d32; 
-          background: #e8f5e9;
-          padding: 5px 12px;
-          border-radius: 20px;
-          font-weight: bold;
-          font-size: 0.85rem;
-        }
-        
-        .status-inactive { 
-          color: #c62828; 
-          background: #ffebee;
-          padding: 5px 12px;
-          border-radius: 20px;
-          font-weight: bold;
-          font-size: 0.85rem;
-        }
-
-        .pagination-btn {
-          width: 38px;
-          height: 38px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 8px;
-          border: 2px solid black;
-          background: white;
-          color: black;
-          font-weight: bold;
-        }
-
-        .pagination-btn.active {
-          background: black;
-          color: white;
-        }
-
-        .table tbody td {
-          color: black !important;
-          padding: 15px 20px;
-        }
-      `}</style>
-
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2 className="fw-bold m-0 text-dark">Quản lý rạp</h2>
-        </div>
-        <button 
-          className="btn btn-add d-flex align-items-center"
+    <AdminPanelPage
+      icon="building"
+      title="Quản lý rạp"
+      description="Danh sách cụm rạp trong hệ thống."
+      headerRight={
+        <button
+          type="button"
+          className="admin-btn"
+          style={{ background: 'white', color: '#6366f1' }}
           onClick={() => navigate('/super-admin/cinemas/create')}
         >
-          <i className="bi bi-plus-circle me-2 fs-5"></i>
+          <i className="bi bi-plus-lg me-2"></i>
           Thêm rạp mới
         </button>
-      </div>
-
-      <div className="table-container">
-        <div className="new-search-container">
-          <i className="bi bi-search new-search-icon"></i>
-          <input 
-            type="text" 
-            className="new-search-input"
-            placeholder="Tìm theo tên rạp hoặc địa chỉ..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+      }
+    >
+      <div className="admin-card admin-slide-up">
+        <div className="admin-card-header flex-wrap gap-2">
+          <h4 className="mb-0 d-flex align-items-center gap-2">
+            <i className="bi bi-list-ul text-primary"></i>
+            Danh sách rạp
+          </h4>
+          <span className="text-muted small">Tổng: {filteredCinemas.length} cụm rạp</span>
         </div>
+        <div className="admin-card-body">
+          <div className="admin-search-wrapper mb-3" style={{ maxWidth: 420 }}>
+            <i className="bi bi-search admin-search-icon" aria-hidden />
+            <input
+              type="search"
+              className="admin-search-input"
+              placeholder="Tìm theo tên rạp hoặc địa chỉ..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Tìm rạp"
+            />
+          </div>
 
-        <div className="table-responsive">
-          <table className="table table-hover align-middle">
-            <thead className="table-light">
-              <tr>
-                <th className="py-3 text-center" style={{ width: '80px' }}>STT</th>
-                <th className="py-3">Tên cụm rạp</th>
-                <th className="py-3">Địa chỉ chi tiết</th>
-                <th className="py-3 text-center">Trạng thái</th>
-                <th className="py-3 text-center">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
+          <div className="table-responsive">
+            <table className="admin-table mb-0">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="text-center py-5 text-muted">Đang tải danh sách rạp...</td>
+                  <th style={{ width: 80 }}>STT</th>
+                  <th>Tên cụm rạp</th>
+                  <th>Địa chỉ chi tiết</th>
+                  <th>Trạng thái</th>
+                  <th className="text-center">Thao tác</th>
                 </tr>
-              ) : currentItems.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center py-5 text-muted">Không có dữ liệu rạp.</td>
-                </tr>
-              ) : currentItems.map((cinema, index) => (
-                <tr key={cinema.id}>
-                  <td className="text-center fw-bold">{indexOfFirstItem + index + 1}</td>
-                  <td className="fw-bold">{cinema.name}</td>
-                  <td>{cinema.address}</td>
-                  <td className="text-center">
-                    <span className={cinema.status === 'Active' ? 'status-active' : 'status-inactive'}>
-                      {cinema.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng'}
-                    </span>
-                  </td>
-                  <td className="text-center">
-                    <div className="d-flex justify-content-center gap-2">
-                      <button 
-                        className="btn btn-sm btn-outline-primary" 
-                        title="Xem chi tiết"
-                        onClick={() => {
-                          setSelectedItem(cinema);
-                          setShowModal(true);
-                        }}
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4 text-muted">
+                      Đang tải danh sách rạp…
+                    </td>
+                  </tr>
+                ) : currentItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4 text-muted">
+                      Không có dữ liệu rạp.
+                    </td>
+                  </tr>
+                ) : currentItems.map((cinema, index) => (
+                  <tr key={cinema.id}>
+                    <td className="fw-semibold">{indexOfFirstItem + index + 1}</td>
+                    <td className="fw-semibold">{cinema.name}</td>
+                    <td>{cinema.address}</td>
+                    <td>
+                      <span
+                        className={
+                          cinema.status === 'Active'
+                            ? 'admin-badge admin-badge-success'
+                            : 'admin-badge admin-badge-danger'
+                        }
                       >
-                        Xem
-                      </button>
-                      <button 
-                        className="btn btn-sm btn-outline-dark" 
-                        title="Sửa"
-                        onClick={() => navigate('/super-admin/cinemas/create', { state: { editData: cinema } })}
-                      >
-                        Sửa
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                        {cinema.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng'}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      <div className="d-flex justify-content-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
+                          onClick={() => {
+                            setSelectedItem(cinema);
+                            setShowModal(true);
+                          }}
+                        >
+                          Xem
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-sm admin-btn-primary"
+                          onClick={() => navigate('/super-admin/cinemas/create', { state: { editData: cinema } })}
+                        >
+                          Sửa
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Modal Chi tiết */}
-        {showModal && selectedItem && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal-content-custom" onClick={e => e.stopPropagation()}>
-              <div className="modal-header-custom">
-                <h4 className="m-0 fw-bold">Chi Tiết Cụm Rạp</h4>
-                <button className="btn-close" onClick={() => setShowModal(false)}></button>
-              </div>
-              <div className="modal-body-custom">
-                <div className="detail-info">
-                  <label>Tên cụm rạp:</label>
-                  <p className="fw-bold fs-5 text-dark">{selectedItem.name}</p>
-                  
-                  <label>Địa chỉ:</label>
-                  <p className="fs-6">{selectedItem.address}</p>
-                  
-                  <label>Trạng thái:</label>
-                  <div>
-                    <span className={selectedItem.status === 'Active' ? 'status-active' : 'status-inactive'}>
-                      {selectedItem.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng'}
-                    </span>
-                  </div>
-
-                  <label className="mt-4">Thông tin bổ sung:</label>
-                  <p className="text-dark italic">Thông tin về cơ sở vật chất, số lượng phòng chiếu và các tiện ích khác của rạp sẽ được cập nhật sau...</p>
-                </div>
-              </div>
-              <div className="modal-footer-custom">
-                <button className="btn btn-dark px-4 fw-bold" onClick={() => setShowModal(false)}>ĐÓNG</button>
+          {totalPages > 1 && (
+            <div className="admin-pagination-wrap mt-3">
+              <div className="admin-pagination">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i + 1}
+                    type="button"
+                    className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-        )}
-
-        <style>{`
-          .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1050;
-            backdrop-filter: blur(5px);
-          }
-          .modal-content-custom {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            width: 100%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            color: black !important;
-          }
-          .modal-header-custom {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-          }
-          .detail-info label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            color: black !important;
-            font-weight: 800;
-            letter-spacing: 0.5px;
-            margin-top: 15px;
-            display: block;
-          }
-          .modal-footer-custom {
-            margin-top: 25px;
-            padding-top: 15px;
-            border-top: 2px solid #f0f0f0;
-            text-align: right;
-          }
-        `}</style>
-
-        <div className="d-flex justify-content-between align-items-center mt-4 px-2">
-          <div className="text-dark small">
-            Tổng cộng: <b>{filteredCinemas.length}</b> cụm rạp
-          </div>
-          <div className="d-flex gap-2">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button 
-                key={i + 1}
-                className={`pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                onClick={() => paginate(i + 1)}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
+          )}
         </div>
       </div>
-    </div>
+
+      {showModal && selectedItem && (
+        <div
+          className="admin-modal-overlay"
+          role="presentation"
+          onClick={() => setShowModal(false)}
+        >
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3>Chi tiết cụm rạp</h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={() => setShowModal(false)}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="admin-form-label mb-1">Tên cụm rạp</p>
+              <p className="fw-bold mb-3">{selectedItem.name}</p>
+              <p className="admin-form-label mb-1">Địa chỉ</p>
+              <p className="mb-3">{selectedItem.address}</p>
+              <p className="admin-form-label mb-1">Trạng thái</p>
+              <span
+                className={
+                  selectedItem.status === 'Active'
+                    ? 'admin-badge admin-badge-success'
+                    : 'admin-badge admin-badge-danger'
+                }
+              >
+                {selectedItem.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng'}
+              </span>
+              <p className="text-muted small mt-3 mb-0">
+                Thông tin cơ sở vật chất, số phòng chiếu có thể bổ sung sau.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-primary" onClick={() => setShowModal(false)}>
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminPanelPage>
   );
 };
 

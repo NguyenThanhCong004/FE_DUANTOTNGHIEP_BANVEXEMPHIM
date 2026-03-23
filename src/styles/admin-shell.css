@@ -213,7 +213,10 @@
 
 .app-shell-main {
   min-width: 0;
-  background: #ffffff;
+  background: var(--admin-bg, #f8fafc);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 .app-shell-header {
@@ -367,6 +370,13 @@ a.text-decoration-none:hover .app-shell-profile-chip {
   color: var(--admin-text, #e2e8f0);
   font-size: 14px;
   line-height: 1.5;
+}
+
+/* Vùng nội dung: chữ đậm + co giãn (nền xám từ .app-shell-main) */
+.app-shell-content--panel {
+  color: var(--admin-text, #1e293b);
+  flex: 1;
+  min-height: 0;
 }
 
 @media (max-width: 991px) {

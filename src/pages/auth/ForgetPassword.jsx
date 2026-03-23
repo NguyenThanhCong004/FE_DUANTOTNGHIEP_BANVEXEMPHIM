@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
+import CustomerPageShell from "../../components/common/CustomerPageShell";
 
 /* ── helpers ── */
 const maskEmail = (email) => {
@@ -40,6 +41,31 @@ function StepIndicator({ current }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function EyeIcon({ show }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {show
+        ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+        : <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
+      }
+    </svg>
+  );
+}
+
+function RuleRow({ pass, text }) {
+  return (
+    <div className={`fp-rule ${pass ? "pass" : ""}`}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        {pass
+          ? <polyline points="20 6 9 17 4 12"/>
+          : <circle cx="12" cy="12" r="10" strokeOpacity="0.4"/>
+        }
+      </svg>
+      {text}
     </div>
   );
 }
@@ -89,12 +115,7 @@ function Step2({ email }) {
   const [canResend, setCanResend] = useState(false);
   const timerRef = useRef(null);
 
-  useEffect(() => {
-    startCountdown();
-    return () => clearInterval(timerRef.current);
-  }, []);
-
-  const startCountdown = () => {
+  const startCountdown = useCallback(() => {
     setCountdown(60);
     setCanResend(false);
     clearInterval(timerRef.current);
@@ -104,7 +125,15 @@ function Step2({ email }) {
         return c - 1;
       });
     }, 1000);
-  };
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => startCountdown(), 0);
+    return () => {
+      clearTimeout(t);
+      clearInterval(timerRef.current);
+    };
+  }, [startCountdown]);
 
   const handleSubmit = () => {
     if (!otp.trim()) { setError("Vui lòng nhập mã xác nhận"); return; }
@@ -184,27 +213,6 @@ function Step3({ onDone }) {
   };
 
   const canSubmit = rule1 && rule2 && rule3;
-
-  const EyeIcon = ({ show }) => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      {show
-        ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
-        : <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
-      }
-    </svg>
-  );
-
-  const RuleRow = ({ pass, text }) => (
-    <div className={`fp-rule ${pass ? "pass" : ""}`}>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        {pass
-          ? <polyline points="20 6 9 17 4 12"/>
-          : <circle cx="12" cy="12" r="10" strokeOpacity="0.4"/>
-        }
-      </svg>
-      {text}
-    </div>
-  );
 
   return (
     <div className="fp-body">
@@ -294,27 +302,26 @@ function SuccessView() {
    MAIN PAGE
 ══════════════════════════════════════════ */
 export default function ForgotPassword() {
-  const [step, setStep] = useState(1);
-  const [data, setData] = useState({});
+  const [step] = useState(1);
+  const [data] = useState({});
   const [done, setDone] = useState(false);
 
   return (
     <Layout>
       <style>{`
         :root {
-          --navy:   #2d3151;
-          --purple: #7b1fa2;
-          --pink:   #e91e8c;
-          --yellow: #d4e219;
-          --dark:   #0f102a;
+          --navy:   #18181b;
+          --purple: #e11d48;
+          --pink:   #f43f5e;
+          --yellow: #fb7185;
+          --dark:   #09090b;
         }
 
         .fp-page {
           min-height: 100vh;
           background:
-            radial-gradient(ellipse 70% 50% at 15% 20%, rgba(123,31,162,0.2) 0%, transparent 60%),
-            radial-gradient(ellipse 55% 40% at 85% 80%, rgba(233,30,140,0.15) 0%, transparent 60%),
-            #0f102a;
+            radial-gradient(ellipse 80% 45% at 50% -15%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
+            linear-gradient(180deg, #09090b 0%, #18181b 100%);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -324,13 +331,13 @@ export default function ForgotPassword() {
 
         /* ── CARD ── */
         .fp-card {
-          background: rgba(18,19,58,0.95);
-          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(24, 24, 27, 0.96);
+          border: 1px solid rgba(63, 63, 70, 0.9);
           border-radius: 24px;
           width: 100%;
           max-width: 480px;
           padding: 36px 40px 40px;
-          box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+          box-shadow: 0 24px 80px rgba(0,0,0,0.55);
           animation: fpFadeIn 0.35s ease;
         }
         @keyframes fpFadeIn {
@@ -385,11 +392,11 @@ export default function ForgotPassword() {
           border-color: var(--purple);
           background: linear-gradient(135deg, var(--purple), var(--pink));
           color: #fff;
-          box-shadow: 0 0 18px rgba(233,30,140,0.4);
+          box-shadow: 0 0 18px rgba(244, 63, 94, 0.45);
         }
         .fp-step-circle.done {
-          border-color: var(--yellow);
-          background: rgba(212,226,25,0.12);
+          border-color: rgba(244, 63, 94, 0.5);
+          background: rgba(244, 63, 94, 0.12);
           color: var(--yellow);
         }
         .fp-step-label {
@@ -414,7 +421,7 @@ export default function ForgotPassword() {
           background: rgba(255,255,255,0.1);
           transition: background 0.3s ease;
         }
-        .fp-step-line.filled { background: linear-gradient(90deg, var(--purple), var(--pink)); }
+        .fp-step-line.filled { background: linear-gradient(90deg, #e11d48, #f43f5e); }
 
         /* ── BODY ── */
         .fp-body { display: flex; flex-direction: column; }
@@ -438,7 +445,7 @@ export default function ForgotPassword() {
           transition: border-color 0.2s;
           margin-bottom: 6px;
         }
-        .fp-input-wrap:focus-within { border-color: var(--yellow); background: rgba(212,226,25,0.03); }
+        .fp-input-wrap:focus-within { border-color: rgba(244, 63, 94, 0.65); background: rgba(244, 63, 94, 0.04); }
         .fp-input-wrap.has-error { border-color: var(--pink); }
 
         .fp-input {
@@ -516,12 +523,12 @@ export default function ForgotPassword() {
           width: 72px;
           height: 72px;
           border-radius: 50%;
-          background: rgba(123,31,162,0.15);
-          border: 1px solid rgba(233,30,140,0.25);
+          background: rgba(244, 63, 94, 0.1);
+          border: 1px solid rgba(244, 63, 94, 0.28);
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 0 28px rgba(233,30,140,0.15);
+          box-shadow: 0 0 28px rgba(244, 63, 94, 0.12);
         }
 
         /* ── MAIN BUTTON ── */
@@ -537,11 +544,11 @@ export default function ForgotPassword() {
           font-size: 14px;
           letter-spacing: 1px;
           cursor: pointer;
-          box-shadow: 0 0 24px rgba(233,30,140,0.3);
+          box-shadow: 0 0 24px rgba(244, 63, 94, 0.28);
           transition: box-shadow 0.25s, transform 0.2s, opacity 0.2s;
           margin-top: 8px;
         }
-        .fp-btn:hover { box-shadow: 0 0 36px rgba(233,30,140,0.55); transform: translateY(-1px); }
+        .fp-btn:hover { box-shadow: 0 0 36px rgba(244, 63, 94, 0.5); transform: translateY(-1px); }
         .fp-btn.disabled {
           background: rgba(255,255,255,0.08) !important;
           box-shadow: none !important;
@@ -567,7 +574,7 @@ export default function ForgotPassword() {
         }
       `}</style>
 
-      <div className="fp-page auth-public-page">
+      <CustomerPageShell variant="full" className="fp-page auth-public-page">
         <div className="fp-card">
           <h2 className="fp-card-title">
             QUÊN <span>MẬT KHẨU</span>
@@ -591,7 +598,7 @@ export default function ForgotPassword() {
             </p>
           )}
         </div>
-      </div>
+      </CustomerPageShell>
     </Layout>
   );
 }

@@ -4,6 +4,7 @@ import { Badge, Button, Card, Form } from "react-bootstrap";
 import { Lock, LockOpen, Save } from "lucide-react";
 import { apiFetch } from "../../utils/apiClient";
 import { ROOMS, SEATS } from "../../constants/apiEndpoints";
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
 
@@ -182,27 +183,6 @@ export default function SeatManagement() {
     return recomputeSeatLabels(grid);
   }, []);
 
-  const seatsToLayout = useCallback((grid) => {
-    const list = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const idx = r * COLS + c;
-        const cell = grid[idx];
-        if (cell.type === "OccupiedByDouble") continue;
-        if (isPlacedSeat(cell)) {
-          list.push({
-            rowIdx: r,
-            colIdx: c,
-            type: cell.type,
-            label: cell.label,
-            isActive: cell.isActive !== false,
-          });
-        }
-      }
-    }
-    return list;
-  }, []);
-
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -223,11 +203,10 @@ export default function SeatManagement() {
     };
   }, [effectiveCinemaId]);
 
+  const seatGrid = selectedRoomId ? seats : buildGridFromSeats([]);
+
   useEffect(() => {
-    if (!selectedRoomId) {
-      setSeats([]);
-      return;
-    }
+    if (!selectedRoomId) return;
     let mounted = true;
     (async () => {
       try {
@@ -411,7 +390,7 @@ export default function SeatManagement() {
     (cell, r, c) => {
       let main = cell;
       if (cell?.type === "OccupiedByDouble" && c > 0) {
-        main = seats[r * COLS + (c - 1)];
+        main = seatGrid[r * COLS + (c - 1)];
       }
       if (!isPlacedSeat(main)) return "#e9ecef";
       if (!main.isActive) return "#adb5bd";
@@ -422,11 +401,61 @@ export default function SeatManagement() {
         default: return "#e9ecef";
       }
     },
-    [seats]
+    [seatGrid]
   );
 
   return (
-    <div className="seat-management text-dark pb-5">
+    <AdminPanelPage
+      icon="grid-3x3"
+      title="Sơ đồ ghế phòng"
+      description={
+        <>
+          <p className="lead mb-2">
+            {selectedRoom?.name ? (
+              <>
+                Đang chỉnh: <strong>{selectedRoom.name}</strong>
+              </>
+            ) : (
+              "Chọn phòng để thiết kế lưới ghế."
+            )}
+          </p>
+          <p className="mb-0 small" style={{ opacity: 0.92 }}>
+            Tên ghế: số hàng (Y) + chữ (vd 1A, 2B). Kéo ghế thả vào ô trống (ghế đôi cần 2 ô liền). Click ô trống tạo ghế; click ghế bật/tắt. Chuột phải đổi loại (khi bật).
+          </p>
+        </>
+      }
+      headerRight={
+        <div className="d-flex gap-2 align-items-center flex-wrap justify-content-end">
+          <Form.Select
+            value={selectedRoomId}
+            onChange={(e) => setSelectedRoomId(e.target.value)}
+            style={{ minWidth: 200, borderRadius: 10 }}
+          >
+            <option value="">-- Chọn phòng --</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </Form.Select>
+          <Button
+            variant={isLocked ? "warning" : "outline-light"}
+            className="border-0"
+            onClick={() => setIsLocked(!isLocked)}
+            title={isLocked ? "Mở khóa" : "Khóa form"}
+          >
+            {isLocked ? <Lock size={18} /> : <LockOpen size={18} />}
+          </Button>
+          <button type="button" className="admin-btn" style={{ background: "white", color: "#6366f1" }} onClick={() => navigate(`${prefix}/rooms`)}>
+            Hủy
+          </button>
+          <Button variant="light" className="fw-semibold text-primary" disabled={!selectedRoom || isLocked} onClick={handleSave}>
+            <Save size={16} className="me-1" /> Lưu sơ đồ
+          </Button>
+        </div>
+      }
+      className="seat-management"
+    >
       <style>{`
         .seat-grid-container {
           display: grid;
@@ -508,36 +537,6 @@ export default function SeatManagement() {
         }
       `}</style>
 
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-        <div>
-          <h2 className="fw-bold mb-1">Thiết kế sơ đồ ghế: {selectedRoom?.name || "Chưa chọn phòng"}</h2>
-          <p className="text-muted small mb-0">Tên ghế: số hàng (Y) + chữ (vd 1A, 2B). Kéo ghế thả vào ô trống (ghế đôi cần 2 ô trống liền). Click ô trống tạo ghế; click ghế bật/tắt trạng thái. Chuột phải đổi loại (khi bật).</p>
-        </div>
-        <div className="d-flex gap-2 align-items-center flex-wrap">
-          <Form.Select
-            value={selectedRoomId}
-            onChange={(e) => setSelectedRoomId(e.target.value)}
-            style={{ minWidth: 200, borderRadius: 10 }}
-          >
-            <option value="">-- Chọn phòng --</option>
-            {rooms.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </Form.Select>
-          <Button
-            variant={isLocked ? "warning" : "outline-secondary"}
-            onClick={() => setIsLocked(!isLocked)}
-            title={isLocked ? "Mở khóa" : "Khóa form"}
-          >
-            {isLocked ? <Lock size={18} /> : <LockOpen size={18} />}
-          </Button>
-          <Button variant="light" className="border" onClick={() => navigate(`${prefix}/rooms`)}>Hủy</Button>
-          <Button variant="primary" disabled={!selectedRoom || isLocked} onClick={handleSave}>
-            <Save size={16} className="me-1" /> Lưu sơ đồ
-          </Button>
-        </div>
-      </div>
-
       {!selectedRoom ? (
         <Card className="border-0 shadow-sm p-5 text-center" style={{ borderRadius: 16 }}>
           <p className="text-muted mb-0">Vui lòng chọn phòng chiếu để thiết kế sơ đồ ghế.</p>
@@ -547,12 +546,12 @@ export default function SeatManagement() {
           <Card className="border-0 shadow-sm p-3 mb-3" style={{ borderRadius: 12 }}>
             <div className="d-flex flex-wrap gap-4 align-items-center">
               <span className="fw-bold">Lưới: {ROWS} x {COLS}</span>
-              <Badge bg="dark">{seats.filter((s) => isPlacedSeat(s)).length} ghế đặt</Badge>
-              <Badge bg="success">{seats.filter((s) => isPlacedSeat(s) && s.isActive).length} đang bật</Badge>
-              <Badge bg="secondary">{seats.filter((s) => isPlacedSeat(s) && !s.isActive).length} đang tắt</Badge>
-              <Badge bg="primary">{seats.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "Thường").length} Thường</Badge>
-              <Badge bg="warning" text="dark">{seats.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "VIP").length} VIP</Badge>
-              <Badge bg="danger">{seats.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "Đôi").length} Đôi</Badge>
+              <Badge bg="dark">{seatGrid.filter((s) => isPlacedSeat(s)).length} ghế đặt</Badge>
+              <Badge bg="success">{seatGrid.filter((s) => isPlacedSeat(s) && s.isActive).length} đang bật</Badge>
+              <Badge bg="secondary">{seatGrid.filter((s) => isPlacedSeat(s) && !s.isActive).length} đang tắt</Badge>
+              <Badge bg="primary">{seatGrid.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "Thường").length} Thường</Badge>
+              <Badge bg="warning" text="dark">{seatGrid.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "VIP").length} VIP</Badge>
+              <Badge bg="danger">{seatGrid.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "Đôi").length} Đôi</Badge>
               {isLocked && <Badge bg="warning">Form đã khóa</Badge>}
             </div>
           </Card>
@@ -569,7 +568,7 @@ export default function SeatManagement() {
                   <div className="row-label">{r + 1}</div>
                   {Array.from({ length: COLS }).map((_, c) => {
                     const idx = r * COLS + c;
-                    const cell = seats[idx] || { type: "Empty", isActive: false, label: "" };
+                    const cell = seatGrid[idx] || { type: "Empty", isActive: false, label: "" };
                     if (cell.type === "OccupiedByDouble") return null;
                     const placed = isPlacedSeat(cell);
                     const showActive = placed && cell.isActive;
@@ -624,6 +623,6 @@ export default function SeatManagement() {
           </Card>
         </>
       )}
-    </div>
+    </AdminPanelPage>
   );
 }

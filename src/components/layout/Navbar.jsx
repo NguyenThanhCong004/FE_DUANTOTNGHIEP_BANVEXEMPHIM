@@ -66,10 +66,12 @@ export default function CinemaNavbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
+  const [menuPath, setMenuPath] = useState(location.pathname);
+  if (location.pathname !== menuPath) {
+    setMenuPath(location.pathname);
     setMobileMenuOpen(false);
     setDropdownOpen(false);
-  }, [location.pathname]);
+  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {

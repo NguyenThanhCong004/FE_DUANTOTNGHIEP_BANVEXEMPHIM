@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../../styles/admin-design-system.css';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { MOVIES } from '../../constants/apiEndpoints';
 
@@ -71,23 +71,22 @@ const MovieManagement = () => {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
-    <div className="admin-page movie-management admin-fade-in">
-      {/* Header */}
-      <div className="admin-action-bar">
-        <h2 className="admin-section-title m-0">
-          <i className="bi bi-film"></i>
-          Quản lý phim
-        </h2>
-        <button 
-          className="admin-btn admin-btn-success"
+    <AdminPanelPage
+      icon="film"
+      title="Quản lý phim"
+      description="Kho phim toàn hệ thống — poster, giá, trạng thái chiếu."
+      headerRight={
+        <button
+          type="button"
+          className="admin-btn"
+          style={{ background: "white", color: "#6366f1" }}
           onClick={() => navigate('/super-admin/movies/create')}
         >
-          <i className="bi bi-plus-circle me-2"></i>
+          <i className="bi bi-plus-lg me-2"></i>
           Thêm phim mới
         </button>
-      </div>
-
-      {/* Table Container */}
+      }
+    >
       <div className="admin-table-container">
         {/* Search Bar */}
         <div className="admin-search-wrapper mb-4" style={{ maxWidth: '400px' }}>
@@ -291,7 +290,7 @@ const MovieManagement = () => {
           </div>
         </div>
       )}
-    </div>
+    </AdminPanelPage>
   );
 };
 

@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
+import CustomerPageShell from "../../components/common/CustomerPageShell";
 import {
   User,
   Calendar,
@@ -95,7 +96,6 @@ function transactionToActivity(tx) {
   return { icon, label, date: dateStr, pts, pts_color };
 }
 
-const fmt = (n) => n.toLocaleString("vi-VN") + "đ";
 const fmtBirthday = (d) => {
   if (d == null || d === "") return "—";
   const s = typeof d === "string" ? d.slice(0, 10) : d;
@@ -394,37 +394,37 @@ export default function UserProfile() {
     if (token && initialLoad) {
       return (
         <Layout>
-          <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>      
-           <div style={{ color: "#fff", fontWeight: 700 }}>Đang tải hồ sơ...</div>
-          </div>
+          <CustomerPageShell innerClassName="min-h-[60vh] d-flex align-items-center justify-content-center py-6">
+            <div style={{ color: "#fff", fontWeight: 700 }}>Đang tải hồ sơ...</div>
+          </CustomerPageShell>
         </Layout>
       );
     }
     return (
       <Layout>
-        <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>            
-        <div                                                                                                                       
-           style={{                                                                                                                 
-             width: "100%",                                                                                                         
-            maxWidth: 720,                                                                                                         
-             background: "rgba(20,22,50,0.92)",                                                                                     
-            border: "1px solid rgba(255,255,255,0.08)",                                                                            
-             borderRadius: 18,                                                                                                      
-             padding: 22,                                                                                                           
-            color: "#fff",                                                                                                         
-             textAlign: "center",                                                                                                   
-           }}                                                                                                                       
-         >                                                                                                                          
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 34, letterSpacing: 3, marginBottom: 8 }}>
+        <CustomerPageShell innerClassName="min-h-[60vh] d-flex align-items-center justify-content-center py-6">
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 720,
+              background: "rgba(20,22,50,0.92)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 18,
+              padding: 22,
+              color: "#fff",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 34, letterSpacing: 3, marginBottom: 8 }}>
               {token ? "Không tải được hồ sơ" : "Vui lòng đăng nhập"}
-            </div>                                                                                                                   
-           <div style={{ color: "rgba(255,255,255,0.7)", fontWeight: 700, fontSize: 13, lineHeight: 1.6 }}>
+            </div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontWeight: 700, fontSize: 13, lineHeight: 1.6 }}>
               {token
                 ? "Kiểm tra BE đang chạy và token còn hạn. Đăng nhập lại nếu cần."
                 : "Trang hồ sơ chỉ hiển thị khi bạn đăng nhập tài khoản khách."}
             </div>
           </div>
-        </div>
+        </CustomerPageShell>
       </Layout>
     );
   }
@@ -511,8 +511,8 @@ export default function UserProfile() {
         </div>
       )}
 
-      <div className="min-h-screen bg-zinc-950 text-zinc-300 pb-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <CustomerPageShell variant="full" className="min-h-screen bg-zinc-950 text-zinc-300 pb-24">
+        <div className="customer-page-container pt-8">
 
           {/* ── HERO SECTION ── */}
           <div className="relative bg-zinc-900 border border-zinc-800 rounded-3xl p-8 md:p-12 mb-10 overflow-hidden shadow-2xl">
@@ -826,7 +826,7 @@ export default function UserProfile() {
           )}
 
         </div>
-      </div>
+      </CustomerPageShell>
     </Layout>
   );
 }

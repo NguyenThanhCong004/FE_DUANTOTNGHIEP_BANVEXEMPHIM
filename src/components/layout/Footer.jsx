@@ -39,7 +39,7 @@ const Footer = () => {
                 <div className="footer-logo-icon">🎬</div>
                 <span className="footer-logo-text">CINE<span>TOON</span></span>
               </Link>
-              <p style={{ color: 'rgba(240,240,255,0.45)', fontSize: 13, lineHeight: 1.8, marginBottom: 20 }}>
+              <p className="text-zinc-400 small mb-4" style={{ lineHeight: 1.8 }}>
                 Hệ thống đặt vé xem phim hiện đại, nhanh chóng và tiện lợi nhất Việt Nam.
                 Trải nghiệm điện ảnh đỉnh cao với công nghệ ghế ngồi thông minh và âm thanh vòm.
               </p>
