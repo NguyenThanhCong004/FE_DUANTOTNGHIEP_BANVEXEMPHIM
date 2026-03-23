@@ -833,7 +833,7 @@ export default function UserProfile() {
                     </div>
                   ))}
                   <div style={{ marginTop: 16, textAlign: "center" }}>
-                    <a href="/transactions" style={{ fontSize: 12, fontWeight: 700, color: "var(--yellow)", textDecoration: "none", letterSpacing: 0.5 }}>
+                    <a href="/transactionHistory" style={{ fontSize: 12, fontWeight: 700, color: "var(--yellow)", textDecoration: "none", letterSpacing: 0.5 }}>
                       Xem toàn bộ lịch sử giao dịch →
                     </a>
                   </div>
