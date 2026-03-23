@@ -1,3 +1,5 @@
+/* Font: design-tokens.css (import trước file này trong main.jsx) */
+
 /* Reset mặc định để tràn màn hình */
 * {
   margin: 0;
@@ -16,6 +18,14 @@ html, body, #root {
 body {
   overflow-x: hidden;
   background-color: #f0f4f8;
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+/* Trang quản trị: nền đồng bộ shell admin */
+html.admin-panel body {
+  background-color: var(--admin-bg-deep, #070b17);
+  color: var(--admin-text, #e2e8f0);
+  font-family: var(--font-ui, system-ui, sans-serif);
 }
 
 #root {
@@ -27,83 +37,92 @@ body {
 
 .w-100 { width: 100% !important; }
 
-/* ── GLOBAL MODAL TEXT FIX ── */
-/* Ép tất cả văn bản trong các modal của Admin phải màu đen */
-.modal-content-custom, 
-.custom-modal-content,
-.modal-dialog,
-.modal-content,
-.custom-modal-overlay,
-/* Thêm cả các trang quản lý chính và form */
-.user-management,
-.movie-management,
-.employee-management,
-.cinema-management,
-.voucher-management,
-.product-management,
-.create-cinema,
-.create-employee,
-.create-movie,
-.create-voucher,
-.create-product {
-  color: black !important;
+/* ── MODAL / FORM ADMIN — chỉ trong admin-panel (không đè user/common) ── */
+html.admin-panel .modal-content-custom,
+html.admin-panel .custom-modal-content,
+html.admin-panel .modal-dialog,
+html.admin-panel .modal-content,
+html.admin-panel .custom-modal-overlay,
+html.admin-panel .user-management,
+html.admin-panel .movie-management,
+html.admin-panel .employee-management,
+html.admin-panel .cinema-management,
+html.admin-panel .voucher-management,
+html.admin-panel .product-management,
+html.admin-panel .create-cinema,
+html.admin-panel .create-employee,
+html.admin-panel .create-movie,
+html.admin-panel .create-voucher,
+html.admin-panel .create-product {
+  color: #212529 !important;
 }
 
-.modal-content-custom *, 
-.custom-modal-content *,
-.modal-dialog *,
-.modal-content *,
-.custom-modal-overlay *,
-.user-management *,
-.movie-management *,
-.employee-management *,
-.cinema-management *,
-.voucher-management *,
-.product-management *,
-.create-cinema *,
-.create-employee *,
-.create-movie *,
-.create-voucher *,
-.create-product * {
-  color: black !important;
-}
-
-/* Ngoại lệ cho các nút bấm và nhãn trạng thái để không bị mất màu */
-.btn, .btn *, .status-badge, .status-badge *, .role-badge, .role-badge *, .age-badge, .age-badge *, .error-message {
+html.admin-panel .modal-content-custom *,
+html.admin-panel .custom-modal-content *,
+html.admin-panel .modal-dialog *,
+html.admin-panel .modal-content *,
+html.admin-panel .custom-modal-overlay *,
+html.admin-panel .user-management *,
+html.admin-panel .movie-management *,
+html.admin-panel .employee-management *,
+html.admin-panel .cinema-management *,
+html.admin-panel .voucher-management *,
+html.admin-panel .product-management *,
+html.admin-panel .create-cinema *,
+html.admin-panel .create-employee *,
+html.admin-panel .create-movie *,
+html.admin-panel .create-voucher *,
+html.admin-panel .create-product * {
   color: inherit !important;
 }
 
-/* Ép lại màu cho thông báo lỗi vì color: inherit có thể lấy màu đen từ cha */
-.error-message {
+html.admin-panel .modal-content-custom,
+html.admin-panel .modal-dialog .modal-content {
+  color: #212529 !important;
+}
+
+html.admin-panel .modal-content-custom .btn,
+html.admin-panel .modal-dialog .btn {
+  color: inherit !important;
+}
+
+html.admin-panel .status-badge,
+html.admin-panel .role-badge,
+html.admin-panel .age-badge,
+html.admin-panel .error-message {
+  color: inherit !important;
+}
+
+html.admin-panel .error-message {
   color: #dc3545 !important;
 }
 
-/* ── BUTTONS GLOBAL FIX ── */
-/* Nút Hủy: Chữ đen, nền trắng, viền đen */
-.btn-cancel, .btn-cancel * {
-  color: black !important;
-  background-color: white !important;
-  border: 2px solid black !important;
+html.admin-panel .btn-cancel,
+html.admin-panel .btn-cancel * {
+  color: #212529 !important;
+  background-color: #fff !important;
+  border: 2px solid #212529 !important;
   opacity: 1 !important;
 }
 
-.btn-cancel:hover {
+html.admin-panel .btn-cancel:hover {
   background-color: #f8f9fa !important;
 }
 
-/* Nút Lưu/Xác nhận: Chữ trắng, nền đen */
-.btn-save, .btn-save * {
-  color: white !important;
-  background-color: black !important;
-  border: 2px solid black !important;
+html.admin-panel .btn-save,
+html.admin-panel .btn-save * {
+  color: #fff !important;
+  background-color: #212529 !important;
+  border: 2px solid #212529 !important;
   opacity: 1 !important;
 }
 
-.btn-save:hover {
+html.admin-panel .btn-save:hover {
   background-color: #333 !important;
-  color: white !important;
+  color: #fff !important;
 }
 
-.btn-dark, .btn-primary {
-  color: white !important;
+html.admin-panel .modal-dialog .btn-primary,
+html.admin-panel .modal-dialog .btn-dark {
+  color: #fff !important;
 }

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import MoviePoster from './MoviePoster';
 
-const MovieCard = ({ movie, isComingSoon = false }) => {
+const MovieCard = ({ movie, isComingSoon = false, showBuyButton = true }) => {
   return (
     <div className={`card h-100 p-2 shadow-sm border-0 ${isComingSoon ? 'bg-white bg-opacity-75' : ''}`} 
          style={isComingSoon ? { filter: 'grayscale(0.4)' } : {}}>
@@ -20,10 +20,12 @@ const MovieCard = ({ movie, isComingSoon = false }) => {
           <p className="text-primary small fw-bold mt-2 mb-0"><i className="far fa-calendar-alt me-2"></i>{movie.releaseDate}</p>
         ) : (
           <>
-            <p className="text-muted small mb-3">{movie.genre}</p>
-            <Link to={`/movie/${movie.id}`} className="btn btn-gradient w-100 rounded-pill fw-bold py-2 small shadow-sm">
-              MUA VÉ
-            </Link>
+            <p className={`text-muted small ${showBuyButton ? "mb-3" : "mb-0"}`}>{movie.genre}</p>
+            {showBuyButton ? (
+              <Link to={`/movie/${movie.id}`} className="btn btn-gradient w-100 rounded-pill fw-bold py-2 small shadow-sm mt-2">
+                MUA VÉ
+              </Link>
+            ) : null}
           </>
         )}
       </div>

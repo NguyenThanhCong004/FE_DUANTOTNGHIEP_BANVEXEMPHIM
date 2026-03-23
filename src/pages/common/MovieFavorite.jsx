@@ -1,83 +1,13 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
+import CustomerPageShell from '../../components/common/CustomerPageShell';
 import MovieCard from '../../components/common/MovieCard';
-import { Container, Row, Col } from 'react-bootstrap';
-
-/* ── Mock Data ── */
-const MOCK_FAVORITES = [
-  {
-    favorite_id: 1,
-    user_id: 101,
-    movie_id: 1,
-    movie: {
-      id: 1,
-      title: 'MAI',
-      genre: 'Tâm lý',
-      posterUrl: 'https://cdn-media.sforum.vn/storage/app/media/CTVSEO_Maihue/Phim%20chi%E1%BA%BFu%20r%E1%BA%A1p/phim-chieu-rap-3.jpg',
-      ageLimit: 'T18',
-      type: 'now',
-    },
-    review: { rating: 5, comment: 'Bộ phim cảm xúc nhất tôi từng xem!' },
-  },
-  {
-    favorite_id: 2,
-    user_id: 101,
-    movie_id: 2,
-    movie: {
-      id: 2,
-      title: 'KUNG FU PANDA 4',
-      genre: 'Hoạt hình',
-      posterUrl: 'https://aeonmall-review-rikkei.cdn.vccloud.vn/public/wp/21/news/eYMabpzR2xAghCdee11Fb1PRg2wSbzaG1tNZ0xfa.jpg',
-      ageLimit: 'P',
-      type: 'now',
-    },
-    review: { rating: 4, comment: 'Hài hước và đầy màu sắc, rất đáng xem!' },
-  },
-  {
-    favorite_id: 3,
-    user_id: 101,
-    movie_id: 3,
-    movie: {
-      id: 3,
-      title: 'AVENGERS',
-      genre: 'Hành động',
-      posterUrl: 'https://www.elleman.vn/app/uploads/2018/04/25/Avengers-Infinity-War-ELLE-Man-featured-01-01.jpg',
-      ageLimit: 'T13',
-      type: 'now',
-    },
-    review: null,
-  },
-  {
-    favorite_id: 4,
-    user_id: 101,
-    movie_id: 4,
-    movie: {
-      id: 4,
-      title: 'DUNE 2',
-      genre: 'Viễn tưởng',
-      posterUrl: 'https://wallpaperaccess.com/full/1561986.jpg',
-      ageLimit: 'T13',
-      type: 'now',
-    },
-    review: { rating: 5, comment: 'Kiệt tác điện ảnh thế kỷ 21.' },
-  },
-  {
-    favorite_id: 5,
-    user_id: 101,
-    movie_id: 5,
-    movie: {
-      id: 5,
-      title: 'SPIDER-MAN',
-      genre: 'Hành động',
-      posterUrl: 'https://m.media-amazon.com/images/M/MV5BMzI0NmVkMjEtYmY4MS00ZDMxLTlkZmEtMzU4MDQxYTMzMjU2XkEyXkFqcGdeQXVyMzQ0MzA0NTM@._V1_.jpg',
-      ageLimit: 'T13',
-      type: 'soon',
-      releaseDate: '15/08/2026',
-    },
-    review: null,
-  },
-];
+import { Row, Col, Spinner } from 'react-bootstrap';
+import { apiFetch } from '../../utils/apiClient';
+import { ME } from '../../constants/apiEndpoints';
+import { getAccessToken } from '../../utils/authStorage';
+import { mapFavoriteRowToFavCard } from '../../utils/customerMeApi';
 
 const STARS = [1, 2, 3, 4, 5];
 
@@ -90,9 +20,9 @@ function StarRating({ rating, onRate, readonly = false }) {
           key={s}
           style={{
             fontSize: 18,
-            color: s <= (readonly ? rating : (hovered || rating)) ? '#d4e219' : 'rgba(255,255,255,0.2)',
+            color: s <= (readonly ? rating : (hovered || rating)) ? '#fb7185' : 'rgba(255,255,255,0.2)',
             transition: 'color 0.15s',
-            textShadow: s <= (readonly ? rating : (hovered || rating)) ? '0 0 8px rgba(212,226,25,0.6)' : 'none',
+            textShadow: s <= (readonly ? rating : (hovered || rating)) ? '0 0 8px rgba(244,63,94,0.45)' : 'none',
           }}
           onMouseEnter={() => !readonly && setHovered(s)}
           onMouseLeave={() => !readonly && setHovered(0)}
@@ -104,13 +34,51 @@ function StarRating({ rating, onRate, readonly = false }) {
 }
 
 export default function Favorites() {
-  const [favorites, setFavorites] = useState(MOCK_FAVORITES);
+  const navigate = useNavigate();
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [filter, setFilter] = useState('all');
   const [reviewModal, setReviewModal] = useState(null); // { favorite_id, movie }
   const [draftRating, setDraftRating] = useState(0);
   const [draftComment, setDraftComment] = useState('');
   const [removeConfirm, setRemoveConfirm] = useState(null);
   const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setLoading(false);
+      setFavorites([]);
+      return;
+    }
+    let c = false;
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const res = await apiFetch(ME.FAVORITES);
+        const body = await res.json().catch(() => null);
+        if (c) return;
+        if (res.status === 401) {
+          navigate('/login', { state: { from: '/movieFavorite' } });
+          return;
+        }
+        if (!res.ok) {
+          setLoadError(body?.message || 'Không tải được danh sách yêu thích');
+          setFavorites([]);
+          return;
+        }
+        const rows = Array.isArray(body?.data) ? body.data : [];
+        setFavorites(rows.map(mapFavoriteRowToFavCard));
+      } catch {
+        if (!c) setLoadError('Lỗi kết nối');
+      } finally {
+        if (!c) setLoading(false);
+      }
+    })();
+    return () => { c = true; };
+  }, [navigate]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -123,10 +91,26 @@ export default function Favorites() {
     return true;
   });
 
-  const handleRemove = (favorite_id) => {
-    setFavorites((prev) => prev.filter((f) => f.favorite_id !== favorite_id));
-    setRemoveConfirm(null);
-    showToast('Đã xóa khỏi danh sách yêu thích');
+  const handleRemove = async (fav) => {
+    const mid = fav?.movie?.id;
+    if (mid == null) return;
+    try {
+      const res = await apiFetch(ME.FAVORITE_BY_MOVIE(mid), { method: 'DELETE' });
+      if (res.status === 401) {
+        navigate('/login', { state: { from: '/movieFavorite' } });
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        showToast(body?.message || 'Không xóa được');
+        return;
+      }
+      setFavorites((prev) => prev.filter((f) => f.favorite_id !== fav.favorite_id));
+      setRemoveConfirm(null);
+      showToast('Đã xóa khỏi danh sách yêu thích');
+    } catch {
+      showToast('Lỗi kết nối');
+    }
   };
 
   const handleSaveReview = () => {
@@ -150,30 +134,24 @@ export default function Favorites() {
     setDraftComment(fav.review?.comment || '');
   };
 
-  const avgRating = favorites.filter((f) => f.review).reduce((acc, f) => acc + f.review.rating, 0) /
-    (favorites.filter((f) => f.review).length || 1);
-
   return (
     <Layout>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
-
         :root {
-          --navy:    #2d3151;
-          --purple:  #7b1fa2;
-          --pink:    #e91e8c;
-          --yellow:  #d4e219;
-          --dark:    #0f102a;
-          --card-bg: rgba(20,22,50,0.92);
+          --navy:    #18181b;
+          --purple:  #e11d48;
+          --pink:    #f43f5e;
+          --yellow:  #fb7185;
+          --dark:    #09090b;
+          --card-bg: rgba(24,24,27,0.95);
         }
 
         .fav-page {
           min-height: 100vh;
           background:
-            radial-gradient(ellipse 70% 45% at 10% 15%, rgba(123,31,162,0.2) 0%, transparent 60%),
-            radial-gradient(ellipse 55% 40% at 90% 85%, rgba(233,30,140,0.14) 0%, transparent 60%),
-            #0f102a;
-          font-family: 'Syne', sans-serif;
+            radial-gradient(ellipse 80% 45% at 50% -15%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
+            linear-gradient(180deg, #09090b 0%, #18181b 100%);
+          font-family: var(--font-ui), system-ui, sans-serif;
           padding: 32px 0 80px;
         }
 
@@ -185,12 +163,12 @@ export default function Favorites() {
           line-height: 1;
           color: #fff;
         }
-        .fav-title span { color: var(--yellow); }
+        .fav-title span { color: #f43f5e; }
 
         /* ── STATS ROW ── */
         .stat-chip {
           background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid rgba(63,63,70,0.85);
           border-radius: 10px;
           padding: 10px 18px;
           display: inline-flex;
@@ -201,7 +179,7 @@ export default function Favorites() {
         .stat-chip .num {
           font-family: 'Bebas Neue', sans-serif;
           font-size: 28px;
-          color: var(--yellow);
+          color: #fb7185;
           line-height: 1;
           letter-spacing: 1px;
         }
@@ -216,21 +194,20 @@ export default function Favorites() {
 
         /* ── FILTER BAR ── */
         .fav-filter-btn {
-          font-family: 'Syne', sans-serif;
           font-weight: 700;
           font-size: 12px;
           letter-spacing: 1px;
           text-transform: uppercase;
           padding: 7px 16px;
-          border-radius: 8px;
-          border: 1.5px solid rgba(255,255,255,0.12);
+          border-radius: 9999px;
+          border: 1.5px solid rgba(63,63,70,0.9);
           background: transparent;
-          color: rgba(255,255,255,0.4);
+          color: rgba(161,161,170,0.95);
           cursor: pointer;
           transition: all 0.2s ease;
         }
-        .fav-filter-btn:hover { border-color: var(--yellow); color: var(--yellow); }
-        .fav-filter-btn.active { background: var(--yellow); border-color: var(--yellow); color: #0f102a; }
+        .fav-filter-btn:hover { border-color: #f43f5e; color: #fb7185; }
+        .fav-filter-btn.active { background: rgba(244,63,94,0.15); border-color: #f43f5e; color: #f43f5e; }
 
         /* ── MOVIE CARD WRAPPER ── */
         .fav-card-wrap {
@@ -248,7 +225,7 @@ export default function Favorites() {
         .fav-card-wrap .card:hover {
           transform: translateY(-5px);
           box-shadow: 0 16px 48px rgba(0,0,0,0.5);
-          border-color: rgba(212,226,25,0.2) !important;
+          border-color: rgba(244,63,94,0.35) !important;
         }
         .fav-card-wrap .card h6 {
           color: #fff !important;
@@ -291,22 +268,22 @@ export default function Favorites() {
           gap: 4px;
         }
         .btn-action.review {
-          border-color: rgba(212,226,25,0.35);
-          background: rgba(212,226,25,0.07);
-          color: var(--yellow);
+          border-color: rgba(244,63,94,0.4);
+          background: rgba(244,63,94,0.08);
+          color: #fb7185;
         }
         .btn-action.review:hover {
-          background: rgba(212,226,25,0.18);
-          border-color: var(--yellow);
+          background: rgba(244,63,94,0.18);
+          border-color: #f43f5e;
         }
         .btn-action.remove {
-          border-color: rgba(233,30,140,0.3);
-          background: rgba(233,30,140,0.06);
-          color: var(--pink);
+          border-color: rgba(244,63,94,0.35);
+          background: rgba(244,63,94,0.06);
+          color: #f87171;
         }
         .btn-action.remove:hover {
-          background: rgba(233,30,140,0.18);
-          border-color: var(--pink);
+          background: rgba(248,113,113,0.12);
+          border-color: #f87171;
         }
 
         /* ── REVIEW BADGE ON CARD ── */
@@ -314,8 +291,8 @@ export default function Favorites() {
           position: absolute;
           top: 12px;
           left: 12px;
-          background: rgba(15,16,42,0.88);
-          border: 1px solid rgba(212,226,25,0.35);
+          background: rgba(9,9,11,0.9);
+          border: 1px solid rgba(244,63,94,0.4);
           border-radius: 8px;
           padding: 3px 8px;
           display: flex;
@@ -324,7 +301,7 @@ export default function Favorites() {
           z-index: 10;
           font-family: 'Bebas Neue', sans-serif;
           font-size: 14px;
-          color: var(--yellow);
+          color: #fb7185;
           letter-spacing: 1px;
           pointer-events: none;
         }
@@ -342,8 +319,8 @@ export default function Favorites() {
           padding: 16px;
         }
         .fav-modal {
-          background: #12133a;
-          border: 1px solid rgba(255,255,255,0.1);
+          background: #18181b;
+          border: 1px solid rgba(63,63,70,0.9);
           border-radius: 20px;
           width: 100%;
           max-width: 460px;
@@ -374,9 +351,9 @@ export default function Favorites() {
           resize: none;
         }
         .fav-modal textarea:focus {
-          border-color: var(--yellow) !important;
+          border-color: #f43f5e !important;
           box-shadow: none !important;
-          background: rgba(212,226,25,0.03) !important;
+          background: rgba(244,63,94,0.05) !important;
         }
         .fav-modal textarea::placeholder { color: rgba(255,255,255,0.25); }
 
@@ -421,10 +398,9 @@ export default function Favorites() {
           margin: 8px 0 24px;
         }
         .btn-confirm-remove {
-          background: linear-gradient(135deg, #c2185b, var(--pink));
+          background: linear-gradient(135deg, #e11d48, #f43f5e);
           border: none;
           color: #fff;
-          font-family: 'Syne', sans-serif;
           font-weight: 800;
           font-size: 13px;
           border-radius: 10px;
@@ -464,12 +440,11 @@ export default function Favorites() {
           bottom: 32px;
           left: 50%;
           transform: translateX(-50%);
-          background: #12133a;
-          border: 1.5px solid var(--yellow);
+          background: #18181b;
+          border: 1.5px solid rgba(244,63,94,0.55);
           border-radius: 14px;
           padding: 14px 28px;
-          color: var(--yellow);
-          font-family: 'Syne', sans-serif;
+          color: #fb7185;
           font-weight: 700;
           font-size: 13px;
           letter-spacing: 0.4px;
@@ -491,8 +466,26 @@ export default function Favorites() {
         }
       `}</style>
 
-      <div className="fav-page mt-4">
-        <Container fluid="xl">
+      {loading ? (
+        <div className="text-center py-5 mt-5">
+          <Spinner animation="border" variant="warning" />
+          <p className="text-white-50 small mt-2">Đang tải danh sách yêu thích…</p>
+        </div>
+      ) : null}
+      {!loading && !getAccessToken() ? (
+        <div className="container py-5 mt-4">
+          <div className="alert alert-warning border-0">Đăng nhập để xem phim yêu thích.</div>
+        </div>
+      ) : null}
+      {loadError && getAccessToken() ? (
+        <div className="container py-3 mt-3">
+          <div className="alert alert-danger border-0">{loadError}</div>
+        </div>
+      ) : null}
+
+      {!loading && getAccessToken() ? (
+      <CustomerPageShell variant="full" className="fav-page mt-4">
+        <div className="customer-page-container">
 
           {/* ── HEADER ── */}
           <Row className="align-items-end mb-4 gy-3">
@@ -582,8 +575,8 @@ export default function Favorites() {
                       <div style={{
                         margin: '0 4px 8px',
                         padding: '8px 10px',
-                        background: 'rgba(212,226,25,0.05)',
-                        border: '1px solid rgba(212,226,25,0.12)',
+                        background: 'rgba(244,63,94,0.08)',
+                        border: '1px solid rgba(244,63,94,0.22)',
                         borderRadius: 8,
                         fontSize: 11,
                         color: 'rgba(255,255,255,0.45)',
@@ -613,8 +606,9 @@ export default function Favorites() {
             </div>
           )}
 
-        </Container>
-      </div>
+        </div>
+      </CustomerPageShell>
+      ) : null}
 
       {/* ── REVIEW MODAL ── */}
       {reviewModal && (
@@ -678,7 +672,7 @@ export default function Favorites() {
               <button className="btn-modal-cancel" style={{ border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 10 }} onClick={() => setRemoveConfirm(null)}>
                 Giữ lại
               </button>
-              <button className="btn-confirm-remove" onClick={() => handleRemove(removeConfirm.favorite_id)}>
+              <button className="btn-confirm-remove" onClick={() => handleRemove(removeConfirm)}>
                 Xóa
               </button>
             </div>

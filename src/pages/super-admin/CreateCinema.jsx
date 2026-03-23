@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { CINEMAS } from '../../constants/apiEndpoints';
 
 const CreateCinema = () => {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const CreateCinema = () => {
 
   useEffect(() => {
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         name: editData.name || '',
         address: editData.address || '',
@@ -45,18 +48,32 @@ const CreateCinema = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (editData) {
-      console.log('Cập nhật rạp:', formData);
-      alert('Cập nhật rạp thành công!');
-    } else {
-      console.log('Dữ liệu rạp mới:', formData);
-      alert('Thêm rạp thành công!');
+    const body = {
+      name: formData.name.trim(),
+      address: formData.address.trim(),
+      status: formData.status === 'Active' ? 1 : 0,
+    };
+    const cid = editData?.id;
+    const url = cid ? CINEMAS.BY_ID(cid) : CINEMAS.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: cid ? 'PUT' : 'POST',
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Lưu rạp thất bại');
+        return;
+      }
+      alert(cid ? 'Cập nhật rạp thành công!' : 'Thêm rạp thành công!');
+      navigate('/super-admin/cinemas');
+    } catch {
+      alert('Không thể kết nối server');
     }
-    navigate('/super-admin/cinemas');
   };
 
   return (
