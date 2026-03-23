@@ -23,6 +23,7 @@ const CreateVoucher = () => {
 
   useEffect(() => {
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         code: editData.code || '',
         discount_type: editData.discount_type || 'PERCENTAGE',

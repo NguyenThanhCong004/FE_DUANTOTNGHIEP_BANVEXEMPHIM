@@ -1,78 +1,28 @@
 import { useState, useEffect } from "react";
-import { 
-  Info, Filter, Search, Loader2, AlertCircle, 
-  Calendar, Clock, ChevronDown, ArrowRight, X 
-} from "lucide-react"; 
-
-// --- MOCK COMPONENTS VÀ UTILS ĐỂ CHẠY TRONG CANVAS ---
-// Giả lập thư viện react-router-dom
-const useNavigate = () => (path) => console.log("Navigating to", path);
-const Link = ({ to, children, className }) => <a href={to} className={className} onClick={e => e.preventDefault()}>{children}</a>;
-
-// Giả lập các file local
-const Layout = ({ children }) => <div className="w-full h-full font-sans">{children}</div>;
-const ME = { TRANSACTIONS: "/mock-api" };
-const getAccessToken = () => "mock-token-123";
-const mapMeTransactionToFe = (data) => data;
-
-// Giả lập API trả về dữ liệu mẫu
-const apiFetch = async () => ({
-  ok: true,
-  status: 200,
-  json: async () => ({
-    data: [
-      {
-        id: "TX-12345",
-        type: "ticket_online",
-        status: "completed",
-        order_code: "CINE-8899A",
-        created_at: new Date().toISOString(),
-        original_amount: 150000,
-        discount_amount: 20000,
-        final_amount: 130000,
-        points_earned: 13,
-        voucher_code: "GIAM20K",
-        items: [
-          { label: "Vé xem phim: Dune 2", sub: "Ghế H1, H2", price: 150000, qty: 1, icon: "🎫" }
-        ]
-      },
-      {
-        id: "TX-99887",
-        type: "food",
-        status: "completed",
-        order_code: "FOOD-1122B",
-        created_at: new Date(Date.now() - 86400000).toISOString(),
-        original_amount: 85000,
-        discount_amount: 0,
-        final_amount: 85000,
-        points_earned: 8,
-        items: [
-          { label: "Combo 2 Ngăn", sub: "1 Bắp phô mai & caramel, 2 Coca", price: 85000, qty: 1, icon: "🍿" }
-        ]
-      },
-      {
-        id: "TX-55443",
-        type: "points",
-        status: "completed",
-        order_code: "PTS-DED-11",
-        created_at: new Date(Date.now() - 172800000).toISOString(),
-        original_amount: 0,
-        discount_amount: 0,
-        final_amount: -50,
-        points_earned: 0,
-        items: [
-          { label: "Đổi quà thành viên", sub: "Voucher giảm 50K", price: -50, qty: 1, icon: "⭐" }
-        ]
-      }
-    ]
-  })
-});
-// -----------------------------------------------------
+import { useNavigate, Link } from "react-router-dom";
+import {
+  Info,
+  Filter,
+  Search,
+  Loader2,
+  AlertCircle,
+  Calendar,
+  Clock,
+  ChevronDown,
+  ArrowRight,
+  X,
+} from "lucide-react";
+import Layout from "../../components/layout/Layout";
+import CustomerPageShell from "../../components/common/CustomerPageShell";
+import { apiFetch } from "../../utils/apiClient";
+import { ME } from "../../constants/apiEndpoints";
+import { getAccessToken } from "../../utils/authStorage";
+import { mapMeTransactionToFe } from "../../utils/customerMeApi";
 
 const TYPE_CONFIG = {
-  ticket_online: { label: "Vé Online", color: "#7b1fa2", bg: "rgba(123,31,162,0.12)", icon: "🎫" },
-  food:          { label: "Bắp & Nước", color: "#e91e8c", bg: "rgba(233,30,140,0.12)", icon: "🍿" },
-  points:        { label: "Điểm", color: "#d4e219", bg: "rgba(212,226,25,0.12)", icon: "⭐" }, 
+  ticket_online: { label: "Vé Online", color: "#f43f5e", bg: "rgba(244,63,94,0.12)", icon: "🎫" },
+  food: { label: "Bắp & Nước", color: "#fb7185", bg: "rgba(251,113,133,0.12)", icon: "🍿" },
+  points: { label: "Điểm", color: "#fbbf24", bg: "rgba(251,191,36,0.12)", icon: "⭐" },
 };
 
 const STATUS_CONFIG = {
@@ -254,10 +204,10 @@ export default function TransactionHistory() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-zinc-950 text-zinc-300 pb-24">
+      <CustomerPageShell variant="full" className="min-h-screen bg-zinc-950 text-zinc-300 pb-24">
         {selected && <DetailModal tx={selected} onClose={() => setSelected(null)} />}
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <div className="customer-page-container pt-8">
 
           {/* ── HEADER ── */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
@@ -521,7 +471,7 @@ export default function TransactionHistory() {
             </div>
           )}
         </div>
-      </div>
+      </CustomerPageShell>
     </Layout>
   );
 }

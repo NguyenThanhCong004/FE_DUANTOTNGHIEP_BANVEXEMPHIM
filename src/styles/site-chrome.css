@@ -558,10 +558,10 @@
   }
 }
 
-/* ========== FOOTER ========== */
+/* ========== FOOTER (đồng bộ Navbar: zinc-950 / zinc-900 + rose) ========== */
 .cinema-footer {
-  background: var(--navy-mid);
-  border-top: 1px solid rgba(212, 255, 0, 0.12);
+  background: #18181b;
+  border-top: 1px solid rgba(63, 63, 70, 0.85);
   font-family: var(--font-ui);
   position: relative;
   overflow: hidden;
@@ -574,7 +574,7 @@
   position: absolute;
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(139, 0, 255, 0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.09) 0%, transparent 70%);
   top: -100px;
   left: -100px;
   pointer-events: none;
@@ -585,7 +585,7 @@
   position: absolute;
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, rgba(255, 45, 120, 0.07) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.06) 0%, transparent 70%);
   bottom: 0;
   right: 0;
   pointer-events: none;
@@ -593,7 +593,7 @@
 
 .footer-accent-strip {
   height: 2px;
-  background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow), var(--purple));
+  background: linear-gradient(90deg, #e11d48, #f43f5e, #fb7185, #e11d48);
   background-size: 300%;
   animation: siteChromeGradientMove 5s linear infinite;
 }
@@ -601,13 +601,13 @@
 .footer-logo-icon {
   width: 44px;
   height: 44px;
-  background: linear-gradient(135deg, var(--purple), var(--pink));
+  background: linear-gradient(135deg, #e11d48, #f43f5e);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  box-shadow: 0 0 20px rgba(255, 45, 120, 0.4);
+  box-shadow: 0 0 20px rgba(244, 63, 94, 0.35);
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
@@ -628,20 +628,20 @@
   font-family: var(--font-brand);
   font-size: 26px;
   letter-spacing: 3px;
-  color: var(--off-white);
+  color: #fafafa;
   line-height: 1;
   text-decoration: none !important;
 }
 
 .footer-logo-text span {
-  color: var(--yellow);
+  color: #f43f5e;
 }
 
 .footer-heading {
   font-family: var(--font-brand);
   font-size: 16px;
   letter-spacing: 2.5px;
-  color: var(--yellow);
+  color: #fb7185;
   margin-bottom: 20px;
   position: relative;
   padding-bottom: 10px;
@@ -654,12 +654,12 @@
   left: 0;
   width: 28px;
   height: 2px;
-  background: linear-gradient(90deg, var(--purple), var(--pink));
+  background: linear-gradient(90deg, #e11d48, #f43f5e);
   border-radius: 2px;
 }
 
 .footer-link {
-  color: rgba(240, 240, 255, 0.5);
+  color: rgba(161, 161, 170, 0.95);
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
@@ -673,7 +673,7 @@
 
 .footer-link::before {
   content: "›";
-  color: var(--pink);
+  color: #f43f5e;
   font-size: 16px;
   line-height: 1;
   opacity: 0;
@@ -682,7 +682,7 @@
 }
 
 .footer-link:hover {
-  color: var(--off-white);
+  color: #fafafa;
   gap: 12px;
 }
 
@@ -701,31 +701,31 @@
 .footer-contact-icon {
   width: 32px;
   height: 32px;
-  background: rgba(139, 0, 255, 0.15);
-  border: 1px solid rgba(139, 0, 255, 0.3);
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.28);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   font-size: 13px;
-  color: var(--purple);
+  color: #fb7185;
   transition: background 0.25s, border-color 0.25s;
 }
 
 .footer-contact-item:hover .footer-contact-icon {
-  background: rgba(139, 0, 255, 0.25);
-  border-color: var(--purple);
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.45);
 }
 
 .footer-contact-text {
-  color: rgba(240, 240, 255, 0.5);
+  color: rgba(161, 161, 170, 0.95);
   font-size: 13px;
   line-height: 1.6;
 }
 
 .footer-contact-text strong {
-  color: rgba(240, 240, 255, 0.8);
+  color: #e4e4e7;
   display: block;
   font-size: 12px;
   letter-spacing: 0.5px;
@@ -757,9 +757,9 @@
 }
 
 .social-ig {
-  background: rgba(255, 45, 120, 0.12);
-  border: 1px solid rgba(255, 45, 120, 0.35);
-  color: var(--pink);
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fb7185;
 }
 
 .social-yt {
@@ -779,7 +779,7 @@
 }
 
 .social-ig:hover {
-  box-shadow: 0 0 16px rgba(255, 45, 120, 0.4);
+  box-shadow: 0 0 16px rgba(244, 63, 94, 0.35);
 }
 
 .social-yt:hover {
@@ -791,15 +791,15 @@
 }
 
 .footer-newsletter {
-  background: rgba(139, 0, 255, 0.08);
-  border: 1px solid rgba(139, 0, 255, 0.2);
+  background: rgba(244, 63, 94, 0.06);
+  border: 1px solid rgba(244, 63, 94, 0.2);
   border-radius: 14px;
   padding: 18px;
   margin-top: 20px;
 }
 
 .footer-newsletter p {
-  color: rgba(240, 240, 255, 0.5);
+  color: rgba(161, 161, 170, 0.95);
   font-size: 12.5px;
   margin-bottom: 12px;
   line-height: 1.6;
@@ -828,11 +828,11 @@
 }
 
 .footer-newsletter-input input:focus {
-  border-color: var(--yellow);
+  border-color: #f43f5e;
 }
 
 .footer-newsletter-input button {
-  background: linear-gradient(135deg, var(--purple), var(--pink));
+  background: linear-gradient(135deg, #e11d48, #f43f5e);
   border: none;
   border-radius: 8px;
   padding: 8px 16px;
@@ -846,7 +846,7 @@
 }
 
 .footer-newsletter-input button:hover {
-  box-shadow: 0 0 18px rgba(255, 45, 120, 0.5);
+  box-shadow: 0 0 18px rgba(244, 63, 94, 0.45);
   transform: translateY(-1px);
 }
 
@@ -864,8 +864,8 @@
 }
 
 .app-badge:hover {
-  border-color: rgba(212, 255, 0, 0.4);
-  background: rgba(212, 255, 0, 0.04);
+  border-color: rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.06);
 }
 
 .app-badge-icon {
@@ -906,13 +906,13 @@
 }
 
 .footer-copyright {
-  color: rgba(240, 240, 255, 0.3);
+  color: rgba(113, 113, 122, 0.95);
   font-size: 12px;
   letter-spacing: 0.3px;
 }
 
 .footer-copyright span {
-  color: var(--pink);
+  color: #f43f5e;
 }
 
 .footer-badges {
@@ -933,13 +933,13 @@
 }
 
 .badge-secured {
-  color: rgba(212, 255, 0, 0.7);
-  border-color: rgba(212, 255, 0, 0.25);
+  color: rgba(251, 113, 133, 0.95);
+  border-color: rgba(244, 63, 94, 0.35);
 }
 
 .badge-fpoly {
-  color: rgba(139, 0, 255, 0.8);
-  border-color: rgba(139, 0, 255, 0.3);
+  color: rgba(212, 212, 216, 0.95);
+  border-color: rgba(63, 63, 70, 0.9);
 }
 
 .footer-stats {
@@ -972,7 +972,7 @@
   font-family: var(--font-brand);
   font-size: 26px;
   letter-spacing: 2px;
-  background: linear-gradient(135deg, var(--yellow), var(--pink));
+  background: linear-gradient(135deg, #fb7185, #f43f5e);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -981,7 +981,7 @@
 }
 
 .footer-stat-label {
-  color: rgba(240, 240, 255, 0.35);
+  color: rgba(113, 113, 122, 0.95);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.8px;

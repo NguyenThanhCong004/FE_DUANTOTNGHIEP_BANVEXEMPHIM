@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { Badge, Button, Card, Container, Row, Col } from "react-bootstrap";
-import { Film, GripVertical, Clock, Calendar, Search, Save } from "lucide-react";
+import { Badge, Button, Card, Row, Col } from "react-bootstrap";
+import { Film, GripVertical, Search } from "lucide-react";
 import { apiFetch } from "../../utils/apiClient";
 import { ROOMS, MOVIES, SHOWTIMES } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
-import "../../styles/admin-design-system.css";
-
 // Hàm tạo các mốc thời gian (cách nhau 5 phút theo spec)
 const makeMinuteSlots = (startHour = 0, endHour = 24, interval = 5) => {
   const result = [];
@@ -468,7 +466,7 @@ export default function ShowtimeManagement() {
 
   // --- GIAO DIỆN CHÍNH ---
   return (
-    <Container fluid className="py-4 bg-light" style={{ minHeight: '100vh' }}>
+    <div className="admin-page superadmin-page admin-fade-in showtime-schedule-page">
       {!effectiveCinemaId ? (
         <div className="alert alert-warning border-0 shadow-sm mb-3">
           <strong>Chưa có rạp để hiển thị.</strong> Super Admin: chọn rạp trên sidebar. Admin rạp: tài khoản cần được
@@ -476,109 +474,102 @@ export default function ShowtimeManagement() {
         </div>
       ) : null}
       {dataLoading && effectiveCinemaId ? (
-        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-white bg-opacity-50" style={{ zIndex: 2000 }}>
-          <div className="spinner-border text-primary" role="status" />
+        <div className="alert alert-light border shadow-sm d-flex align-items-center gap-2 py-2 px-3 mb-3" role="status">
+          <div className="spinner-border spinner-border-sm text-primary" aria-hidden />
+          <span className="small text-muted mb-0">Đang tải phòng, phim và suất chiếu…</span>
         </div>
       ) : null}
-      <style jsx>{`
-        .table-responsive {
-          overflow-x: auto !important;
-          scroll-behavior: smooth !important;
-        }
-        .table-responsive * {
-          scroll-snap-type: none !important;
-          scroll-behavior: auto !important;
-        }
-        body {
-          overflow-x: hidden !important;
-        }
-      `}</style>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2 className="mb-1 text-primary fw-bold">Quản lý Suất chiếu</h2>
-          <p className="text-muted mb-0">
-            Kéo thả để sắp lịch trên lưới — thay đổi chỉ ghi vào server khi bấm <strong>Lưu</strong>.
-            {hasUnsavedChanges ? (
-              <Badge bg="warning" text="dark" className="ms-2">
-                Chưa lưu
-              </Badge>
-            ) : null}
-          </p>
-        </div>
-        <div className="d-flex gap-3 align-items-center flex-wrap">
-          <Button
-            variant="primary"
-            size="sm"
-            className="d-flex align-items-center"
-            disabled={!effectiveCinemaId || saving || !hasUnsavedChanges}
-            onClick={handleSaveShowtimes}
-          >
-            <Save size={18} className="me-2" />
-            {saving ? "Đang lưu…" : "Lưu lịch chiếu"}
-          </Button>
-          <Button
-            variant={individualDateMode ? "primary" : "outline-secondary"}
-            size="sm"
-            onClick={() => setIndividualDateMode(!individualDateMode)}
-            className="d-flex align-items-center"
-          >
-            <Calendar size={16} className="me-2" />
-            {individualDateMode ? "Ngày riêng" : "Ngày chung"}
-          </Button>
-          <div className="d-flex align-items-center">
-            <Clock size={18} className="me-2 text-muted" />
-            <input 
-              type="date" 
-              className="form-control form-control-sm" 
-              value={globalDate}
-              onChange={(e) => {
-                const newDate = e.target.value;
-                setGlobalDate(newDate);
-                // Chỉ cập nhật ngày cho tất cả các phòng khi ở chế độ ngày chung
-                if (!individualDateMode) {
-                  setRoomDates(prev => {
-                    const newDates = { ...prev };
-                    state.rooms.forEach(r => {
-                      newDates[r.id] = newDate;
-                    });
-                    return newDates;
-                  });
-                }
-              }}
-            />
+      <div className="admin-header mb-4">
+        <div className="admin-header-content align-items-start">
+          <div>
+            <h1>
+              <i className="bi bi-calendar3-week me-2"></i>
+              Quản lý Suất chiếu
+            </h1>
+            <p className="lead mb-0">
+              Kéo thả để sắp lịch trên lưới — thay đổi chỉ ghi vào server khi bấm <strong>Lưu</strong>.
+              {hasUnsavedChanges ? (
+                <Badge bg="warning" text="dark" className="ms-2">
+                  Chưa lưu
+                </Badge>
+              ) : null}
+            </p>
           </div>
-          {/* Delete Zone */}
-          <div
-            className={`d-flex align-items-center px-3 py-2 border rounded ${
-              deleteZone ? 'border-danger bg-danger bg-opacity-10' : 'border-secondary'
-            }`}
-            style={{
-              cursor: isDragging && dragData?.type === 'event' ? 'pointer' : 'default',
-              transition: 'all 0.2s'
-            }}
-            onDragOver={handleDeleteZoneDragOver}
-            onDragLeave={handleDeleteZoneDragLeave}
-            onDrop={handleDeleteZoneDrop}
-          >
-            {deleteZone ? (
-              <>
-                <div className="text-danger me-2">🗑️</div>
-                <span className="text-danger fw-bold">Thả để xóa</span>
-              </>
-            ) : (
-              <>
-                <div className="text-muted me-2">🗑️</div>
-                <span className="text-muted small">Kéo suất chiếu ra đây để xóa</span>
-              </>
-            )}
+          <div className="d-flex flex-column gap-2 align-items-stretch align-items-md-end" style={{ maxWidth: "100%" }}>
+            <div className="d-flex gap-2 flex-wrap justify-content-end align-items-center">
+              <Button
+                variant="light"
+                size="sm"
+                className="d-flex align-items-center text-primary fw-semibold"
+                disabled={!effectiveCinemaId || saving || !hasUnsavedChanges}
+                onClick={handleSaveShowtimes}
+              >
+                <i className="bi bi-save me-2"></i>
+                {saving ? "Đang lưu…" : "Lưu lịch chiếu"}
+              </Button>
+              <Button
+                variant={individualDateMode ? "light" : "outline-light"}
+                size="sm"
+                onClick={() => setIndividualDateMode(!individualDateMode)}
+                className="d-flex align-items-center"
+              >
+                <i className="bi bi-calendar-event me-2"></i>
+                {individualDateMode ? "Ngày riêng" : "Ngày chung"}
+              </Button>
+              <div className="d-flex align-items-center text-white">
+                <i className="bi bi-clock me-2 opacity-75"></i>
+                <input
+                  type="date"
+                  className="form-control form-control-sm"
+                  value={globalDate}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setGlobalDate(newDate);
+                    if (!individualDateMode) {
+                      setRoomDates((prev) => {
+                        const newDates = { ...prev };
+                        state.rooms.forEach((r) => {
+                          newDates[r.id] = newDate;
+                        });
+                        return newDates;
+                      });
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div
+              className={`d-flex align-items-center px-3 py-2 border rounded ${
+                deleteZone ? "border-danger bg-danger bg-opacity-25" : "border-white border-opacity-25"
+              }`}
+              style={{
+                cursor: isDragging && dragData?.type === "event" ? "pointer" : "default",
+                transition: "all 0.2s",
+              }}
+              onDragOver={handleDeleteZoneDragOver}
+              onDragLeave={handleDeleteZoneDragLeave}
+              onDrop={handleDeleteZoneDrop}
+            >
+              {deleteZone ? (
+                <>
+                  <span className="me-2" role="img" aria-label="delete">🗑️</span>
+                  <span className="text-danger fw-bold">Thả để xóa</span>
+                </>
+              ) : (
+                <>
+                  <span className="me-2 opacity-75" role="img" aria-label="delete">🗑️</span>
+                  <span className="small text-white opacity-75">Kéo suất chiếu ra đây để xóa</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
        
       <Row className="mb-4">
         <Col xs={12}>
-          <Card className="shadow-sm border-0">
-            <Card.Header className="bg-white border-bottom-0 pt-3 pb-0">
+          <Card className="admin-card border-0 shadow-sm">
+            <Card.Header className="admin-card-header border-0 pt-3 pb-0">
               <div className="d-flex justify-content-between align-items-center">
                 <h5 className="mb-0 fw-bold d-flex align-items-center">
                   <Film size={20} className="me-2 text-primary" /> Phim đang chiếu (Kéo để xếp lịch)
@@ -630,7 +621,7 @@ export default function ShowtimeManagement() {
         </Col>
       </Row>
 
-      <Card className="shadow-sm border-0">
+      <Card className="admin-card border-0 shadow-sm">
         <Card.Body className="p-0">
           <div className="table-responsive" style={{ maxHeight: '600px', position: 'relative' }}>
             <table className="table table-bordered mb-0" style={{ tableLayout: 'fixed', minWidth: `${TIME_SLOTS.length * SLOT_WIDTH + 800}px` }}>
@@ -675,7 +666,7 @@ export default function ShowtimeManagement() {
                           </div>
                         </div>
                         <div className="d-flex align-items-center gap-2">
-                          <Calendar size={12} className="text-muted" />
+                          <i className="bi bi-calendar3 text-muted" style={{ fontSize: "12px" }}></i>
                           {individualDateMode ? (
                             <input
                               type="date"
@@ -851,6 +842,6 @@ export default function ShowtimeManagement() {
           </div>
         </Card.Body>
       </Card>
-    </Container>
+    </div>
   );
 }

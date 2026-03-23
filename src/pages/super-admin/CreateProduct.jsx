@@ -78,6 +78,7 @@ const CreateProduct = () => {
   useEffect(() => {
     if (editData?.id) return;
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state (no id)
       setFormData({
         name: editData.name || '',
         description: editData.description || '',

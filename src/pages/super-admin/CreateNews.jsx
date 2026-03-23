@@ -29,6 +29,7 @@ const CreateNews = () => {
 
   useEffect(() => {
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         title: editData.title || '',
         content: editData.content || '',

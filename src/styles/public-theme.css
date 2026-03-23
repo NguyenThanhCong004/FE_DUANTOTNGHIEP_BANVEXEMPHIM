@@ -6,10 +6,13 @@
  */
 
 html.cinetoon-public {
-  --primary-gradient: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
-  --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  --bg-gradient: linear-gradient(180deg, #0f172a 0%, #1e1b4b 50%, #4c1d95 100%);
-  --toon-shadow: 0 8px 0 rgba(0, 0, 0, 0.2);
+  /* Đồng bộ với Navbar (Tailwind zinc-950 + rose): thanh điều hướng cố định */
+  --primary-gradient: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
+  --secondary-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
+  --bg-gradient:
+    radial-gradient(ellipse 85% 45% at 50% -20%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
+    linear-gradient(180deg, #09090b 0%, #18181b 45%, #09090b 100%);
+  --toon-shadow: 0 8px 0 rgba(0, 0, 0, 0.25);
 }
 
 html.cinetoon-public body {
@@ -42,13 +45,13 @@ html.cinetoon-public .btn-gradient {
   background: var(--primary-gradient);
   color: white;
   border: none;
-  box-shadow: 0 4px 0 #d64545;
+  box-shadow: 0 4px 0 #9f1239;
   transition: all 0.2s ease;
 }
 
 html.cinetoon-public .btn-gradient:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 0 #d64545;
+  box-shadow: 0 6px 0 #9f1239;
   color: white;
 }
 
@@ -97,8 +100,8 @@ html.cinetoon-public main input.form-control:focus,
 html.cinetoon-public main select.form-select:focus,
 html.cinetoon-public main textarea.form-control:focus {
   background-color: rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 0 0 0.25rem rgba(255, 107, 107, 0.25) !important;
-  border-color: #ff6b6b !important;
+  box-shadow: 0 0 0 0.25rem rgba(244, 63, 94, 0.25) !important;
+  border-color: #f43f5e !important;
   color: #fff !important;
 }
 
@@ -108,8 +111,40 @@ html.cinetoon-public main textarea.form-control::placeholder {
 }
 
 html.cinetoon-public main select.form-select option {
-  background-color: #1e1b4b;
+  background-color: #18181b;
   color: #ffffff;
+}
+
+/* Khung nội dung trang khách — cùng max-width / padding ngang với Navbar: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 */
+html.cinetoon-public .customer-page {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+html.cinetoon-public .customer-page-container {
+  width: 100%;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  html.cinetoon-public .customer-page-container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  html.cinetoon-public .customer-page-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+html.cinetoon-public .customer-page--full {
+  min-height: 0;
 }
 
 /* Không ép .text-dark / .text-muted toàn cục — để Bootstrap + ngữ cảnh quyết định */

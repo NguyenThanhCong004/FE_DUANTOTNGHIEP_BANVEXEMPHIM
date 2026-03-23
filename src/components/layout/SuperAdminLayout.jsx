@@ -5,6 +5,7 @@ import { getStoredStaff } from "../../utils/authStorage";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import CinemaPicker from "./CinemaPicker";
 import "../../styles/admin-shell.css";
+import "../../styles/admin-design-system.css";
 
 export default function SuperAdminLayout({ children }) {
   const staff = getStoredStaff();
@@ -48,7 +49,7 @@ export default function SuperAdminLayout({ children }) {
           </div>
         </header>
 
-        <section className="app-shell-content">
+        <section className="app-shell-content app-shell-content--panel">
           {children ?? <Outlet />}
         </section>
       </main>

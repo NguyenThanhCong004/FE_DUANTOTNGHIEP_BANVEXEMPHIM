@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { Calendar, Clock, RefreshCw } from "lucide-react";
 import { apiFetch } from "../../utils/apiClient";
 import { SHIFTS } from "../../constants/apiEndpoints";
@@ -11,7 +11,7 @@ export default function MyShifts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -35,11 +35,11 @@ export default function MyShifts() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const groupedByDate = useMemo(() => {
     const m = new Map();

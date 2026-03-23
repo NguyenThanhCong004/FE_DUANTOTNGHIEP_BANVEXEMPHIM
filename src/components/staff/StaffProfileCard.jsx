@@ -64,8 +64,10 @@ function mergeStaffSession(serverDto) {
 
 /**
  * Hồ sơ nhân viên (ADMIN / SUPER_ADMIN) — tải từ API, chỉnh sửa & đổi mật khẩu.
+ * @param {boolean} [hideHeader] — ẩn tiêu đề phụ (khi đã có AdminPanelPage).
+ * @param {'dark'|'light'} [variant] — dark: nền slate; light: khớp admin panel.
  */
-export default function StaffProfileCard({ title, roleLabel }) {
+export default function StaffProfileCard({ title, roleLabel, hideHeader = false, variant = "dark" }) {
   const stored = getStoredStaff();
   const staffId = stored?.staffId ?? stored?.staff_id ?? null;
 
@@ -263,19 +265,30 @@ export default function StaffProfileCard({ title, roleLabel }) {
     }
   };
 
-  const cardStyle = {
-    background: "rgba(15, 23, 42, 0.75)",
-    borderRadius: 16,
-    border: "1px solid rgba(148, 163, 184, 0.2)",
-  };
+  const light = variant === "light";
+  const inputDark = light ? "" : "bg-dark text-light border-secondary";
+  const cardStyle = light
+    ? {
+        background: "var(--admin-bg-card)",
+        borderRadius: 16,
+        border: "1px solid var(--admin-border)",
+        boxShadow: "var(--admin-shadow-sm)",
+      }
+    : {
+        background: "rgba(15, 23, 42, 0.75)",
+        borderRadius: 16,
+        border: "1px solid rgba(148, 163, 184, 0.2)",
+      };
 
   const role = model ? normalizeRole(model.role) : normalizeRole(stored?.role);
   const name = model?.fullname || stored?.fullname || stored?.username || "—";
   const email = model?.email || stored?.email || "—";
   const cinemaId = model?.cinemaId ?? stored?.cinemaId;
 
+  const listBorder = light ? "border-secondary" : "border-secondary border-opacity-25";
+
   return (
-    <div className="staff-profile-wrap">
+    <div className={`staff-profile-wrap${light ? " staff-profile-wrap--light" : ""}`}>
       {toast && (
         <div
           className={`alert ${toast.type === "error" ? "alert-danger" : "alert-success"} py-2 px-3 mb-3`}
@@ -285,12 +298,14 @@ export default function StaffProfileCard({ title, roleLabel }) {
         </div>
       )}
 
-      <div className="mb-4">
-        <h2 className="h4 fw-bold text-white mb-1">{title}</h2>
-        <p className="text-secondary small mb-0">{roleLabel}</p>
-      </div>
+      {!hideHeader ? (
+        <div className="mb-4">
+          <h2 className={`h4 fw-bold mb-1 ${light ? "text-dark" : "text-white"}`}>{title}</h2>
+          <p className="text-secondary small mb-0">{roleLabel}</p>
+        </div>
+      ) : null}
 
-      <Card className="border-0 text-light mb-4" style={cardStyle}>
+      <Card className={`border-0 mb-4 ${light ? "text-dark" : "text-light"}`} style={cardStyle}>
         <Card.Body className="p-4">
           {!staffId ? (
             <p className="text-warning mb-0">
@@ -339,7 +354,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                           type="file"
                           accept="image/*"
                           size="sm"
-                          className="bg-dark text-light border-secondary"
+                          className={inputDark || undefined}
                           onChange={(ev) => {
                             const f = ev.target.files?.[0];
                             setErrors((er) => ({ ...er, avatar: "" }));
@@ -365,7 +380,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                 <div className="d-flex gap-2">
                   {!editing ? (
                     <>
-                      <Button variant="outline-light" size="sm" onClick={startEdit}>
+                      <Button variant={light ? "outline-primary" : "outline-light"} size="sm" onClick={startEdit}>
                         Chỉnh sửa
                       </Button>
                       <Button variant="outline-secondary" size="sm" onClick={load}>
@@ -382,7 +397,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                       >
                         {saving ? "Đang lưu…" : "Lưu"}
                       </Button>
-                      <Button variant="outline-light" size="sm" onClick={cancelEdit} disabled={saving}>
+                      <Button variant="outline-secondary" size="sm" onClick={cancelEdit} disabled={saving}>
                         Hủy
                       </Button>
                     </>
@@ -391,7 +406,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
               </div>
 
               <ul className="list-unstyled mb-0">
-                <li className="d-flex align-items-start gap-3 py-3 border-bottom border-secondary border-opacity-25">
+                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
                   <User size={20} className="text-info flex-shrink-0 mt-1" />
                   <div className="flex-grow-1">
                     <div className="small text-secondary text-uppercase fw-bold">Họ tên</div>
@@ -400,7 +415,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                         name="fullname"
                         value={draft.fullname}
                         onChange={handleDraft}
-                        className="mt-1 bg-dark text-light border-secondary"
+                        className={`mt-1 ${inputDark}`.trim()}
                         isInvalid={!!errors.fullname}
                       />
                     ) : (
@@ -411,7 +426,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                     )}
                   </div>
                 </li>
-                <li className="d-flex align-items-start gap-3 py-3 border-bottom border-secondary border-opacity-25">
+                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
                   <Mail size={20} className="text-info flex-shrink-0 mt-1" />
                   <div className="flex-grow-1">
                     <div className="small text-secondary text-uppercase fw-bold">Email (Gmail)</div>
@@ -421,7 +436,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                         type="email"
                         value={draft.email}
                         onChange={handleDraft}
-                        className="mt-1 bg-dark text-light border-secondary"
+                        className={`mt-1 ${inputDark}`.trim()}
                         isInvalid={!!errors.email}
                       />
                     ) : (
@@ -430,7 +445,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                     {errors.email && <div className="text-danger small mt-1">{errors.email}</div>}
                   </div>
                 </li>
-                <li className="d-flex align-items-start gap-3 py-3 border-bottom border-secondary border-opacity-25">
+                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
                   <User size={20} className="text-info flex-shrink-0 mt-1" />
                   <div className="flex-grow-1">
                     <div className="small text-secondary text-uppercase fw-bold">Tên đăng nhập</div>
@@ -439,7 +454,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                         name="username"
                         value={draft.username}
                         onChange={handleDraft}
-                        className="mt-1 bg-dark text-light border-secondary"
+                        className={`mt-1 ${inputDark}`.trim()}
                         isInvalid={!!errors.username}
                       />
                     ) : (
@@ -450,7 +465,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                     )}
                   </div>
                 </li>
-                <li className="d-flex align-items-start gap-3 py-3 border-bottom border-secondary border-opacity-25">
+                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
                   <Mail size={20} className="text-info flex-shrink-0 mt-1" />
                   <div className="flex-grow-1">
                     <div className="small text-secondary text-uppercase fw-bold">Điện thoại</div>
@@ -459,7 +474,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                         name="phone"
                         value={draft.phone}
                         onChange={handleDraft}
-                        className="mt-1 bg-dark text-light border-secondary"
+                        className={`mt-1 ${inputDark}`.trim()}
                         isInvalid={!!errors.phone}
                       />
                     ) : (
@@ -468,7 +483,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                     {errors.phone && <div className="text-danger small mt-1">{errors.phone}</div>}
                   </div>
                 </li>
-                <li className="d-flex align-items-start gap-3 py-3 border-bottom border-secondary border-opacity-25">
+                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
                   <User size={20} className="text-info flex-shrink-0 mt-1" />
                   <div className="flex-grow-1">
                     <div className="small text-secondary text-uppercase fw-bold">Ngày sinh</div>
@@ -478,7 +493,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                         type="date"
                         value={draft.birthday}
                         onChange={handleDraft}
-                        className="mt-1 bg-dark text-light border-secondary"
+                        className={`mt-1 ${inputDark}`.trim()}
                         isInvalid={!!errors.birthday}
                       />
                     ) : (
@@ -489,7 +504,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                     )}
                   </div>
                 </li>
-                <li className="d-flex align-items-start gap-3 py-3 border-bottom border-secondary border-opacity-25">
+                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
                   <Shield size={20} className="text-info flex-shrink-0 mt-1" />
                   <div>
                     <div className="small text-secondary text-uppercase fw-bold">Vai trò</div>
@@ -512,7 +527,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
       </Card>
 
       {staffId && model && (
-        <Card className="border-0 text-light" style={cardStyle}>
+        <Card className={`border-0 ${light ? "text-dark" : "text-light"}`} style={cardStyle}>
           <Card.Body className="p-4">
             <div className="d-flex align-items-center gap-2 mb-3">
               <Lock size={20} className="text-warning" />
@@ -525,7 +540,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                 name="current"
                 value={pw.current}
                 onChange={handlePw}
-                className="bg-dark text-light border-secondary"
+                className={inputDark || undefined}
                 autoComplete="current-password"
                 isInvalid={!!pwErrors.current}
               />
@@ -540,7 +555,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                 name="newPw"
                 value={pw.newPw}
                 onChange={handlePw}
-                className="bg-dark text-light border-secondary"
+                className={inputDark || undefined}
                 autoComplete="new-password"
                 isInvalid={!!pwErrors.newPw}
               />
@@ -555,7 +570,7 @@ export default function StaffProfileCard({ title, roleLabel }) {
                 name="confirm"
                 value={pw.confirm}
                 onChange={handlePw}
-                className="bg-dark text-light border-secondary"
+                className={inputDark || undefined}
                 autoComplete="new-password"
                 isInvalid={!!pwErrors.confirm}
               />

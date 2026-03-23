@@ -12,6 +12,7 @@ const CreateProductType = () => {
 
   useEffect(() => {
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setTypeName(editData.name || '');
     }
   }, [editData]);

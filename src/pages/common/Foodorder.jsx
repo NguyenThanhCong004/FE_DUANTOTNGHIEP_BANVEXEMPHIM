@@ -40,8 +40,10 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
 
   return (
     <div
-      className={`h-100 p-3 rounded-4 border ${qty > 0 ? "border-warning border-opacity-50" : "border-white border-opacity-10"}`}
-      style={{ background: "rgba(20,22,50,0.85)", backdropFilter: "blur(8px)" }}
+      className={`h-100 p-3 rounded-4 border ${
+        qty > 0 ? "border-rose-500 border-opacity-40" : "border-zinc-700 border-opacity-80"
+      }`}
+      style={{ background: "rgba(24, 24, 27, 0.92)", backdropFilter: "blur(8px)" }}
     >
       {img}
       <h6 className="text-white fw-bold small mb-1 text-truncate" title={product.name}>
@@ -52,20 +54,29 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
         {(product.description || "").length > 80 ? "…" : ""}
       </p>
       <div className="d-flex justify-content-between align-items-center gap-2">
-        <span className="text-warning fw-black">{fmt(product.price)}</span>
+        <span className="fw-black text-rose-400">{fmt(product.price)}</span>
         {qty === 0 ? (
-          <button type="button" className="btn btn-sm btn-warning fw-bold rounded-pill px-3" onClick={() => onAdd(product.productId)}>
+          <button
+            type="button"
+            className="btn btn-sm btn-gradient text-white fw-bold rounded-pill px-3 border-0"
+            onClick={() => onAdd(product.productId)}
+          >
             + Thêm
           </button>
         ) : (
           <div className="d-flex align-items-center gap-1">
-            <button type="button" className="btn btn-sm btn-outline-light py-0 px-2" onClick={() => onRemove(product.productId)}>
+            <button type="button" className="btn btn-sm btn-outline-light py-0 px-2 border-zinc-600" onClick={() => onRemove(product.productId)}>
               −
             </button>
             <span className="text-white fw-bold px-1" style={{ minWidth: 20, textAlign: "center" }}>
               {qty}
             </span>
-            <button type="button" className="btn btn-sm btn-outline-warning py-0 px-2" onClick={() => onAdd(product.productId)}>
+            <button
+              type="button"
+              className="btn btn-sm py-0 px-2 border text-rose-400"
+              style={{ borderColor: "rgba(244,63,94,0.5)", background: "rgba(244,63,94,0.1)" }}
+              onClick={() => onAdd(product.productId)}
+            >
               +
             </button>
           </div>
@@ -251,22 +262,25 @@ export default function FoodOrder() {
         style={{
           minHeight: "85vh",
           background:
-            "radial-gradient(ellipse 70% 45% at 10% 20%, rgba(123,31,162,0.15) 0%, transparent 60%), radial-gradient(ellipse 55% 40% at 90% 80%, rgba(233,30,140,0.1) 0%, transparent 60%), #0f102a",
+            "radial-gradient(ellipse 75% 50% at 50% -10%, rgba(244, 63, 94, 0.1) 0%, transparent 55%), linear-gradient(180deg, #09090b 0%, #18181b 100%)",
         }}
       >
         <Container fluid="xl" className="px-3">
           <Row className="align-items-end mb-4 gy-3">
             <Col>
-              <p className="small text-white-50 fw-bold text-uppercase mb-1" style={{ letterSpacing: 2 }}>
+              <p className="small text-zinc-400 fw-bold text-uppercase mb-1" style={{ letterSpacing: 2 }}>
                 Đặt trước — nhận tại quầy rạp
               </p>
-              <h1 className="text-white fw-black mb-0" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: 3, fontSize: "clamp(2rem,5vw,3rem)" }}>
-                BẮP NƯỚC <span className="text-warning">ONLINE</span>
+              <h1
+                className="text-white fw-black mb-0"
+                style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: 3, fontSize: "clamp(2rem,5vw,3rem)" }}
+              >
+                BẮP NƯỚC <span className="text-rose-500">ONLINE</span>
               </h1>
             </Col>
             <Col xs={12} md="auto">
               <Form.Select
-                className="bg-dark text-white border-secondary rounded-pill"
+                className="bg-zinc-900 text-white border-zinc-600 rounded-pill"
                 value={cinemaId}
                 onChange={(e) => {
                   setCinemaId(e.target.value);
@@ -295,7 +309,7 @@ export default function FoodOrder() {
             <Col lg={8}>
               {loadingMenu ? (
                 <div className="text-center py-5 text-white">
-                  <Spinner animation="border" variant="warning" />
+                  <Spinner animation="border" variant="light" />
                   <p className="small mt-2 opacity-75">Đang tải menu…</p>
                 </div>
               ) : !cinemaId ? (
@@ -309,7 +323,9 @@ export default function FoodOrder() {
                       <button
                         key={c}
                         type="button"
-                        className={`btn btn-sm rounded-pill fw-bold ${activeCategory === c ? "btn-warning text-dark" : "btn-outline-light"}`}
+                        className={`btn btn-sm rounded-pill fw-bold ${
+                          activeCategory === c ? "btn-gradient text-white border-0" : "btn-outline-light border-zinc-600 text-zinc-300"
+                        }`}
                         onClick={() => setActiveCategory(c)}
                       >
                         {c}
@@ -317,7 +333,7 @@ export default function FoodOrder() {
                     ))}
                   </div>
                   <Form.Control
-                    className="mb-3 bg-dark text-white border-secondary rounded-pill"
+                    className="mb-3 bg-zinc-900 text-white border-zinc-600 rounded-pill"
                     placeholder="Tìm món…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -335,10 +351,10 @@ export default function FoodOrder() {
 
             <Col lg={4}>
               <div
-                className="p-4 rounded-4 border border-white border-opacity-10 sticky-top"
-                style={{ top: 96, background: "rgba(20,22,50,0.9)", backdropFilter: "blur(12px)" }}
+                className="p-4 rounded-4 border border-zinc-700 sticky-top"
+                style={{ top: 96, background: "rgba(24, 24, 27, 0.95)", backdropFilter: "blur(12px)" }}
               >
-                <h5 className="text-white fw-black text-uppercase mb-3 border-bottom border-white border-opacity-10 pb-2">Giỏ hàng</h5>
+                <h5 className="text-white fw-black text-uppercase mb-3 border-bottom border-zinc-600 pb-2">Giỏ hàng</h5>
                 {cartItems.length === 0 ? (
                   <p className="text-white-50 small mb-0">Chưa có món — thêm từ danh sách bên trái.</p>
                 ) : (
@@ -351,31 +367,31 @@ export default function FoodOrder() {
                             {fmt(p.price)} × {cart[p.productId]}
                           </div>
                         </div>
-                        <div className="text-warning fw-bold text-nowrap">{fmt(p.price * cart[p.productId])}</div>
+                        <div className="text-rose-400 fw-bold text-nowrap">{fmt(p.price * cart[p.productId])}</div>
                       </div>
                     ))}
                   </div>
                 )}
-                <div className="d-flex justify-content-between text-white fw-bold mb-3 pt-2 border-top border-white border-opacity-10">
+                <div className="d-flex justify-content-between text-white fw-bold mb-3 pt-2 border-top border-zinc-600">
                   <span>Tạm tính ({totalQty} món)</span>
-                  <span className="text-warning">{fmt(subtotal)}</span>
+                  <span className="text-rose-400">{fmt(subtotal)}</span>
                 </div>
                 <button
                   type="button"
-                  className="btn btn-warning w-100 rounded-pill fw-black py-3"
+                  className="btn btn-gradient w-100 rounded-pill fw-bold text-white py-3 border-0"
                   disabled={paying || totalQty === 0 || !cinemaId}
                   onClick={handlePayOS}
                 >
                   {paying ? (
                     <>
-                      <Spinner size="sm" className="me-2" />
+                      <Spinner size="sm" className="me-2 text-white" />
                       Đang tạo link PayOS…
                     </>
                   ) : (
                     <>Thanh toán PayOS — {fmt(subtotal)}</>
                   )}
                 </button>
-                <p className="small text-white-50 text-center mt-2 mb-0">Cần đăng nhập tài khoản khách. Thanh toán xong nhận tại quầy rạp đã chọn.</p>
+                <p className="small text-zinc-400 text-center mt-2 mb-0">Cần đăng nhập tài khoản khách. Thanh toán xong nhận tại quầy rạp đã chọn.</p>
               </div>
             </Col>
           </Row>

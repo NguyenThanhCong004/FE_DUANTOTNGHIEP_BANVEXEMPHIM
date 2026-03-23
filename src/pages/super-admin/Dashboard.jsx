@@ -9,9 +9,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import '../../styles/admin-design-system.css';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 
-// Đăng ký các thành phần của Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -116,36 +115,26 @@ const SuperAdminDashboard = () => {
   };
 
   return (
-    <div className="admin-page superadmin-page admin-fade-in">
-      {/* Header */}
-      <div className="admin-header">
-        <div className="admin-header-content">
-          <div>
-            <h1>
-              <i className="bi bi-shield-lock me-3"></i>
-              Super Admin Dashboard
-            </h1>
-            <p className="lead">
-              Tổng quan hệ thống toàn bộ rạp chiếu phim
-            </p>
-          </div>
-          <button className="admin-btn" style={{ background: 'white', color: '#6366f1' }} onClick={exportExcel}>
-            <i className="bi bi-file-earmark-excel me-2"></i>
-            Xuất Excel
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
+    <AdminPanelPage
+      icon="shield-lock"
+      title="Super Admin Dashboard"
+      description="Tổng quan hệ thống toàn bộ rạp chiếu phim"
+      headerRight={
+        <button type="button" className="admin-btn" style={{ background: 'white', color: '#6366f1' }} onClick={exportExcel}>
+          <i className="bi bi-file-earmark-excel me-2"></i>
+          Xuất Excel
+        </button>
+      }
+    >
       <div className="admin-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         {stats.map((stat, index) => (
-          <div 
-            key={index} 
-            className="admin-stat-card admin-slide-up" 
-            style={{ 
-              '--stat-color': stat.color, 
+          <div
+            key={index}
+            className="admin-stat-card admin-slide-up"
+            style={{
+              '--stat-color': stat.color,
               '--icon-bg': `${stat.color}15`,
-              animationDelay: `${index * 0.1}s`
+              animationDelay: `${index * 0.1}s`,
             }}
           >
             <div className="admin-stat-icon">
@@ -163,7 +152,6 @@ const SuperAdminDashboard = () => {
         ))}
       </div>
 
-      {/* Chart Card */}
       <div className="admin-card admin-slide-up" style={{ animationDelay: '0.5s' }}>
         <div className="admin-card-header">
           <h4>
@@ -178,7 +166,7 @@ const SuperAdminDashboard = () => {
           </div>
         </div>
       </div>
-    </div>
+    </AdminPanelPage>
   );
 };
 
