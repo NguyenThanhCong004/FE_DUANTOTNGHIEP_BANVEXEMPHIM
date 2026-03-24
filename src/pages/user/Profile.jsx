@@ -739,14 +739,14 @@ export default function UserProfile() {
                         <Link to="/foodorder" className="px-8 py-4 rounded-xl bg-zinc-800 text-white font-bold hover:bg-zinc-700 transition-all">Đặt bắp nước</Link>
                       </div>
                     </div>
-<<<<<<< HEAD
-                  ))}
-                  <div style={{ marginTop: 16, textAlign: "center" }}>
-                    <a href="/transactionHistory" style={{ fontSize: 12, fontWeight: 700, color: "var(--yellow)", textDecoration: "none", letterSpacing: 0.5 }}>
-                      Xem toàn bộ lịch sử giao dịch →
-                    </a>
-                  </div>
-=======
+// <<<<<<< HEAD
+//                   ))}
+//                   <div style={{ marginTop: 16, textAlign: "center" }}>
+//                     <a href="/transactionHistory" style={{ fontSize: 12, fontWeight: 700, color: "var(--yellow)", textDecoration: "none", letterSpacing: 0.5 }}>
+//                       Xem toàn bộ lịch sử giao dịch →
+//                     </a>
+//                   </div>
+// =======
                   ) : (
                     <div className="space-y-4">
                       {recentActivity.map((act, i) => (
@@ -781,7 +781,6 @@ export default function UserProfile() {
                       </div>
                     </div>
                   )}
->>>>>>> FE_CINEMA
                 </div>
               </div>
 
