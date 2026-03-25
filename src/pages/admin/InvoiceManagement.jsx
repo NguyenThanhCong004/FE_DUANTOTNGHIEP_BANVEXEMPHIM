@@ -156,16 +156,18 @@ const InvoiceManagement = () => {
             </h1>
             <p className="lead">Theo dõi và quản lý hóa đơn vé phim</p>
           </div>
-          <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
-            <i className="bi bi-search admin-search-icon" aria-hidden />
-            <input
-              type="search"
-              className="admin-search-input"
-              placeholder="Tìm hóa đơn..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Tìm hóa đơn"
-            />
+          <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+            <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
+              <i className="bi bi-search admin-search-icon" aria-hidden />
+              <input
+                type="search"
+                className="admin-search-input"
+                placeholder="Tìm hóa đơn..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Tìm hóa đơn"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -274,14 +276,6 @@ const InvoiceManagement = () => {
                         >
                           <i className="bi bi-eye"></i>
                         </Link>
-                        <button
-                          type="button"
-                          className="admin-table-action-btn admin-table-action-btn--danger"
-                          title="Xóa đơn"
-                          onClick={() => handleDelete(invoice.apiId)}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
                       </div>
                     </td>
                   </tr>
