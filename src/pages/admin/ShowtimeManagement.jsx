@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { Badge, Button, Card, Row, Col } from "react-bootstrap";
-import { Film, GripVertical, Search } from "lucide-react";
+import { Badge, Button, Card, Row, Col, Modal } from "react-bootstrap";
+import { Film, GripVertical, Search, Clock, Calendar, Hash, CreditCard } from "lucide-react";
 import { apiFetch } from "../../utils/apiClient";
 import { ROOMS, MOVIES, SHOWTIMES } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
@@ -49,6 +49,8 @@ const isOverlap = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && bStart < aEnd
 
 const INITIAL_STATE = { rooms: [], movies: [], events: [] };
 
+const DAY_NAMES = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+
 export default function ShowtimeManagement() {
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
@@ -70,6 +72,27 @@ export default function ShowtimeManagement() {
   const [autoScrollInterval, setAutoScrollInterval] = useState(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [detailEvent, setDetailEvent] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // VAT Settings per Day of Week (0: Sunday, 1: Monday, ..., 6: Saturday)
+  const [weeklyVAT, setWeeklyVAT] = useState({
+    1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0
+  });
+
+  const handleShowDetail = (ev) => {
+    setDetailEvent(ev);
+    setShowDetailModal(true);
+  };
+
+  const getVATForDate = (dateString) => {
+    const day = new Date(dateString).getDay();
+    return weeklyVAT[day] || 0;
+  };
+
+  const calculateFinalPrice = (basePrice, vatPercent) => {
+    return basePrice * (1 + vatPercent / 100);
+  };
 
   const formatFetchedData = (roomsJson, moviesJson, stJson) => {
     const rooms = (roomsJson?.data || []).map(r => ({
@@ -82,6 +105,7 @@ export default function ShowtimeManagement() {
       id: m.id,
       title: m.title,
       durationMin: m.duration ?? 120,
+      basePrice: m.basePrice ?? 60000,
     }));
 
     const events = (stJson?.data || []).map((st) => ({
@@ -91,7 +115,7 @@ export default function ShowtimeManagement() {
       roomId: st.room_id ?? st.roomId,
       date: st.date,
       startTime: st.time,
-      vatPercent: st.vat != null ? Number(st.vat) : 10,
+      vatPercent: st.vat != null ? Number(st.vat) : 0,
       dirty: false,
     }));
 
@@ -164,7 +188,7 @@ export default function ShowtimeManagement() {
               movieId: ev.movieId,
               roomId: ev.roomId,
               startTime: startIso,
-              vatPercent: ev.vatPercent ?? 10,
+              vatPercent: ev.vatPercent ?? 0,
             }),
           });
           const j = await res.json().catch(() => null);
@@ -186,7 +210,7 @@ export default function ShowtimeManagement() {
               movieId: ev.movieId,
               roomId: ev.roomId,
               startTime: startIso,
-              vatPercent: ev.vatPercent ?? 10,
+              vatPercent: ev.vatPercent ?? 0,
             }),
           });
           const j = await res.json().catch(() => null);
@@ -204,6 +228,43 @@ export default function ShowtimeManagement() {
       await loadShowtimeData();
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Update VAT for existing showtimes when weeklyVAT changes - Only for newly added unsaved ones to avoid confusion
+  useEffect(() => {
+    if (state.events.length === 0) return;
+    
+    setState(prev => {
+      let changed = false;
+      const newEvents = prev.events.map(ev => {
+        const currentExpectedVAT = getVATForDate(ev.date);
+        // Only auto-update if it's a new unsaved event (local-)
+        if (ev.id.toString().startsWith('local-') && ev.vatPercent !== currentExpectedVAT) {
+          changed = true;
+          return {
+            ...ev,
+            vatPercent: currentExpectedVAT
+          };
+        }
+        return ev;
+      });
+      
+      return changed ? { ...prev, events: newEvents } : prev;
+    });
+  }, [weeklyVAT]);
+
+  const handleUpdateEventVAT = (eventId, newVat) => {
+    setState(prev => ({
+      ...prev,
+      events: prev.events.map(ev => 
+        ev.id === eventId 
+          ? { ...ev, vatPercent: Number(newVat), dirty: ev.serverId != null ? true : ev.dirty } 
+          : ev
+      )
+    }));
+    if (detailEvent && detailEvent.id === eventId) {
+      setDetailEvent(prev => ({ ...prev, vatPercent: Number(newVat) }));
     }
   };
 
@@ -264,6 +325,7 @@ export default function ShowtimeManagement() {
 
     if (isNewMovie) {
       const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const currentVat = getVATForDate(targetDate);
       setState((prev) => ({
         ...prev,
         events: [
@@ -274,7 +336,7 @@ export default function ShowtimeManagement() {
             roomId,
             date: targetDate,
             startTime: time,
-            vatPercent: 10,
+            vatPercent: currentVat,
             dirty: false,
           },
           ...prev.events,
@@ -370,9 +432,6 @@ export default function ShowtimeManagement() {
       ...prev,
       [roomId]: newDate
     }));
-    
-    // Don't clear showtimes when date changes - let them persist
-    // This allows conflict detection to work across different dates
   };
 
   // Delete zone handlers
@@ -407,13 +466,10 @@ export default function ShowtimeManagement() {
   // Auto-scroll functionality
   const startAutoScroll = (direction) => {
     if (autoScrollInterval) return;
-    
-    console.log('Starting auto-scroll:', direction); // Debug log
-    
     const interval = setInterval(() => {
       const scrollContainer = document.querySelector('.table-responsive');
       if (scrollContainer) {
-        const scrollAmount = 2; // Reduce scroll amount to 2px
+        const scrollAmount = 2;
         const currentScroll = scrollContainer.scrollLeft;
         const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
         
@@ -422,12 +478,10 @@ export default function ShowtimeManagement() {
         } else if (direction === 'right' && currentScroll < maxScroll) {
           scrollContainer.scrollLeft = Math.min(maxScroll, currentScroll + scrollAmount);
         } else {
-          // Stop if we've reached the end
           stopAutoScroll();
         }
       }
-    }, 100); // Increase interval to 100ms for smoother scrolling
-    
+    }, 100);
     setAutoScrollInterval(interval);
   };
 
@@ -440,28 +494,6 @@ export default function ShowtimeManagement() {
 
   const handleDragOver = (e) => {
     e.preventDefault();
-    
-    // Temporarily disable auto-scroll to test
-    // if (!isDragging || !dragData) {
-    //   stopAutoScroll();
-    //   return;
-    // }
-    
-    // const scrollContainer = document.querySelector('.table-responsive');
-    // if (scrollContainer) {
-    //   const rect = scrollContainer.getBoundingClientRect();
-    //   const x = e.clientX;
-    //   const edgeThreshold = 50; // Reduce threshold to 50px
-    //   
-    //   // Only scroll if cursor is actually near the edges
-    //   if (x - rect.left < edgeThreshold && scrollContainer.scrollLeft > 0) {
-    //     startAutoScroll('left');
-    //   } else if (rect.right - x < edgeThreshold && scrollContainer.scrollLeft < scrollContainer.scrollWidth - scrollContainer.clientWidth) {
-    //     startAutoScroll('right');
-    //   } else {
-    //     stopAutoScroll();
-    //   }
-    // }
   };
 
   // --- GIAO DIỆN CHÍNH ---
@@ -479,109 +511,140 @@ export default function ShowtimeManagement() {
           <span className="small text-muted mb-0">Đang tải phòng, phim và suất chiếu…</span>
         </div>
       ) : null}
+
+      {/* Header section with Title on Left and Controls on Right */}
       <div className="admin-header mb-4">
-        <div className="admin-header-content align-items-start">
+        <div className="admin-header-content d-flex justify-content-between align-items-center flex-nowrap w-100">
           <div>
-            <h1>
+            <h1 className="h3 mb-1">
               <i className="bi bi-calendar3-week me-2"></i>
               Quản lý Suất chiếu
             </h1>
-            <p className="lead mb-0">
-              Kéo thả để sắp lịch trên lưới — thay đổi chỉ ghi vào server khi bấm <strong>Lưu</strong>.
-              {hasUnsavedChanges ? (
-                <Badge bg="warning" text="dark" className="ms-2">
+            <p className="text-muted mb-0" style={{ fontSize: "0.8rem" }}>
+              Kéo thả để sắp lịch trên lưới — chỉ lưu khi bấm <strong>Lưu</strong>.
+              {hasUnsavedChanges && (
+                <Badge bg="warning" text="dark" className="ms-1" style={{ fontSize: "0.7rem" }}>
                   Chưa lưu
                 </Badge>
-              ) : null}
+              )}
             </p>
           </div>
-          <div className="d-flex flex-column gap-2 align-items-stretch align-items-md-end" style={{ maxWidth: "100%" }}>
-            <div className="d-flex gap-2 flex-wrap justify-content-end align-items-center">
-              <Button
-                variant="light"
-                size="sm"
-                className="d-flex align-items-center text-primary fw-semibold"
-                disabled={!effectiveCinemaId || saving || !hasUnsavedChanges}
-                onClick={handleSaveShowtimes}
-              >
-                <i className="bi bi-save me-2"></i>
-                {saving ? "Đang lưu…" : "Lưu lịch chiếu"}
-              </Button>
-              <Button
-                variant={individualDateMode ? "light" : "outline-light"}
-                size="sm"
-                onClick={() => setIndividualDateMode(!individualDateMode)}
-                className="d-flex align-items-center"
-              >
-                <i className="bi bi-calendar-event me-2"></i>
-                {individualDateMode ? "Ngày riêng" : "Ngày chung"}
-              </Button>
-              <div className="d-flex align-items-center text-white">
-                <i className="bi bi-clock me-2 opacity-75"></i>
-                <input
-                  type="date"
-                  className="form-control form-control-sm"
-                  value={globalDate}
-                  onChange={(e) => {
-                    const newDate = e.target.value;
-                    setGlobalDate(newDate);
-                    if (!individualDateMode) {
-                      setRoomDates((prev) => {
-                        const newDates = { ...prev };
-                        state.rooms.forEach((r) => {
-                          newDates[r.id] = newDate;
-                        });
-                        return newDates;
+          
+          <div className="d-flex align-items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              className="fw-bold shadow-sm d-flex align-items-center justify-content-center"
+              disabled={!effectiveCinemaId || saving || !hasUnsavedChanges}
+              onClick={handleSaveShowtimes}
+              style={{ height: "32px", minWidth: "75px", fontSize: "0.75rem", padding: "0 0.75rem" }}
+            >
+              <i className="bi bi-save me-1"></i>
+              {saving ? "..." : "Lưu"}
+            </Button>
+            <Button
+              variant={individualDateMode ? "info" : "secondary"}
+              size="sm"
+              className="shadow-sm text-white d-flex align-items-center justify-content-center"
+              onClick={() => setIndividualDateMode(!individualDateMode)}
+              style={{ height: "32px", minWidth: "75px", fontSize: "0.75rem", padding: "0 0.75rem" }}
+            >
+              <i className={`bi ${individualDateMode ? 'bi-calendar-range' : 'bi-calendar-event'} me-1`}></i>
+              {individualDateMode ? "Riêng" : "Chung"}
+            </Button>
+            <div className="d-flex align-items-center bg-white border rounded shadow-sm px-2" style={{ height: "32px" }}>
+              <input
+                type="date"
+                className="form-control form-control-sm border-0 p-0"
+                style={{ width: "110px", fontSize: "0.75rem", fontWeight: "600", outline: "none", boxShadow: "none" }}
+                value={globalDate}
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  setGlobalDate(newDate);
+                  if (!individualDateMode) {
+                    setRoomDates((prev) => {
+                      const newDates = { ...prev };
+                      state.rooms.forEach((r) => {
+                        newDates[r.id] = newDate;
                       });
-                    }
-                  }}
-                />
-              </div>
+                      return newDates;
+                    });
+                  }
+                }}
+              />
             </div>
             <div
-              className={`d-flex align-items-center px-3 py-2 border rounded ${
-                deleteZone ? "border-danger bg-danger bg-opacity-25" : "border-white border-opacity-25"
+              className={`d-flex align-items-center justify-content-center px-2 border rounded shadow-sm ${
+                deleteZone ? "border-danger bg-danger bg-opacity-25" : "bg-light border-secondary border-opacity-25"
               }`}
               style={{
+                height: "32px",
                 cursor: isDragging && dragData?.type === "event" ? "pointer" : "default",
-                transition: "all 0.2s",
+                minWidth: "100px",
+                fontSize: "0.7rem",
+                transition: "all 0.2s"
               }}
               onDragOver={handleDeleteZoneDragOver}
               onDragLeave={handleDeleteZoneDragLeave}
               onDrop={handleDeleteZoneDrop}
             >
-              {deleteZone ? (
-                <>
-                  <span className="me-2" role="img" aria-label="delete">🗑️</span>
-                  <span className="text-danger fw-bold">Thả để xóa</span>
-                </>
-              ) : (
-                <>
-                  <span className="me-2 opacity-75" role="img" aria-label="delete">🗑️</span>
-                  <span className="small text-white opacity-75">Kéo suất chiếu ra đây để xóa</span>
-                </>
-              )}
+              <i className={`bi bi-trash me-1 ${deleteZone ? 'text-danger' : 'text-danger opacity-75'}`}></i>
+              <span className={deleteZone ? "text-danger fw-bold" : "text-dark"}>
+                {deleteZone ? "Thả xóa" : "Thùng rác"}
+              </span>
             </div>
           </div>
         </div>
       </div>
        
-      <Row className="mb-4">
+      {/* VAT Configuration Section - Moved above Movies */}
+      <Card className="admin-card border-0 shadow-sm mb-3">
+        <Card.Header className="bg-white py-2 border-bottom">
+          <h6 className="mb-0 fw-bold text-primary d-flex align-items-center">
+            <i className="bi bi-percent me-2"></i> VAT theo ngày (%)
+          </h6>
+        </Card.Header>
+        <Card.Body className="bg-light bg-opacity-25 py-2">
+          <Row className="g-2">
+            {[1, 2, 3, 4, 5, 6, 0].map(dayNum => (
+              <Col key={dayNum} xs={6} sm={4} md={3} lg xl>
+                <div className="d-flex align-items-center bg-white rounded border px-2 py-1 shadow-xs">
+                  <label className="fw-bold small text-muted mb-0 me-2 flex-shrink-0" style={{ fontSize: '0.7rem' }}>
+                    {DAY_NAMES[dayNum]}
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control form-control-sm border-0 p-0 text-primary fw-bold"
+                    style={{ fontSize: '0.8rem', outline: 'none', boxShadow: 'none' }}
+                    value={weeklyVAT[dayNum]}
+                    onChange={(e) => setWeeklyVAT(prev => ({ ...prev, [dayNum]: Number(e.target.value) }))}
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </Col>
+            ))}
+          </Row>
+        </Card.Body>
+      </Card>
+
+      <Row className="mb-3">
         <Col xs={12}>
           <Card className="admin-card border-0 shadow-sm">
-            <Card.Header className="admin-card-header border-0 pt-3 pb-0">
-              <div className="d-flex justify-content-between align-items-center">
-                <h5 className="mb-0 fw-bold d-flex align-items-center">
-                  <Film size={20} className="me-2 text-primary" /> Phim đang chiếu (Kéo để xếp lịch)
-                </h5>
-                <div className="d-flex align-items-center">
-                  <div className="input-group" style={{ maxWidth: '300px' }}>
-                    <span className="input-group-text bg-light border-end-0">
-                      <Search size={16} className="text-muted" />
+            <Card.Header className="admin-card-header border-0 py-2">
+              <div className="d-flex justify-content-between align-items-center w-100">
+                <h6 className="mb-0 fw-bold d-flex align-items-center text-primary">
+                  <Film size={16} className="me-2" /> Phim đang chiếu
+                </h6>
+                <div className="ms-auto">
+                  <div className="input-group input-group-sm" style={{ width: '200px' }}>
+                    <span className="input-group-text bg-light border-end-0 py-0">
+                      <Search size={14} />
                     </span>
                     <input 
                       type="text" 
-                      className="form-control border-start-0" 
+                      className="form-control border-start-0 py-1" 
+                      style={{ fontSize: '0.75rem' }}
                       placeholder="Tìm phim..." 
                       value={movieSearchTerm}
                       onChange={(e) => setMovieSearchTerm(e.target.value)}
@@ -606,7 +669,7 @@ export default function ShowtimeManagement() {
                       setDragData(null);
                       setIsDragging(false);
                       setHoveredCell(null);
-                      stopAutoScroll(); // Stop auto-scroll when drag ends
+                      stopAutoScroll(); 
                     }}
                   >
                     <div className="fw-bold text-truncate w-100 text-center mb-2" title={movie.title}>
@@ -621,7 +684,7 @@ export default function ShowtimeManagement() {
         </Col>
       </Row>
 
-      <Card className="admin-card border-0 shadow-sm">
+      <Card className="admin-card border-0 shadow-sm mb-4">
         <Card.Body className="p-0">
           <div className="table-responsive" style={{ maxHeight: '600px', position: 'relative' }}>
             <table className="table table-bordered mb-0" style={{ tableLayout: 'fixed', minWidth: `${TIME_SLOTS.length * SLOT_WIDTH + 800}px` }}>
@@ -653,7 +716,6 @@ export default function ShowtimeManagement() {
                       transition: 'background-color 0.2s'
                     }}
                   >
-                    {/* Cột Phòng */}
                     <td 
                       className="bg-white align-middle" 
                       style={{ position: "sticky", left: 0, zIndex: 8, cursor: "grab", borderRight: '2px solid #dee2e6' }}
@@ -687,12 +749,10 @@ export default function ShowtimeManagement() {
                       </div>
                     </td>
                     
-                    {/* Cột Timeline */}
                     {TIME_SLOTS.map((time) => {
                       const event = findStartEvent(room.id, roomDates[room.id], time);
                       const draggedDuration = dragData ? (movieMap[dragData.type === 'movie' ? dragData.movieId : state.events.find(e => e.id === dragData.eventId)?.movieId]?.durationMin || 120) : 0;
                       
-                      // Check if this is an overnight showtime from previous day
                       const isFromPreviousDay = event && event.date !== roomDates[room.id];
                       const prevDate = new Date(roomDates[room.id]);
                       prevDate.setDate(prevDate.getDate() - 1);
@@ -711,16 +771,14 @@ export default function ShowtimeManagement() {
                           style={{
                             padding: 0,
                             position: "relative",
-                            height: "80px", // Increased from 60px to accommodate overnight showtimes
+                            height: "80px",
                             borderLeft: time.endsWith('00') ? '2px solid #adb5bd' : time.endsWith('30') ? '1px dashed #dee2e6' : '1px solid #f8f9fa',
                             backgroundColor: '#fff',
-                            minHeight: "80px" // Ensure minimum height
+                            minHeight: "80px"
                           }}
                         >
-                          {/* Khu vực Drop */}
                           <div className="w-100 h-100" style={{ minHeight: "100%" }}></div>
 
-                          {/* Bóng mờ (Phantom Block) */}
                           {dragData && hoveredCell?.roomId === room.id && hoveredCell?.time === time && (
                             <div
                               style={{
@@ -742,7 +800,6 @@ export default function ShowtimeManagement() {
                             </div>
                           )}
 
-                          {/* Thẻ Sự kiện (Suất chiếu) */}
                           {event && (
                             <div
                               draggable
@@ -755,21 +812,24 @@ export default function ShowtimeManagement() {
                                 setDragData(null);
                                 setIsDragging(false);
                                 setHoveredCell(null);
-                                stopAutoScroll(); // Stop auto-scroll when drag ends
+                                stopAutoScroll(); 
                               }}
-                              className="shadow-sm d-flex flex-column justify-content-center px-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShowDetail(event);
+                              }}
+                              className="shadow-sm d-flex flex-column justify-content-center px-2 py-1"
                               style={{
                                 position: "absolute",
                                 left: "2px",
                                 top: "5px",
-                                height: "60px",
-                                // Show full duration without cutting
+                                height: "65px",
                                 width: `${((movieMap[event.movieId]?.durationMin || 120) / SLOT_INTERVAL) * SLOT_WIDTH - 4}px`,
                                 backgroundColor: isOvernightFromPrevious ? "#6366f1" : "#4f46e5",
                                 color: "white",
                                 borderRadius: "6px",
                                 zIndex: 5,
-                                cursor: "grab",
+                                cursor: "pointer",
                                 overflow: "visible",
                                 whiteSpace: "nowrap",
                                 pointerEvents: isDragging ? "none" : "auto",
@@ -779,56 +839,15 @@ export default function ShowtimeManagement() {
                                 borderStyle: isOvernightFromPrevious ? 'dashed' : 'solid'
                               }}
                             >
-                              <div className="fw-bold text-truncate" style={{ fontSize: "0.95rem" }}>
+                              <div className="fw-bold text-truncate" style={{ fontSize: "0.85rem" }}>
                                 {movieMap[event.movieId]?.title || "Phim không xác định"}
                               </div>
-                              <div style={{ fontSize: "0.85rem", opacity: 0.9 }}>
+                              <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>
                                 {event.startTime} - {calculateEndTime(event.startTime, movieMap[event.movieId]?.durationMin || 120)}
-                                {isOvernightFromPrevious && (
-                                  <span style={{ 
-                                    color: '#dc3545', 
-                                    fontSize: '0.65rem', 
-                                    marginLeft: '4px',
-                                    fontWeight: 'bold',
-                                    backgroundColor: 'rgba(220, 53, 69, 0.2)',
-                                    padding: '1px 3px',
-                                    borderRadius: '2px'
-                                  }}>
-                                    TỪ HÔM QUA
-                                  </span>
-                                )}
-                                {(event.startTime === '23:30' || event.startTime === '23:45' || event.startTime >= '23:00') && (
-                                  <>
-                                    <span style={{ 
-                                      color: '#f59e0b', 
-                                      fontSize: '0.75rem', 
-                                      marginLeft: '6px',
-                                      fontWeight: 'bold',
-                                      backgroundColor: 'rgba(245, 158, 11, 0.3)',
-                                      padding: '2px 4px',
-                                      borderRadius: '3px',
-                                      border: '1px solid #f59e0b'
-                                    }}>
-                                      → NGÀY MAI
-                                    </span>
-                                    <div style={{
-                                      position: 'absolute',
-                                      right: '-40px',
-                                      top: '50%',
-                                      transform: 'translateY(-50%)',
-                                      fontSize: '0.6rem',
-                                      color: '#dc3545',
-                                      fontWeight: 'bold',
-                                      backgroundColor: 'white',
-                                      padding: '2px 4px',
-                                      borderRadius: '4px',
-                                      border: '1px solid #dc3545',
-                                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                                    }}>
-                                      QUÁ ĐÊM
-                                    </div>
-                                  </>
-                                )}
+                              </div>
+                              <div className="mt-auto d-flex justify-content-between align-items-center" style={{ fontSize: "0.7rem" }}>
+                                <span className="badge bg-white text-dark py-0 px-1" style={{ fontSize: "0.65rem" }}>VAT: {event.vatPercent}%</span>
+                                <span className="fw-bold">{calculateFinalPrice(movieMap[event.movieId]?.basePrice || 60000, event.vatPercent).toLocaleString("vi-VN")}đ</span>
                               </div>
                             </div>
                           )}
@@ -842,6 +861,109 @@ export default function ShowtimeManagement() {
           </div>
         </Card.Body>
       </Card>
+
+      {/* Showtime Detail Modal */}
+      <Modal 
+        show={showDetailModal} 
+        onHide={() => setShowDetailModal(false)}
+        centered
+        backdrop="static"
+        keyboard={false}
+        dialogClassName="modal-dialog-centered"
+        contentClassName="border-0 shadow-lg"
+      >
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold text-primary d-flex align-items-center">
+            <i className="bi bi-info-circle-fill me-2"></i>
+            Chi tiết Suất chiếu
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="pt-3">
+          {detailEvent && (
+            <div className="showtime-details">
+              <div className="movie-info-header mb-4 p-3 bg-light rounded-3 d-flex align-items-center gap-3">
+                <div className="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
+                  <Film size={32} />
+                </div>
+                <div>
+                  <h5 className="mb-1 fw-bold">{movieMap[detailEvent.movieId]?.title}</h5>
+                  <Badge bg="info" text="dark">{movieMap[detailEvent.movieId]?.durationMin} phút</Badge>
+                  {detailEvent.serverId == null && (
+                    <Badge bg="warning" text="dark" className="ms-2">Chưa lưu</Badge>
+                  )}
+                  {detailEvent.dirty && (
+                    <Badge bg="warning" text="dark" className="ms-2">Có thay đổi</Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="row g-3">
+                <div className="col-6">
+                  <div className="d-flex align-items-center gap-2 mb-1 text-muted small">
+                    <Hash size={14} /> ID Suất chiếu
+                  </div>
+                  <div className="fw-bold">{detailEvent.serverId || "Tạm thời (Chưa lưu)"}</div>
+                </div>
+                <div className="col-6">
+                  <div className="d-flex align-items-center gap-2 mb-1 text-muted small">
+                    <i className="bi bi-door-open" style={{ fontSize: '14px' }}></i> Phòng chiếu
+                  </div>
+                  <div className="fw-bold">{state.rooms.find(r => r.id === detailEvent.roomId)?.name}</div>
+                </div>
+                <div className="col-6">
+                  <div className="d-flex align-items-center gap-2 mb-1 text-muted small">
+                    <Calendar size={14} /> Ngày chiếu
+                  </div>
+                  <div className="fw-bold">{formatDate(detailEvent.date)}</div>
+                </div>
+                <div className="col-6">
+                  <div className="d-flex align-items-center gap-2 mb-1 text-muted small">
+                    <Clock size={14} /> Thời gian
+                  </div>
+                  <div className="fw-bold text-primary">
+                    {detailEvent.startTime} - {calculateEndTime(detailEvent.startTime, movieMap[detailEvent.movieId]?.durationMin || 120)}
+                  </div>
+                </div>
+                <div className="col-12"><hr className="my-1 opacity-10" /></div>
+                <div className="col-6">
+                  <div className="d-flex align-items-center gap-2 mb-1 text-muted small">
+                    <CreditCard size={14} /> Giá gốc
+                  </div>
+                  <div className="fw-bold">{(movieMap[detailEvent.movieId]?.basePrice || 0).toLocaleString("vi-VN")}đ</div>
+                </div>
+                <div className="col-6">
+                  <div className="d-flex align-items-center gap-2 mb-1 text-muted small">
+                    <i className="bi bi-percent" style={{ fontSize: '14px' }}></i> VAT áp dụng (%)
+                  </div>
+                  <input
+                    type="number"
+                    className="form-control form-control-sm fw-bold border-primary border-opacity-25"
+                    value={detailEvent.vatPercent}
+                    onChange={(e) => handleUpdateEventVAT(detailEvent.id, e.target.value)}
+                    min="0"
+                    max="100"
+                  />
+                </div>
+                <div className="col-12">
+                  <div className="p-3 bg-primary bg-opacity-10 rounded-3 border border-primary border-opacity-25 mt-2">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="fw-bold text-primary">TỔNG CỘNG (TẠM TÍNH):</span>
+                      <h4 className="mb-0 fw-bold text-primary">
+                        {calculateFinalPrice(movieMap[detailEvent.movieId]?.basePrice || 0, detailEvent.vatPercent).toLocaleString("vi-VN")}đ
+                      </h4>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="border-0 pt-0">
+          <Button variant="secondary" onClick={() => setShowDetailModal(false)} className="w-100 fw-bold">
+            Đóng
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
