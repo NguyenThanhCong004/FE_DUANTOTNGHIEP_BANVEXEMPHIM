@@ -144,11 +144,104 @@ export default function SeatManagement() {
   const effectiveCinemaId = staffSession?.cinemaId ?? selectedCinemaId ?? null;
 
   const [rooms, setRooms] = useState([]);
-  const [selectedRoomId, setSelectedRoomId] = useState(location.state?.roomInfo?.id || "");
+  const [selectedRoomId, setSelectedRoomId] = useState(location.state?.roomId || location.state?.roomInfo?.id || "");
   const [seats, setSeats] = useState([]);
   const [isLocked, setIsLocked] = useState(false);
   const [dragOverKey, setDragOverKey] = useState(null);
+  const [selectedIndices, setSelectedIndices] = useState(new Set());
+  const [isSelecting, setIsSelecting] = useState(false);
   const suppressClickRef = useRef(false);
+
+  // Clear selection when room changes
+  useEffect(() => {
+    setSelectedIndices(new Set());
+  }, [selectedRoomId]);
+
+  const handleMouseDown = (idx) => {
+    if (isLocked) return;
+    // If clicking a seat that is already part of a selection, we might be starting a move drag
+    // So we only start brush selection if not dragging or if clicking empty/new seat
+    setIsSelecting(true);
+    setSelectedIndices(new Set([idx]));
+  };
+
+  const handleMouseEnterSelection = (idx) => {
+    if (isSelecting) {
+      setSelectedIndices(prev => {
+        const next = new Set(prev);
+        next.add(idx);
+        return next;
+      });
+    }
+  };
+
+  const handleMouseUpGlobal = useCallback(() => {
+    setIsSelecting(false);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("mouseup", handleMouseUpGlobal);
+    return () => window.removeEventListener("mouseup", handleMouseUpGlobal);
+  }, [handleMouseUpGlobal]);
+
+  const handleBulkAction = (action) => {
+    if (selectedIndices.size === 0) return;
+    
+    setSeats(prev => {
+      const next = [...prev];
+      selectedIndices.forEach(idx => {
+        const cell = next[idx];
+        if (!cell || cell.type === "OccupiedByDouble") return;
+
+        switch (action) {
+          case "SET_NORMAL":
+            if (cell.type === "Đôi") clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
+            next[idx] = { ...next[idx], type: "Thường", isActive: true };
+            break;
+          case "SET_VIP":
+            if (cell.type === "Đôi") clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
+            next[idx] = { ...next[idx], type: "VIP", isActive: true };
+            break;
+          case "SET_DOUBLE":
+            if (cell.type === "Đôi") break;
+            // Check if can place double
+            if (cell.colIdx + 1 < COLS) {
+              const nextIdx = cell.rowIdx * COLS + cell.colIdx + 1;
+              if (isEmptyCell(next[nextIdx]) || selectedIndices.has(nextIdx)) {
+                next[idx] = { ...cell, type: "Đôi", isActive: true };
+                next[nextIdx] = { rowIdx: cell.rowIdx, colIdx: cell.colIdx + 1, type: "OccupiedByDouble", isActive: false, label: "" };
+              }
+            }
+            break;
+          case "TOGGLE_ACTIVE":
+            if (isPlacedSeat(cell)) {
+              next[idx] = { ...cell, isActive: !cell.isActive };
+            }
+            break;
+          case "DELETE":
+            if (cell.type === "Đôi") {
+              const nIdx = cell.rowIdx * COLS + cell.colIdx + 1;
+              next[nIdx] = emptyCell(cell.rowIdx, cell.colIdx + 1);
+            }
+            next[idx] = emptyCell(cell.rowIdx, cell.colIdx);
+            break;
+          default: break;
+        }
+      });
+      return recomputeSeatLabels(next);
+    });
+    // Don't clear selection immediately so user can see result, but maybe it's better to clear
+  };
+
+  const clearSeatAtInPlace = (grid, r, c) => {
+    const idx = r * COLS + c;
+    const cell = grid[idx];
+    if (cell.type === "Đôi" && c + 1 < COLS) {
+      const i2 = r * COLS + c + 1;
+      grid[i2] = emptyCell(r, c + 1);
+    }
+    grid[idx] = emptyCell(r, c);
+  };
 
   const selectedRoom = useMemo(
     () => rooms.find((r) => String(r.id) === String(selectedRoomId)) || location.state?.roomInfo,
@@ -517,6 +610,12 @@ export default function SeatManagement() {
         }
         .seat-box[draggable="true"] { cursor: grab; }
         .seat-box[draggable="true"]:active { cursor: grabbing; }
+        .seat-box.brush-selected {
+          outline: 3px solid #ffc107;
+          outline-offset: 1px;
+          z-index: 10;
+          box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+        }
         .screen-bar {
           height: 6px;
           background: #343a40;
@@ -580,7 +679,7 @@ export default function SeatManagement() {
                         role="button"
                         tabIndex={0}
                         draggable={canDrag}
-                        className={`seat-box ${placed ? "placed" : "placeholder"} ${showActive ? "active" : ""} ${placed && !cell.isActive ? "seat-off" : ""} ${cell.type === "Đôi" ? "type-doi" : ""} ${isDropTarget ? "drag-over" : ""}`}
+                        className={`seat-box ${placed ? "placed" : "placeholder"} ${showActive ? "active" : ""} ${placed && !cell.isActive ? "seat-off" : ""} ${cell.type === "Đôi" ? "type-doi" : ""} ${isDropTarget ? "drag-over" : ""} ${selectedIndices.has(idx) ? "brush-selected" : ""}`}
                         style={{
                           backgroundColor: getSeatColor(cell, r, c),
                           gridColumn: cell.type === "Đôi" ? "span 2" : undefined,
@@ -588,6 +687,8 @@ export default function SeatManagement() {
                         }}
                         onClick={() => handleCellClick(r, c)}
                         onContextMenu={(e) => handleContextMenu(e, r, c)}
+                        onMouseDown={() => handleMouseDown(idx)}
+                        onMouseEnter={() => handleMouseEnterSelection(idx)}
                         onDragStart={(e) => handleDragStart(e, r, c)}
                         onDragEnd={handleDragEnd}
                         onDragOver={(e) => handleDragOverCell(e, r, c)}
@@ -600,6 +701,21 @@ export default function SeatManagement() {
                 </React.Fragment>
               ))}
             </div>
+
+            {/* Bulk Actions Floating Toolbar */}
+            {selectedIndices.size >= 1 && (
+              <div className="bulk-actions-toolbar shadow-lg d-flex align-items-center gap-2 p-3 bg-dark rounded-pill" style={{ position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
+                <span className="text-white fw-bold me-2 ps-2">{selectedIndices.size} ghế đang chọn</span>
+                <Button variant="primary" size="sm" className="rounded-pill" onClick={() => handleBulkAction("SET_NORMAL")}>Thường</Button>
+                <Button variant="warning" size="sm" className="rounded-pill" onClick={() => handleBulkAction("SET_VIP")}>VIP</Button>
+                <Button variant="danger" size="sm" className="rounded-pill" onClick={() => handleBulkAction("SET_DOUBLE")}>Đôi</Button>
+                <div className="vr bg-white mx-1" style={{ height: '20px' }}></div>
+                <Button variant="outline-light" size="sm" className="rounded-pill" onClick={() => handleBulkAction("TOGGLE_ACTIVE")}>Bật/Tắt</Button>
+                <Button variant="danger" size="sm" className="rounded-pill" onClick={() => handleBulkAction("DELETE")}>Xóa</Button>
+                <Button variant="secondary" size="sm" className="rounded-pill ms-2" onClick={() => setSelectedIndices(new Set())}>Hủy</Button>
+              </div>
+            )}
+
             <div className="d-flex justify-content-center gap-4 mt-4">
               <div className="d-flex align-items-center gap-2 small fw-bold">
                 <div style={{ width: 14, height: 14, borderRadius: 4, backgroundColor: "#0d6efd" }} /> Thường
