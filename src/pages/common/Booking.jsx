@@ -3,11 +3,135 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
 import Layout from "../../components/layout/Layout";
 import { apiFetch } from "../../utils/apiClient";
-import { SHOWTIMES, SEATS, TICKET_ORDERS, CINEMAS, SHOWTIME_SEAT_HOLDS } from "../../constants/apiEndpoints";
+import { SHOWTIMES, SEATS, TICKET_ORDERS, CINEMAS, SHOWTIME_SEAT_HOLDS, SEAT_TYPES } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { checkNoSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
 
 const HOLDER_STORAGE_KEY = "booking_seat_holder_id";
+
+// Grid constants - giống như SeatManagement
+const ROWS = 15;
+const COLS = 25;
+const SEAT_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+// Grid functions - giống như SeatManagement
+const isPlacedSeat = (cell) =>
+  cell && cell.type !== "Empty" && cell.type !== "OccupiedByDouble";
+
+const emptyCell = (r, c) => ({
+  rowIdx: r,
+  colIdx: c,
+  type: "Empty",
+  label: "",
+  isActive: false,
+});
+
+const isEmptyCell = (cell) => cell?.type === "Empty";
+
+// Xây dựng grid từ danh sách ghế
+function buildSeatGrid(seats) {
+  // Khởi tạo grid rỗng
+  const grid = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      grid.push(emptyCell(r, c));
+    }
+  }
+
+  // Đặt ghế vào grid dựa trên tọa độ x, y
+  for (const seat of seats) {
+    const x = seat.x || 0;
+    const y = seat.y || 0;
+    
+    if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
+      const idx = y * COLS + x;
+      
+      // Xác định loại ghế
+      let seatType = "Thường";
+      if (seat.seatTypeName?.toLowerCase().includes("vip")) seatType = "VIP";
+      if (seat.seatTypeName?.toLowerCase().includes("đôi") || seat.seatTypeName?.toLowerCase().includes("sweet")) seatType = "Đôi";
+      
+      // Đặt ghế vào grid
+      grid[idx] = {
+        rowIdx: y,
+        colIdx: x,
+        type: seatType,
+        label: seat.number || "",
+        isActive: seat.status !== "locked" && seat.status !== "maintenance",
+        seatData: seat, // Lưu data gốc để sử dụng trong booking
+      };
+      
+      // Nếu là ghế đôi, đánh dấu ô tiếp theo là OccupiedByDouble
+      if (seatType === "Đôi" && x + 1 < COLS) {
+        grid[idx + 1] = {
+          rowIdx: y,
+          colIdx: x + 1,
+          type: "OccupiedByDouble",
+          label: "",
+          isActive: false,
+        };
+      }
+    }
+  }
+
+  return grid;
+}
+
+// Function lấy màu ghế - 100% dựa trên data từ API
+function getSeatColor(cell, r, c, seatTypes = []) {
+  if (!isPlacedSeat(cell)) return "#e9ecef"; // Placeholder (đường đi)
+  if (!cell.isActive) return "#6c757d"; // Ghế bị khóa/bảo trì - xám đậm hơn
+  
+  // Ưu tiên tuyệt đối data từ API
+  if (seatTypes && seatTypes.length > 0) {
+    const seatType = seatTypes.find(st => st.name === cell.type);
+    if (seatType) {
+      console.log(`Found seat type for "${cell.type}":`, seatType);
+      // Dùng màu từ API, nếu không có thì dùng màu mặc định cho loại ghế đó
+      const color = seatType.color || getDefaultColorForType(cell.type);
+      console.log(`Using color for "${cell.type}":`, color);
+      return color;
+    } else {
+      console.log(`No seat type found for "${cell.type}" in API data`);
+    }
+  }
+  
+  // Fallback cuối cùng cho các loại ghế cơ bản
+  const fallbackColor = getDefaultColorForType(cell.type);
+  console.log(`Using fallback color for "${cell.type}":`, fallbackColor);
+  return fallbackColor;
+}
+
+// Function màu mặc định cho các loại ghế cơ bản (chỉ dùng khi API không có)
+function getDefaultColorForType(typeName) {
+  const defaultColors = {
+    "Thường": "#007bff",    // Xanh dương
+    "VIP": "#ffc107",        // Vàng
+    "Ghế đôi Sweetbox": "#dc3545", // Đỏ
+    "Đôi": "#dc3545",        // Đỏ (để tương thích với data cũ)
+  };
+  
+  // Nếu không có trong default, tạo màu ngẫu nhiên nhưng nhất quán
+  if (!defaultColors[typeName]) {
+    const colors = ["#6f42c1", "#20c997", "#fd7e14", "#6c757d", "#17a2b8", "#e83e8c", "#28a745"];
+    const hash = typeName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  }
+  
+  return defaultColors[typeName];
+}
+
+// Function để lấy danh sách tên loại ghế từ API
+const getSeatTypeOptions = (seatTypes) => {
+  console.log("getSeatTypeOptions input:", seatTypes);
+  if (!seatTypes || seatTypes.length === 0) {
+    console.log("No seat types, using fallback");
+    return ["Thường", "VIP", "Đôi"];
+  }
+  const options = seatTypes.map(st => st.name).filter(Boolean);
+  console.log("getSeatTypeOptions output:", options);
+  return options;
+};
 
 function getOrCreateSeatHolderId() {
   try {
@@ -36,6 +160,7 @@ function normalizeShowtime(st) {
     cinemaName: st.cinema_name ?? st.cinemaName ?? "",
     basePrice: st.base_price != null ? Number(st.base_price) : null,
     price: st.price != null ? Number(st.price) : 0,
+    vatRate: st.vat_rate != null ? Number(st.vat_rate) : (st.vatRate != null ? Number(st.vatRate) : 10), // Default 10% VAT
     status: st.status,
     bookedSeatIds: Array.isArray(st.bookedSeatIds) ? st.bookedSeatIds : Array.isArray(st.booked_seat_ids) ? st.booked_seat_ids : [],
   };
@@ -50,6 +175,7 @@ function normalizeSeat(s) {
     y: s.y != null ? Number(s.y) : 0,
     seatTypeName: s.seatTypeName ?? s.seat_type_name ?? "",
     surcharge: Number(s.seatTypeSurcharge ?? s.seat_type_surcharge ?? 0) || 0,
+    status: s.status ?? "available", // available, locked, maintenance
   };
 }
 
@@ -92,6 +218,7 @@ const Booking = () => {
   const [error, setError] = useState(null);
   const [showtime, setShowtime] = useState(null);
   const [seats, setSeats] = useState([]);
+  const [seatTypes, setSeatTypes] = useState([]); // Thêm state cho seat types
   const [selectedSeatIds, setSelectedSeatIds] = useState([]);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
@@ -99,6 +226,7 @@ const Booking = () => {
   const [snackMenuError, setSnackMenuError] = useState(null);
   const [snackCart, setSnackCart] = useState({});
   const [peerHeldList, setPeerHeldList] = useState([]);
+  const [zoomLevel, setZoomLevel] = useState(1); // Zoom level: 0.5 to 2
 
   const holderRef = useRef(null);
   if (!holderRef.current) {
@@ -111,6 +239,7 @@ const Booking = () => {
   }, [showtime]);
 
   const baseTicketPrice = showtime?.price ?? 0;
+  const vatRate = showtime?.vatRate ?? 10; // Default 10% VAT
   const showEnded = showtime?.status === "Đã chiếu";
 
   const seatById = useMemo(() => {
@@ -122,6 +251,29 @@ const Booking = () => {
   }, [seats]);
 
   const seatRows = useMemo(() => buildSeatRows(seats), [seats]);
+  
+  const seatGrid = useMemo(() => buildSeatGrid(seats), [seats]);
+
+  // Zoom controls
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 0.1, 2));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
+  };
+
+  const handleZoomReset = () => {
+    setZoomLevel(1);
+  };
+
+  // Calculate dynamic sizes based on zoom
+  const seatSize = Math.round(32 * zoomLevel);
+  const doubleSeatSize = Math.round(68 * zoomLevel);
+  const gapSize = Math.round(4 * zoomLevel);
+  const paddingSize = Math.round(20 * zoomLevel);
+  const fontSize = Math.round(10 * zoomLevel);
+  const labelFontSize = Math.round(11 * zoomLevel);
 
   const peerHeldSet = useMemo(() => {
     const s = new Set();
@@ -131,6 +283,87 @@ const Booking = () => {
     }
     return s;
   }, [peerHeldList]);
+
+  // Keyboard shortcuts for zoom
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault();
+          handleZoomIn();
+        } else if (e.key === '-') {
+          e.preventDefault();
+          handleZoomOut();
+        } else if (e.key === '0') {
+          e.preventDefault();
+          handleZoomReset();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [zoomLevel]);
+
+  // Mouse wheel zoom
+  const handleWheel = (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        handleZoomIn();
+      } else {
+        handleZoomOut();
+      }
+    }
+  };
+
+  // Load seat types from API
+  useEffect(() => {
+    const loadSeatTypes = async () => {
+      try {
+        console.log("Loading seat types from API...");
+        const response = await apiFetch(SEAT_TYPES.LIST);
+        console.log("Seat types API response:", response);
+        console.log("Seat types API response data:", response?.data);
+        console.log("Seat types API response data length:", response?.data?.length);
+        
+        if (response && response.data) {
+          console.log("Setting seat types from API:", response.data);
+          console.log("Seat types details:", response.data.map(st => ({
+            id: st.id,
+            name: st.name,
+            color: st.color,
+            description: st.description,
+            note: st.note
+          })));
+          setSeatTypes(response.data);
+        } else {
+          console.log("No data in API response, using fallback");
+          // Fallback to default seat types
+          setSeatTypes([
+            { id: 1, name: "Thường", price: 0, color: "#007bff" },
+            { id: 2, name: "VIP", price: 0, color: "#ffc107" },
+            { id: 3, name: "Ghế đôi Sweetbox", price: 0, color: "#dc3545" }
+          ]);
+        }
+      } catch (err) {
+        console.error("Failed to load seat types:", err);
+        // Fallback to default seat types
+        setSeatTypes([
+          { id: 1, name: "Thường", price: 0, color: "#007bff" },
+          { id: 2, name: "VIP", price: 0, color: "#ffc107" },
+          { id: 3, name: "Ghế đôi Sweetbox", price: 0, color: "#dc3545" }
+        ]);
+      }
+    };
+
+    loadSeatTypes();
+    
+    // Add refresh interval to get latest seat types
+    const interval = setInterval(loadSeatTypes, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const loadData = useCallback(async () => {
     if (!Number.isFinite(showtimeId) || showtimeId <= 0) {
@@ -247,7 +480,12 @@ const Booking = () => {
     };
   }, [showtimeId]);
 
-  const seatPrice = (seat) => baseTicketPrice + (seat?.surcharge || 0);
+  // Updated seat price calculation with VAT
+  const seatPrice = (seat) => {
+    const basePrice = baseTicketPrice + (seat?.surcharge || 0);
+    const priceWithVat = basePrice * (1 + vatRate / 100);
+    return Math.round(priceWithVat);
+  };
 
   const toggleSeat = (seat) => {
     if (showEnded) return;
@@ -255,6 +493,7 @@ const Booking = () => {
     if (!Number.isFinite(id)) return;
     if (bookedSet.has(id)) return;
     if (peerHeldSet.has(id)) return;
+    if (seat.status === "locked" || seat.status === "maintenance") return; // Không cho chọn ghế bị khóa/bảo trì
 
     const nextSelected = selectedSeatIds.includes(id) ? selectedSeatIds.filter((x) => x !== id) : [...selectedSeatIds, id];
     const blocked = new Set([...bookedSet, ...peerHeldSet, ...nextSelected]);
@@ -300,58 +539,83 @@ const Booking = () => {
     const id = Number(seat.seatId);
     const booked = bookedSet.has(id);
     const couple = isCoupleType(seat.seatTypeName);
-    if (isPeerHeld && !isSelected) {
+    
+    // Ưu tiên trạng thái từ database
+    if (seat.status === "locked") {
       return {
-        bg: "rgba(13, 110, 253, 0.22)",
-        color: "rgba(200, 220, 255, 0.95)",
-        border: "1px solid rgba(100, 160, 255, 0.5)",
+        bg: "rgba(108, 117, 125, 0.8)", // Xám đậm - bị khóa
+        color: "#000", // Chữ đen
+        border: "1px solid rgba(108, 117, 125, 0.9)",
         cursor: "not-allowed",
         width: couple ? 72 : 36,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
       };
     }
+    
+    if (seat.status === "maintenance") {
+      return {
+        bg: "rgba(220, 53, 69, 0.8)", // Đỏ đậm - đang bảo trì
+        color: "#000", // Chữ đen
+        border: "1px solid rgba(220, 53, 69, 0.9)",
+        cursor: "not-allowed",
+        width: couple ? 72 : 36,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      };
+    }
+    
     if (booked || showEnded) {
       return {
-        bg: "rgba(108, 117, 125, 0.35)",
-        color: "rgba(255,255,255,0.35)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        bg: "rgba(40, 167, 69, 0.8)", // Xanh lá - đã bán
+        color: "#000", // Chữ đen
+        border: "1px solid rgba(40, 167, 69, 0.9)",
         cursor: "not-allowed",
         width: couple ? 72 : 36,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
       };
     }
+    
+    if (isPeerHeld && !isSelected) {
+      return {
+        bg: "rgba(255, 193, 7, 0.8)", // Vàng - đang có người chọn
+        color: "#000", // Chữ đen
+        border: "1px solid rgba(255, 193, 7, 0.9)",
+        cursor: "not-allowed",
+        width: couple ? 72 : 36,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      };
+    }
+    
     if (isSelected) {
       return {
         bg: "var(--primary-gradient)",
-        color: "#fff",
+        color: "#000", // Chữ đen
         border: "1px solid rgba(255,255,255,0.2)",
         cursor: "pointer",
         width: couple ? 72 : 36,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
       };
     }
-    if (couple) {
-      return {
-        bg: "rgba(220, 53, 69, 0.12)",
-        color: "#f8a0ad",
-        border: "1px solid rgba(220, 53, 69, 0.35)",
-        cursor: "pointer",
-        width: 72,
-      };
-    }
-    const isVip = (seat.seatTypeName || "").toLowerCase().includes("vip");
-    if (isVip) {
-      return {
-        bg: "rgba(255, 193, 7, 0.1)",
-        color: "#ffc107",
-        border: "1px solid rgba(255, 193, 7, 0.35)",
-        cursor: "pointer",
-        width: 36,
-      };
-    }
+    
+    // Default available state
     return {
-      bg: "rgba(255, 255, 255, 0.06)",
-      color: "rgba(255,255,255,0.65)",
-      border: "1px solid rgba(255,255,255,0.12)",
+      bg: "rgba(0, 123, 255, 0.8)", // Xanh dương - có sẵn
+      color: "#000", // Chữ đen
+      border: "1px solid rgba(0, 123, 255, 0.9)",
       cursor: "pointer",
-      width: 36,
+      width: couple ? 72 : 36,
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
     };
   };
 
@@ -472,7 +736,7 @@ const Booking = () => {
             </div>
             <div className="ms-auto text-end d-none d-md-block">
               <small className="text-white-50 d-block">Giá vé (ước tính)</small>
-              <span className="text-danger fw-black">{baseTicketPrice.toLocaleString("vi-VN")} đ + phụ thu loại ghế</span>
+              <span className="text-danger fw-black">{baseTicketPrice.toLocaleString("vi-VN")} đ + phụ thu + {vatRate}% VAT</span>
             </div>
           </div>
         </div>
@@ -515,97 +779,271 @@ const Booking = () => {
                 </div>
 
                 <div className="d-flex flex-wrap justify-content-center gap-3 small text-white-50 mb-3">
+                  {(() => {
+                    console.log("Rendering legend with seatTypes:", seatTypes);
+                    const seatTypeOptions = getSeatTypeOptions(seatTypes);
+                    console.log("Seat type options for legend:", seatTypeOptions);
+                    return seatTypeOptions.map((typeName, index) => {
+                      // Tạo cell giả để lấy màu từ getSeatColor
+                      const mockCell = { type: typeName, isActive: true };
+                      const seatColor = getSeatColor(mockCell, 0, 0, seatTypes);
+                      // Chuyển đổi màu solid thành màu rgba cho legend
+                      const rgbaColor = seatColor.includes('rgba') ? seatColor : `${seatColor}CC`; // Thêm alpha 80%
+                      
+                      console.log(`Legend item "${typeName}": color=${seatColor}, rgba=${rgbaColor}`);
+                      
+                      return (
+                        <span key={typeName}>
+                          <span 
+                            className="d-inline-block rounded me-1 align-middle" 
+                            style={{ 
+                              width: 14, 
+                              height: 14, 
+                              background: rgbaColor, 
+                              border: `1px solid ${rgbaColor.replace('CC', 'FF')}` 
+                            }} 
+                          />{" "}
+                          {typeName}
+                        </span>
+                      );
+                    });
+                  })()}
                   <span>
-                    <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }} />{" "}
-                    Thường
-                  </span>
-                  <span>
-                    <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(255,193,7,0.15)" }} />{" "}
-                    VIP
-                  </span>
-                  <span>
-                    <span className="d-inline-block rounded me-1 align-middle" style={{ width: 22, height: 14, background: "rgba(220,53,69,0.15)" }} />{" "}
-                    Đôi
-                  </span>
-                  <span>
-                    <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(108,117,125,0.4)" }} />{" "}
+                    <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(40, 167, 69, 0.8)", border: "1px solid rgba(40, 167, 69, 0.9)" }} />{" "}
                     Đã bán
                   </span>
                   <span>
                     <span
                       className="d-inline-block rounded me-1 align-middle"
-                      style={{ width: 14, height: 14, background: "rgba(13,110,253,0.35)", border: "1px solid rgba(100,160,255,0.5)" }}
+                      style={{ width: 14, height: 14, background: "rgba(255, 193, 7, 0.8)", border: "1px solid rgba(255, 193, 7, 0.9)" }}
                     />{" "}
                     Đang có người chọn
+                  </span>
+                  <span>
+                    <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(108, 117, 125, 0.8)", border: "1px solid rgba(108, 117, 125, 0.9)" }} />{" "}
+                    Khóa/Bảo trì
                   </span>
                 </div>
 
                 {seats.length === 0 ? (
                   <p className="text-center text-white-50 small mb-0">Phòng chưa có sơ đồ ghế — vào admin để thiết lập ghế.</p>
                 ) : (
-                  <div className="seat-grid overflow-auto py-3 text-center">
-                    <div style={{ minWidth: 520 }}>
-                      {seatRows.map(({ row, seats: rowSeats }) => (
-                        <div key={row} className="d-flex align-items-center justify-content-center mb-2">
-                          <div className="fw-bold text-light opacity-50 me-2" style={{ width: 22 }}>
-                            {row}
-                          </div>
-                          <div className="d-flex gap-2 flex-wrap justify-content-center">
-                            {rowSeats.map((seat) => {
-                              const id = Number(seat.seatId);
-                              const isSelected = selectedSeatIds.includes(id);
-                              const peerHeld = peerHeldSet.has(id);
-                              const vis = getSeatVisual(seat, isSelected, peerHeld);
-                              const booked = bookedSet.has(id);
+                  <>
+                    {/* Zoom Controls */}
+                    <div className="d-flex justify-content-center align-items-center gap-2 mb-3">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-light"
+                        onClick={handleZoomOut}
+                        disabled={zoomLevel <= 0.5}
+                        title="Thu nhỏ"
+                      >
+                        <i className="fas fa-search-minus"></i>
+                      </button>
+                      <span className="text-white small fw-bold px-2">
+                        {Math.round(zoomLevel * 100)}%
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-light"
+                        onClick={handleZoomIn}
+                        disabled={zoomLevel >= 2}
+                        title="Phóng to"
+                      >
+                        <i className="fas fa-search-plus"></i>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={handleZoomReset}
+                        title="Reset zoom"
+                      >
+                        <i className="fas fa-compress"></i>
+                      </button>
+                      <span className="text-white-50 small ms-3">
+                        <i className="fas fa-info-circle"></i> Ctrl + Scroll để zoom
+                      </span>
+                    </div>
+
+                    {/* Scrollable container for zoomed grid */}
+                    <div style={{
+                      overflow: 'auto',
+                      maxHeight: '600px',
+                      padding: '10px',
+                      background: 'rgba(0, 0, 0, 0.2)',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'center'
+                    }}
+                    onWheel={handleWheel}
+                  >
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: `${Math.round(40 * zoomLevel)}px repeat(${COLS}, ${seatSize}px)`,
+                        gap: `${gapSize}px`,
+                        padding: `${paddingSize}px`,
+                        background: 'rgba(0, 0, 0, 0.3)',
+                        borderRadius: '12px',
+                        position: 'relative',
+                        minWidth: 'fit-content'
+                      }}>
+                        <div style={{
+                          gridColumn: '1 / -1',
+                          height: `${Math.round(60 * zoomLevel)}px`,
+                          background: 'linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(255,255,255,0.05))',
+                          borderRadius: '100% 100% 0 0',
+                          marginBottom: `${gapSize * 5}px`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: `${Math.round(14 * zoomLevel)}px`
+                        }}>
+                          MÀN HÌNH
+                        </div>
+                        <div />
+                        {Array.from({ length: COLS }).map((_, c) => (
+                          <div key={`col_${c}`} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: `${labelFontSize}px`,
+                            color: 'rgba(255, 255, 255, 0.6)',
+                            fontWeight: '500'
+                          }}>{c + 1}</div>
+                        ))}
+                        {Array.from({ length: ROWS }).map((_, r) => (
+                          <React.Fragment key={r}>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: `${labelFontSize}px`,
+                              color: 'rgba(255, 255, 255, 0.6)',
+                              fontWeight: '500'
+                            }}>{r + 1}</div>
+                            {Array.from({ length: COLS }).map((_, c) => {
+                              const idx = r * COLS + c;
+                              const cell = seatGrid[idx] || { type: "Empty", isActive: false, label: "" };
+                              
+                              // Debug: Log cell data
+                              if (isCoupleType(cell.type)) {
+                                console.log(`Couple seat found at [${r},${c}]:`, cell);
+                                console.log(`Next cell [${r},${c+1}]:`, seatGrid[idx + 1]);
+                              }
+                              
+                              // Kiểm tra xem ô này có phải là ô thứ hai của ghế đôi không
+                              const isSecondCellOfCouple = c > 0 && isCoupleType(seatGrid[idx - 1]?.type);
+                              if (isSecondCellOfCouple) {
+                                console.log(`Skipping second cell of couple at [${r},${c}]`);
+                                return null; // Skip ô thứ hai của ghế đôi
+                              }
+                              
+                              if (cell.type === "OccupiedByDouble") return null;
+                              const placed = isPlacedSeat(cell);
+                              const showActive = placed && cell.isActive;
+                              
+                              // Kiểm tra xem có phải ghế đôi không
+                              const isCouple = isCoupleType(cell.type);
+                              
+                              // Nếu là ghế thực tế, lấy data từ seatData
+                              if (placed && cell.seatData) {
+                                const seat = cell.seatData;
+                                const id = Number(seat.seatId);
+                                const isSelected = selectedSeatIds.includes(id);
+                                const peerHeld = peerHeldSet.has(id);
+                                const vis = getSeatVisual(seat, isSelected, peerHeld);
+                                const booked = bookedSet.has(id);
+                                
+                                return (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    title={
+                                      seat.status === "locked"
+                                        ? "Ghế bị khóa - không thể đặt"
+                                        : seat.status === "maintenance"
+                                        ? "Ghế đang bảo trì - không thể đặt"
+                                        : peerHeld && !isSelected
+                                        ? "Người khác đang chọn ghế này"
+                                        : `${seat.seatTypeName || "Ghế"} — ${baseTicketPrice.toLocaleString("vi-VN")} đ${seat?.surcharge ? ` + ${seat.surcharge.toLocaleString("vi-VN")} đ phụ thu` : ""} + ${vatRate}% VAT = ${seatPrice(seat).toLocaleString("vi-VN")} đ`
+                                    }
+                                    disabled={booked || showEnded || (peerHeld && !isSelected) || seat.status === "locked" || seat.status === "maintenance"}
+                                    onClick={() => toggleSeat(seat)}
+                                    style={{
+                                      width: isCouple ? `${doubleSeatSize}px` : `${seatSize}px`,
+                                      height: `${seatSize}px`,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: `${fontSize}px`,
+                                      fontWeight: "bold",
+                                      borderRadius: `${Math.round(6 * zoomLevel)}px`,
+                                      transition: "all 0.2s",
+                                      border: "1px solid rgba(0,0,0,0.06)",
+                                      cursor: "pointer",
+                                      backgroundColor: getSeatColor(cell, r, c, seatTypes),
+                                      color: placed ? vis.color : "transparent", // Sử dụng màu từ getSeatVisual
+                                      gridColumn: isCouple ? "span 2" : undefined,
+                                      opacity: placed && !cell.isActive ? 0.85 : 1,
+                                      border: vis.border,
+                                      cursor: vis.cursor,
+                                      transform: isSelected ? `scale(${1.15})` : "none",
+                                      boxShadow: isSelected ? "0 6px 20px rgba(13, 110, 253, 0.6)" : "none"
+                                    }}
+                                  >
+                                    {cell.label}
+                                  </button>
+                                );
+                              }
+                              
+                              // Nếu là placeholder (đường đi)
                               return (
-                                <button
-                                  key={id}
-                                  type="button"
-                                  title={
-                                    peerHeld && !isSelected
-                                      ? "Người khác đang chọn ghế này"
-                                      : `${seat.seatTypeName || "Ghế"} — ${seatPrice(seat).toLocaleString("vi-VN")} đ`
-                                  }
-                                  disabled={booked || showEnded || (peerHeld && !isSelected)}
-                                  onClick={() => toggleSeat(seat)}
-                                  className="border-0 rounded-3 d-flex align-items-center justify-content-center fw-bold transition-all"
+                                <div
+                                  key={idx}
                                   style={{
-                                    width: vis.width,
-                                    minWidth: vis.width,
-                                    height: 36,
-                                    background: vis.bg,
-                                    color: vis.color,
-                                    border: vis.border,
-                                    cursor: vis.cursor,
-                                    transform: isSelected ? "scale(1.08) translateY(-2px)" : "none",
-                                    opacity: booked || showEnded ? 0.85 : 1,
+                                    width: isCouple ? `${doubleSeatSize}px` : `${seatSize}px`,
+                                    height: `${seatSize}px`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: `${fontSize}px`,
+                                    fontWeight: "bold",
+                                    borderRadius: `${Math.round(6 * zoomLevel)}px`,
+                                    transition: "all 0.2s",
+                                    border: "1px dashed rgba(255,255,255,0.2)",
+                                    background: "transparent",
+                                    cursor: "default",
+                                    color: "transparent",
+                                    gridColumn: isCouple ? "span 2" : undefined,
                                   }}
                                 >
-                                  {seat.number}
-                                </button>
+                                  {placed ? cell.label : ""}
+                                </div>
                               );
                             })}
-                          </div>
-                        </div>
-                      ))}
+                          </React.Fragment>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
 
               <div className="card p-4 border-0 shadow-lg bg-white bg-opacity-10 rounded-5" style={{ backdropFilter: "blur(10px)" }}>
-                <h4 className="fw-black text-white mb-2 tracking-tighter text-uppercase">
+                <h4 className="fw-black mb-2 tracking-tighter text-uppercase" style={{ color: '#000' }}>
                   <i className="fas fa-popcorn text-warning me-3" />
                   Bắp nước kèm vé
                 </h4>
                 {showtime?.cinemaName ? (
-                  <p className="small text-white-50 mb-3">
+                  <p className="small mb-3" style={{ color: '#000' }}>
                     Menu rạp <span className="text-warning fw-bold">{showtime.cinemaName}</span> — thanh toán chung PayOS với vé.
                   </p>
                 ) : null}
                 {snackMenuError ? <div className="alert alert-warning py-2 small border-0 mb-0">{snackMenuError}</div> : null}
                 {!snackMenuError && snackProducts.length === 0 && showtime?.cinemaId ? (
-                  <p className="small text-white-50 text-center py-3 mb-0">Rạp chưa có món đang bán.</p>
+                  <p className="small text-center py-3 mb-0" style={{ color: '#000' }}>Rạp chưa có món đang bán.</p>
                 ) : null}
                 {!snackMenuError && snackProducts.length > 0 ? (
                   <div className="d-flex flex-column gap-2" style={{ maxHeight: 320, overflowY: "auto" }}>
@@ -618,7 +1056,7 @@ const Booking = () => {
                           style={{ background: "rgba(0,0,0,0.2)" }}
                         >
                           <div className="flex-grow-1 min-width-0">
-                            <div className="text-white fw-bold small text-truncate">{p.name}</div>
+                            <div className="fw-bold small text-truncate" style={{ color: '#000' }}>{p.name}</div>
                             <div className="text-danger fw-bold small">{p.price.toLocaleString("vi-VN")} đ</div>
                           </div>
                           <div className="d-flex align-items-center gap-1">
@@ -630,7 +1068,7 @@ const Booking = () => {
                             >
                               −
                             </button>
-                            <span className="text-white fw-bold px-1" style={{ minWidth: 22, textAlign: "center" }}>
+                            <span className="fw-bold px-1" style={{ minWidth: 22, textAlign: "center", color: '#000' }}>
                               {q}
                             </span>
                             <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => addSnack(p.productId)}>
@@ -650,25 +1088,25 @@ const Booking = () => {
                 className="card p-4 border-0 shadow-lg rounded-5 bg-white bg-opacity-10 sticky-top"
                 style={{ top: 100, backdropFilter: "blur(20px)" }}
               >
-                <h4 className="fw-black text-white mb-4 text-uppercase tracking-tighter border-bottom border-white border-opacity-10 pb-3">
+                <h4 className="fw-black mb-4 text-uppercase tracking-tighter border-bottom border-white border-opacity-10 pb-3" style={{ color: '#000' }}>
                   Hóa đơn
                 </h4>
 
                 <div className="bg-white bg-opacity-5 p-3 rounded-4 mb-4">
                   <div className="d-flex justify-content-between mb-2">
-                    <span className="text-light opacity-50 small fw-bold">PHIM</span>
-                    <span className="text-white fw-bold text-end small">{showtime.movieTitle}</span>
+                    <span className="small fw-bold" style={{ color: '#000' }}>PHIM</span>
+                    <span className="fw-bold text-end small" style={{ color: '#000' }}>{showtime.movieTitle}</span>
                   </div>
                   <div className="d-flex justify-content-between mb-2 small">
-                    <span className="text-light opacity-50 fw-bold">SUẤT</span>
-                    <span className="text-white text-end">
+                    <span className="small fw-bold" style={{ color: '#000' }}>SUẤT</span>
+                    <span className="text-end" style={{ color: '#000' }}>
                       {showtime.date} {showtime.time}
                     </span>
                   </div>
                   <div className="d-flex justify-content-between mb-2 border-top border-white border-opacity-5 pt-2">
-                    <span className="text-light opacity-50 small fw-bold">GHẾ ({selectedSeatIds.length})</span>
+                    <span className="small fw-bold" style={{ color: '#000' }}>GHẾ ({selectedSeatIds.length})</span>
                     <div className="text-end">
-                      <div className="text-primary fw-bold small">{selectedLabels.length ? selectedLabels.join(", ") : "—"}</div>
+                      <div className="fw-bold small" style={{ color: '#000' }}>{selectedLabels.length ? selectedLabels.join(", ") : "—"}</div>
                     </div>
                   </div>
                   {selectedSeatIds.map((id) => {
@@ -676,22 +1114,22 @@ const Booking = () => {
                     if (!s) return null;
                     return (
                       <div key={id} className="d-flex justify-content-between small mb-1">
-                        <span className="text-white-50">
+                        <span style={{ color: '#000' }}>
                           {s.row}
                           {s.number} ({s.seatTypeName || "Ghế"})
                         </span>
-                        <span className="text-white fw-bold">{seatPrice(s).toLocaleString("vi-VN")} đ</span>
+                        <span className="fw-bold" style={{ color: '#000' }}>{seatPrice(s).toLocaleString("vi-VN")} đ</span>
                       </div>
                     );
                   })}
                   {snackTotal > 0 ? (
                     <div className="d-flex justify-content-between small mb-1 mt-2 pt-2 border-top border-white border-opacity-10">
-                      <span className="text-light opacity-50 fw-bold">BẮP NƯỚC</span>
-                      <span className="text-white fw-bold">{snackTotal.toLocaleString("vi-VN")} đ</span>
+                      <span className="fw-bold" style={{ color: '#000' }}>BẮP NƯỚC</span>
+                      <span className="fw-bold" style={{ color: '#000' }}>{snackTotal.toLocaleString("vi-VN")} đ</span>
                     </div>
                   ) : null}
                   <div className="d-flex justify-content-between align-items-center mt-3 border-top border-white border-opacity-10 pt-3">
-                    <span className="text-light opacity-50 small fw-bold">TỔNG</span>
+                    <span className="small fw-bold" style={{ color: '#000' }}>TỔNG</span>
                     <h3 className="text-danger fw-black m-0">{grandTotal.toLocaleString("vi-VN")} đ</h3>
                   </div>
                 </div>

@@ -111,7 +111,22 @@ const CreateVoucher = () => {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(json?.message || 'Lưu voucher thất bại');
+        // Xử lý lỗi trùng lặp và các lỗi khác
+        const errorMessage = json?.message || 'Lưu voucher thất bại';
+        const fieldErrors = {};
+        
+        // Map các lỗi cụ thể vào field tương ứng
+        if (errorMessage.includes('Mã voucher đã tồn tại') || errorMessage.includes('code already exists')) {
+          fieldErrors.code = 'Mã voucher đã tồn tại';
+        } else if (errorMessage.includes('code')) {
+          fieldErrors.code = errorMessage;
+        } else {
+          // Nếu không phải lỗi field, hiển thị alert chung
+          alert(errorMessage);
+          return;
+        }
+        
+        setErrors(fieldErrors);
         return;
       }
       alert(vid ? 'Cập nhật voucher thành công!' : 'Tạo voucher thành công!');
@@ -162,6 +177,12 @@ const CreateVoucher = () => {
 
         .custom-input:focus, .custom-select:focus {
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .custom-input.is-invalid,
+        .custom-select.is-invalid {
+          border-color: #dc3545 !important;
+          box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
         }
 
         .error-message {

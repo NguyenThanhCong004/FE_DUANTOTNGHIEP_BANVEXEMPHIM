@@ -8,6 +8,9 @@ const MovieTypeManagement = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const itemsPerPage = 10;
 
   const [genres, setGenres] = useState([]);
@@ -48,6 +51,58 @@ const MovieTypeManagement = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredGenres.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredGenres.length / itemsPerPage);
+
+  const handleDeleteGenre = async (genre) => {
+    console.log("Attempting to delete genre:", genre);
+    console.log("Delete URL:", GENRES.DELETE(genre.id));
+    
+    try {
+      const res = await apiFetch(GENRES.DELETE(genre.id), {
+        method: "DELETE"
+      });
+      
+      console.log("Delete response status:", res.status);
+      console.log("Delete response ok:", res.ok);
+      
+      if (res.ok) {
+        // Refresh danh sách
+        const refreshRes = await apiFetch(GENRES.LIST);
+        const json = await refreshRes.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        setGenres(
+          arr.map((g) => ({
+            id: g.genreId ?? g.id,
+            name: g.name ?? "",
+          }))
+        );
+        setShowDeleteModal(false);
+        setItemToDelete(null);
+        setDeleteError("");
+      } else {
+        // Xử lý error từ BE
+        const json = await res.json().catch(() => null);
+        console.log("Error response:", json);
+        setDeleteError(json?.message || "Xóa thể loại thất bại");
+      }
+    } catch (error) {
+      console.error("Error deleting genre:", error);
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+      setDeleteError("Không thể kết nối tới server");
+    }
+  };
+
+  const openDeleteModal = (genre) => {
+    setItemToDelete(genre);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+    setDeleteError("");
+  };
 
   return (
     <AdminPanelPage
@@ -120,13 +175,24 @@ const MovieTypeManagement = () => {
                         <span className="admin-badge admin-badge-neutral">{genre.name}</span>
                       </td>
                       <td className="text-center">
-                        <button
-                          type="button"
-                          className="admin-btn admin-btn-sm admin-btn-primary"
-                          onClick={() => navigate("/super-admin/movie-types/create", { state: { editData: genre } })}
-                        >
-                          Sửa
-                        </button>
+                        <div className="d-flex gap-1 justify-content-center">
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-primary"
+                            onClick={() => navigate("/super-admin/movie-types/create", { state: { editData: genre } })}
+                            title="Sửa thể loại"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-danger"
+                            onClick={() => openDeleteModal(genre)}
+                            title="Xóa thể loại"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -153,6 +219,57 @@ const MovieTypeManagement = () => {
           )}
         </div>
       </div>
+
+      {/* Modal xác nhận xóa */}
+      {showDeleteModal && itemToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa
+              </h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa thể loại phim này?</p>
+              <div className="alert alert-warning">
+                <strong>Thể loại:</strong> {itemToDelete.name}
+              </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
+              <p className="text-muted small mb-0">
+                <i className="bi bi-info-circle me-1"></i>
+                Hành động này không thể hoàn tác. Tất cả phim thuộc thể loại này có thể bị ảnh hưởng.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                className="admin-btn admin-btn-outline-secondary"
+                onClick={closeDeleteModal}
+              >
+                <i className="bi bi-x-circle me-2"></i>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-danger"
+                onClick={() => handleDeleteGenre(itemToDelete)}
+              >
+                <i className="bi bi-trash me-2"></i>
+                Xóa thể loại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminPanelPage>
   );
 };

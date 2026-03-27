@@ -53,6 +53,7 @@ export default function ShiftManagement() {
   const [shifts, setShifts] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [weekStart, setWeekStart] = useState(getWeekStart(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   const [dragData, setDragData] = useState(null);
@@ -68,8 +69,16 @@ export default function ShiftManagement() {
     if (!effectiveCinemaId) return;
     setLoading(true);
     try {
+      console.log("🔄 Bắt đầu tải dữ liệu ca làm việc...");
+      console.log("🏢 Cinema ID:", effectiveCinemaId);
+      console.log("📅 Tuần:", weekRangeStr);
+      
       const qStaff = `?cinemaId=${effectiveCinemaId}`;
       const qShifts = `?cinemaId=${effectiveCinemaId}&startDate=${toIso(weekDays[0])}&endDate=${toIso(weekDays[6])}`;
+      
+      console.log("📡 API calls:");
+      console.log("  Staff:", `${STAFF.LIST}${qStaff}`);
+      console.log("  Shifts:", `${SHIFTS.LIST}${qShifts}`);
       
       const [staffRes, shiftRes] = await Promise.all([
         apiFetch(`${STAFF.LIST}${qStaff}`),
@@ -78,6 +87,23 @@ export default function ShiftManagement() {
       
       const staffJson = await staffRes.json();
       const shiftJson = await shiftRes.json();
+      
+      console.log("📊 Staff response:", staffJson);
+      console.log("📊 Shifts response:", shiftJson);
+      
+      // Log chi tiết data từ backend
+      if (shiftJson?.data?.[0]) {
+        const firstShift = shiftJson.data[0];
+        console.log("🔍 First shift from backend:");
+        console.log("  - id:", firstShift.id);
+        console.log("  - staffName:", firstShift.staffName);
+        console.log("  - role:", firstShift.role);
+        console.log("  - shiftType:", firstShift.shiftType);
+        console.log("  - date:", firstShift.date);
+        console.log("  - startTime:", firstShift.startTime);
+        console.log("  - endTime:", firstShift.endTime);
+        console.log("  - All keys:", Object.keys(firstShift));
+      }
       
       // staff data structure from API: staffId, fullname, role, etc.
       setStaffList(Array.isArray(staffJson?.data) ? staffJson.data : []);
@@ -90,14 +116,17 @@ export default function ShiftManagement() {
         startTime: s.startTime,
         endTime: s.endTime,
         role: s.role,
-        staffId: s.staffId,
+        staffId: null, // Backend không trả staffId, chỉ có staffName
         staffName: s.staffName || "Không tên",
         dirty: false
       }));
+      
+      console.log("📝 Processed shifts:", loadedShifts);
       setShifts(loadedShifts);
       setPendingDeleteIds([]);
+      console.log("✅ Tải dữ liệu hoàn tất");
     } catch (err) {
-      console.error("Lỗi tải dữ liệu ca làm:", err);
+      console.error("❌ Lỗi tải dữ liệu ca làm:", err);
     } finally {
       setLoading(false);
     }
@@ -167,14 +196,44 @@ export default function ShiftManagement() {
     setShifts(prev => prev.filter(s => s.id !== shift.id));
   };
 
+  const testDebugEndpoint = async () => {
+    console.log("🔍 Testing debug endpoint...");
+    try {
+      const response = await apiFetch(`${SHIFTS.LIST}/debug`);
+      const data = await response.json();
+      console.log("🔍 Debug response:", data);
+      console.log("🔍 Total shifts in database:", data.data?.length || 0);
+      
+      if (data.data?.length > 0) {
+        console.log("🔍 First few shifts:");
+        data.data.slice(0, 3).forEach((shift, index) => {
+          console.log(`  ${index + 1}.`, shift);
+        });
+      }
+      
+      alert(`Debug: Có ${data.data?.length || 0} ca làm trong database. Xem console để chi tiết.`);
+    } catch (err) {
+      console.error("🔍 Debug endpoint failed:", err);
+      alert("Debug endpoint thất bại! Xem console để chi tiết.");
+    }
+  };
+
   const handleSave = async () => {
     if (!effectiveCinemaId) return;
     setSaving(true);
     try {
+      console.log("🔍 Bắt đầu lưu ca làm việc...");
+      console.log("📅 Tuần hiện tại:", weekRangeStr);
+      console.log("🔄 Pending deletes:", pendingDeleteIds);
+      console.log("📝 Shifts to save:", shifts.filter(s => !s.serverId || s.dirty).length);
+      
+      // Xóa các ca đã đánh dấu xóa
       for (const id of pendingDeleteIds) {
+        console.log("🗑️ Xóa ca ID:", id);
         await apiFetch(SHIFTS.BY_ID(id), { method: "DELETE" });
       }
       
+      // Lưu hoặc cập nhật các ca
       for (const s of shifts) {
         if (!s.serverId || s.dirty) {
           const body = {
@@ -187,14 +246,18 @@ export default function ShiftManagement() {
             cinemaId: Number(effectiveCinemaId)
           };
           
+          console.log("💾 Lưu ca:", { staffId: s.staffId, date: s.date, shiftType: s.shiftType, role: s.role });
+          
           if (s.serverId) {
-            await apiFetch(SHIFTS.BY_ID(s.serverId), {
+            console.log("✏️ Cập nhật ca tồn tại:", s.serverId);
+            await apiFetch(`${SHIFTS.BY_ID(s.serverId)}/individual`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body)
             });
           } else {
-            await apiFetch(SHIFTS.LIST, {
+            console.log("➕ Tạo ca mới");
+            await apiFetch(`${SHIFTS.LIST}/individual`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body)
@@ -202,10 +265,20 @@ export default function ShiftManagement() {
           }
         }
       }
-      alert("Đã lưu lịch làm việc thành công!");
+      
+      console.log("✅ Lưu thành công, bắt đầu tải lại dữ liệu...");
+      setSuccessMessage("Đã lưu lịch làm việc thành công!");
+      
+      // Tải lại dữ liệu để hiển thị các ca đã lưu
       await loadData();
+      console.log("🔄 Tải lại dữ liệu hoàn tất");
+      
+      // Clear success message sau 3 giây
+      setTimeout(() => setSuccessMessage(''), 3000);
+      
     } catch (err) {
-      alert("Lỗi khi lưu lịch làm việc.");
+      console.error("❌ Lỗi khi lưu lịch làm việc:", err);
+      alert("Lỗi khi lưu lịch làm việc: " + (err.message || "Vui lòng thử lại."));
     } finally {
       setSaving(false);
     }
@@ -214,7 +287,15 @@ export default function ShiftManagement() {
   const navigateWeek = (weeks) => {
     const next = new Date(weekStart);
     next.setDate(weekStart.getDate() + (weeks * 7));
+    console.log("🗓️ Chuyển tuần:", weeks, "tuần");
+    console.log("📅 Từ:", weekRangeStr);
     setWeekStart(next);
+    // loadData sẽ được gọi tự động qua useEffect vì weekStart thay đổi
+  };
+
+  const goToCurrentWeek = () => {
+    console.log("🗓️ Quay về tuần hiện tại");
+    setWeekStart(getWeekStart(new Date()));
   };
 
   const hasChanges = pendingDeleteIds.length > 0 || shifts.some(s => !s.serverId || s.dirty);
@@ -243,14 +324,35 @@ export default function ShiftManagement() {
       headerRight={
         <div className="d-flex align-items-center gap-3">
           <div className="d-flex align-items-center bg-white rounded shadow-sm px-2 py-1 border">
-            <Button variant="link" size="sm" className="p-1 text-muted" onClick={() => navigateWeek(-1)}>
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="p-1 text-muted" 
+              onClick={() => navigateWeek(-1)}
+              title="Tuần trước"
+            >
               <ChevronLeft size={16} />
             </Button>
             <div className="px-2 fw-bold text-primary small" style={{ minWidth: "160px", textAlign: "center", fontSize: '0.8rem' }}>
               {weekRangeStr}
             </div>
-            <Button variant="link" size="sm" className="p-1 text-muted" onClick={() => navigateWeek(1)}>
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="p-1 text-muted" 
+              onClick={() => navigateWeek(1)}
+              title="Tuần sau"
+            >
               <ChevronRight size={16} />
+            </Button>
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="p-1 text-primary ms-2" 
+              onClick={goToCurrentWeek}
+              title="Quay về tuần hiện tại"
+            >
+              <Calendar size={14} />
             </Button>
           </div>
           
@@ -263,6 +365,15 @@ export default function ShiftManagement() {
           >
             {saving ? <Spinner animation="border" size="sm" className="me-2" /> : <Save size={18} className="me-2" />}
             Lưu lịch làm việc
+          </Button>
+          
+          <Button 
+            variant="outline-secondary" 
+            size="sm"
+            onClick={testDebugEndpoint}
+            title="Debug - Kiểm tra data trong database"
+          >
+            🔍 Debug
           </Button>
         </div>
       }
@@ -363,13 +474,24 @@ export default function ShiftManagement() {
                                   </div>
                                   
                                   {assignment ? (
-                                    <div className="d-flex align-items-center overflow-hidden">
-                                      <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.75rem' }}>
-                                        {assignment.staffName}
+                                    <div className="d-flex align-items-center gap-2 overflow-hidden">
+                                      <div className="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center staff-avatar-sm">
+                                        {assignment.staffName.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="flex-grow-1">
+                                        <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.75rem' }}>
+                                          {assignment.staffName}
+                                        </div>
+                                        <div className="text-muted" style={{ fontSize: '0.6rem' }}>
+                                          Đã phân công
+                                        </div>
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="text-muted italic text-center" style={{ fontSize: '0.6rem', opacity: 0.5 }}>Trống</div>
+                                    <div className="text-muted text-center" style={{ fontSize: '0.6rem', opacity: 0.7 }}>
+                                      <div className="mb-1">👥</div>
+                                      <div>Kéo nhân viên vào đây</div>
+                                    </div>
                                   )}
                                 </div>
                               );

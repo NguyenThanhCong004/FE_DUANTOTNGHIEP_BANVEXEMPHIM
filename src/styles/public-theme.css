@@ -110,6 +110,24 @@ html.cinetoon-public main textarea.form-control::placeholder {
   color: rgba(255, 255, 255, 0.5) !important;
 }
 
+/* Form trong auth page (Login, Register) - không nằm trong main */
+html.cinetoon-public .auth-public-page input.form-control,
+html.cinetoon-public .auth-public-page select.form-select,
+html.cinetoon-public .auth-public-page textarea.form-control {
+  color: #ffffff !important;
+}
+
+html.cinetoon-public .auth-public-page input.form-control:focus,
+html.cinetoon-public .auth-public-page select.form-select:focus,
+html.cinetoon-public .auth-public-page textarea.form-control:focus {
+  color: #ffffff !important;
+}
+
+html.cinetoon-public .auth-public-page input.form-control::placeholder,
+html.cinetoon-public .auth-public-page textarea.form-control::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
 html.cinetoon-public main select.form-select option {
   background-color: #18181b;
   color: #ffffff;

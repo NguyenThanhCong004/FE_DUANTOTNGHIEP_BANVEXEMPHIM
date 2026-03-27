@@ -19,6 +19,7 @@ const menuSections = [
     requiresCinema: false,
     items: [
       { path: "/super-admin/cinemas", icon: "bi-building", label: "Quản lý rạp" },
+      { path: "/super-admin/employees", icon: "bi-person-badge", label: "Quản trị viên rạp" },
       { path: "/super-admin/users", icon: "bi-people", label: "Người dùng" },
     ],
   },

@@ -37,6 +37,7 @@ export const CINEMAS = {
 export const GENRES = {
   LIST: `${API_V1}/genres`,
   BY_ID: (id) => `${API_V1}/genres/${id}`,
+  DELETE: (id) => `${API_V1}/genres/${id}`,
 };
 
 export const ROOMS = {

@@ -8,6 +8,10 @@ const ProductTypeManagement = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [typeToDelete, setTypeToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const itemsPerPage = 10;
 
   const [productTypes, setProductTypes] = useState([]);
@@ -44,6 +48,50 @@ const ProductTypeManagement = () => {
   const currentItems = filteredTypes.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredTypes.length / itemsPerPage);
 
+  const handleDeleteProductType = async (type) => {
+    try {
+      const res = await apiFetch(PRODUCT_CATEGORIES.BY_ID(type.id), {
+        method: "DELETE"
+      });
+      
+      if (res.ok) {
+        // Refresh danh sách
+        const refreshRes = await apiFetch(PRODUCT_CATEGORIES.LIST);
+        const json = await refreshRes.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        setProductTypes(arr.map((c) => ({ id: c.id, name: c.name ?? "" })));
+        setShowDeleteModal(false);
+        setTypeToDelete(null);
+        setDeleteError('');
+        setSuccessMessage(`Đã xóa loại sản phẩm "${type.name}" thành công!`);
+        
+        // Clear success message sau 3 giây
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        // Xử lý error từ BE
+        const json = await res.json().catch(() => null);
+        setDeleteError(json?.message || "Xóa loại sản phẩm thất bại");
+        setSuccessMessage('');
+      }
+    } catch (error) {
+      console.error("Error deleting product type:", error);
+      setDeleteError("Không thể kết nối tới server");
+      setSuccessMessage('');
+    }
+  };
+
+  const openDeleteModal = (type) => {
+    setTypeToDelete(type);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setTypeToDelete(null);
+    setDeleteError('');
+  };
+
   return (
     <AdminPanelPage
       icon="tags"
@@ -61,6 +109,15 @@ const ProductTypeManagement = () => {
         </button>
       }
     >
+      {/* Success Message */}
+      {successMessage && (
+        <div className="alert alert-success alert-dismissible fade show mb-3" role="alert">
+          <i className="bi bi-check-circle me-2"></i>
+          {successMessage}
+          <button type="button" className="btn-close" onClick={() => setSuccessMessage('')}></button>
+        </div>
+      )}
+
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
@@ -107,13 +164,24 @@ const ProductTypeManagement = () => {
                       <td className="fw-semibold">{indexOfFirstItem + index + 1}</td>
                       <td className="fw-semibold">{type.name}</td>
                       <td className="text-center">
-                        <button
-                          type="button"
-                          className="admin-btn admin-btn-sm admin-btn-primary"
-                          onClick={() => navigate("/super-admin/product-types/create", { state: { editData: type } })}
-                        >
-                          Sửa
-                        </button>
+                        <div className="d-flex justify-content-center gap-1 flex-wrap">
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-primary"
+                            onClick={() => navigate("/super-admin/product-types/create", { state: { editData: type } })}
+                            title="Sửa loại sản phẩm"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-danger"
+                            onClick={() => openDeleteModal(type)}
+                            title="Xóa loại sản phẩm"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -140,6 +208,57 @@ const ProductTypeManagement = () => {
           )}
         </div>
       </div>
+
+      {/* Modal xác nhận xóa product type */}
+      {showDeleteModal && typeToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa Loại sản phẩm
+              </h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa loại sản phẩm này?</p>
+              <div className="alert alert-warning">
+                <strong>Tên loại:</strong> {typeToDelete.name}
+              </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
+              <p className="text-muted small mb-0">
+                <i className="bi bi-info-circle me-1"></i>
+                Hành động này không thể hoàn tác. Tất cả sản phẩm thuộc loại này có thể bị ảnh hưởng.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                className="admin-btn admin-btn-outline-secondary"
+                onClick={closeDeleteModal}
+              >
+                <i className="bi bi-x-circle me-2"></i>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-danger"
+                onClick={() => handleDeleteProductType(typeToDelete)}
+              >
+                <i className="bi bi-trash me-2"></i>
+                Xóa loại sản phẩm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminPanelPage>
   );
 };
