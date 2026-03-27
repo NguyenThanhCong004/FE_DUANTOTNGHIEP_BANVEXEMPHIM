@@ -7,7 +7,6 @@ import EmptyState from "../../components/common/EmptyState";
 import { apiFetch } from "../../utils/apiClient";
 import { MOVIES } from "../../constants/apiEndpoints";
 import { splitNowAndSoon } from "../../utils/movieApiMap";
-import { Loader2, AlertCircle } from "lucide-react";
 
 import "swiper/css";
 import "swiper/css/navigation";
@@ -29,8 +28,7 @@ const Home = () => {
       setLoadError(null);
       try {
         const [br, mr] = await Promise.all([apiFetch(MOVIES.HOME_BANNERS), apiFetch(MOVIES.LIST)]);
-        const bj = await br.json().catch(() => null);
-        const mj = await mr.json().catch(() => null);
+        const [bj, mj] = await Promise.all([br.json().catch(() => null), mr.json().catch(() => null)]);
 
         if (cancelled) return;
 
@@ -69,12 +67,12 @@ const Home = () => {
   return (
     <Layout>
       <div className="bg-zinc-950 min-h-screen text-zinc-100">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24">
-            <Loader2 className="w-10 h-10 text-rose-500 animate-spin mb-4" />
-            <p className="text-zinc-400 font-medium">Đang tải dữ liệu từ server…</p>
-          </div>
-        ) : null}
+        {loading ? (                                                                                                                
+       <div className="container py-5 mt-5 text-center text-white">                                                              
+          <div className="spinner-border text-danger" role="status" />                                                          
+          <p className="mt-3 mb-0 small opacity-75">Đang tải dữ liệu từ server…</p>                                               
+        </div>                                                                                                                     
+      ) : null}
 
         {!loading && loadError ? (
           <div className="max-w-7xl mx-auto px-4 py-8">
@@ -85,47 +83,35 @@ const Home = () => {
           </div>
         ) : null}
 
-        {!loading && banners.length > 0 ? <HeroSlider banners={banners} /> : null}
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <SectionHeader
-            title="Phim Đang Chiếu"
-            gradient="linear-gradient(to right, #f43f5e, #fb7185)"
-            linkText="Tất cả"
-            linkTo="/movies"
-            icon="fas fa-arrow-right"
-            linkColorClass="text-rose-500 hover:text-rose-400 transition-colors"
-          />
-          {nowShowing.length === 0 && !loading ? (
-            <EmptyState
-              title="Chưa có phim đang chiếu"
-              subtitle="Thêm phim trên admin hoặc kiểm tra ngày khởi chiếu / trạng thái phim (đang chiếu = 1)."
-            />
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {nowShowing.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} showBuyButton={false} />
-              ))}
-            </div>
-          )}
-
-          <div className="mt-20">
-            <SectionHeader
-              title="Phim Sắp Chiếu"
-              gradient="linear-gradient(to right, #3b82f6, #60a5fa)"
-              linkText="Xem lịch"
-              linkTo="/movies"
-              icon="fas fa-calendar"
-              linkColorClass="text-blue-500 hover:text-blue-400 transition-colors"
-            />
-          </div>
-          {comingSoon.length === 0 && !loading ? (
-            <EmptyState title="Chưa có phim sắp chiếu" subtitle="Các phim có ngày khởi chiếu sau hôm nay sẽ hiển thị ở đây." />
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {comingSoon.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} isComingSoon showBuyButton={false} />
-              ))}
+        {!loading && loadError ? (                                                                                                    
+         <div className="container py-4 mt-4">                                                                                       
+           <div className="alert alert-warning border-0 shadow-sm">{loadError}</div>                                                 
+        </div>                                                                                                                      
+      ) : null}                                                                                                                    
+                                                                                                                                     
+       {!loading && banners.length > 0 ? <HeroSlider banners={banners} /> : null}                                                    
+                                                                                                                                     
+       <div className="container my-5 pt-3">                                                                                         
+         <SectionHeader                                                                                                              
+           title="Phim Sắp Chiếu"                                                                                                  
+             gradient="var(--secondary-gradient)"                                                                                    
+             linkText="Xem lịch"                                                                                                         
+           linkTo="/movies"                                                                                                          
+           icon="fas fa-arrow-right"                                                                                                
+          linkColorClass="text-danger"                                                                                             
+        />                                                                                                                        
+         {nowShowing.length === 0 ? (                                                                                               
+          <EmptyState                                                                                                               
+            title="Chưa có phim đang chiếu"                                                                                         
+             subtitle="Thêm phim trên admin hoặc kiểm tra ngày khởi chiếu / trạng thái phim (đang chiếu = 1)."                       
+          />                                                                                                                        
+        ) : (                                                                                                                      
+          <div className="row g-4">                                                                                                
+             {nowShowing.map((movie) => (                                                                                            
+              <div key={movie.id} className="col-6 col-md-3">                                                                      
+                 <MovieCard movie={movie} showBuyButton={false} />                                                                   
+          </div>                                                                                                                
+           ))}
             </div>
           )}
         </div>

@@ -103,10 +103,6 @@ const UserManagement = () => {
                 aria-label="Tìm khách hàng"
               />
             </div>
-            <Link to={`${prefix}/users/add`} className="admin-btn" style={{ background: 'white', color: '#6366f1' }}>
-              <i className="bi bi-person-plus-fill me-2"></i>
-              Thêm khách hàng
-            </Link>
           </div>
         </div>
       </div>

@@ -10,6 +10,10 @@ const CinemaManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [cinemaToDelete, setCinemaToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const itemsPerPage = 10;
 
   const [cinemas, setCinemas] = useState([]);
@@ -54,6 +58,57 @@ const CinemaManagement = () => {
   const currentItems = filteredCinemas.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredCinemas.length / itemsPerPage);
 
+  const handleDeleteCinema = async (cinema) => {
+    try {
+      const res = await apiFetch(CINEMAS.BY_ID(cinema.id), {
+        method: "DELETE"
+      });
+      
+      if (res.ok) {
+        // Refresh danh sách
+        const refreshRes = await apiFetch(CINEMAS.LIST);
+        const json = await refreshRes.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        setCinemas(
+          arr.map((c) => ({
+            id: c.cinemaId ?? c.id,
+            name: c.name ?? '',
+            address: c.address ?? '',
+            status: c.status === 1 ? 'Active' : 'Inactive',
+          }))
+        );
+        setShowDeleteModal(false);
+        setCinemaToDelete(null);
+        setDeleteError('');
+        setSuccessMessage(`Đã xóa rạp "${cinema.name}" thành công!`);
+        
+        // Clear success message sau 3 giây
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        // Xử lý error từ BE
+        const json = await res.json().catch(() => null);
+        setDeleteError(json?.message || "Xóa rạp thất bại");
+        setSuccessMessage('');
+      }
+    } catch (error) {
+      console.error("Error deleting cinema:", error);
+      setDeleteError("Không thể kết nối tới server");
+      setSuccessMessage('');
+    }
+  };
+
+  const openDeleteModal = (cinema) => {
+    setCinemaToDelete(cinema);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setCinemaToDelete(null);
+    setDeleteError('');
+  };
+
   return (
     <AdminPanelPage
       icon="building"
@@ -71,6 +126,15 @@ const CinemaManagement = () => {
         </button>
       }
     >
+      {/* Success Message */}
+      {successMessage && (
+        <div className="alert alert-success alert-dismissible fade show mb-3" role="alert">
+          <i className="bi bi-check-circle me-2"></i>
+          {successMessage}
+          <button type="button" className="btn-close" onClick={() => setSuccessMessage('')}></button>
+        </div>
+      )}
+
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
@@ -136,7 +200,7 @@ const CinemaManagement = () => {
                       </span>
                     </td>
                     <td className="text-center">
-                      <div className="d-flex justify-content-center gap-2 flex-wrap">
+                      <div className="d-flex justify-content-center gap-1 flex-wrap">
                         <button
                           type="button"
                           className="admin-btn admin-btn-sm admin-btn-outline"
@@ -144,15 +208,25 @@ const CinemaManagement = () => {
                             setSelectedItem(cinema);
                             setShowModal(true);
                           }}
+                          title="Xem chi tiết"
                         >
-                          Xem
+                          <i className="bi bi-eye"></i>
                         </button>
                         <button
                           type="button"
                           className="admin-btn admin-btn-sm admin-btn-primary"
                           onClick={() => navigate('/super-admin/cinemas/create', { state: { editData: cinema } })}
+                          title="Sửa rạp"
                         >
-                          Sửa
+                          <i className="bi bi-pencil"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-sm admin-btn-danger"
+                          onClick={() => openDeleteModal(cinema)}
+                          title="Xóa rạp"
+                        >
+                          <i className="bi bi-trash"></i>
                         </button>
                       </div>
                     </td>
@@ -216,6 +290,61 @@ const CinemaManagement = () => {
             <div className="admin-modal-footer">
               <button type="button" className="admin-btn admin-btn-primary" onClick={() => setShowModal(false)}>
                 Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận xóa cinema */}
+      {showDeleteModal && cinemaToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa Rạp
+              </h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa cụm rạp này?</p>
+              <div className="alert alert-warning">
+                <strong>Tên rạp:</strong> {cinemaToDelete.name}<br/>
+                <strong>Địa chỉ:</strong> {cinemaToDelete.address}<br/>
+                <strong>Trạng thái:</strong> <span className={`admin-badge ${cinemaToDelete.status === 'Active' ? 'admin-badge-success' : 'admin-badge-danger'}`}>
+                  {cinemaToDelete.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng'}
+                </span>
+              </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
+              <p className="text-muted small mb-0">
+                <i className="bi bi-info-circle me-1"></i>
+                Hành động này không thể hoàn tác. Tất cả phòng chiếu, suất chiếu và lịch trình của rạp này sẽ bị ảnh hưởng.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                className="admin-btn admin-btn-outline-secondary"
+                onClick={closeDeleteModal}
+              >
+                <i className="bi bi-x-circle me-2"></i>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-danger"
+                onClick={() => handleDeleteCinema(cinemaToDelete)}
+              >
+                <i className="bi bi-trash me-2"></i>
+                Xóa rạp
               </button>
             </div>
           </div>

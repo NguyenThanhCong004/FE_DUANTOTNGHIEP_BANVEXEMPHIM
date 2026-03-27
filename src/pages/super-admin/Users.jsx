@@ -3,8 +3,10 @@ import { getAccessToken } from "../../utils/authStorage";
 import { apiUrl } from "../../utils/apiClient";
 import { USERS } from "../../constants/apiEndpoints";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import { useNavigate } from "react-router-dom";
 
 const UserManagement = () => {
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
@@ -53,6 +55,11 @@ const UserManagement = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+  const handleEditUser = (user) => {
+    // Chuyển đến trang edit user với state chứa thông tin user
+    navigate('/super-admin/users/edit', { state: { editUser: user } });
+  };
 
   return (
     <AdminPanelPage
@@ -148,16 +155,27 @@ const UserManagement = () => {
                           </span>
                         </td>
                         <td className="text-center">
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn-sm admin-btn-outline"
-                            onClick={() => {
-                              setSelectedItem(user);
-                              setShowModal(true);
-                            }}
-                          >
-                            Xem
-                          </button>
+                          <div className="d-flex gap-1 justify-content-center">
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-sm admin-btn-outline-primary"
+                              onClick={() => handleEditUser(user)}
+                              title="Sửa thông tin"
+                            >
+                              <i className="bi bi-pencil"></i>
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-sm admin-btn-outline"
+                              onClick={() => {
+                                setSelectedItem(user);
+                                setShowModal(true);
+                              }}
+                              title="Xem chi tiết"
+                            >
+                              <i className="bi bi-eye"></i>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -198,32 +216,59 @@ const UserManagement = () => {
                 ×
               </button>
             </div>
-            <div className="admin-modal-body text-center">
-              <img
-                src={selectedItem.avatar}
-                alt=""
-                className="rounded-circle border mb-3"
-                style={{ width: 120, height: 120, objectFit: "cover", borderWidth: 4 }}
-              />
-              <p className="admin-form-label mb-1 text-start">Họ và tên</p>
-              <p className="fw-bold text-start mb-3">{selectedItem.fullname}</p>
-              <p className="admin-form-label mb-1 text-start">Username</p>
-              <p className="fw-semibold text-start mb-3">@{selectedItem.username}</p>
-              <p className="admin-form-label mb-1 text-start">Email</p>
-              <p className="text-start mb-3">{selectedItem.email}</p>
-              <p className="admin-form-label mb-1 text-start">Số điện thoại</p>
-              <p className="text-start mb-3">{selectedItem.phone}</p>
-              <p className="admin-form-label mb-1 text-start">Trạng thái</p>
-              <div className="text-start">
-                <span
-                  className={
-                    selectedItem.status === 1 || selectedItem.status === "Active"
-                      ? "admin-badge admin-badge-success"
-                      : "admin-badge admin-badge-danger"
-                  }
-                >
+            <div className="admin-modal-body">
+              <div className="text-center mb-4">
+                <img
+                  src={selectedItem.avatar}
+                  alt=""
+                  className="rounded-circle border mb-3"
+                  style={{ width: 120, height: 120, objectFit: "cover", borderWidth: 4 }}
+                />
+                <h5 className="mb-2">{selectedItem.fullname}</h5>
+                <span className={`admin-badge ${selectedItem.status === 1 || selectedItem.status === "Active" ? "admin-badge-success" : "admin-badge-danger"}`}>
                   {selectedItem.status === 1 || selectedItem.status === "Active" ? "Đang hoạt động" : "Đã khóa"}
                 </span>
+              </div>
+
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <p className="admin-form-label mb-1">ID Người dùng</p>
+                  <p className="fw-semibold mb-3">#{selectedItem.userId || selectedItem.id}</p>
+                </div>
+                <div className="col-md-6">
+                  <p className="admin-form-label mb-1">Username</p>
+                  <p className="fw-semibold mb-3">@{selectedItem.username}</p>
+                </div>
+                <div className="col-md-6">
+                  <p className="admin-form-label mb-1">Email</p>
+                  <p className="mb-3">{selectedItem.email}</p>
+                </div>
+                <div className="col-md-6">
+                  <p className="admin-form-label mb-1">Số điện thoại</p>
+                  <p className="mb-3">{selectedItem.phone || "Chưa cung cấp"}</p>
+                </div>
+                <div className="col-md-6">
+                  <p className="admin-form-label mb-1">Ngày sinh</p>
+                  <p className="mb-3">{selectedItem.birthday || "Chưa cung cấp"}</p>
+                </div>
+                <div className="col-md-6">
+                  <p className="admin-form-label mb-1">Điểm tích lũy</p>
+                  <p className="mb-3">
+                    <span className="badge bg-warning text-dark">{selectedItem.points || 0} điểm</span>
+                  </p>
+                </div>
+                <div className="col-md-6">
+                  <p className="admin-form-label mb-1">Tổng chi tiêu</p>
+                  <p className="mb-3">
+                    <span className="text-success fw-bold">
+                      {selectedItem.totalSpending ? `${Number(selectedItem.totalSpending).toLocaleString('vi-VN')} VNĐ` : "0 VNĐ"}
+                    </span>
+                  </p>
+                </div>
+                <div className="col-md-6">
+                  <p className="admin-form-label mb-1">Ngày tham gia</p>
+                  <p className="mb-3">{selectedItem.createdAt ? new Date(selectedItem.createdAt).toLocaleDateString('vi-VN') : "Không rõ"}</p>
+                </div>
               </div>
             </div>
             <div className="admin-modal-footer">

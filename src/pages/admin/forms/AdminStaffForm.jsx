@@ -30,6 +30,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
   const initialStaffState = {
     name: "",
     username: "",
+    password: "",
     email: "",
     phone: "",
     birthDate: "",
@@ -54,6 +55,12 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
       tempErrors.username = "Username không được để trống";
     } else if (!staff.username.trim()) {
       tempErrors.username = "Username không được để trống";
+    }
+
+    if (!isEdit && !staff.password?.trim()) {
+      tempErrors.password = "Mật khẩu không được để trống khi tạo mới";
+    } else if (staff.password && staff.password.length < 6) {
+      tempErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
     }
 
     const emailRegex = /^[a-z0-9._%+-]+@gmail\.com$/i;
@@ -104,6 +111,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
     const { name, value } = e.target;
     setStaff((prev) => ({ ...prev, [name]: value }));
 
+    // Clear error cho field khi user thay đổi giá trị
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
@@ -135,7 +143,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
       const data = {
         fullname: staff.name.trim(),
         username: staff.username.trim(),
-        password: staff.password,
         email: staff.email.trim(),
         phone: staff.phone.trim(),
         birthday: staff.birthDate,
@@ -145,7 +152,17 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
         /** Mặc định nhân viên sàn — Super Admin tạo quản trị viên rạp dùng trang Quản trị viên rạp. */
         role: "STAFF",
       };
+      
+      // Chỉ thêm password nếu có giá trị (tạo mới hoặc đổi mật khẩu khi sửa)
+      if (staff.password?.trim()) {
+        data.password = staff.password.trim();
+      }
+      
       const body = isEdit ? data : { ...data, password: staff.password };
+      if (!isEdit && !staff.password?.trim()) {
+        setErrors({ password: "Mật khẩu không được để trống khi tạo mới" });
+        return;
+      }
       const url = isEdit ? STAFF.BY_ID(id) : STAFF.LIST;
       const res = await apiFetch(url, {
         method: isEdit ? "PUT" : "POST",
@@ -153,7 +170,17 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setErrors({ form: json?.message || "Lưu nhân viên thất bại" });
+        // Xử lý lỗi trùng từ BE thành validation error
+        const message = json?.message || "Lưu nhân viên thất bại";
+        if (message.includes("Email đã tồn tại")) {
+          setErrors({ email: message });
+        } else if (message.includes("Username đã tồn tại") || message.includes("Tên đăng nhập đã tồn tại")) {
+          setErrors({ username: message });
+        } else if (message.includes("Số điện thoại đã tồn tại")) {
+          setErrors({ phone: message });
+        } else {
+          setErrors({ form: message });
+        }
         return;
       }
       navigate(backPath);
@@ -189,6 +216,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
         const next = {
           name: found.fullname ?? found.name ?? "",
           username: found.username ?? "",
+          password: "",
           email: found.email ?? "",
           phone: found.phone ?? "",
           birthDate: birth,
@@ -343,6 +371,21 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
                         onChange={handleInputChange}
                       />
                       {errors.username ? <div className="text-danger small fw-bold mt-1">{errors.username}</div> : null}
+                    </Form.Group>
+                  </Col>
+
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label className="fw-bold small text-dark">Mật khẩu</Form.Label>
+                      <Form.Control
+                        type="password"
+                        name="password"
+                        className={`black-input py-2 ${errors.password ? "is-invalid" : ""}`}
+                        placeholder={isEdit ? "Để trống nếu không đổi" : "Nhập mật khẩu"}
+                        value={staff.password || ""}
+                        onChange={handleInputChange}
+                      />
+                      {errors.password ? <div className="text-danger small fw-bold mt-1">{errors.password}</div> : null}
                     </Form.Group>
                   </Col>
 

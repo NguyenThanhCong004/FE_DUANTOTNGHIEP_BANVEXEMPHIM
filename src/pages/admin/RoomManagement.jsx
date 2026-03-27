@@ -67,28 +67,32 @@ const RoomManagement = () => {
 
   return (
     <div className="admin-page superadmin-page admin-fade-in">
-      <div className="admin-header">
-        <div className="admin-header-content">
+      <div className="admin-header mb-4">
+        <div className="admin-header-content d-flex justify-content-between align-items-center flex-nowrap w-100">
           <div>
-            <h1>
-              <i className="bi bi-door-open me-3"></i>
+            <h1 className="h3 mb-1">
+              <i className="bi bi-door-open me-2"></i>
               Quản lý Phòng chiếu
             </h1>
-            <p className="lead">Quản lý thông tin và trạng thái phòng chiếu</p>
+            <p className="text-muted mb-0" style={{ fontSize: "0.8rem" }}>Quản lý thông tin và trạng thái phòng chiếu</p>
           </div>
-          <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
-            <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
+          <div className="d-flex align-items-center gap-3">
+            <div className="admin-search-wrapper shadow-sm" style={{ maxWidth: 300 }}>
               <i className="bi bi-search admin-search-icon" aria-hidden />
               <input
                 type="search"
-                className="admin-search-input"
-                placeholder="Tìm phòng chiếu..."
+                className="admin-search-input py-1"
+                style={{ fontSize: '0.8rem' }}
+                placeholder="Tìm phòng..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                aria-label="Tìm phòng chiếu"
               />
             </div>
-            <Link to={`${prefix}/rooms/add`} className="admin-btn" style={{ background: 'white', color: '#6366f1' }}>
+            <Link 
+              to={`${prefix}/rooms/add`} 
+              className="admin-btn shadow-sm d-flex align-items-center fw-bold" 
+              style={{ background: 'white', color: '#6366f1', height: '38px' }}
+            >
               <i className="bi bi-plus-lg me-2"></i>
               Thêm phòng chiếu
             </Link>
@@ -168,11 +172,12 @@ const RoomManagement = () => {
                     <td>
                       <div className="admin-table-action-group">
                         <Link
-                          to={`${prefix}/rooms/view/${room.id}`}
+                          to={`${prefix}/seats`}
+                          state={{ roomId: room.id }}
                           className="admin-table-action-btn admin-table-action-btn--view"
-                          title="Xem chi tiết"
+                          title="Xem sơ đồ ghế"
                         >
-                          <i className="bi bi-eye"></i>
+                          <i className="bi bi-grid-3x3-gap"></i>
                         </Link>
                         <Link
                           to={`${prefix}/rooms/edit/${room.id}`}
