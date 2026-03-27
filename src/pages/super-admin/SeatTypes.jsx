@@ -48,6 +48,49 @@ const SeatTypeManagement = () => {
   const currentItems = filteredTypes.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredTypes.length / itemsPerPage);
 
+  // Function to delete seat type
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa loại ghế "${name}" không?`)) {
+      return;
+    }
+
+    try {
+      const res = await apiFetch(SEAT_TYPES.BY_ID(id), {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        alert(errorData?.message || "Xóa loại ghế thất bại");
+        return;
+      }
+
+      // Refresh the list
+      const listRes = await apiFetch(SEAT_TYPES.LIST);
+      const json = await listRes.json().catch(() => null);
+      const list = json?.data ?? json ?? [];
+      const arr = Array.isArray(list) ? list : [];
+      
+      setSeatTypes(
+        arr.map((t) => ({
+          id: t.seatTypeId ?? t.id,
+          name: t.name ?? "",
+          price: t.surcharge != null ? t.surcharge : 0,
+        }))
+      );
+
+      // Reset to first page if current page is empty
+      if (currentItems.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      }
+
+      alert("Xóa loại ghế thành công!");
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Không thể kết nối đến máy chủ");
+    }
+  };
+
   return (
     <AdminPanelPage
       icon="ui-checks-grid"
@@ -113,13 +156,25 @@ const SeatTypeManagement = () => {
                       <td className="fw-semibold">{type.name}</td>
                       <td className="text-end fw-semibold">{type.price.toLocaleString("vi-VN")} đ</td>
                       <td className="text-center">
-                        <button
-                          type="button"
-                          className="admin-btn admin-btn-sm admin-btn-primary"
-                          onClick={() => navigate("/super-admin/seat-types/create", { state: { editData: type } })}
-                        >
-                          Sửa
-                        </button>
+                        <div className="d-flex gap-1 justify-content-center">
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-primary"
+                            onClick={() => navigate("/super-admin/seat-types/create", { state: { editData: type } })}
+                          >
+                            <i className="bi bi-pencil"></i>
+                            Sửa
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-danger"
+                            onClick={() => handleDelete(type.id, type.name)}
+                            title="Xóa loại ghế"
+                          >
+                            <i className="bi bi-trash"></i>
+                            Xóa
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
