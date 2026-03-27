@@ -12,6 +12,8 @@ const EmployeeManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingItem, setDeletingItem] = useState(null);
   const itemsPerPage = 10;
 
   const [allEmployees, setAllEmployees] = useState([]);
@@ -83,6 +85,28 @@ const EmployeeManagement = () => {
   const totalPages = Math.ceil(sortedEmployees.length / itemsPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const handleDelete = async (emp) => {
+    try {
+      const res = await apiFetch(STAFF.BY_ID(emp.id), {
+        method: 'DELETE'
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Xóa quản trị viên thất bại');
+        return;
+      }
+      // Refresh danh sách
+      window.location.reload();
+    } catch {
+      alert('Không thể kết nối máy chủ');
+    }
+  };
+
+  const confirmDelete = (emp) => {
+    setDeletingItem(emp);
+    setShowDeleteModal(true);
+  };
 
   return (
     <AdminPanelPage
@@ -191,11 +215,18 @@ const EmployeeManagement = () => {
                           Xem
                         </button>
                         <button 
-                          className="admin-btn admin-btn-sm admin-btn-primary"
+                          className="admin-btn admin-btn-sm admin-btn-primary me-2"
                           onClick={() => navigate('/super-admin/employees/create', { state: { editId: emp.id } })}
                         >
                           <i className="bi bi-pencil"></i>
                           Sửa
+                        </button>
+                        <button 
+                          className="admin-btn admin-btn-sm admin-btn-danger"
+                          onClick={() => confirmDelete(emp)}
+                        >
+                          <i className="bi bi-trash"></i>
+                          Xóa
                         </button>
                       </td>
                     </tr>
@@ -280,6 +311,50 @@ const EmployeeManagement = () => {
               >
                 <i className="bi bi-pencil me-2"></i>
                 Chỉnh sửa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && deletingItem && (
+        <div className="admin-modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="admin-modal" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3>
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa
+              </h3>
+              <button className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p>Bạn có chắc chắn muốn xóa quản trị viên rạp này?</p>
+              <div className="alert alert-warning border-0">
+                <strong>{deletingItem.name}</strong><br/>
+                Email: {deletingItem.email}<br/>
+                Rạp: #{deletingItem.cinemaId}
+              </div>
+              <p className="text-muted small mb-0">
+                <i className="bi bi-info-circle me-1"></i>
+                Hành động này không thể hoàn tác. Toàn bộ dữ liệu của quản trị viên sẽ bị xóa vĩnh viễn.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="admin-btn admin-btn-outline" onClick={() => setShowDeleteModal(false)}>
+                Hủy
+              </button>
+              <button 
+                className="admin-btn admin-btn-danger"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  handleDelete(deletingItem);
+                }}
+              >
+                <i className="bi bi-trash me-2"></i>
+                Xóa vĩnh viễn
               </button>
             </div>
           </div>

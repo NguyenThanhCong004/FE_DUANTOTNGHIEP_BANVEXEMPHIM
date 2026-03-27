@@ -24,6 +24,7 @@ import Events from '../pages/common/Events';
 import EventDetail from '../pages/common/EventDetail';
 
 import UserManagement from '../pages/super-admin/Users';
+import EditUserSuperAdmin from '../pages/super-admin/EditUser';
 import SuperAdminLayout from '../components/layout/SuperAdminLayout';
 import AdminLayout from '../components/layout/AdminLayout';
 import SuperAdminDashboard from '../pages/super-admin/Dashboard';
@@ -164,6 +165,7 @@ const AppRoutes = () => {
         <Route path="employees" element={<Employees />} />
         <Route path="employees/create" element={<CreateEmployee />} />
         <Route path="users" element={<UserManagement />} />
+        <Route path="users/edit" element={<EditUserSuperAdmin />} />
         <Route path="movies" element={<SuperMovies />} />
         <Route path="movies/create" element={<CreateMovie />} />
         <Route path="movie-types" element={<SuperMovieTypes />} />

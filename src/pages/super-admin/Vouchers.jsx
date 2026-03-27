@@ -10,6 +10,8 @@ const VoucherManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [voucherToDelete, setVoucherToDelete] = useState(null);
   const itemsPerPage = 10;
 
   const [vouchers, setVouchers] = useState([]);
@@ -57,6 +59,49 @@ const VoucherManagement = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredVouchers.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredVouchers.length / itemsPerPage);
+
+  const handleDeleteVoucher = async (voucher) => {
+    try {
+      const res = await apiFetch(VOUCHERS.BY_ID(voucher.id), {
+        method: "DELETE"
+      });
+      
+      if (res.ok) {
+        // Refresh danh sách
+        const refreshRes = await apiFetch(VOUCHERS.LIST);
+        const json = await refreshRes.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        setVouchers(
+          arr.map((v) => ({
+            id: v.id,
+            code: v.code ?? "",
+            discount_type: v.discountType ?? "PERCENTAGE",
+            value: v.value ?? 0,
+            min_order_value: v.minOrderValue ?? 0,
+            start_date: v.startDate ?? "",
+            end_date: v.endDate ?? "",
+            point_voucher: v.pointVoucher ?? 0,
+            status: v.status === 1 ? "Active" : "Inactive",
+          }))
+        );
+        setShowDeleteModal(false);
+        setVoucherToDelete(null);
+      }
+    } catch (error) {
+      console.error("Error deleting voucher:", error);
+    }
+  };
+
+  const openDeleteModal = (voucher) => {
+    setVoucherToDelete(voucher);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setVoucherToDelete(null);
+  };
 
   return (
     <AdminPanelPage
@@ -153,7 +198,7 @@ const VoucherManagement = () => {
                         </span>
                       </td>
                       <td className="text-center">
-                        <div className="d-flex justify-content-center gap-2 flex-wrap">
+                        <div className="d-flex justify-content-center gap-1 flex-wrap">
                           <button
                             type="button"
                             className="admin-btn admin-btn-sm admin-btn-outline"
@@ -161,15 +206,25 @@ const VoucherManagement = () => {
                               setSelectedItem(voucher);
                               setShowModal(true);
                             }}
+                            title="Xem chi tiết"
                           >
-                            Xem
+                            <i className="bi bi-eye"></i>
                           </button>
                           <button
                             type="button"
                             className="admin-btn admin-btn-sm admin-btn-primary"
                             onClick={() => navigate("/super-admin/vouchers/create", { state: { editData: voucher } })}
+                            title="Sửa voucher"
                           >
-                            Sửa
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-danger"
+                            onClick={() => openDeleteModal(voucher)}
+                            title="Xóa voucher"
+                          >
+                            <i className="bi bi-trash"></i>
                           </button>
                         </div>
                       </td>
@@ -261,6 +316,55 @@ const VoucherManagement = () => {
             <div className="admin-modal-footer">
               <button type="button" className="admin-btn admin-btn-primary" onClick={() => setShowModal(false)}>
                 Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận xóa voucher */}
+      {showDeleteModal && voucherToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa Voucher
+              </h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa voucher này?</p>
+              <div className="alert alert-warning">
+                <strong>Mã Voucher:</strong> <span className="font-monospace">{voucherToDelete.code}</span><br/>
+                <strong>Giảm giá:</strong> {voucherToDelete.discount_type === "PERCENTAGE" 
+                  ? `${voucherToDelete.value}%` 
+                  : `${voucherToDelete.value.toLocaleString("vi-VN")} đ`}<br/>
+                <strong>Điểm đổi:</strong> {voucherToDelete.point_voucher} điểm
+              </div>
+              <p className="text-muted small mb-0">
+                <i className="bi bi-info-circle me-1"></i>
+                Hành động này không thể hoàn tác. Voucher đã xóa sẽ không thể khôi phục.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                className="admin-btn admin-btn-outline-secondary"
+                onClick={closeDeleteModal}
+              >
+                <i className="bi bi-x-circle me-2"></i>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-danger"
+                onClick={() => handleDeleteVoucher(voucherToDelete)}
+              >
+                <i className="bi bi-trash me-2"></i>
+                Xóa voucher
               </button>
             </div>
           </div>
