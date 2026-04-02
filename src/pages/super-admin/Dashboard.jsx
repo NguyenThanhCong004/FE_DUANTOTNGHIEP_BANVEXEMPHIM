@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,6 +10,8 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import { apiJson } from '../../utils/apiClient';
+import { SUPER_ADMIN_DASHBOARD } from '../../constants/apiEndpoints';
 
 ChartJS.register(
   CategoryScale,
@@ -21,12 +23,40 @@ ChartJS.register(
 );
 
 const SuperAdminDashboard = () => {
+  const [summary, setSummary] = useState(null);
+  const [revenueData, setRevenueData] = useState([]);
+  const [cinemaRankings, setCinemaRankings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [summaryRes, revenueRes, rankingRes] = await Promise.all([
+        apiJson(SUPER_ADMIN_DASHBOARD.SUMMARY),
+        apiJson(SUPER_ADMIN_DASHBOARD.REVENUE_CHART(new Date().getFullYear())),
+        apiJson(SUPER_ADMIN_DASHBOARD.CINEMA_RANKING)
+      ]);
+
+      if (summaryRes.ok) setSummary(summaryRes.data);
+      if (revenueRes.ok) setRevenueData(revenueRes.data || []);
+      if (rankingRes.ok) setCinemaRankings(rankingRes.data || []);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const chartData = {
-    labels: ['—'],
+    labels: revenueData.map(item => item.label),
     datasets: [
       {
-        label: 'Doanh thu (Triệu VNĐ)',
-        data: [0],
+        label: 'Doanh thu (VNĐ)',
+        data: revenueData.map(item => item.totalAmount),
         backgroundColor: 'rgba(99, 102, 241, 0.8)',
         borderColor: 'rgb(99, 102, 241)',
         borderWidth: 2,
@@ -61,6 +91,16 @@ const SuperAdminDashboard = () => {
         bodyFont: { size: 12 },
         cornerRadius: 8,
         displayColors: false,
+        callbacks: {
+          label: (context) => {
+            let label = context.dataset.label || '';
+            if (label) label += ': ';
+            if (context.parsed.y !== null) {
+              label += new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(context.parsed.y);
+            }
+            return label;
+          }
+        }
       },
     },
     scales: {
@@ -71,7 +111,7 @@ const SuperAdminDashboard = () => {
           drawBorder: false,
         },
         ticks: {
-          callback: (value) => value + 'M',
+          callback: (value) => (value / 1000000).toFixed(1) + 'M',
           font: { size: 11 },
           color: '#64748b',
         },
@@ -90,11 +130,51 @@ const SuperAdminDashboard = () => {
   };
 
   const stats = [
-    { title: 'Tổng doanh thu', value: '—', subtitle: 'Tất cả rạp', icon: 'bi-currency-dollar', color: '#6366f1', change: 'Nối API', changeType: 'increase' },
-    { title: 'Tổng nhân viên', value: '—', subtitle: 'người', icon: 'bi-person-badge', color: '#10b981', change: '', changeType: 'increase' },
-    { title: 'Tổng khách hàng', value: '—', subtitle: 'người', icon: 'bi-people', color: '#3b82f6', change: '', changeType: 'increase' },
-    { title: 'Tổng phim', value: '—', subtitle: 'bộ phim', icon: 'bi-film', color: '#f59e0b', change: '', changeType: 'increase' },
-    { title: 'Tổng sản phẩm', value: '—', subtitle: 'Bắp/Nước', icon: 'bi-box-seam', color: '#ef4444', change: '', changeType: 'increase' },
+    { 
+      title: 'Tổng doanh thu', 
+      value: summary ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(summary.totalRevenue) : '0 ₫', 
+      subtitle: 'Tất cả rạp', 
+      icon: 'bi-currency-dollar', 
+      color: '#6366f1', 
+      change: summary ? `${summary.revenueGrowth.toFixed(1)}%` : '0%', 
+      changeType: summary && summary.revenueGrowth >= 0 ? 'increase' : 'decrease' 
+    },
+    { 
+      title: 'Tổng nhân viên', 
+      value: summary ? (summary.totalStaff || 0).toLocaleString() : '0', 
+      subtitle: 'người', 
+      icon: 'bi-person-badge', 
+      color: '#10b981', 
+      change: '', 
+      changeType: 'increase' 
+    },
+    { 
+      title: 'Khách hàng', 
+      value: summary ? summary.totalUsers.toLocaleString() : '0', 
+      subtitle: 'người', 
+      icon: 'bi-people', 
+      color: '#3b82f6', 
+      change: '', 
+      changeType: 'increase' 
+    },
+    { 
+      title: 'Tổng rạp', 
+      value: summary ? summary.totalCinemas.toLocaleString() : '0', 
+      subtitle: 'chi nhánh', 
+      icon: 'bi-building', 
+      color: '#f59e0b', 
+      change: '', 
+      changeType: 'increase' 
+    },
+    { 
+      title: 'Tổng phim', 
+      value: summary ? (summary.totalMovies || 0).toLocaleString() : '0', 
+      subtitle: 'bộ phim', 
+      icon: 'bi-film', 
+      color: '#6366f1', 
+      change: '', 
+      changeType: 'increase' 
+    }
   ];
 
   const exportExcel = () => {
@@ -140,8 +220,10 @@ const SuperAdminDashboard = () => {
             <div className="admin-stat-icon">
               <i className={`bi ${stat.icon}`}></i>
             </div>
-            <div className="admin-stat-value">{stat.value}</div>
-            <div className="admin-stat-label">{stat.subtitle}</div>
+            <div className="admin-stat-value" style={{ fontSize: stat.title === 'Tổng doanh thu' ? '1.25rem' : '1.5rem' }}>
+              {stat.value}
+            </div>
+            <div className="admin-stat-label">{stat.title} ({stat.subtitle})</div>
             {stat.change && (
               <div className={`admin-stat-change ${stat.changeType}`}>
                 <i className={`bi bi-arrow-${stat.changeType === 'increase' ? 'up' : 'down'}`}></i>
@@ -152,17 +234,69 @@ const SuperAdminDashboard = () => {
         ))}
       </div>
 
-      <div className="admin-card admin-slide-up" style={{ animationDelay: '0.5s' }}>
-        <div className="admin-card-header">
-          <h4>
-            <i className="bi bi-bar-chart-line me-2 text-primary"></i>
-            Biểu đồ doanh thu theo rạp
-          </h4>
-          <span className="text-muted small">Đơn vị: Triệu VNĐ</span>
+      <div className="row mt-4">
+        <div className="col-lg-8">
+          <div className="admin-card admin-slide-up" style={{ animationDelay: '0.4s' }}>
+            <div className="admin-card-header">
+              <h4>
+                <i className="bi bi-bar-chart-line me-2 text-primary"></i>
+                Biểu đồ doanh thu năm {new Date().getFullYear()}
+              </h4>
+              <span className="text-muted small">Đơn vị: VNĐ</span>
+            </div>
+            <div className="admin-card-body">
+              <div style={{ height: '400px', position: 'relative' }}>
+                {loading ? (
+                  <div className="d-flex justify-content-center align-items-center h-100">
+                    <div className="spinner-border text-primary" role="status"></div>
+                  </div>
+                ) : (
+                  <Bar data={chartData} options={chartOptions} />
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="admin-card-body">
-          <div style={{ height: '400px', position: 'relative' }}>
-            <Bar data={chartData} options={chartOptions} />
+
+        <div className="col-lg-4">
+          <div className="admin-card admin-slide-up" style={{ animationDelay: '0.5s' }}>
+            <div className="admin-card-header">
+              <h4>
+                <i className="bi bi-trophy me-2 text-warning"></i>
+                Xếp hạng doanh thu rạp
+              </h4>
+            </div>
+            <div className="admin-card-body p-0">
+              <div className="table-responsive">
+                <table className="admin-table mb-0">
+                  <thead>
+                    <tr>
+                      <th>Tên rạp</th>
+                      <th className="text-end">Doanh thu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr><td colSpan="2" className="text-center py-4">Đang tải...</td></tr>
+                    ) : cinemaRankings.length > 0 ? (
+                      cinemaRankings.map((cinema, idx) => (
+                        <tr key={idx}>
+                          <td className="fw-bold">
+                            <span className="me-2 text-muted">{idx + 1}.</span>
+                            {cinema.cinemaName}
+                          </td>
+                          <td className="text-end text-primary fw-bold">
+                            {new Intl.NumberFormat('vi-VN').format(cinema.revenue)} ₫
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan="2" className="text-center py-4">Chưa có dữ liệu</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>

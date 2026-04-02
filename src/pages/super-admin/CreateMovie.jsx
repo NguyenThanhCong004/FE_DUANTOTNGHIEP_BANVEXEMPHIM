@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { MOVIES, GENRES } from '../../constants/apiEndpoints';
 
@@ -12,10 +13,26 @@ function fileToDataUrl(file) {
   });
 }
 
+const FAMOUS_NATIONS = [
+  { value: 'Việt Nam', label: 'Việt Nam' },
+  { value: 'Mỹ', label: 'Mỹ (USA)' },
+  { value: 'Hàn Quốc', label: 'Hàn Quốc' },
+  { value: 'Nhật Bản', label: 'Nhật Bản' },
+  { value: 'Trung Quốc', label: 'Trung Quốc' },
+  { value: 'Thái Lan', label: 'Thái Lan' },
+  { value: 'Pháp', label: 'Pháp' },
+  { value: 'Anh', label: 'Anh' },
+  { value: 'Ấn Độ', label: 'Ấn Độ' },
+  { value: 'Đài Loan', label: 'Đài Loan' },
+  { value: 'Hong Kong', label: 'Hong Kong' },
+];
+
 const CreateMovie = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const posterInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -23,7 +40,7 @@ const CreateMovie = () => {
     describe: '',
     duration: '',
     author: '',
-    nation: '',
+    nation: 'Việt Nam',
     genre_id: '',
     release_date: '',
     age_limit: '',
@@ -34,114 +51,135 @@ const CreateMovie = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
   const [previewPoster, setPreviewPoster] = useState(null);
   const [previewBanner, setPreviewBanner] = useState(null);
   const [genreOptions, setGenreOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [originalDate, setOriginalDate] = useState('');
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await apiFetch(GENRES.LIST);
-        const json = await res.json().catch(() => null);
-        const list = json?.data ?? json ?? [];
-        if (mounted) setGenreOptions(Array.isArray(list) ? list : []);
-      } catch {
-        if (mounted) setGenreOptions([]);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    fetchGenres();
   }, []);
+
+  const fetchGenres = async () => {
+    try {
+      const res = await apiFetch(GENRES.LIST);
+      const json = await res.json().catch(() => null);
+      const list = json?.data ?? json ?? [];
+      setGenreOptions(Array.isArray(list) ? list : []);
+    } catch {
+      setGenreOptions([]);
+    }
+  };
 
   useEffect(() => {
     const mid = editData?.id;
     if (!mid || genreOptions.length === 0) return;
-    let mounted = true;
-    (async () => {
+    
+    const fetchMovieDetail = async () => {
+      setLoading(true);
       try {
         const res = await apiFetch(MOVIES.BY_ID(mid));
         const json = await res.json().catch(() => null);
         const m = json?.data ?? json;
-        if (!mounted || !res.ok || !m) return;
+        if (!res.ok || !m) return;
+        
         const gid = genreOptions.find((g) => g.name === m.genre)?.genreId;
         const rd = m.releaseDate ? String(m.releaseDate).slice(0, 10) : "";
+        setOriginalDate(rd);
+        
         setFormData({
           title: m.title || "",
           description: m.description || "",
           describe: m.content || "",
           duration: m.duration != null ? String(m.duration) : "",
           author: m.author || "",
-          nation: m.nation || "",
+          nation: m.nation || "Việt Nam",
           genre_id: gid != null ? String(gid) : "",
           release_date: rd,
           age_limit: m.ageLimit != null ? String(m.ageLimit) : "",
           base_price: m.basePrice != null ? String(m.basePrice) : "",
-          status: m.status === 1 ? "Active" : "Inactive",
+          status: m.status === 1 ? "Active" : (m.status === 2 ? "Upcoming" : "Inactive"),
           poster: null,
           banner: null,
         });
         if (m.posterUrl) setPreviewPoster(m.posterUrl);
         if (m.banner) setPreviewBanner(m.banner);
-      } catch {
-        /* ignore */
+      } catch (error) {
+        console.error("Lỗi lấy chi tiết phim:", error);
+      } finally {
+        setLoading(false);
       }
-    })();
-    return () => {
-      mounted = false;
     };
+
+    fetchMovieDetail();
   }, [editData?.id, genreOptions]);
 
   useEffect(() => {
-    if (editData?.id) return;
-    if (editData) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state (no id)
-      setFormData({
-        title: editData.title || '',
-        description: editData.description || '',
-        describe: editData.describe || '',
-        duration: editData.duration || '',
-        author: editData.author || '',
-        nation: editData.nation || '',
-        genre_id: editData.genre_id || '',
-        release_date: editData.release_date || '',
-        age_limit: editData.age_limit || '',
-        base_price: editData.base_price || '',
-        status: editData.status || 'Active',
-        poster: null,
-        banner: null
-      });
-      if (editData.poster) setPreviewPoster(editData.poster);
-      if (editData.banner) setPreviewBanner(editData.banner);
+    if (!formData.release_date || formData.status === 'Inactive') return;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selDate = new Date(formData.release_date);
+    selDate.setHours(0, 0, 0, 0);
+
+    if (selDate > today) {
+      if (formData.status === 'Active') {
+        setFormData(prev => ({ ...prev, status: 'Upcoming' }));
+      }
+    } else {
+      if (formData.status === 'Upcoming') {
+        setFormData(prev => ({ ...prev, status: 'Active' }));
+      }
     }
-  }, [editData]);
+  }, [formData.release_date]);
 
   const validateForm = () => {
     let newErrors = {};
-    if (!formData.title.trim()) newErrors.title = 'Tiêu đề không được để trống';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    if (!formData.title.trim()) newErrors.title = 'Tiêu đề không được để trống';
     if (!formData.duration) {
       newErrors.duration = 'Thời lượng không được để trống';
     } else if (parseInt(formData.duration, 10) <= 0) {
       newErrors.duration = 'Thời lượng phải là số dương';
     }
-
     if (!formData.genre_id) newErrors.genre_id = 'Vui lòng chọn thể loại';
-    if (!formData.release_date) newErrors.release_date = 'Ngày khởi chiếu không được để trống';
+    
+    if (!formData.release_date) {
+      newErrors.release_date = 'Ngày khởi chiếu không được để trống';
+    } else {
+      const selDate = new Date(formData.release_date);
+      selDate.setHours(0, 0, 0, 0);
+      
+      if (!editData?.id || formData.release_date !== originalDate) {
+        if (selDate < today) {
+          newErrors.release_date = 'Ngày khởi chiếu không được ở quá khứ';
+        }
+      }
+    }
+
+    if (formData.status === 'Upcoming' && formData.release_date) {
+      const selDate = new Date(formData.release_date);
+      selDate.setHours(0, 0, 0, 0);
+      if (selDate <= today) {
+        newErrors.status = 'Trạng thái "Sắp chiếu" chỉ dành cho phim có ngày chiếu trong tương lai';
+      }
+    }
+
     if (formData.age_limit === '' || formData.age_limit == null) {
       newErrors.age_limit = 'Vui lòng chọn giới hạn độ tuổi';
     }
-
     if (!formData.base_price) {
       newErrors.base_price = 'Giá vé không được để trống';
     } else if (parseFloat(formData.base_price) <= 0) {
       newErrors.base_price = 'Giá vé phải là số dương';
     }
 
-    const editing = Boolean(editData?.id);
-    if (!editing && !formData.poster) newErrors.poster = 'Vui lòng chọn poster';
-
+    if (!editData?.id && !formData.poster) newErrors.poster = 'Vui lòng chọn poster';
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -149,9 +187,8 @@ const CreateMovie = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    if (name === 'status' && errors.status) setErrors(prev => ({ ...prev, status: '' }));
   };
 
   const handleFileChange = (e) => {
@@ -159,12 +196,12 @@ const CreateMovie = () => {
     const file = files[0];
     if (file) {
       setFormData(prev => ({ ...prev, [name]: file }));
+      const url = URL.createObjectURL(file);
       if (name === 'poster') {
-        setPreviewPoster(URL.createObjectURL(file));
+        setPreviewPoster(url);
         setErrors(prev => ({ ...prev, poster: '' }));
-      }
-      if (name === 'banner') {
-        setPreviewBanner(URL.createObjectURL(file));
+      } else {
+        setPreviewBanner(url);
         setErrors(prev => ({ ...prev, banner: '' }));
       }
     }
@@ -174,19 +211,18 @@ const CreateMovie = () => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    setSubmitting(true);
     try {
-      let posterStr = previewPoster;
+      let posterBase64 = previewPoster;
       if (formData.poster instanceof File) {
-        posterStr = await fileToDataUrl(formData.poster);
+        posterBase64 = await fileToDataUrl(formData.poster);
       }
-      if (!posterStr || typeof posterStr !== "string") {
-        setErrors((prev) => ({ ...prev, poster: "Cần poster (ảnh hoặc URL)" }));
-        return;
-      }
-      let bannerStr = previewBanner;
+
+      let bannerBase64 = previewBanner;
       if (formData.banner instanceof File) {
-        bannerStr = await fileToDataUrl(formData.banner);
+        bannerBase64 = await fileToDataUrl(formData.banner);
       }
+
       const body = {
         genreId: Number(formData.genre_id),
         title: formData.title.trim(),
@@ -194,305 +230,220 @@ const CreateMovie = () => {
         duration: Number(formData.duration),
         ageLimit: Number(formData.age_limit),
         releaseDate: formData.release_date,
-        poster: posterStr,
-        status: formData.status === "Active" ? 1 : 0,
+        poster: posterBase64,
+        status: formData.status === "Active" ? 1 : (formData.status === "Upcoming" ? 2 : 0),
         basePrice: Number(formData.base_price),
         author: formData.author?.trim() || null,
         nation: formData.nation?.trim() || null,
         content: formData.describe?.trim() || null,
-        banner: typeof bannerStr === "string" && bannerStr ? bannerStr : null,
+        banner: bannerBase64,
       };
+
       const movieId = editData?.id ?? editData?.movie_id;
       const url = movieId ? MOVIES.BY_ID(movieId) : MOVIES.LIST;
       const res = await apiFetch(url, {
         method: movieId ? "PUT" : "POST",
         body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
+
+      if (res.ok) {
+        navigate("/super-admin/movies", { 
+          state: { 
+            message: editData ? 'Cập nhật phim thành công!' : 'Thêm phim mới thành công!',
+            type: 'success'
+          } 
+        });
+      } else {
+        const json = await res.json().catch(() => null);
         alert(json?.message || "Lưu phim thất bại");
-        return;
       }
-      alert(movieId ? "Cập nhật phim thành công!" : "Thêm phim thành công!");
-      navigate("/super-admin/movies");
-    } catch {
-      alert("Không thể kết nối server");
+    } catch (error) {
+      alert("Lỗi kết nối máy chủ");
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  if (loading) return <AdminPanelPage title="Đang tải..."><div className="text-center py-5"><div className="spinner-border text-primary"></div></div></AdminPanelPage>;
+
   return (
-    <div className="create-movie p-4">
-      <style>{`
-        .form-container {
-          background: white;
-          border-radius: 15px;
-          padding: 40px;
-          box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-          max-width: 1000px;
-          margin: 0 auto;
-        }
-
-        .form-group-custom {
-          margin-bottom: 25px;
-        }
-
-        .form-label {
-          font-weight: bold;
-          color: black;
-          margin-bottom: 8px;
-          display: block;
-          text-transform: uppercase;
-          font-size: 0.85rem;
-        }
-
-        .custom-input {
-          width: 100%;
-          height: 50px;
-          padding: 10px 20px;
-          background-color: whitesmoke !important;
-          border: 2px solid black !important;
-          border-radius: 10px;
-          color: black !important;
-          font-weight: 500;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .custom-textarea {
-          width: 100%;
-          padding: 15px 20px;
-          background-color: whitesmoke !important;
-          border: 2px solid black !important;
-          border-radius: 10px;
-          color: black !important;
-          font-weight: 500;
-          outline: none;
-          transition: all 0.2s ease;
-          min-height: 100px;
-        }
-
-        .custom-input:focus, .custom-textarea:focus {
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .error-message {
-          color: #dc3545;
-          font-size: 0.8rem;
-          margin-top: 5px;
-          font-weight: 500;
-        }
-
-        /* Phần hình ảnh */
-        .image-upload-section {
-          padding: 20px;
-          border: 2px solid black;
-          border-radius: 15px;
-          background: whitesmoke;
-          margin-bottom: 30px;
-        }
-
-        .preview-box {
-          border: 2px solid black;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          background: white;
-          cursor: pointer;
-          margin-bottom: 10px;
-        }
-
-        .poster-preview { width: 150px; height: 220px; }
-        .banner-preview { width: 100%; height: 200px; }
-
-        .preview-box img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .btn-save {
-          background: black;
-          color: white;
-          border: 2px solid black;
-          padding: 12px 40px;
-          border-radius: 10px;
-          font-weight: bold;
-          transition: all 0.2s;
-        }
-
-        .btn-save:hover {
-          background: whitesmoke;
-          color: black;
-        }
-
-        .btn-cancel {
-          background: white;
-          color: black;
-          border: 2px solid black;
-          padding: 12px 40px;
-          border-radius: 10px;
-          font-weight: bold;
-          margin-right: 15px;
-        }
-
-        .section-title {
-          font-size: 1rem;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          color: black;
-          margin-bottom: 25px;
-          padding-bottom: 10px;
-          border-bottom: 3px solid black;
-          display: inline-block;
-        }
-      `}</style>
-
-      <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
-          {editData ? 'Cập Nhật Phim' : 'Thêm Phim Mới'}
-        </h1>
-        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/movies')}>
-          <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
-        </button>
-      </div>
-
-      <div className="form-container">
-        <form onSubmit={handleSubmit} noValidate>
-          {/* Image Section */}
-          <div className="image-upload-section">
-            <h5 className="section-title">HÌNH ẢNH PHIM</h5>
-            <div className="row g-4 text-center">
-              <div className="col-md-4 d-flex flex-column align-items-center">
-                <label className="form-label">Poster (Ảnh dọc)</label>
-                <div className={`preview-box poster-preview ${errors.poster ? 'border-danger' : ''}`} onClick={() => document.getElementById('poster-input').click()}>
-                  {previewPoster ? (
-                    <img src={previewPoster} alt="Poster" />
-                  ) : (
-                    <div className="text-center p-3">
-                      <i className="bi bi-image fs-1 text-dark"></i>
-                      <div className="small fw-bold text-dark mt-2">CHỌN POSTER</div>
-                    </div>
-                  )}
-                </div>
-                {errors.poster && <div className="error-message">{errors.poster}</div>}
-                <input type="file" id="poster-input" hidden accept="image/*" name="poster" onChange={handleFileChange} />
+    <AdminPanelPage
+      icon={editData ? "bi-film" : "bi-plus-circle-dotted"}
+      title={editData ? "Cập nhật phim" : "Thêm phim mới"}
+      description="Quản lý thông tin phim, poster, banner và nội dung chi tiết trên hệ thống."
+    >
+      <form onSubmit={handleSubmit} noValidate>
+        <div className="row g-4">
+          <div className="col-12">
+            <div className="admin-card admin-slide-up">
+              <div className="admin-card-header">
+                <h4 className="mb-0"><i className="bi bi-image-fill text-primary me-2"></i>Hình ảnh phim (Poster & Banner)</h4>
               </div>
-              
-              <div className="col-md-8 d-flex flex-column align-items-center">
-                <label className="form-label">Banner (Ảnh ngang)</label>
-                <div className={`preview-box banner-preview ${errors.banner ? 'border-danger' : ''}`} onClick={() => document.getElementById('banner-input').click()}>
-                  {previewBanner ? (
-                    <img src={previewBanner} alt="Banner" />
-                  ) : (
-                    <div className="text-center p-3">
-                      <i className="bi bi-card-image fs-1 text-dark"></i>
-                      <div className="small fw-bold text-dark mt-2">CHỌN BANNER</div>
+              <div className="admin-card-body p-4">
+                <div className="row g-4 align-items-center">
+                  <div className="col-md-4 text-center">
+                    <label className="admin-form-label d-block mb-2">Poster phim (2:3)</label>
+                    <div 
+                      className={`mx-auto mb-2 border-2 d-flex align-items-center justify-content-center overflow-hidden ${errors.poster ? 'border-danger' : 'border-light'}`}
+                      style={{ width: '100%', maxWidth: '200px', aspectRatio: '2/3', cursor: 'pointer', background: '#f8fafc', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      onClick={() => posterInputRef.current.click()}
+                    >
+                      {previewPoster ? (
+                        <img src={previewPoster} alt="Poster" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div className="text-muted text-center">
+                          <i className="bi bi-plus-lg fs-1"></i>
+                          <div className="small fw-bold mt-2">POSTER</div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                    <input type="file" ref={posterInputRef} hidden accept="image/*" name="poster" onChange={handleFileChange} />
+                    {errors.poster && <div className="text-danger small fw-bold">{errors.poster}</div>}
+                  </div>
+                  <div className="col-md-8 text-center">
+                    <label className="admin-form-label d-block mb-2">Banner phim (16:9)</label>
+                    <div 
+                      className="mx-auto mb-2 border-2 d-flex align-items-center justify-content-center overflow-hidden"
+                      style={{ width: '100%', aspectRatio: '16/9', cursor: 'pointer', background: '#f8fafc', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      onClick={() => bannerInputRef.current.click()}
+                    >
+                      {previewBanner ? (
+                        <img src={previewBanner} alt="Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div className="text-muted text-center">
+                          <i className="bi bi-plus-lg fs-1"></i>
+                          <div className="small fw-bold mt-2">TẢI BANNER</div>
+                        </div>
+                      )}
+                    </div>
+                    <input type="file" ref={bannerInputRef} hidden accept="image/*" name="banner" onChange={handleFileChange} />
+                    <p className="text-muted small mb-0 mt-2">Tỉ lệ 16:9 giúp banner hiển thị tốt nhất trên màn hình lớn.</p>
+                  </div>
                 </div>
-                {errors.banner && <div className="error-message">{errors.banner}</div>}
-                <input type="file" id="banner-input" hidden accept="image/*" name="banner" onChange={handleFileChange} />
               </div>
             </div>
           </div>
 
-          <h5 className="section-title">THÔNG TIN CHI TIẾT PHIM</h5>
-          <div className="row">
-            <div className="col-md-8 form-group-custom">
-              <label className="form-label">Tiêu đề phim</label>
-              <input type="text" name="title" className={`custom-input ${errors.title ? 'is-invalid' : ''}`} placeholder="Ví dụ: Lật Mặt 7: Một Điều Ước" value={formData.title} onChange={handleChange} />
-              {errors.title && <div className="error-message">{errors.title}</div>}
+          <div className="col-12">
+            <div className="admin-card admin-slide-up">
+              <div className="admin-card-header">
+                <h4 className="mb-0"><i className="bi bi-info-circle-fill text-primary me-2"></i>Thông tin cơ bản</h4>
+              </div>
+              <div className="admin-card-body p-4">
+                <div className="row">
+                  <div className="col-md-8 mb-4">
+                    <label className="admin-form-label">Tiêu đề phim <span className="text-danger">*</span></label>
+                    <input 
+                      type="text" name="title" className={`admin-search-input w-100 ${errors.title ? 'border-danger' : ''}`}
+                      placeholder="Ví dụ: Lật Mặt 7: Một Điều Ước" value={formData.title} onChange={handleChange} 
+                    />
+                    {errors.title && <small className="text-danger fw-medium">{errors.title}</small>}
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Đạo diễn</label>
+                    <input 
+                      type="text" name="author" className="admin-search-input w-100"
+                      placeholder="Tên đạo diễn" value={formData.author} onChange={handleChange} 
+                    />
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Thời lượng (phút) <span className="text-danger">*</span></label>
+                    <input 
+                      type="number" name="duration" className={`admin-search-input w-100 ${errors.duration ? 'border-danger' : ''}`}
+                      placeholder="120" value={formData.duration} onChange={handleChange} 
+                    />
+                    {errors.duration && <small className="text-danger fw-medium">{errors.duration}</small>}
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Quốc gia</label>
+                    <select name="nation" className="admin-search-input w-100" value={formData.nation} onChange={handleChange}>
+                      {FAMOUS_NATIONS.map((n) => (
+                        <option key={n.value} value={n.value}>{n.label}</option>
+                      ))}
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Thể loại <span className="text-danger">*</span></label>
+                    <select name="genre_id" className={`admin-search-input w-100 ${errors.genre_id ? 'border-danger' : ''}`} value={formData.genre_id} onChange={handleChange}>
+                      <option value="">-- Chọn thể loại --</option>
+                      {genreOptions.map((g) => (
+                        <option key={g.genreId} value={g.genreId}>{g.name}</option>
+                      ))}
+                    </select>
+                    {errors.genre_id && <small className="text-danger fw-medium">{errors.genre_id}</small>}
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Ngày khởi chiếu <span className="text-danger">*</span></label>
+                    <input type="date" name="release_date" className={`admin-search-input w-100 ${errors.release_date ? 'border-danger' : ''}`} value={formData.release_date} onChange={handleChange} />
+                    {errors.release_date && <small className="text-danger fw-medium">{errors.release_date}</small>}
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Độ tuổi <span className="text-danger">*</span></label>
+                    <select name="age_limit" className={`admin-search-input w-100 ${errors.age_limit ? 'border-danger' : ''}`} value={formData.age_limit} onChange={handleChange}>
+                      <option value="">-- Chọn giới hạn --</option>
+                      <option value="0">Mọi lứa tuổi (0)</option>
+                      <option value="13">T13 — trên 13</option>
+                      <option value="16">T16 — trên 16</option>
+                      <option value="18">T18 — trên 18</option>
+                    </select>
+                    {errors.age_limit && <small className="text-danger fw-medium">{errors.age_limit}</small>}
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Giá vé cơ bản (VNĐ) <span className="text-danger">*</span></label>
+                    <input type="number" name="base_price" className={`admin-search-input w-100 ${errors.base_price ? 'border-danger' : ''}`} placeholder="85000" value={formData.base_price} onChange={handleChange} />
+                    {errors.base_price && <small className="text-danger fw-medium">{errors.base_price}</small>}
+                  </div>
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Trạng thái phát hành</label>
+                    <select name="status" className={`admin-search-input w-100 ${errors.status ? 'border-danger' : ''}`} value={formData.status} onChange={handleChange}>
+                      <option value="Active">Đang chiếu</option>
+                      <option value="Inactive">Ngưng chiếu</option>
+                      <option value="Upcoming">Sắp chiếu</option>
+                    </select>
+                    {errors.status && <small className="text-danger fw-medium">{errors.status}</small>}
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="col-md-4 form-group-custom">
-              <label className="form-label">Đạo diễn</label>
-              <input type="text" name="author" className={`custom-input ${errors.author ? 'is-invalid' : ''}`} placeholder="Tên đạo diễn" value={formData.author} onChange={handleChange} />
-              {errors.author && <div className="error-message">{errors.author}</div>}
+          <div className="col-12">
+            <div className="admin-card admin-slide-up">
+              <div className="admin-card-header">
+                <h4 className="mb-0"><i className="bi bi-justify-left text-primary me-2"></i>Mô tả & Nội dung</h4>
+              </div>
+              <div className="admin-card-body p-4">
+                <div className="mb-4">
+                  <label className="admin-form-label">Tóm tắt ngắn</label>
+                  <textarea 
+                    name="description" className="admin-search-input w-100" style={{ height: 'auto', minHeight: '80px', paddingTop: '10px' }}
+                    placeholder="Một đoạn mô tả ngắn gọn về nội dung phim..." value={formData.description} onChange={handleChange}
+                  ></textarea>
+                </div>
+                <div className="mb-0">
+                  <label className="admin-form-label">Nội dung chi tiết</label>
+                  <textarea 
+                    name="describe" className="admin-search-input w-100" style={{ height: 'auto', minHeight: '160px', paddingTop: '10px' }}
+                    rows="5" placeholder="Nội dung đầy đủ cốt truyện và thông tin phim..." value={formData.describe} onChange={handleChange}
+                  ></textarea>
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="col-md-4 form-group-custom">
-              <label className="form-label">Thời lượng (phút)</label>
-              <input type="number" name="duration" className={`custom-input ${errors.duration ? 'is-invalid' : ''}`} placeholder="120" value={formData.duration} onChange={handleChange} />
-              {errors.duration && <div className="error-message">{errors.duration}</div>}
-            </div>
-
-            <div className="col-md-4 form-group-custom">
-              <label className="form-label">Quốc gia</label>
-              <input type="text" name="nation" className={`custom-input ${errors.nation ? 'is-invalid' : ''}`} placeholder="Việt Nam, Mỹ..." value={formData.nation} onChange={handleChange} />
-              {errors.nation && <div className="error-message">{errors.nation}</div>}
-            </div>
-
-            <div className="col-md-4 form-group-custom">
-              <label className="form-label">Thể loại</label>
-              <select name="genre_id" className={`custom-input ${errors.genre_id ? 'is-invalid' : ''}`} value={formData.genre_id} onChange={handleChange}>
-                <option value="">-- Chọn thể loại --</option>
-                {genreOptions.map((g) => (
-                  <option key={g.genreId} value={g.genreId}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-              {errors.genre_id && <div className="error-message">{errors.genre_id}</div>}
-            </div>
-
-            <div className="col-md-4 form-group-custom">
-              <label className="form-label">Ngày khởi chiếu</label>
-              <input type="date" name="release_date" className={`custom-input ${errors.release_date ? 'is-invalid' : ''}`} value={formData.release_date} onChange={handleChange} />
-              {errors.release_date && <div className="error-message">{errors.release_date}</div>}
-            </div>
-
-            <div className="col-md-4 form-group-custom">
-              <label className="form-label">Độ tuổi</label>
-              <select name="age_limit" className={`custom-input ${errors.age_limit ? 'is-invalid' : ''}`} value={formData.age_limit} onChange={handleChange}>
-                <option value="">-- Chọn giới hạn --</option>
-                <option value="0">Mọi lứa tuổi (0)</option>
-                <option value="13">T13 — trên 13</option>
-                <option value="16">T16 — trên 16</option>
-                <option value="18">T18 — trên 18</option>
-              </select>
-              {errors.age_limit && <div className="error-message">{errors.age_limit}</div>}
-            </div>
-
-            <div className="col-md-4 form-group-custom">
-              <label className="form-label">Giá vé cơ bản (VNĐ)</label>
-              <input type="number" name="base_price" className={`custom-input ${errors.base_price ? 'is-invalid' : ''}`} placeholder="85000" value={formData.base_price} onChange={handleChange} />
-              {errors.base_price && <div className="error-message">{errors.base_price}</div>}
-            </div>
-
-            <div className="col-12 form-group-custom">
-              <label className="form-label">Mô tả</label>
-              <textarea name="description" className="custom-textarea" placeholder="mô tả nội dung phim..." value={formData.description} onChange={handleChange}></textarea>
-            </div>
-
-            <div className="col-12 form-group-custom">
-              <label className="form-label">Nội dung chi tiết</label>
-              <textarea name="describe" className="custom-textarea" rows="5" placeholder="Nội dung đầy đủ cốt truyện và thông tin phim..." value={formData.describe} onChange={handleChange}></textarea>
-            </div>
-
-            <div className="col-md-6 form-group-custom">
-              <label className="form-label">Trạng thái phát hành</label>
-              <select name="status" className="custom-input" value={formData.status} onChange={handleChange}>
-                <option value="Active">Đang chiếu</option>
-                <option value="Inactive">Ngưng chiếu</option>
-                <option value="Upcoming">Sắp chiếu</option>
-              </select>
-            </div>
-
-            <div className="col-12 mt-4 border-top pt-4 text-center">
-              <button type="button" className="btn btn-cancel" onClick={() => navigate('/super-admin/movies')}>
-                HỦY BỎ
-              </button>
-              <button type="submit" className="btn btn-save">
-                {editData ? 'CẬP NHẬT PHIM' : 'XÁC NHẬN LƯU PHIM'}
+          <div className="col-12 mt-2">
+            <div className="d-flex justify-content-center gap-3">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/movies')}>Hủy bỏ</button>
+              <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '220px' }} disabled={submitting}>
+                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                {editData ? 'Cập nhật phim' : 'Lưu phim mới'}
               </button>
             </div>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </AdminPanelPage>
   );
 };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { MEMBERSHIP_RANKS } from '../../constants/apiEndpoints';
 
@@ -17,10 +18,11 @@ const CreateMembershipLevel = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState('');
 
   useEffect(() => {
     if (editData) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         rank_name: editData.rank_name || '',
         min_spending: editData.min_spending || '',
@@ -33,25 +35,18 @@ const CreateMembershipLevel = () => {
 
   const validateForm = () => {
     let newErrors = {};
-    if (!formData.rank_name.trim()) {
-      newErrors.rank_name = 'Tên hạng không được để trống';
-    }
-
+    if (!formData.rank_name.trim()) newErrors.rank_name = 'Tên hạng không được để trống';
     if (!formData.min_spending) {
       newErrors.min_spending = 'Chi tiêu tối thiểu không được để trống';
     } else if (parseFloat(formData.min_spending) < 0) {
       newErrors.min_spending = 'Chi tiêu không được là số âm';
     }
-
     if (!formData.discount_percent) {
       newErrors.discount_percent = 'Phần trăm giảm giá không được để trống';
     } else {
       const val = parseFloat(formData.discount_percent);
-      if (val < 0 || val > 100) {
-        newErrors.discount_percent = 'Phần trăm phải từ 0 đến 100';
-      }
+      if (val < 0 || val > 100) newErrors.discount_percent = 'Phần trăm phải từ 0 đến 100';
     }
-
     if (!formData.bonus_point) {
       newErrors.bonus_point = 'Hệ số điểm thưởng không được để trống';
     } else if (parseFloat(formData.bonus_point) < 1) {
@@ -65,15 +60,15 @@ const CreateMembershipLevel = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    setSubmitting(true);
+    setServerError('');
     const body = {
       rankName: formData.rank_name.trim(),
       minSpending: parseFloat(formData.min_spending),
@@ -88,200 +83,93 @@ const CreateMembershipLevel = () => {
         method: rid ? 'PUT' : 'POST',
         body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        alert(json?.message || 'Lưu hạng thất bại');
-        return;
+      if (res.ok) {
+        navigate('/super-admin/membership-levels');
+      } else {
+        const json = await res.json().catch(() => null);
+        setServerError(json?.message || 'Lưu hạng hội viên thất bại');
       }
-      alert(rid ? 'Cập nhật mức độ hội viên thành công!' : 'Thêm mức độ hội viên thành công!');
-      navigate('/super-admin/membership-levels');
     } catch {
-      alert('Không thể kết nối server');
+      setServerError('Lỗi kết nối máy chủ');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="create-membership p-4">
-      <style>{`
-        .form-container {
-          background: white;
-          border-radius: 15px;
-          padding: 40px;
-          box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-          max-width: 900px;
-          margin: 0 auto;
-        }
-
-        .form-group-custom {
-          margin-bottom: 25px;
-        }
-
-        .form-label {
-          font-weight: bold;
-          color: black;
-          margin-bottom: 8px;
-          display: block;
-          text-transform: uppercase;
-          font-size: 0.85rem;
-          letter-spacing: 0.5px;
-        }
-
-        .custom-input, .custom-textarea {
-          width: 100%;
-          height: 50px;
-          padding: 10px 20px;
-          background-color: whitesmoke !important;
-          border: 2px solid black !important;
-          border-radius: 10px;
-          color: black !important;
-          font-weight: 500;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .custom-textarea {
-          min-height: 100px;
-          padding-top: 12px;
-        }
-
-        .custom-input:focus, .custom-textarea:focus {
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .error-message {
-          color: #dc3545;
-          font-size: 0.8rem;
-          margin-top: 5px;
-          font-weight: 500;
-        }
-
-        .btn-save {
-          background: black;
-          color: white;
-          border: 2px solid black;
-          padding: 12px 40px;
-          border-radius: 10px;
-          font-weight: bold;
-          transition: all 0.2s;
-        }
-
-        .btn-save:hover {
-          background: whitesmoke;
-          color: black;
-        }
-
-        .btn-cancel {
-          background: white;
-          color: black;
-          border: 2px solid black;
-          padding: 12px 40px;
-          border-radius: 10px;
-          font-weight: bold;
-          margin-right: 15px;
-        }
-
-        .section-title {
-          font-size: 1rem;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          margin-bottom: 25px;
-          color: black;
-          padding-bottom: 10px;
-          border-bottom: 3px solid black;
-          display: inline-block;
-        }
-      `}</style>
-
-      <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
-          {editData ? 'CẬP NHẬT HẠNG HỘI VIÊN' : 'THÊM HẠNG HỘI VIÊN MỚI'}
-        </h1>
-        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/membership-levels')}>
-          <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
-        </button>
-      </div>
-
-      <div className="form-container">
-        <form onSubmit={handleSubmit} noValidate>
-          <h5 className="section-title">THÔNG TIN HẠNG THÀNH VIÊN</h5>
+    <AdminPanelPage 
+      icon={editData ? "bi-award-fill" : "bi-award"} 
+      title={editData ? 'Cập nhật hạng hội viên' : 'Thêm hạng hội viên'} 
+      description="Thiết lập các mốc chi tiêu và ưu đãi đặc quyền cho khách hàng thân thiết."
+    >
+      <div className="admin-card admin-slide-up" style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <div className="admin-card-header">
+          <h4 className="mb-0">
+            <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
+            Thông tin hạng thành viên
+          </h4>
+        </div>
+        <div className="admin-card-body p-4">
+          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
           
-          <div className="row">
-            <div className="col-md-6 form-group-custom">
-              <label className="form-label">Tên hạng (Rank Name)</label>
-              <input 
-                type="text" 
-                name="rank_name"
-                className={`custom-input ${errors.rank_name ? 'is-invalid' : ''}`}
-                placeholder="Ví dụ: SILVER, GOLD, DIAMOND..." 
-                value={formData.rank_name}
-                onChange={handleChange}
-              />
-              {errors.rank_name && <div className="error-message">{errors.rank_name}</div>}
+          <form onSubmit={handleSubmit}>
+            <div className="row">
+              <div className="col-md-6 mb-4">
+                <label className="admin-form-label">Tên hạng <span className="text-danger">*</span></label>
+                <input 
+                  type="text" name="rank_name" className={`admin-search-input w-100 ${errors.rank_name ? 'border-danger' : ''}`}
+                  placeholder="Ví dụ: SILVER, GOLD, DIAMOND..." value={formData.rank_name} onChange={handleChange}
+                />
+                {errors.rank_name && <small className="text-danger fw-medium">{errors.rank_name}</small>}
+              </div>
+
+              <div className="col-md-6 mb-4">
+                <label className="admin-form-label">Chi tiêu tối thiểu (VNĐ) <span className="text-danger">*</span></label>
+                <input 
+                  type="number" name="min_spending" className={`admin-search-input w-100 ${errors.min_spending ? 'border-danger' : ''}`}
+                  placeholder="Ví dụ: 5000000" value={formData.min_spending} onChange={handleChange}
+                />
+                {errors.min_spending && <small className="text-danger fw-medium">{errors.min_spending}</small>}
+              </div>
+
+              <div className="col-12 mb-4">
+                <label className="admin-form-label">Mô tả đặc quyền</label>
+                <textarea 
+                  name="description" className="admin-search-input w-100" style={{ height: 'auto', minHeight: '100px', paddingTop: '10px' }}
+                  placeholder="Nhập mô tả các đặc quyền của hạng này..." value={formData.description} onChange={handleChange}
+                ></textarea>
+              </div>
+
+              <div className="col-md-6 mb-4">
+                <label className="admin-form-label">Giảm giá vé (%) <span className="text-danger">*</span></label>
+                <input 
+                  type="number" name="discount_percent" className={`admin-search-input w-100 ${errors.discount_percent ? 'border-danger' : ''}`}
+                  placeholder="Ví dụ: 10" value={formData.discount_percent} onChange={handleChange}
+                />
+                {errors.discount_percent && <small className="text-danger fw-medium">{errors.discount_percent}</small>}
+              </div>
+
+              <div className="col-md-6 mb-4">
+                <label className="admin-form-label">Hệ số điểm thưởng <span className="text-danger">*</span></label>
+                <input 
+                  type="number" name="bonus_point" className={`admin-search-input w-100 ${errors.bonus_point ? 'border-danger' : ''}`}
+                  placeholder="Ví dụ: 2 (x2 điểm thưởng)" value={formData.bonus_point} onChange={handleChange}
+                />
+                {errors.bonus_point && <small className="text-danger fw-medium">{errors.bonus_point}</small>}
+              </div>
             </div>
 
-            <div className="col-md-6 form-group-custom">
-              <label className="form-label">Chi tiêu tối thiểu (VNĐ)</label>
-              <input 
-                type="number" 
-                name="min_spending"
-                className={`custom-input ${errors.min_spending ? 'is-invalid' : ''}`}
-                placeholder="Ví dụ: 5000000" 
-                value={formData.min_spending}
-                onChange={handleChange}
-              />
-              {errors.min_spending && <div className="error-message">{errors.min_spending}</div>}
+            <div className="mt-4 d-flex justify-content-center gap-3">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/membership-levels')}>Hủy bỏ</button>
+              <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
+                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                {editData ? 'Cập nhật hạng' : 'Lưu mức độ'}
+              </button>
             </div>
-
-            <div className="col-12 form-group-custom">
-              <label className="form-label">Mô tả hạng hội viên</label>
-              <textarea 
-                name="description"
-                className="custom-textarea" 
-                placeholder="Nhập mô tả các đặc quyền của hạng này..." 
-                value={formData.description}
-                onChange={handleChange}
-              ></textarea>
-            </div>
-
-            <div className="col-md-6 form-group-custom">
-              <label className="form-label">Giảm giá vé (%)</label>
-              <input 
-                type="number" 
-                name="discount_percent"
-                className={`custom-input ${errors.discount_percent ? 'is-invalid' : ''}`}
-                placeholder="Ví dụ: 10" 
-                value={formData.discount_percent}
-                onChange={handleChange}
-              />
-              {errors.discount_percent && <div className="error-message">{errors.discount_percent}</div>}
-            </div>
-
-            <div className="col-md-6 form-group-custom">
-              <label className="form-label">Hệ số điểm thưởng (Bonus Point)</label>
-              <input 
-                type="number" 
-                name="bonus_point"
-                className={`custom-input ${errors.bonus_point ? 'is-invalid' : ''}`}
-                placeholder="Ví dụ: 2 (x2 điểm thưởng)" 
-                value={formData.bonus_point}
-                onChange={handleChange}
-              />
-              {errors.bonus_point && <div className="error-message">{errors.bonus_point}</div>}
-            </div>
-          </div>
-
-          <div className="mt-5 border-top pt-4 text-center">
-            <button type="button" className="btn btn-cancel" onClick={() => navigate('/super-admin/membership-levels')}>
-              HỦY BỎ
-            </button>
-            <button type="submit" className="btn btn-save">
-              XÁC NHẬN LƯU MỨC ĐỘ
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminPanelPage>
   );
 };
 

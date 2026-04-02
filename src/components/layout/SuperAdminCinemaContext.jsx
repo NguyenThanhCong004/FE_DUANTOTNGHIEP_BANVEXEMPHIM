@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
-import { apiFetch } from "../../utils/apiClient";
+import { apiJson } from "../../utils/apiClient";
 import { CINEMAS } from "../../constants/apiEndpoints";
 
 const SuperAdminCinemaContext = createContext(null);
@@ -10,7 +10,7 @@ export function SuperAdminCinemaProvider({ children }) {
   const [selectedCinemaId, setSelectedCinemaIdState] = useState(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? parseInt(raw, 10) : null;
-    return Number.isFinite(parsed) ? parsed : null;
+    return Number.isFinite(parsed) ? (parsed === 0 ? null : parsed) : null;
   });
 
   const [cinemas, setCinemas] = useState([]);
@@ -19,17 +19,18 @@ export function SuperAdminCinemaProvider({ children }) {
     let mounted = true;
     (async () => {
       try {
-        const res = await apiFetch(CINEMAS.LIST);
-        const json = await res.json().catch(() => null);
-        const list = json?.data ?? json ?? [];
-        if (!mounted) return;
+        const res = await apiJson(CINEMAS.LIST);
+        if (!mounted || !res.ok) return;
+        
+        const list = res.data || [];
         const normalized = (Array.isArray(list) ? list : []).map((c) => ({
           id: c.cinemaId ?? c.id,
           name: c.name ?? "",
           address: c.address ?? "",
         }));
         setCinemas(normalized);
-      } catch {
+      } catch (error) {
+        console.error("Error fetching cinemas:", error);
         if (mounted) setCinemas([]);
       }
     })();

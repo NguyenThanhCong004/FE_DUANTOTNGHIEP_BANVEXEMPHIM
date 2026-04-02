@@ -19,6 +19,7 @@ export const USERS = {
 
 export const STAFF = {
   LIST: `${API_V1}/staff`,
+  SUPER_ADMIN_VIEW: `${API_V1}/staff/super-admin-view`,
   BY_ID: (id) => `${API_V1}/staff/${id}`,
   /** PUT body: { currentPassword, newPassword } — chỉ đổi mật khẩu của chính mình */
   PASSWORD: (id) => `${API_V1}/staff/${id}/password`,
@@ -48,6 +49,7 @@ export const ROOMS = {
 export const MOVIES = {
   LIST: `${API_V1}/movies`,
   BY_ID: (id) => `${API_V1}/movies/${id}`,
+  DELETE: (id) => `${API_V1}/movies/${id}`,
   /** GET — danh sách URL ảnh banner (phim đang chiếu, ưu tiên doanh thu vé) */
   HOME_BANNERS: `${API_V1}/movies/home-banners`,
 };
@@ -116,6 +118,7 @@ export const VOUCHERS = {
 export const NEWS = {
   LIST: `${API_V1}/news`,
   BY_ID: (id) => `${API_V1}/news/${id}`,
+  DELETE: (id) => `${API_V1}/news/${id}`,
 };
 
 export const MEMBERSHIP_RANKS = {
@@ -131,6 +134,13 @@ export const PRODUCT_CATEGORIES = {
 export const PRODUCTS = {
   LIST: `${API_V1}/products`,
   BY_ID: (id) => `${API_V1}/products/${id}`,
+};
+
+export const SUPER_ADMIN_DASHBOARD = {
+  SUMMARY: `${API_V1}/super-admin/dashboard/summary`,
+  REVENUE_CHART: (year) => `${API_V1}/super-admin/dashboard/revenue-chart${year ? `?year=${year}` : ""}`,
+  CINEMA_RANKING: `${API_V1}/super-admin/dashboard/cinema-ranking`,
+  CINEMA_DETAIL: (id) => `${API_V1}/super-admin/dashboard/cinema-detail/${id}`,
 };
 
 export const ORDERS_ONLINE = {

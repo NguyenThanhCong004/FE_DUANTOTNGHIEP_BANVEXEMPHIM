@@ -1,62 +1,61 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { CINEMAS } from '../../constants/apiEndpoints';
 
 const CinemaManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cinemaToDelete, setCinemaToDelete] = useState(null);
-  const [deleteError, setDeleteError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const itemsPerPage = 10;
 
   const [cinemas, setCinemas] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await apiFetch(CINEMAS.LIST);
-        const json = await res.json().catch(() => null);
-        const list = json?.data ?? json ?? [];
-        if (!mounted) return;
-        const arr = Array.isArray(list) ? list : [];
-        setCinemas(
-          arr.map((c) => ({
-            id: c.cinemaId ?? c.id,
-            name: c.name ?? '',
-            address: c.address ?? '',
-            status: c.status === 1 ? 'Active' : 'Inactive',
-          }))
-        );
-      } catch {
-        if (mounted) setCinemas([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    if (location.state?.message) {
+      showToast(location.state.message, location.state.type || 'success');
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  const fetchCinemas = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(CINEMAS.LIST);
+      const json = await res.json().catch(() => null);
+      const list = json?.data ?? json ?? [];
+      const arr = Array.isArray(list) ? list : [];
+      setCinemas(
+        arr.map((c) => ({
+          id: c.cinemaId ?? c.id,
+          name: c.name ?? '',
+          address: c.address ?? '',
+          status: c.status === 1 ? 'Active' : (c.status === 2 ? 'Upcoming' : 'Inactive'),
+        }))
+      );
+    } catch {
+      setCinemas([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCinemas();
   }, []);
-
-  const filteredCinemas = cinemas.filter(cinema =>
-    String(cinema.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(cinema.address || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredCinemas.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredCinemas.length / itemsPerPage);
 
   const handleDeleteCinema = async (cinema) => {
     try {
@@ -65,36 +64,17 @@ const CinemaManagement = () => {
       });
       
       if (res.ok) {
-        // Refresh danh sách
-        const refreshRes = await apiFetch(CINEMAS.LIST);
-        const json = await refreshRes.json().catch(() => null);
-        const list = json?.data ?? json ?? [];
-        const arr = Array.isArray(list) ? list : [];
-        setCinemas(
-          arr.map((c) => ({
-            id: c.cinemaId ?? c.id,
-            name: c.name ?? '',
-            address: c.address ?? '',
-            status: c.status === 1 ? 'Active' : 'Inactive',
-          }))
-        );
+        showToast(`Đã xóa rạp "${cinema.name}" thành công!`);
+        await fetchCinemas();
         setShowDeleteModal(false);
         setCinemaToDelete(null);
-        setDeleteError('');
-        setSuccessMessage(`Đã xóa rạp "${cinema.name}" thành công!`);
-        
-        // Clear success message sau 3 giây
-        setTimeout(() => setSuccessMessage(''), 3000);
       } else {
-        // Xử lý error từ BE
         const json = await res.json().catch(() => null);
-        setDeleteError(json?.message || "Xóa rạp thất bại");
-        setSuccessMessage('');
+        showToast(json?.message || "Xóa rạp thất bại", 'danger');
       }
     } catch (error) {
       console.error("Error deleting cinema:", error);
-      setDeleteError("Không thể kết nối tới server");
-      setSuccessMessage('');
+      showToast("Không thể kết nối tới server", 'danger');
     }
   };
 
@@ -106,8 +86,30 @@ const CinemaManagement = () => {
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setCinemaToDelete(null);
-    setDeleteError('');
   };
+
+  const renderStatusBadge = (status) => {
+    switch(status) {
+      case 'Active':
+        return <span className="admin-badge admin-badge-success">Đang hoạt động</span>;
+      case 'Upcoming':
+        return <span className="admin-badge admin-badge-warning">Sắp khai trương</span>;
+      default:
+        return <span className="admin-badge admin-badge-danger">Tạm ngưng</span>;
+    }
+  };
+
+  const filteredCinemas = cinemas.filter(cinema =>
+    String(cinema.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(cinema.address || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredCinemas.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredCinemas.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
     <AdminPanelPage
@@ -126,15 +128,6 @@ const CinemaManagement = () => {
         </button>
       }
     >
-      {/* Success Message */}
-      {successMessage && (
-        <div className="alert alert-success alert-dismissible fade show mb-3" role="alert">
-          <i className="bi bi-check-circle me-2"></i>
-          {successMessage}
-          <button type="button" className="btn-close" onClick={() => setSuccessMessage('')}></button>
-        </div>
-      )}
-
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
@@ -188,17 +181,7 @@ const CinemaManagement = () => {
                     <td className="fw-semibold">{indexOfFirstItem + index + 1}</td>
                     <td className="fw-semibold">{cinema.name}</td>
                     <td>{cinema.address}</td>
-                    <td>
-                      <span
-                        className={
-                          cinema.status === 'Active'
-                            ? 'admin-badge admin-badge-success'
-                            : 'admin-badge admin-badge-danger'
-                        }
-                      >
-                        {cinema.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng'}
-                      </span>
-                    </td>
+                    <td>{renderStatusBadge(cinema.status)}</td>
                     <td className="text-center">
                       <div className="d-flex justify-content-center gap-1 flex-wrap">
                         <button
@@ -244,7 +227,7 @@ const CinemaManagement = () => {
                     key={i + 1}
                     type="button"
                     className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(i + 1)}
+                    onClick={() => paginate(i + 1)}
                   >
                     {i + 1}
                   </button>
@@ -274,18 +257,7 @@ const CinemaManagement = () => {
               <p className="admin-form-label mb-1">Địa chỉ</p>
               <p className="mb-3">{selectedItem.address}</p>
               <p className="admin-form-label mb-1">Trạng thái</p>
-              <span
-                className={
-                  selectedItem.status === 'Active'
-                    ? 'admin-badge admin-badge-success'
-                    : 'admin-badge admin-badge-danger'
-                }
-              >
-                {selectedItem.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng'}
-              </span>
-              <p className="text-muted small mt-3 mb-0">
-                Thông tin cơ sở vật chất, số phòng chiếu có thể bổ sung sau.
-              </p>
+              {renderStatusBadge(selectedItem.status)}
             </div>
             <div className="admin-modal-footer">
               <button type="button" className="admin-btn admin-btn-primary" onClick={() => setShowModal(false)}>
@@ -296,7 +268,6 @@ const CinemaManagement = () => {
         </div>
       )}
 
-      {/* Modal xác nhận xóa cinema */}
       {showDeleteModal && cinemaToDelete && (
         <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
@@ -314,16 +285,8 @@ const CinemaManagement = () => {
               <div className="alert alert-warning">
                 <strong>Tên rạp:</strong> {cinemaToDelete.name}<br/>
                 <strong>Địa chỉ:</strong> {cinemaToDelete.address}<br/>
-                <strong>Trạng thái:</strong> <span className={`admin-badge ${cinemaToDelete.status === 'Active' ? 'admin-badge-success' : 'admin-badge-danger'}`}>
-                  {cinemaToDelete.status === 'Active' ? 'Đang hoạt động' : 'Tạm ngưng'}
-                </span>
+                <strong>Trạng thái:</strong> {renderStatusBadge(cinemaToDelete.status)}
               </div>
-              {deleteError && (
-                <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
-                  {deleteError}
-                </div>
-              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả phòng chiếu, suất chiếu và lịch trình của rạp này sẽ bị ảnh hưởng.
@@ -348,6 +311,17 @@ const CinemaManagement = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast thông báo */}
+      {toast.show && (
+        <div 
+          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
+          style={{ minWidth: '300px' }}
+        >
+          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
+          <div className="fw-bold">{toast.message}</div>
         </div>
       )}
     </AdminPanelPage>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { SEAT_TYPES } from '../../constants/apiEndpoints';
 
@@ -13,10 +14,11 @@ const CreateSeatType = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState('');
 
   useEffect(() => {
     if (editData) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         name: editData.name || '',
         price: editData.price || ''
@@ -26,16 +28,12 @@ const CreateSeatType = () => {
 
   const validateForm = () => {
     let newErrors = {};
-    if (!formData.name.trim()) {
-      newErrors.name = 'Tên loại ghế không được để trống';
-    }
-
+    if (!formData.name.trim()) newErrors.name = 'Tên loại ghế không được để trống';
     if (!formData.price) {
       newErrors.price = 'Giá phụ thu không được để trống';
     } else if (parseFloat(formData.price) < 0) {
       newErrors.price = 'Giá phụ thu không được âm';
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -43,15 +41,15 @@ const CreateSeatType = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    setSubmitting(true);
+    setServerError('');
     const body = {
       name: formData.name.trim(),
       surcharge: parseFloat(formData.price),
@@ -63,157 +61,69 @@ const CreateSeatType = () => {
         method: tid ? 'PUT' : 'POST',
         body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        alert(json?.message || 'Lưu loại ghế thất bại');
-        return;
+      if (res.ok) {
+        navigate('/super-admin/seat-types');
+      } else {
+        const json = await res.json().catch(() => null);
+        setServerError(json?.message || 'Lưu loại ghế thất bại');
       }
-      alert(tid ? 'Cập nhật loại ghế thành công!' : 'Thêm loại ghế thành công!');
-      navigate('/super-admin/seat-types');
     } catch {
-      alert('Không thể kết nối server');
+      setServerError('Lỗi kết nối máy chủ');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="create-seat-type p-4">
-      <style>{`
-        .form-container {
-          background: white;
-          border-radius: 15px;
-          padding: 40px;
-          box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-          max-width: 800px;
-          margin: 0 auto;
-        }
-
-        .form-group-custom {
-          margin-bottom: 25px;
-        }
-
-        .form-label {
-          font-weight: bold;
-          color: black;
-          margin-bottom: 8px;
-          display: block;
-          text-transform: uppercase;
-          font-size: 0.85rem;
-          letter-spacing: 0.5px;
-        }
-
-        .custom-input {
-          width: 100%;
-          height: 50px;
-          padding: 10px 20px;
-          background-color: whitesmoke !important;
-          border: 2px solid black !important;
-          border-radius: 10px;
-          color: black !important;
-          font-weight: 500;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .custom-input:focus {
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .error-message {
-          color: #dc3545;
-          font-size: 0.8rem;
-          margin-top: 5px;
-          font-weight: 500;
-        }
-
-        .btn-save {
-          background: black;
-          color: white;
-          border: 2px solid black;
-          padding: 12px 40px;
-          border-radius: 10px;
-          font-weight: bold;
-          transition: all 0.2s;
-        }
-
-        .btn-save:hover {
-          background: whitesmoke;
-          color: black;
-        }
-
-        .btn-cancel {
-          background: white;
-          color: black;
-          border: 2px solid black;
-          padding: 12px 40px;
-          border-radius: 10px;
-          font-weight: bold;
-          margin-right: 15px;
-        }
-
-        .section-title {
-          font-size: 1rem;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          color: black;
-          margin-bottom: 25px;
-          padding-bottom: 10px;
-          border-bottom: 3px solid black;
-          display: inline-block;
-        }
-      `}</style>
-
-      <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
-          {editData ? 'Cập Nhật Loại Ghế' : 'Thêm Loại Ghế Mới'}
-        </h1>
-        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/seat-types')}>
-          <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
-        </button>
-      </div>
-
-      <div className="form-container">
-        <form onSubmit={handleSubmit} noValidate>
-          <h5 className="section-title">THÔNG TIN LOẠI GHẾ</h5>
+    <AdminPanelPage 
+      icon={editData ? "bi-chair-fill" : "bi-chair"} 
+      title={editData ? 'Cập nhật loại ghế' : 'Thêm loại ghế mới'} 
+      description="Quản lý các loại ghế trong phòng chiếu và mức giá phụ thu tương ứng."
+    >
+      <div className="admin-card admin-slide-up" style={{ maxWidth: '700px', margin: '0 auto' }}>
+        <div className="admin-card-header">
+          <h4 className="mb-0">
+            <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
+            Thông tin loại ghế
+          </h4>
+        </div>
+        <div className="admin-card-body p-4">
+          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
           
-          <div className="form-group-custom">
-            <label className="form-label">Tên loại ghế</label>
-            <input 
-              type="text" 
-              name="name"
-              className={`custom-input ${errors.name ? 'is-invalid' : ''}`}
-              placeholder="Ví dụ: Ghế VIP, Ghế Sweetbox..." 
-              value={formData.name}
-              onChange={handleChange}
-            />
-            {errors.name && <div className="error-message">{errors.name}</div>}
-          </div>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="admin-form-label">Tên loại ghế <span className="text-danger">*</span></label>
+              <input 
+                type="text" name="name" className={`admin-search-input w-100 ${errors.name ? 'border-danger' : ''}`}
+                placeholder="Ví dụ: Ghế VIP, Ghế Sweetbox, Ghế thường..." value={formData.name} onChange={handleChange}
+              />
+              {errors.name && <small className="text-danger fw-medium">{errors.name}</small>}
+            </div>
 
-          <div className="form-group-custom">
-            <label className="form-label">Giá phụ thu (VNĐ)</label>
-            <input 
-              type="number" 
-              name="price"
-              className={`custom-input ${errors.price ? 'is-invalid' : ''}`}
-              placeholder="Ví dụ: 90000" 
-              value={formData.price}
-              onChange={handleChange}
-            />
-            {errors.price && <div className="error-message">{errors.price}</div>}
-            <p className="text-dark small mt-2">Mức giá này sẽ được áp dụng khi khách hàng chọn loại ghế này.</p>
-          </div>
+            <div className="mb-4">
+              <label className="admin-form-label">Giá phụ thu (VNĐ) <span className="text-danger">*</span></label>
+              <input 
+                type="number" name="price" className={`admin-search-input w-100 ${errors.price ? 'border-danger' : ''}`}
+                placeholder="Ví dụ: 20000" value={formData.price} onChange={handleChange}
+              />
+              {errors.price && <small className="text-danger fw-medium">{errors.price}</small>}
+              <p className="text-muted small mt-2">
+                <i className="bi bi-info-circle me-1"></i>
+                Mức giá này sẽ được cộng thêm vào giá vé cơ bản khi khách hàng chọn loại ghế này.
+              </p>
+            </div>
 
-          <div className="mt-5 border-top pt-4 text-center">
-            <button type="button" className="btn btn-cancel" onClick={() => navigate('/super-admin/seat-types')}>
-              HỦY BỎ
-            </button>
-            <button type="submit" className="btn btn-save">
-              {editData ? 'XÁC NHẬN CẬP NHẬT' : 'XÁC NHẬN LƯU LOẠI GHẾ'}
-            </button>
-          </div>
-        </form>
+            <div className="mt-5 d-flex justify-content-center gap-3">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/seat-types')}>Hủy bỏ</button>
+              <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '180px' }} disabled={submitting}>
+                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                {editData ? 'Cập nhật' : 'Lưu loại ghế'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </AdminPanelPage>
   );
 };
 
