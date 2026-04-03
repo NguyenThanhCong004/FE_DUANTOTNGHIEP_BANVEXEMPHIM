@@ -19,7 +19,7 @@ const menuSections = [
     requiresCinema: false,
     items: [
       { path: "/super-admin/cinemas", icon: "bi-building", label: "Quản lý rạp" },
-      { path: "/super-admin/employees", icon: "bi-person-badge", label: "Quản trị viên rạp" },
+      { path: "/super-admin/system-staff", icon: "bi-people-fill", label: "Nhân sự toàn hệ thống" },
       { path: "/super-admin/users", icon: "bi-people", label: "Người dùng" },
     ],
   },
@@ -33,7 +33,7 @@ const menuSections = [
       { path: "/super-admin/vouchers", icon: "bi-ticket-perforated", label: "Voucher" },
       { path: "/super-admin/seat-types", icon: "bi-grid-3x3-gap", label: "Loại ghế" },
       { path: "/super-admin/product-types", icon: "bi-box-seam", label: "Loại sản phẩm" },
-      { path: "/super-admin/catalog-products", icon: "bi-bag", label: "Sản phẩm (danh mục)" },
+      { path: "/super-admin/catalog-products", icon: "bi-bag", label: "Sản phẩm" },
       { path: "/super-admin/membership-levels", icon: "bi-award", label: "Hạng thành viên" },
     ],
   },
