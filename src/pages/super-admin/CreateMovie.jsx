@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { MOVIES, GENRES } from '../../constants/apiEndpoints';
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 
 const CreateMovie = () => {
   const navigate = useNavigate();
@@ -25,9 +36,67 @@ const CreateMovie = () => {
   const [errors, setErrors] = useState({});
   const [previewPoster, setPreviewPoster] = useState(null);
   const [previewBanner, setPreviewBanner] = useState(null);
+  const [genreOptions, setGenreOptions] = useState([]);
 
   useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiFetch(GENRES.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        if (mounted) setGenreOptions(Array.isArray(list) ? list : []);
+      } catch {
+        if (mounted) setGenreOptions([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const mid = editData?.id;
+    if (!mid || genreOptions.length === 0) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiFetch(MOVIES.BY_ID(mid));
+        const json = await res.json().catch(() => null);
+        const m = json?.data ?? json;
+        if (!mounted || !res.ok || !m) return;
+        const gid = genreOptions.find((g) => g.name === m.genre)?.genreId;
+        const rd = m.releaseDate ? String(m.releaseDate).slice(0, 10) : "";
+        setFormData({
+          title: m.title || "",
+          description: m.description || "",
+          describe: m.content || "",
+          duration: m.duration != null ? String(m.duration) : "",
+          author: m.author || "",
+          nation: m.nation || "",
+          genre_id: gid != null ? String(gid) : "",
+          release_date: rd,
+          age_limit: m.ageLimit != null ? String(m.ageLimit) : "",
+          base_price: m.basePrice != null ? String(m.basePrice) : "",
+          status: m.status === 1 ? "Active" : "Inactive",
+          poster: null,
+          banner: null,
+        });
+        if (m.posterUrl) setPreviewPoster(m.posterUrl);
+        if (m.banner) setPreviewBanner(m.banner);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [editData?.id, genreOptions]);
+
+  useEffect(() => {
+    if (editData?.id) return;
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state (no id)
       setFormData({
         title: editData.title || '',
         description: editData.description || '',
@@ -51,27 +120,27 @@ const CreateMovie = () => {
   const validateForm = () => {
     let newErrors = {};
     if (!formData.title.trim()) newErrors.title = 'Tiêu đề không được để trống';
-    if (!formData.author.trim()) newErrors.author = 'Đạo diễn không được để trống';
-    
+
     if (!formData.duration) {
       newErrors.duration = 'Thời lượng không được để trống';
-    } else if (parseInt(formData.duration) <= 0) {
+    } else if (parseInt(formData.duration, 10) <= 0) {
       newErrors.duration = 'Thời lượng phải là số dương';
     }
 
-    if (!formData.nation.trim()) newErrors.nation = 'Quốc gia không được để trống';
     if (!formData.genre_id) newErrors.genre_id = 'Vui lòng chọn thể loại';
     if (!formData.release_date) newErrors.release_date = 'Ngày khởi chiếu không được để trống';
-    if (!formData.age_limit) newErrors.age_limit = 'Vui lòng chọn giới hạn độ tuổi';
-    
+    if (formData.age_limit === '' || formData.age_limit == null) {
+      newErrors.age_limit = 'Vui lòng chọn giới hạn độ tuổi';
+    }
+
     if (!formData.base_price) {
       newErrors.base_price = 'Giá vé không được để trống';
     } else if (parseFloat(formData.base_price) <= 0) {
       newErrors.base_price = 'Giá vé phải là số dương';
     }
 
-    if (!editData && !formData.poster) newErrors.poster = 'Vui lòng chọn poster';
-    if (!editData && !formData.banner) newErrors.banner = 'Vui lòng chọn banner';
+    const editing = Boolean(editData?.id);
+    if (!editing && !formData.poster) newErrors.poster = 'Vui lòng chọn poster';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -101,13 +170,54 @@ const CreateMovie = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    console.log('Dữ liệu phim mới:', formData);
-    alert('Thêm phim mới thành công!');
-    navigate('/super-admin/movies');
+    try {
+      let posterStr = previewPoster;
+      if (formData.poster instanceof File) {
+        posterStr = await fileToDataUrl(formData.poster);
+      }
+      if (!posterStr || typeof posterStr !== "string") {
+        setErrors((prev) => ({ ...prev, poster: "Cần poster (ảnh hoặc URL)" }));
+        return;
+      }
+      let bannerStr = previewBanner;
+      if (formData.banner instanceof File) {
+        bannerStr = await fileToDataUrl(formData.banner);
+      }
+      const body = {
+        genreId: Number(formData.genre_id),
+        title: formData.title.trim(),
+        description: formData.description || "",
+        duration: Number(formData.duration),
+        ageLimit: Number(formData.age_limit),
+        releaseDate: formData.release_date,
+        poster: posterStr,
+        status: formData.status === "Active" ? 1 : 0,
+        basePrice: Number(formData.base_price),
+        author: formData.author?.trim() || null,
+        nation: formData.nation?.trim() || null,
+        content: formData.describe?.trim() || null,
+        banner: typeof bannerStr === "string" && bannerStr ? bannerStr : null,
+      };
+      const movieId = editData?.id ?? editData?.movie_id;
+      const url = movieId ? MOVIES.BY_ID(movieId) : MOVIES.LIST;
+      const res = await apiFetch(url, {
+        method: movieId ? "PUT" : "POST",
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || "Lưu phim thất bại");
+        return;
+      }
+      alert(movieId ? "Cập nhật phim thành công!" : "Thêm phim thành công!");
+      navigate("/super-admin/movies");
+    } catch {
+      alert("Không thể kết nối server");
+    }
   };
 
   return (
@@ -319,10 +429,11 @@ const CreateMovie = () => {
               <label className="form-label">Thể loại</label>
               <select name="genre_id" className={`custom-input ${errors.genre_id ? 'is-invalid' : ''}`} value={formData.genre_id} onChange={handleChange}>
                 <option value="">-- Chọn thể loại --</option>
-                <option value="1">Hành động</option>
-                <option value="2">Tình cảm</option>
-                <option value="3">Kinh dị</option>
-                <option value="4">Hoạt hình</option>
+                {genreOptions.map((g) => (
+                  <option key={g.genreId} value={g.genreId}>
+                    {g.name}
+                  </option>
+                ))}
               </select>
               {errors.genre_id && <div className="error-message">{errors.genre_id}</div>}
             </div>
@@ -337,11 +448,10 @@ const CreateMovie = () => {
               <label className="form-label">Độ tuổi</label>
               <select name="age_limit" className={`custom-input ${errors.age_limit ? 'is-invalid' : ''}`} value={formData.age_limit} onChange={handleChange}>
                 <option value="">-- Chọn giới hạn --</option>
-                <option value="P">P - Mọi lứa tuổi</option>
-                <option value="K">K - Dưới 13 tuổi</option>
-                <option value="T13">T13 - Trên 13 tuổi</option>
-                <option value="T16">T16 - Trên 16 tuổi</option>
-                <option value="T18">T18 - Trên 18 tuổi</option>
+                <option value="0">Mọi lứa tuổi (0)</option>
+                <option value="13">T13 — trên 13</option>
+                <option value="16">T16 — trên 16</option>
+                <option value="18">T18 — trên 18</option>
               </select>
               {errors.age_limit && <div className="error-message">{errors.age_limit}</div>}
             </div>

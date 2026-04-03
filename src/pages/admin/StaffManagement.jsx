@@ -1,169 +1,301 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { STAFF } from '../../constants/apiEndpoints';
+import { getStoredStaff } from '../../utils/authStorage';
+import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
 
 const StaffManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const mockStaff = [
-    { id: 1, name: 'Nguyễn Văn A', email: 'vana@cinema.com', phone: '0901234567', role: 'Bán vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 2, name: 'Trần Thị B', email: 'thib@cinema.com', phone: '0902345678', role: 'Soát vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 3, name: 'Lê Văn C', email: 'vanc@cinema.com', phone: '0903456789', role: 'Phục vụ', status: 'Khóa', image: 'https://via.placeholder.com/40' },
-    { id: 4, name: 'Phạm Minh D', email: 'minhd@cinema.com', phone: '0904567890', role: 'Bán vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 5, name: 'Hoàng Thị E', email: 'thie@cinema.com', phone: '0905678901', role: 'Soát vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 6, name: 'Đặng Văn F', email: 'vanf@cinema.com', phone: '0906789012', role: 'Phục vụ', status: 'Khóa', image: 'https://via.placeholder.com/40' },
-    { id: 7, name: 'Bùi Thị G', email: 'thig@cinema.com', phone: '0907890123', role: 'Soát vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 8, name: 'Vũ Văn H', email: 'vanh@cinema.com', phone: '0908901234', role: 'Bán vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 9, name: 'Ngô Thị I', email: 'thii@cinema.com', phone: '0909012345', role: 'Phục vụ', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 10, name: 'Đỗ Văn K', email: 'vank@cinema.com', phone: '0900123456', role: 'Soát vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 11, name: 'Lý Thị L', email: 'thil@cinema.com', phone: '0901122334', role: 'Bán vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-    { id: 12, name: 'Trịnh Văn M', email: 'vanm@cinema.com', phone: '0902233445', role: 'Soát vé', status: 'Hoạt động', image: 'https://via.placeholder.com/40' },
-  ];
+  const location = useLocation();
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const prefix = isSuperAdmin ? "/super-admin" : "/admin";
+  const staffSession = getStoredStaff();
+  const { selectedCinemaId } = useSuperAdminCinema();
 
-  const filteredStaff = mockStaff.filter(staff => 
-    staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.id.toString().includes(searchTerm)
-  );
+  const addPath = `${prefix}/staff/add`;
+  const viewPath = (id) => `${prefix}/staff/view/${id}`;
+  const editPath = (id) => `${prefix}/staff/edit/${id}`;
+
+  const [staffDtos, setStaffDtos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa nhân viên #${id} không?`)) return;
+    try {
+      const res = await apiFetch(STAFF.BY_ID(id), { method: 'DELETE' });
+      if (res.ok) {
+        setStaffDtos((prev) => prev.filter((s) => s.staffId !== id));
+      } else {
+        const json = await res.json().catch(() => null);
+        alert(json?.message || "Xóa nhân viên thất bại");
+      }
+    } catch {
+      alert("Không thể kết nối tới server để xóa nhân viên");
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await apiFetch(STAFF.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        if (!mounted) return;
+        let data = Array.isArray(list) ? list : [];
+        if (!isSuperAdmin && staffSession?.cinemaId != null) {
+          data = data.filter((s) => String(s.cinemaId) === String(staffSession.cinemaId));
+        } else if (isSuperAdmin && selectedCinemaId != null) {
+          data = data.filter((s) => String(s.cinemaId) === String(selectedCinemaId));
+        }
+        const norm = (r) => String(r || "").replace(/^ROLE_/i, "").toUpperCase();
+        // Danh sách nhân viên sàn: loại ADMIN / SUPER_ADMIN (họ nằm ở trang Quản trị viên rạp).
+        data = data.filter((s) => {
+          const r = norm(s.role);
+          return r !== "ADMIN" && r !== "SUPER_ADMIN";
+        });
+        setStaffDtos(data);
+      } catch {
+        if (mounted) {
+          setStaffDtos([]);
+          setError('Không tải được danh sách nhân viên.');
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isSuperAdmin, staffSession?.cinemaId, selectedCinemaId]);
+
+  const staffUI = useMemo(() => {
+    return staffDtos.map((s) => ({
+      id: s.staffId,
+      name: s.fullname ?? "",
+      username: s.username ?? "",
+      email: s.email ?? "",
+      phone: s.phone ?? "",
+      role: s.role ?? "",
+      status: s.status === 0 ? "Khóa" : "Hoạt động",
+      image: s.avatar ?? "https://via.placeholder.com/40",
+    }));
+  }, [staffDtos]);
+
+  const filteredStaff = staffUI.filter((staff) => {
+    const q = searchTerm.toLowerCase();
+    return (
+      staff.name.toLowerCase().includes(q) ||
+      staff.username.toLowerCase().includes(q) ||
+      staff.email.toLowerCase().includes(q) ||
+      String(staff.id).includes(searchTerm)
+    );
+  });
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredStaff.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredStaff.length / itemsPerPage);
 
-  const getStatusBadge = (status) => {
-    return status === 'Hoạt động' ? 'bg-success' : 'bg-danger';
-  };
-
   return (
-    <div className="staff-management">
-      <style>
-        {`
-          .black-input {
-            border: 1px solid rgba(0,0,0,0.1) !important;
-            color: #000 !important;
-            font-weight: 500 !important;
-            background-color: #fff !important;
-            border-radius: 8px !important;
-          }
-          .black-input:focus {
-            box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.05) !important;
-            border-color: #000 !important;
-          }
-        `}
-      </style>
-
-      {/* Header Section */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0 fw-bold text-dark">Quản lý nhân viên rạp</h2>
-        <Link 
-          to="/admin/staff/add"
-          className="btn btn-primary px-4 shadow-sm border-0 fw-bold d-flex align-items-center" 
-          style={{ borderRadius: '10px', textDecoration: 'none' }}
-        >
-          <i className="fas fa-plus me-2"></i>Thêm nhân viên
-        </Link>
-      </div>
-
-      {/* Search Bar */}
-      <div className="mb-4">
-        <div className="col-md-4 px-0 position-relative">
-          <input 
-            type="text" 
-            className="form-control black-input shadow-sm pe-5" 
-            placeholder="Tìm nhân viên..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <i 
-            className="fas fa-search position-absolute top-50 end-0 translate-middle-y me-3 text-secondary"
-            style={{ pointerEvents: 'none' }}
-          ></i>
+    <div className="admin-page superadmin-page admin-fade-in">
+      <div className="admin-header">
+        <div className="admin-header-content">
+          <div>
+            <h1>
+              <i className="bi bi-people-fill me-3"></i>
+              Quản lý nhân viên rạp
+            </h1>
+            <p className="lead">Quản lý thông tin và phân công nhân viên</p>
+          </div>
+          <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+            <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
+              <i className="bi bi-search admin-search-icon" aria-hidden />
+              <input
+                type="search"
+                className="admin-search-input"
+                placeholder="Tìm nhân viên..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Tìm nhân viên"
+              />
+            </div>
+            <Link to={addPath} className="admin-btn" style={{ background: "white", color: "#6366f1" }}>
+              <i className="bi bi-person-plus-fill me-2"></i>
+              Thêm nhân viên
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Table Section */}
-      <div className="card shadow-sm border-0 overflow-hidden" style={{ borderRadius: '15px' }}>
-        <div className="card-body p-0">
+      {error && (
+        <div className="alert alert-danger py-2 mb-3" role="alert">
+          {error}
+        </div>
+      )}
+
+      <div className="admin-card admin-slide-up">
+        <div className="admin-card-header">
+          <h4>
+            <i className="bi bi-list-ul me-2 text-primary"></i>
+            Danh sách nhân viên
+          </h4>
+        </div>
+        <div className="admin-card-body p-0">
           <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0 text-dark">
-              <thead style={{ backgroundColor: '#f8f9fa' }}>
-                <tr className="text-secondary small text-uppercase">
-                  <th className="ps-4 py-3">ID</th>
-                  <th className="py-3">Nhân viên</th>
-                  <th className="py-3">Liên hệ</th>
-                  <th className="py-3">Vai trò</th>
-                  <th className="py-3">Trạng thái</th>
-                  <th className="text-center py-3">Thao tác</th>
+            <table className="admin-table mb-0">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nhân viên</th>
+                  <th>Liên hệ</th>
+                  <th>Trạng thái</th>
+                  <th className="text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {currentItems.map((staff) => (
-                  <tr key={staff.id}>
-                    <td className="ps-4 fw-bold">{staff.id}</td>
-                    <td>
-                      <div>
-                        <div className="fw-bold">{staff.name}</div>
-                        <small className="text-muted">{staff.email}</small>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4">
+                      <div className="spinner-border text-primary me-2" role="status">
+                        <span className="visually-hidden">Loading...</span>
                       </div>
-                    </td>
-                    <td>{staff.phone}</td>
-                    <td><span className="fw-semibold">{staff.role}</span></td>
-                    <td>
-                      <span className={`badge rounded-pill ${getStatusBadge(staff.status)}`} style={{ minWidth: '85px', padding: '6px 12px' }}>
-                        {staff.status}
-                      </span>
-                    </td>
-                    <td className="text-center">
-                      <Link 
-                        to={`/admin/staff/view/${staff.id}`} 
-                        className="btn btn-sm btn-link text-info fw-bold me-2 p-0 text-decoration-none"
-                      >
-                        Xem
-                      </Link>
-                      <Link 
-                        to={`/admin/staff/edit/${staff.id}`} 
-                        className="btn btn-sm btn-link text-primary fw-bold p-0 text-decoration-none"
-                      >
-                        Sửa
-                      </Link>
+                      Đang tải dữ liệu...
                     </td>
                   </tr>
-                ))}
+                ) : error ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4">
+                      <i className="bi bi-exclamation-triangle text-warning me-2"></i>
+                      {error}
+                    </td>
+                  </tr>
+                ) : currentItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="admin-empty">
+                        <div className="admin-empty-icon">
+                          <i className="bi bi-people"></i>
+                        </div>
+                        <h5 className="mb-2">Không có dữ liệu nhân viên</h5>
+                        <p className="mb-0">Chưa có nhân viên nào trong hệ thống</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  currentItems.map((staff) => (
+                    <tr key={staff.id}>
+                      <td className="fw-bold">#{staff.id}</td>
+                      <td>
+                        <div className="d-flex align-items-center gap-3">
+                          <div className="admin-table-avatar">
+                            {staff.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="fw-semibold text-dark">{staff.name}</div>
+                            <small className="text-muted">@{staff.username}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div>
+                          <div className="d-flex align-items-center gap-2 mb-1">
+                            <i className="bi bi-envelope text-muted small"></i>
+                            <small className="text-muted">{staff.email}</small>
+                          </div>
+                          <div className="d-flex align-items-center gap-2">
+                            <i className="bi bi-telephone text-muted small"></i>
+                            <small className="text-muted">{staff.phone || 'Chưa có'}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            staff.status === 'Hoạt động'
+                              ? 'admin-badge admin-badge-success'
+                              : 'admin-badge admin-badge-danger'
+                          }
+                        >
+                          {staff.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="admin-table-action-group">
+                          <Link
+                            to={viewPath(staff.id)}
+                            className="admin-table-action-btn admin-table-action-btn--view"
+                            title="Xem chi tiết"
+                          >
+                            <i className="bi bi-eye"></i>
+                          </Link>
+                          <Link
+                            to={editPath(staff.id)}
+                            className="admin-table-action-btn admin-table-action-btn--edit"
+                            title="Chỉnh sửa"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </Link>
+                          <button
+                            type="button"
+                            className="admin-table-action-btn admin-table-action-btn--danger"
+                            title="Xóa nhân viên"
+                            onClick={() => handleDelete(staff.id)}
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="d-flex justify-content-center mt-4 pb-4">
-          <nav>
-            <ul className="pagination pagination-sm gap-2">
-              <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                <button className="page-link rounded-circle border-0 shadow-sm" onClick={() => setCurrentPage(prev => prev - 1)}>
-                  <i className="fas fa-chevron-left"></i>
-                </button>
-              </li>
-              {[...Array(totalPages)].map((_, index) => (
-                <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                  <button 
-                    className={`page-link rounded-circle border-0 shadow-sm ${currentPage === index + 1 ? 'bg-primary text-white' : 'bg-white text-dark'}`}
-                    onClick={() => setCurrentPage(index + 1)}
-                  >
-                    {index + 1}
-                  </button>
-                </li>
-              ))}
-              <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                <button className="page-link rounded-circle border-0 shadow-sm" onClick={() => setCurrentPage(prev => prev + 1)}>
-                  <i className="fas fa-chevron-right"></i>
-                </button>
-              </li>
-            </ul>
-          </nav>
+        <div className="admin-pagination-wrap">
+          <div className="admin-pagination">
+            <button
+              type="button"
+              className="admin-pagination-btn"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              aria-label="Trang trước"
+            >
+              <i className="bi bi-chevron-left"></i>
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                className={`admin-pagination-btn ${currentPage === page ? 'active' : ''}`}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              className="admin-pagination-btn"
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              aria-label="Trang sau"
+            >
+              <i className="bi bi-chevron-right"></i>
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -1,0 +1,34 @@
+/**
+ * Design tokens — font sans-serif hiện đại, dễ đọc (Inter + fallback hệ thống).
+ * Import đầu tiên trong main.jsx (trước Bootstrap).
+ */
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&display=swap");
+
+:root {
+  /* Inter + Roboto/Open Sans/Lato/Arial/Tahoma qua fallback (không tải thêm để nhẹ) */
+  --font-ui:
+    "Inter",
+    "Roboto",
+    "Open Sans",
+    "Lato",
+    "Segoe UI",
+    Tahoma,
+    Arial,
+    sans-serif;
+  --font-content: var(--font-ui);
+  --font-brand: "Bebas Neue", var(--font-ui);
+
+  --admin-bg-deep: #070b17;
+  --admin-bg-panel: #0b1220;
+  --admin-text: #e2e8f0;
+  --admin-text-muted: #94a3b8;
+  --admin-border: rgba(255, 255, 255, 0.08);
+}
+
+html.cinetoon-public {
+  --app-shell-font: var(--font-ui);
+}
+
+html.admin-panel {
+  --app-shell-font: var(--font-ui);
+}

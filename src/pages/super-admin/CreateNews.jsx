@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { NEWS } from '../../constants/apiEndpoints';
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 
 const CreateNews = () => {
   const navigate = useNavigate();
@@ -18,6 +29,7 @@ const CreateNews = () => {
 
   useEffect(() => {
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         title: editData.title || '',
         content: editData.content || '',
@@ -38,8 +50,12 @@ const CreateNews = () => {
     if (!formData.content.trim()) {
       newErrors.content = 'Nội dung không được để trống';
     }
-    if (!editData && !formData.image) {
+    const editing = Boolean(editData?.id);
+    if (!editing && !formData.image) {
       newErrors.image = 'Vui lòng chọn ảnh minh họa';
+    }
+    if (editing && !formData.image && !previewImage) {
+      newErrors.image = 'Cần ảnh minh họa (giữ ảnh cũ hoặc chọn ảnh mới)';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -62,13 +78,47 @@ const CreateNews = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    console.log('Dữ liệu Tin tức mới:', formData);
-    alert('Đăng tin tức thành công!');
-    navigate('/super-admin/news');
+    let imageStr = previewImage;
+    if (formData.image instanceof File) {
+      try {
+        imageStr = await fileToDataUrl(formData.image);
+      } catch {
+        alert('Không đọc được file ảnh');
+        return;
+      }
+    }
+    if (!imageStr || typeof imageStr !== 'string') {
+      setErrors((prev) => ({ ...prev, image: 'Thiếu ảnh minh họa' }));
+      return;
+    }
+
+    const body = {
+      title: formData.title.trim(),
+      content: formData.content.trim(),
+      image: imageStr,
+      status: formData.status === 'Active' ? 1 : 0,
+    };
+    const nid = editData?.id;
+    const url = nid ? NEWS.BY_ID(nid) : NEWS.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: nid ? 'PUT' : 'POST',
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Lưu tin thất bại');
+        return;
+      }
+      alert(nid ? 'Cập nhật tin thành công!' : 'Đăng tin tức thành công!');
+      navigate('/super-admin/news');
+    } catch {
+      alert('Không thể kết nối server');
+    }
   };
 
   return (

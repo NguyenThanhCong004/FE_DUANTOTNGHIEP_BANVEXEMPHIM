@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { SEAT_TYPES } from '../../constants/apiEndpoints';
 
 const CreateSeatType = () => {
   const navigate = useNavigate();
@@ -14,6 +16,7 @@ const CreateSeatType = () => {
 
   useEffect(() => {
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         name: editData.name || '',
         price: editData.price || ''
@@ -45,18 +48,31 @@ const CreateSeatType = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (editData) {
-      console.log('Cập nhật loại ghế:', formData);
-      alert('Cập nhật loại ghế thành công!');
-    } else {
-      console.log('Dữ liệu loại ghế mới:', formData);
-      alert('Thêm loại ghế thành công!');
+    const body = {
+      name: formData.name.trim(),
+      surcharge: parseFloat(formData.price),
+    };
+    const tid = editData?.id;
+    const url = tid ? SEAT_TYPES.BY_ID(tid) : SEAT_TYPES.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: tid ? 'PUT' : 'POST',
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || 'Lưu loại ghế thất bại');
+        return;
+      }
+      alert(tid ? 'Cập nhật loại ghế thành công!' : 'Thêm loại ghế thành công!');
+      navigate('/super-admin/seat-types');
+    } catch {
+      alert('Không thể kết nối server');
     }
-    navigate('/super-admin/seat-types');
   };
 
   return (

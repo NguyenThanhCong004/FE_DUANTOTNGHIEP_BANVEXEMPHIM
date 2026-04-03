@@ -1,47 +1,149 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
-import { Container, Row, Col, Button, Modal, Form, InputGroup } from "react-bootstrap";
-
-/* ── Mock Data ── */
-const VOUCHERS = [
-  { Vouchers_id: 1, Code: "FILM10K",   discount_type: "fixed",   value: 10000, min_order_value: 50000,  start_date: "2025-03-01", end_date: "2025-04-30", point_voucher: 200,  status: "active"  },
-  { Vouchers_id: 2, Code: "SAVE20PCT", discount_type: "percent", value: 20,    min_order_value: 100000, start_date: "2025-03-10", end_date: "2025-05-10", point_voucher: 500,  status: "active"  },
-  { Vouchers_id: 3, Code: "POPCORN",   discount_type: "fixed",   value: 30000, min_order_value: 80000,  start_date: "2025-02-01", end_date: "2025-03-15", point_voucher: 800,  status: "expired" },
-  { Vouchers_id: 4, Code: "VIP50K",    discount_type: "fixed",   value: 50000, min_order_value: 200000, start_date: "2025-04-01", end_date: "2025-06-30", point_voucher: 1200, status: "active"  },
-  { Vouchers_id: 5, Code: "SUMMER15",  discount_type: "percent", value: 15,    min_order_value: 75000,  start_date: "2025-04-15", end_date: "2025-07-15", point_voucher: 350,  status: "active"  },
-  { Vouchers_id: 6, Code: "BIRTHDAY",  discount_type: "percent", value: 30,    min_order_value: 120000, start_date: "2025-01-01", end_date: "2025-12-31", point_voucher: 0,    status: "active"  },
-];
+import { Container, Row, Col, Button, Modal, Form, InputGroup, Spinner } from "react-bootstrap";
+import { getStoredUser, getAccessToken } from '../../utils/authStorage';
+import { getUserIdFromToken } from '../../utils/jwt';
+import { apiFetch, apiUrl } from '../../utils/apiClient';
+import { VOUCHERS as VOUCHERS_API, ME, USERS } from '../../constants/apiEndpoints';
 
 const fmt     = (n) => n.toLocaleString("vi-VN") + "đ";
 const fmtDate = (d) => new Date(d).toLocaleDateString("vi-VN");
 
+function normalizeCatalogVoucher(v) {
+  const end = v.endDate ? new Date(`${String(v.endDate).slice(0, 10)}T23:59:59`) : null;
+  const start = v.startDate ? new Date(`${String(v.startDate).slice(0, 10)}T00:00:00`) : null;
+  const now = new Date();
+  let statusStr = "active";
+  if (v.status === 0) statusStr = "expired";
+  else if (end && end < now) statusStr = "expired";
+  else if (start && start > now) statusStr = "expired";
+  const dt = String(v.discountType || "").toLowerCase();
+  const discount_type = dt.includes("percent") ? "percent" : "fixed";
+  return {
+    Vouchers_id: v.id,
+    Code: v.code,
+    discount_type,
+    value: Number(v.value ?? 0),
+    min_order_value: Number(v.minOrderValue ?? 0),
+    start_date: v.startDate,
+    end_date: v.endDate,
+    point_voucher: Number(v.pointVoucher ?? 0),
+    status: statusStr,
+  };
+}
+
 export default function VoucherExchange() {
-  const [userPoints] = useState(760);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const [catalog, setCatalog] = useState([]);
+  const [redeemedIds, setRedeemedIds] = useState([]);
+  const [userPoints, setUserPoints] = useState(Number(storedUser?.points ?? storedUser?.totalPoints ?? 0));
+  const [loading, setLoading] = useState(true);
   const [filter,      setFilter]      = useState("all");
   const [search,      setSearch]      = useState("");
   const [selected,    setSelected]    = useState(null);
-  const [redeemed,    setRedeemed]    = useState([]);
   const [showModal,   setShowModal]   = useState(false);
   const [successCode, setSuccessCode] = useState(null);
+  const [redeemBusy, setRedeemBusy] = useState(false);
 
-  const filtered = VOUCHERS.filter((v) => {
+  const loadWallet = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token) {
+      setRedeemedIds([]);
+      return;
+    }
+    try {
+      const res = await apiFetch(ME.VOUCHERS);
+      const body = await res.json().catch(() => null);
+      if (!res.ok) return;
+      const ids = (Array.isArray(body?.data) ? body.data : [])
+        .map((uv) => uv.voucher?.id)
+        .filter((id) => id != null);
+      setRedeemedIds(ids);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const vr = await apiFetch(VOUCHERS_API.LIST);
+        const vj = await vr.json().catch(() => null);
+        if (!cancelled && vr.ok && Array.isArray(vj?.data)) {
+          const rows = vj.data
+            .map(normalizeCatalogVoucher)
+            .filter((x) => x.point_voucher > 0);
+          setCatalog(rows);
+        } else if (!cancelled) {
+          setCatalog([]);
+        }
+        const token = getAccessToken();
+        const uid = token ? getUserIdFromToken(token) : null;
+        if (token && uid) {
+          const ur = await fetch(apiUrl(USERS.BY_ID(uid)), { headers: { Authorization: `Bearer ${token}` } });
+          const uj = await ur.json().catch(() => null);
+          if (!cancelled && ur.ok && uj?.data) {
+            setUserPoints(Number(uj.data.points ?? 0));
+          }
+          await loadWallet();
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loadWallet]);
+
+  const filtered = useMemo(() => catalog.filter((v) => {
     const matchFilter =
       filter === "all" ||
       (filter === "active"  && v.status === "active")  ||
       (filter === "expired" && v.status === "expired") ||
-      (filter === "mine"    && redeemed.includes(v.Vouchers_id));
+      (filter === "mine"    && redeemedIds.includes(v.Vouchers_id));
     const matchSearch =
-      v.Code.toLowerCase().includes(search.toLowerCase()) ||
+      String(v.Code || "").toLowerCase().includes(search.toLowerCase()) ||
       (v.discount_type === "fixed" ? fmt(v.value) : `${v.value}%`)
         .toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
-  });
+  }), [catalog, filter, search, redeemedIds]);
 
-  const handleRedeem = () => {
-    setRedeemed((r) => [...r, selected.Vouchers_id]);
-    setSuccessCode(selected.Code);
-    setShowModal(false);
-    setSelected(null);
+  const handleRedeem = async () => {
+    if (!selected) return;
+    const token = getAccessToken();
+    if (!token) {
+      navigate("/login", { state: { from: "/voucher" } });
+      return;
+    }
+    setRedeemBusy(true);
+    try {
+      const res = await apiFetch(ME.REDEEM_VOUCHER, {
+        method: "POST",
+        body: JSON.stringify({ voucherId: selected.Vouchers_id }),
+      });
+      const body = await res.json().catch(() => null);
+      if (res.status === 401) {
+        navigate("/login", { state: { from: "/voucher" } });
+        return;
+      }
+      if (!res.ok) {
+        window.alert(body?.message || "Không đổi được voucher");
+        return;
+      }
+      setRedeemedIds((r) => [...new Set([...r, selected.Vouchers_id])]);
+      setUserPoints((p) => Math.max(0, p - selected.point_voucher));
+      setSuccessCode(selected.Code);
+      setShowModal(false);
+      setSelected(null);
+      await loadWallet();
+    } catch {
+      window.alert("Lỗi kết nối");
+    } finally {
+      setRedeemBusy(false);
+    }
   };
 
   return (
@@ -120,7 +222,7 @@ export default function VoucherExchange() {
         .empty-state p { font-size:14px; font-weight:600; }
         .result-count { font-size:12px; color:rgba(255,255,255,0.3); font-weight:600; letter-spacing:0.5px; }
 
-        /* ════ MODAL — override toàn bộ Bootstrap ════ */
+        /* ════ MODAL ════ */
         .modal-content {
           background: #12133a !important;
           border: 1px solid rgba(255,255,255,0.12) !important;
@@ -142,9 +244,7 @@ export default function VoucherExchange() {
           border-top: 1px solid rgba(255,255,255,0.07) !important;
           padding: 16px 24px !important;
         }
-        /* Force tất cả text bên trong modal-body sang màu sáng */
         .modal-body * { color: rgba(255,255,255,0.75) !important; }
-        /* Các helper class để override lại đúng màu */
         .modal-body .c-white    { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
         .modal-body .c-yellow   { color: #d4e219 !important; -webkit-text-fill-color: #d4e219 !important; }
         .modal-body .c-muted    { color: rgba(255,255,255,0.45) !important; -webkit-text-fill-color: rgba(255,255,255,0.45) !important; }
@@ -158,6 +258,13 @@ export default function VoucherExchange() {
         .modal-title { color: #fff !important; font-family: 'Bebas Neue', sans-serif !important; font-size: 24px !important; letter-spacing: 3px !important; }
         .btn-close { filter: invert(1) opacity(0.5) !important; }
       `}</style>
+
+      {loading ? (
+        <div className="text-center py-5 mt-5">
+          <Spinner animation="border" variant="light" />
+          <p className="text-white-50 small mt-2">Đang tải danh sách voucher…</p>
+        </div>
+      ) : null}
 
       <div className="voucher-page mt-5">
         <Container fluid="xl">
@@ -190,7 +297,7 @@ export default function VoucherExchange() {
                   { key:"all",     label:"Tất cả" },
                   { key:"active",  label:"Còn hạn" },
                   { key:"expired", label:"Hết hạn" },
-                  { key:"mine",    label:`Đã đổi (${redeemed.length})` },
+                  { key:"mine",    label:`Đã đổi (${redeemedIds.length})` },
                 ].map(({ key, label }) => (
                   <button key={key} className={`filter-btn${filter===key?" active":""}`} onClick={() => setFilter(key)}>
                     {label}
@@ -228,7 +335,7 @@ export default function VoucherExchange() {
             <Row className="g-3">
               {filtered.map((v) => {
                 const isExpired  = v.status === "expired";
-                const isRedeemed = redeemed.includes(v.Vouchers_id);
+                const isRedeemed = redeemedIds.includes(v.Vouchers_id);
                 const enough     = userPoints >= v.point_voucher;
                 const isFree     = v.point_voucher === 0;
                 return (
@@ -294,7 +401,6 @@ export default function VoucherExchange() {
 
         {selected && (
           <Modal.Body>
-            {/* Tên giảm giá */}
             <div style={{ background:"rgba(255,255,255,0.04)", borderRadius:12, padding:20, marginBottom:16, border:"1px solid rgba(255,255,255,0.08)" }}>
               <div
                 className="c-gradient"
@@ -307,7 +413,6 @@ export default function VoucherExchange() {
               </div>
             </div>
 
-            {/* Thông tin */}
             <div style={{ fontSize:13, lineHeight:2, fontWeight:600 }}>
               <div>🛒 Đơn tối thiểu: <span className="c-white">{fmt(selected.min_order_value)}</span></div>
               <div>📅 Hết hạn: <span className="c-white">{fmtDate(selected.end_date)}</span></div>
@@ -316,7 +421,6 @@ export default function VoucherExchange() {
               )}
             </div>
 
-            {/* Điểm còn lại */}
             {selected.point_voucher > 0 && (
               <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(212,226,25,0.06)", borderRadius:10, border:"1px solid rgba(212,226,25,0.2)", fontSize:13, fontWeight:600 }}>
                 Số điểm sau khi đổi:{" "}
@@ -336,8 +440,8 @@ export default function VoucherExchange() {
           >
             Hủy
           </Button>
-          <Button className="btn-redeem" onClick={handleRedeem}>
-            ✓ Xác nhận đổi
+          <Button className="btn-redeem" disabled={redeemBusy} onClick={handleRedeem}>
+            {redeemBusy ? "…" : "✓ Xác nhận đổi"}
           </Button>
         </Modal.Footer>
       </Modal>

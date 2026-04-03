@@ -1,16 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
+import CustomerPageShell from "../../components/common/CustomerPageShell";
 
 /* ── helpers ── */
 const maskEmail = (email) => {
   const [user, domain] = email.split("@");
   return user.slice(0, 2) + "****" + user.slice(-1) + "@" + domain;
-};
-
-const MOCK_ACCOUNTS = {
-  "user@gmail.com": { email: "user@gmail.com" },
-  "testuser": { email: "testuser@gmail.com" },
 };
 
 /* ══════════════════════════════════════════
@@ -49,19 +45,41 @@ function StepIndicator({ current }) {
   );
 }
 
+function EyeIcon({ show }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {show
+        ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+        : <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
+      }
+    </svg>
+  );
+}
+
+function RuleRow({ pass, text }) {
+  return (
+    <div className={`fp-rule ${pass ? "pass" : ""}`}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        {pass
+          ? <polyline points="20 6 9 17 4 12"/>
+          : <circle cx="12" cy="12" r="10" strokeOpacity="0.4"/>
+        }
+      </svg>
+      {text}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════
    STEP 1 – Nhập tài khoản
 ══════════════════════════════════════════ */
-function Step1({ onNext }) {
+function Step1() {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = () => {
     if (!value.trim()) { setError("Tài khoản không được để trống"); return; }
-    const found = MOCK_ACCOUNTS[value.trim().toLowerCase()];
-    if (!found) { setError("Tài khoản không tồn tại trong hệ thống"); return; }
-    setError("");
-    onNext({ account: value.trim(), email: found.email });
+    setError("Quên mật khẩu cần API backend — chưa tích hợp.");
   };
 
   return (
@@ -90,21 +108,14 @@ function Step1({ onNext }) {
 /* ══════════════════════════════════════════
    STEP 2 – Xác minh OTP
 ══════════════════════════════════════════ */
-const MOCK_OTP = "123456";
-
-function Step2({ email, onNext }) {
+function Step2({ email }) {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const timerRef = useRef(null);
 
-  useEffect(() => {
-    startCountdown();
-    return () => clearInterval(timerRef.current);
-  }, []);
-
-  const startCountdown = () => {
+  const startCountdown = useCallback(() => {
     setCountdown(60);
     setCanResend(false);
     clearInterval(timerRef.current);
@@ -114,13 +125,19 @@ function Step2({ email, onNext }) {
         return c - 1;
       });
     }, 1000);
-  };
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => startCountdown(), 0);
+    return () => {
+      clearTimeout(t);
+      clearInterval(timerRef.current);
+    };
+  }, [startCountdown]);
 
   const handleSubmit = () => {
     if (!otp.trim()) { setError("Vui lòng nhập mã xác nhận"); return; }
-    if (otp.trim() !== MOCK_OTP) { setError("Mã xác nhận không đúng. Hãy thử lại"); return; }
-    setError("");
-    onNext();
+    setError("Xác minh OTP cần API backend — chưa tích hợp.");
   };
 
   return (
@@ -138,7 +155,7 @@ function Step2({ email, onNext }) {
         Vui lòng nhập mã xác nhận email để xác minh danh tính
       </p>
       <p style={{ textAlign: "center", fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: 2, color: "var(--yellow)", marginBottom: 20 }}>
-        {maskEmail(email)}
+        {email ? maskEmail(email) : "—"}
       </p>
       <div className={`fp-input-wrap otp-wrap ${error ? "has-error" : ""}`}>
         <input
@@ -158,9 +175,6 @@ function Step2({ email, onNext }) {
         </button>
       </div>
       {error && <p className="fp-error">{error}</p>}
-      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center", marginBottom: 20, fontWeight: 600 }}>
-        💡 Mã demo: <span style={{ color: "var(--yellow)", fontFamily: "'Bebas Neue'", letterSpacing: 2 }}>123456</span>
-      </p>
       <button
         className={`fp-btn${!otp.trim() ? " disabled" : ""}`}
         onClick={handleSubmit}
@@ -199,27 +213,6 @@ function Step3({ onDone }) {
   };
 
   const canSubmit = rule1 && rule2 && rule3;
-
-  const EyeIcon = ({ show }) => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      {show
-        ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
-        : <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
-      }
-    </svg>
-  );
-
-  const RuleRow = ({ pass, text }) => (
-    <div className={`fp-rule ${pass ? "pass" : ""}`}>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        {pass
-          ? <polyline points="20 6 9 17 4 12"/>
-          : <circle cx="12" cy="12" r="10" strokeOpacity="0.4"/>
-        }
-      </svg>
-      {text}
-    </div>
-  );
 
   return (
     <div className="fp-body">
@@ -309,45 +302,42 @@ function SuccessView() {
    MAIN PAGE
 ══════════════════════════════════════════ */
 export default function ForgotPassword() {
-  const [step, setStep] = useState(1);
-  const [data, setData] = useState({});
+  const [step] = useState(1);
+  const [data] = useState({});
   const [done, setDone] = useState(false);
 
   return (
     <Layout>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
-
         :root {
-          --navy:   #2d3151;
-          --purple: #7b1fa2;
-          --pink:   #e91e8c;
-          --yellow: #d4e219;
-          --dark:   #0f102a;
+          --navy:   #18181b;
+          --purple: #e11d48;
+          --pink:   #f43f5e;
+          --yellow: #fb7185;
+          --dark:   #09090b;
         }
 
         .fp-page {
           min-height: 100vh;
           background:
-            radial-gradient(ellipse 70% 50% at 15% 20%, rgba(123,31,162,0.2) 0%, transparent 60%),
-            radial-gradient(ellipse 55% 40% at 85% 80%, rgba(233,30,140,0.15) 0%, transparent 60%),
-            #0f102a;
+            radial-gradient(ellipse 80% 45% at 50% -15%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
+            linear-gradient(180deg, #09090b 0%, #18181b 100%);
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 60px 16px;
-          font-family: 'Syne', sans-serif;
+          font-family: var(--font-ui), system-ui, sans-serif;
         }
 
         /* ── CARD ── */
         .fp-card {
-          background: rgba(18,19,58,0.95);
-          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(24, 24, 27, 0.96);
+          border: 1px solid rgba(63, 63, 70, 0.9);
           border-radius: 24px;
           width: 100%;
           max-width: 480px;
           padding: 36px 40px 40px;
-          box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+          box-shadow: 0 24px 80px rgba(0,0,0,0.55);
           animation: fpFadeIn 0.35s ease;
         }
         @keyframes fpFadeIn {
@@ -402,11 +392,11 @@ export default function ForgotPassword() {
           border-color: var(--purple);
           background: linear-gradient(135deg, var(--purple), var(--pink));
           color: #fff;
-          box-shadow: 0 0 18px rgba(233,30,140,0.4);
+          box-shadow: 0 0 18px rgba(244, 63, 94, 0.45);
         }
         .fp-step-circle.done {
-          border-color: var(--yellow);
-          background: rgba(212,226,25,0.12);
+          border-color: rgba(244, 63, 94, 0.5);
+          background: rgba(244, 63, 94, 0.12);
           color: var(--yellow);
         }
         .fp-step-label {
@@ -431,7 +421,7 @@ export default function ForgotPassword() {
           background: rgba(255,255,255,0.1);
           transition: background 0.3s ease;
         }
-        .fp-step-line.filled { background: linear-gradient(90deg, var(--purple), var(--pink)); }
+        .fp-step-line.filled { background: linear-gradient(90deg, #e11d48, #f43f5e); }
 
         /* ── BODY ── */
         .fp-body { display: flex; flex-direction: column; }
@@ -455,7 +445,7 @@ export default function ForgotPassword() {
           transition: border-color 0.2s;
           margin-bottom: 6px;
         }
-        .fp-input-wrap:focus-within { border-color: var(--yellow); background: rgba(212,226,25,0.03); }
+        .fp-input-wrap:focus-within { border-color: rgba(244, 63, 94, 0.65); background: rgba(244, 63, 94, 0.04); }
         .fp-input-wrap.has-error { border-color: var(--pink); }
 
         .fp-input {
@@ -464,7 +454,7 @@ export default function ForgotPassword() {
           border: none;
           outline: none;
           color: #fff;
-          font-family: 'Syne', sans-serif;
+          font-family: var(--font-ui), system-ui, sans-serif;
           font-size: 14px;
           font-weight: 600;
           padding: 14px 0;
@@ -485,7 +475,7 @@ export default function ForgotPassword() {
           background: none;
           border: none;
           color: rgba(255,255,255,0.2);
-          font-family: 'Syne', sans-serif;
+          font-family: var(--font-ui), system-ui, sans-serif;
           font-weight: 700;
           font-size: 12px;
           padding: 0 16px;
@@ -533,12 +523,12 @@ export default function ForgotPassword() {
           width: 72px;
           height: 72px;
           border-radius: 50%;
-          background: rgba(123,31,162,0.15);
-          border: 1px solid rgba(233,30,140,0.25);
+          background: rgba(244, 63, 94, 0.1);
+          border: 1px solid rgba(244, 63, 94, 0.28);
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 0 28px rgba(233,30,140,0.15);
+          box-shadow: 0 0 28px rgba(244, 63, 94, 0.12);
         }
 
         /* ── MAIN BUTTON ── */
@@ -549,16 +539,16 @@ export default function ForgotPassword() {
           border-radius: 12px;
           background: linear-gradient(135deg, var(--purple), var(--pink));
           color: #fff;
-          font-family: 'Syne', sans-serif;
+          font-family: var(--font-ui), system-ui, sans-serif;
           font-weight: 800;
           font-size: 14px;
           letter-spacing: 1px;
           cursor: pointer;
-          box-shadow: 0 0 24px rgba(233,30,140,0.3);
+          box-shadow: 0 0 24px rgba(244, 63, 94, 0.28);
           transition: box-shadow 0.25s, transform 0.2s, opacity 0.2s;
           margin-top: 8px;
         }
-        .fp-btn:hover { box-shadow: 0 0 36px rgba(233,30,140,0.55); transform: translateY(-1px); }
+        .fp-btn:hover { box-shadow: 0 0 36px rgba(244, 63, 94, 0.5); transform: translateY(-1px); }
         .fp-btn.disabled {
           background: rgba(255,255,255,0.08) !important;
           box-shadow: none !important;
@@ -584,7 +574,7 @@ export default function ForgotPassword() {
         }
       `}</style>
 
-      <div className="fp-page">
+      <CustomerPageShell variant="full" className="fp-page auth-public-page">
         <div className="fp-card">
           <h2 className="fp-card-title">
             QUÊN <span>MẬT KHẨU</span>
@@ -595,9 +585,9 @@ export default function ForgotPassword() {
           {done ? (
             <SuccessView />
           ) : step === 1 ? (
-            <Step1 onNext={(d) => { setData(d); setStep(2); }} />
+            <Step1 />
           ) : step === 2 ? (
-            <Step2 email={data.email} onNext={() => setStep(3)} />
+            <Step2 email={data.email} />
           ) : (
             <Step3 onDone={() => setDone(true)} />
           )}
@@ -608,7 +598,7 @@ export default function ForgotPassword() {
             </p>
           )}
         </div>
-      </div>
+      </CustomerPageShell>
     </Layout>
   );
 }

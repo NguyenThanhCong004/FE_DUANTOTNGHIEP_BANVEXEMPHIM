@@ -9,8 +9,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 
-// Đăng ký các thành phần của Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -21,17 +21,17 @@ ChartJS.register(
 );
 
 const SuperAdminDashboard = () => {
-  // Dữ liệu cho biểu đồ
   const chartData = {
-    labels: ['CGV Vincom', 'Lotte Cinema', 'BHD Star', 'Galaxy Cinema', 'Beta Cinemas', 'Cinestar', 'Mega GS'],
+    labels: ['—'],
     datasets: [
       {
         label: 'Doanh thu (Triệu VNĐ)',
-        data: [450, 380, 320, 290, 250, 210, 180],
-        backgroundColor: 'rgba(13, 110, 253, 0.7)',
-        borderColor: 'rgb(13, 110, 253)',
-        borderWidth: 1,
+        data: [0],
+        backgroundColor: 'rgba(99, 102, 241, 0.8)',
+        borderColor: 'rgb(99, 102, 241)',
+        borderWidth: 2,
         borderRadius: 8,
+        borderSkipped: false,
       },
     ],
   };
@@ -42,125 +42,131 @@ const SuperAdminDashboard = () => {
     plugins: {
       legend: {
         position: 'top',
+        labels: {
+          usePointStyle: true,
+          padding: 20,
+          font: {
+            size: 12,
+            weight: '600',
+          },
+        },
       },
       title: {
         display: false,
+      },
+      tooltip: {
+        backgroundColor: 'rgba(30, 41, 59, 0.9)',
+        padding: 12,
+        titleFont: { size: 13, weight: '600' },
+        bodyFont: { size: 12 },
+        cornerRadius: 8,
+        displayColors: false,
       },
     },
     scales: {
       y: {
         beginAtZero: true,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+          drawBorder: false,
+        },
         ticks: {
           callback: (value) => value + 'M',
+          font: { size: 11 },
+          color: '#64748b',
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+          drawBorder: false,
+        },
+        ticks: {
+          font: { size: 12, weight: '500' },
+          color: '#64748b',
         },
       },
     },
   };
 
-  // Dữ liệu ảo (Mock data) cho các thẻ thống kê
   const stats = [
-    {
-      label: 'Tổng doanh thu (Tất cả rạp)',
-      value: '2,450,000,000 VNĐ',
-      icon: 'bi-currency-dollar',
-      color: 'primary',
-      trend: '+12% so với tháng trước'
-    },
-    {
-      label: 'Tổng số nhân viên',
-      value: '124',
-      icon: 'bi-person-badge',
-      color: 'success',
-      trend: 'Hoạt động trên 12 rạp'
-    },
-    {
-      label: 'Tổng số khách hàng',
-      value: '12,850',
-      icon: 'bi-people',
-      color: 'info',
-      trend: '850 thành viên mới'
-    },
-    {
-      label: 'Tổng bộ phim đã tạo',
-      value: '342',
-      icon: 'bi-film',
-      color: 'warning',
-      trend: '24 phim đang chiếu'
-    },
-    {
-      label: 'Tổng sản phẩm (Bắp/Nước)',
-      value: '56',
-      icon: 'bi-box-seam',
-      color: 'danger',
-      trend: '8 loại sản phẩm'
-    }
+    { title: 'Tổng doanh thu', value: '—', subtitle: 'Tất cả rạp', icon: 'bi-currency-dollar', color: '#6366f1', change: 'Nối API', changeType: 'increase' },
+    { title: 'Tổng nhân viên', value: '—', subtitle: 'người', icon: 'bi-person-badge', color: '#10b981', change: '', changeType: 'increase' },
+    { title: 'Tổng khách hàng', value: '—', subtitle: 'người', icon: 'bi-people', color: '#3b82f6', change: '', changeType: 'increase' },
+    { title: 'Tổng phim', value: '—', subtitle: 'bộ phim', icon: 'bi-film', color: '#f59e0b', change: '', changeType: 'increase' },
+    { title: 'Tổng sản phẩm', value: '—', subtitle: 'Bắp/Nước', icon: 'bi-box-seam', color: '#ef4444', change: '', changeType: 'increase' },
   ];
 
+  const exportExcel = () => {
+    const headers = ['Hang muc', 'Gia tri', 'Xu huong'];
+    const rows = stats.map((s) => [s.title, s.value, s.change]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `super-admin-dashboard-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="dashboard-container">
-      <style>{`
-        .stat-card {
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          border: none;
-          border-radius: 15px;
-        }
-        .stat-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
-        }
-        .icon-shape {
-          width: 60px;
-          height: 60px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12px;
-          font-size: 24px;
-        }
-      `}</style>
-
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold text-dark m-0">Tổng quan hệ thống</h2>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="row g-4 mb-5">
+    <AdminPanelPage
+      icon="shield-lock"
+      title="Super Admin Dashboard"
+      description="Tổng quan hệ thống toàn bộ rạp chiếu phim"
+      headerRight={
+        <button type="button" className="admin-btn" style={{ background: 'white', color: '#6366f1' }} onClick={exportExcel}>
+          <i className="bi bi-file-earmark-excel me-2"></i>
+          Xuất Excel
+        </button>
+      }
+    >
+      <div className="admin-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         {stats.map((stat, index) => (
-          <div className="col-12 col-md-6 col-lg-4 col-xl" key={index}>
-            <div className="card stat-card shadow-sm h-100 p-3">
-              <div className="d-flex align-items-center justify-content-between mb-3">
-                <div className={`icon-shape bg-${stat.color} bg-opacity-10 text-${stat.color}`}>
-                  <i className={`bi ${stat.icon}`}></i>
-                </div>
-                <span className={`badge bg-${stat.color} bg-opacity-10 text-${stat.color} border border-${stat.color}`}>
-                  Thống kê
-                </span>
-              </div>
-              <div>
-                <h6 className="text-muted fw-normal mb-1">{stat.label}</h6>
-                <h3 className="fw-bold mb-2">{stat.value}</h3>
-                <small className="text-success d-flex align-items-center">
-                  <i className="bi bi-arrow-up-right me-1"></i>
-                  {stat.trend}
-                </small>
-              </div>
+          <div
+            key={index}
+            className="admin-stat-card admin-slide-up"
+            style={{
+              '--stat-color': stat.color,
+              '--icon-bg': `${stat.color}15`,
+              animationDelay: `${index * 0.1}s`,
+            }}
+          >
+            <div className="admin-stat-icon">
+              <i className={`bi ${stat.icon}`}></i>
             </div>
+            <div className="admin-stat-value">{stat.value}</div>
+            <div className="admin-stat-label">{stat.subtitle}</div>
+            {stat.change && (
+              <div className={`admin-stat-change ${stat.changeType}`}>
+                <i className={`bi bi-arrow-${stat.changeType === 'increase' ? 'up' : 'down'}`}></i>
+                {stat.change}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Row cho Biểu đồ */}
-      <div className="row g-4">
-        <div className="col-12">
-          <div className="card shadow-sm border-0 p-4" style={{ borderRadius: '15px' }}>
-            <h5 className="fw-bold mb-4">Biểu đồ doanh thu theo rạp (Triệu VNĐ)</h5>
-            <div style={{ height: '400px', position: 'relative' }}>
-              <Bar data={chartData} options={chartOptions} />
-            </div>
+      <div className="admin-card admin-slide-up" style={{ animationDelay: '0.5s' }}>
+        <div className="admin-card-header">
+          <h4>
+            <i className="bi bi-bar-chart-line me-2 text-primary"></i>
+            Biểu đồ doanh thu theo rạp
+          </h4>
+          <span className="text-muted small">Đơn vị: Triệu VNĐ</span>
+        </div>
+        <div className="admin-card-body">
+          <div style={{ height: '400px', position: 'relative' }}>
+            <Bar data={chartData} options={chartOptions} />
           </div>
         </div>
       </div>
-    </div>
+    </AdminPanelPage>
   );
 };
 

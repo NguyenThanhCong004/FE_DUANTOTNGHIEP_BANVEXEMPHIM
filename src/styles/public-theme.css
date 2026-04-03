@@ -1,0 +1,195 @@
+/**
+ * Theme giao diện khách / trang công khai — CHỈ áp dụng khi html.cinetoon-public
+ * (xem RouteThemeSync + index.html). Không đè lên admin-panel.
+ * Font: design-tokens.css (không @import trùng).
+ * Không style .navbar / .nav-link toàn cục — tránh đè Navbar/Footer (site-chrome.css).
+ */
+
+html.cinetoon-public {
+  /* Đồng bộ với Navbar (Tailwind zinc-950 + rose): thanh điều hướng cố định */
+  --primary-gradient: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
+  --secondary-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
+  --bg-gradient:
+    radial-gradient(ellipse 85% 45% at 50% -20%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
+    linear-gradient(180deg, #09090b 0%, #18181b 45%, #09090b 100%);
+  --toon-shadow: 0 8px 0 rgba(0, 0, 0, 0.25);
+}
+
+html.cinetoon-public body {
+  font-family: var(--font-ui);
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  color: rgba(255, 255, 255, 0.95);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.cinetoon-public main {
+  font-family: var(--font-content);
+}
+
+html.cinetoon-public .toon-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+}
+
+html.cinetoon-public .btn-gradient {
+  background: var(--primary-gradient);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 0 #9f1239;
+  transition: all 0.2s ease;
+}
+
+html.cinetoon-public .btn-gradient:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #9f1239;
+  color: white;
+}
+
+/* Card glass — chữ sáng mặc định; vùng nền sáng bên trong dùng chữ đậm */
+html.cinetoon-public .card {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+html.cinetoon-public .card .bg-light,
+html.cinetoon-public .card .bg-white,
+html.cinetoon-public .card .bg-body {
+  color: #212529 !important;
+}
+
+html.cinetoon-public .card .bg-light .text-muted,
+html.cinetoon-public .card .bg-white .text-muted {
+  color: #6c757d !important;
+}
+
+html.cinetoon-public .card .bg-light .text-dark,
+html.cinetoon-public .card .bg-white .text-dark {
+  color: #212529 !important;
+}
+
+/* Đoạn mô tả muted trực tiếp trong card (không nằm trong bg-light) — nền kính tối */
+html.cinetoon-public .card > p.text-muted {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+/* Form trong main — không đè ô tìm kiếm trên Navbar */
+html.cinetoon-public main input.form-control,
+html.cinetoon-public main select.form-select,
+html.cinetoon-public main textarea.form-control {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+html.cinetoon-public main input.form-control:focus,
+html.cinetoon-public main select.form-select:focus,
+html.cinetoon-public main textarea.form-control:focus {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 0 0.25rem rgba(244, 63, 94, 0.25) !important;
+  border-color: #f43f5e !important;
+  color: #fff !important;
+}
+
+html.cinetoon-public main input.form-control::placeholder,
+html.cinetoon-public main textarea.form-control::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Form trong auth page (Login, Register) - không nằm trong main */
+html.cinetoon-public .auth-public-page input.form-control,
+html.cinetoon-public .auth-public-page select.form-select,
+html.cinetoon-public .auth-public-page textarea.form-control {
+  color: #ffffff !important;
+}
+
+html.cinetoon-public .auth-public-page input.form-control:focus,
+html.cinetoon-public .auth-public-page select.form-select:focus,
+html.cinetoon-public .auth-public-page textarea.form-control:focus {
+  color: #ffffff !important;
+}
+
+html.cinetoon-public .auth-public-page input.form-control::placeholder,
+html.cinetoon-public .auth-public-page textarea.form-control::placeholder {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+html.cinetoon-public main select.form-select option {
+  background-color: #18181b;
+  color: #ffffff;
+}
+
+/* Khung nội dung trang khách — cùng max-width / padding ngang với Navbar: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 */
+html.cinetoon-public .customer-page {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+html.cinetoon-public .customer-page-container {
+  width: 100%;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  html.cinetoon-public .customer-page-container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  html.cinetoon-public .customer-page-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+html.cinetoon-public .customer-page--full {
+  min-height: 0;
+}
+
+/* Không ép .text-dark / .text-muted toàn cục — để Bootstrap + ngữ cảnh quyết định */
+
+html.cinetoon-public .text-gradient {
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
+html.cinetoon-public .movie-poster-container {
+  border-radius: 15px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+html.cinetoon-public .animate-bounce-soft {
+  animation: cinetoon-bounce-soft 2s infinite;
+}
+
+@keyframes cinetoon-bounce-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}

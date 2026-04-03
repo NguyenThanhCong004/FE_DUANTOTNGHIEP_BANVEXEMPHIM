@@ -1,130 +1,233 @@
-import React from 'react';
-import { NavLink, useNavigate, Outlet, Link } from 'react-router-dom';
-import { Dropdown } from 'react-bootstrap';
-import { 
-  LayoutDashboard, 
-  Users, 
-  UserRound, 
-  TicketPercent, 
-  CalendarClock, 
-  Armchair, 
-  Popcorn, 
-  MonitorPlay, 
-  DoorOpen, 
-  FileText, 
+import React, { useEffect, useMemo } from "react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+  Armchair,
+  Bell,
+  CalendarClock,
+  DoorOpen,
+  Film,
+  LayoutDashboard,
   LogOut,
-  User,
-  Home as HomeIcon,
-  ChevronDown
-} from 'lucide-react';
-import './AdminLayout.css';
+  Megaphone,
+  Package,
+  ReceiptText,
+  UserCircle,
+  UserRound,
+  Users,
+} from "lucide-react";
+import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
+import { useSuperAdminCinema } from "./useSuperAdminCinema";
+import CinemaPicker from "./CinemaPicker";
+import "../../styles/admin-shell.css";
+import "../../styles/admin-design-system.css";
 
-const AdminLayout = () => {
+const sectionsGeneral = [
+  {
+    title: "Tổng quan",
+    requiresCinema: false,
+    items: [
+      { path: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
+    ],
+  },
+];
+
+const sectionsCinema = [
+  {
+    title: "Hệ thống rạp",
+    requiresCinema: true,
+    items: [
+      { path: "/admin/staff", label: "Nhân viên rạp", icon: UserRound },
+      { path: "/admin/shifts", label: "Ca làm", icon: CalendarClock },
+      { path: "/admin/rooms", label: "Phòng chiếu", icon: DoorOpen },
+      { path: "/admin/seats", label: "Sơ đồ ghế", icon: Armchair },
+      { path: "/admin/showtimes", label: "Suất chiếu", icon: Film },
+      { path: "/admin/products", label: "Sản phẩm", icon: Package },
+      { path: "/admin/promotions", label: "Khuyến mãi", icon: Megaphone },
+      { path: "/admin/invoices", label: "Hóa đơn", icon: ReceiptText },
+    ],
+  },
+];
+
+const sectionsRest = [
+  {
+    title: "Khách hàng",
+    requiresCinema: false,
+    items: [{ path: "/admin/users", label: "Khách hàng", icon: Users }],
+  },
+  {
+    title: "Tài khoản",
+    requiresCinema: false,
+    items: [{ path: "/admin/profile", label: "Hồ sơ cá nhân", icon: UserCircle }],
+  },
+];
+
+export default function AdminLayout() {
   const navigate = useNavigate();
+  const staff = getStoredStaff();
+  const {
+    selectedCinemaId,
+    selectedCinemaName,
+    setSelectedCinemaId,
+  } = useSuperAdminCinema();
+
+  /** Admin rạp: rạp lấy từ BE khi đăng nhập (`staff.cinemaId`), không cần chọn tay. */
+  const effectiveCinemaId = staff?.cinemaId ?? selectedCinemaId;
+  const cinemaReady = effectiveCinemaId != null;
+
+  useEffect(() => {
+    const cid = staff?.cinemaId;
+    if (cid == null) return;
+    if (selectedCinemaId !== cid) setSelectedCinemaId(cid);
+  }, [staff?.cinemaId, selectedCinemaId, setSelectedCinemaId]);
+
+  const staffName = useMemo(() => staff?.fullname || "Quản trị viên", [staff]);
 
   const handleLogout = () => {
-    // Logic đăng xuất ở đây (ví dụ: xóa token)
-    console.log('Logging out...');
-    navigate('/login');
+    clearAuthSession();
+    navigate("/login");
   };
 
-  const menuItems = [
-    { path: '/admin', label: 'Dashboard' },
-    { path: '/admin/staff', label: 'Quản lý nhân viên rạp' },
-    { path: '/admin/users', label: 'Quản lý người dùng' },
-    { path: '/admin/promotions', label: 'Quản lý khuyến mãi' },
-    { path: '/admin/shifts', label: 'Quản lý ca làm nhân viên' },
-    { path: '/admin/rooms', label: 'Quản lý phòng chiếu' },
-    { path: '/admin/seats', label: 'Quản lý ghế' },
-    { path: '/admin/showtimes', label: 'Quản lý suất chiếu' },
-    { path: '/admin/products', label: 'Quản lý sản phẩm bán tại rạp' },
-    { path: '/admin/invoices', label: 'Hóa đơn của rạp' },
-  ];
+  const renderNavSection = (section) => {
+    const locked = section.requiresCinema && !cinemaReady;
+
+    return (
+      <div key={section.title} className="app-shell-nav-block">
+        {section.requiresCinema ? (
+          <div
+            className={`app-shell-nav-section--locked ${locked ? "is-disabled" : ""}`}
+          >
+            <div className="app-shell-nav-section-title">{section.title}</div>
+            {locked && (
+              <p className="app-shell-lock-hint">
+                Tài khoản chưa được gán rạp (cinemaId). Liên hệ Super Admin.
+              </p>
+            )}
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <LinkOrSpan
+                  key={item.path}
+                  to={item.path}
+                  end={Boolean(item.end)}
+                  locked={locked}
+                >
+                  <Icon size={17} />
+                  <span>{item.label}</span>
+                </LinkOrSpan>
+              );
+            })}
+          </div>
+        ) : (
+          <>
+            <div className="app-shell-nav-section-title">{section.title}</div>
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <LinkOrSpan
+                  key={item.path}
+                  to={item.path}
+                  end={Boolean(item.end)}
+                  locked={false}
+                >
+                  <Icon size={17} />
+                  <span>{item.label}</span>
+                </LinkOrSpan>
+              );
+            })}
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="admin-container">
-      {/* Sidebar */}
-      <aside className="admin-sidebar">
-        <div className="sidebar-header">
-          CINEMA ADMIN
+    <div className="app-shell-layout">
+      <aside className="app-shell-sidebar">
+        <div className="app-shell-brand">
+          <div className="app-shell-brand-dot" />
+          <div>
+            <div className="app-shell-brand-title">CINETOON</div>
+            <div className="app-shell-brand-sub">Quản trị rạp</div>
+          </div>
         </div>
 
-        <nav className="sidebar-menu">
-          {menuItems.map((item) => (
-            <NavLink 
-              key={item.path} 
-              to={item.path} 
-              end={item.path === '/admin'}
-              className={({ isActive }) => isActive ? 'menu-item active' : 'menu-item'}
-              style={({ isActive }) => ({
-                color: isActive ? '#1976d2' : '#333333',
-                textDecoration: 'none'
-              })}
-            >
-              <span style={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
-                <span className="ms-2" style={{ color: 'inherit' }}>{item.label}</span>
-              </span>
-            </NavLink>
-          ))}
+        {staff?.cinemaId == null ? <CinemaPicker /> : null}
+
+        <nav className="app-shell-nav-scroll">
+          {sectionsGeneral.map(renderNavSection)}
+          {sectionsCinema.map(renderNavSection)}
+          {sectionsRest.map(renderNavSection)}
         </nav>
 
-        <div className="sidebar-footer">
-          <button onClick={handleLogout} className="logout-btn w-100">
-            <LogOut size={20} />
-            <span className="ms-2">Đăng xuất</span>
-          </button>
-        </div>
+        <button type="button" className="app-shell-logout-btn" onClick={handleLogout}>
+          <LogOut size={16} />
+          <span>Đăng xuất</span>
+        </button>
       </aside>
 
+      <main className="app-shell-main">
+        <header className="app-shell-header">
+          <div className="app-shell-header-title d-none d-md-block">
+            <span className="app-shell-header-kicker">Bảng điều khiển</span>
+          </div>
 
-      {/* Main Content */}
-      <main className="admin-main">
-        {/* Header */}
-        <header className="admin-header px-4 d-flex justify-content-end align-items-center shadow-sm" style={{ height: '70px', background: '#fff' }}>
-          <Dropdown className="admin-profile-dropdown">
-            <Dropdown.Toggle id="dropdown-admin-profile" as="div" className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }}>
-              <img 
-                src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" 
-                alt="Admin Avatar" 
-                className="admin-avatar rounded-circle border"
-                style={{ width: '40px', height: '40px', objectFit: 'cover' }}
-              />
-              <ChevronDown size={18} style={{ color: '#6c757d' }} />
-            </Dropdown.Toggle>
-
-            <Dropdown.Menu align="end" className="border-0 shadow-lg mt-3 py-2" style={{ borderRadius: '15px', minWidth: '220px' }}>
-              <div className="px-3 py-2 border-bottom mb-2">
-                <div className="fw-bold text-dark">Quản trị viên</div>
-                <div className="text-muted small">admin@cinema.com</div>
+          <div className="app-shell-header-actions">
+            <button className="app-shell-icon-btn" type="button" aria-label="Thông báo">
+              <Bell size={16} />
+            </button>
+            <div className="app-shell-cinema-chip" title="Rạp hiện tại">
+              <span>
+                {cinemaReady
+                  ? selectedCinemaName || `Rạp #${effectiveCinemaId}`
+                  : "Chưa có rạp"}
+              </span>
+            </div>
+            <NavLink to="/admin/profile" className="text-decoration-none">
+              <div className="app-shell-profile-chip">
+                <img
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
+                    staffName
+                  )}&background=1f2937&color=fff`}
+                  alt=""
+                />
+                <div>
+                  <div className="app-shell-profile-name">{staffName}</div>
+                  <div className="app-shell-profile-sub">Admin rạp · Hồ sơ</div>
+                </div>
               </div>
-              
-              <Dropdown.Item as={Link} to="/admin/profile" className="py-2 px-3 d-flex align-items-center gap-2">
-                <User size={18} className="text-primary" />
-                <span className="fw-semibold">Trang cá nhân</span>
-              </Dropdown.Item>
-
-              <Dropdown.Item as={Link} to="/" className="py-2 px-3 d-flex align-items-center gap-2">
-                <HomeIcon size={18} className="text-success" />
-                <span className="fw-semibold">Về trang chủ</span>
-              </Dropdown.Item>
-
-              <Dropdown.Divider className="mx-2" />
-
-              <Dropdown.Item onClick={handleLogout} className="py-2 px-3 d-flex align-items-center gap-2 text-danger">
-                <LogOut size={18} />
-                <span className="fw-semibold">Đăng xuất</span>
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown>
+            </NavLink>
+          </div>
         </header>
 
-        {/* Dynamic Content */}
-        <div className="content-wrapper p-4">
+        <section className="app-shell-content app-shell-content--panel">
           <Outlet />
-        </div>
+        </section>
       </main>
     </div>
   );
-};
+}
 
-export default AdminLayout;
+function LinkOrSpan({ to, end, locked, children }) {
+  if (locked) {
+    return (
+      <span
+        className="app-shell-nav-link app-shell-nav-link--locked"
+        aria-disabled="true"
+        title="Chọn rạp để truy cập"
+      >
+        {children}
+      </span>
+    );
+  }
+  return (
+    <NavLink
+      to={to}
+      end={Boolean(end)}
+      className={({ isActive }) =>
+        `app-shell-nav-link ${isActive ? "active" : ""}`
+      }
+    >
+      {children}
+    </NavLink>
+  );
+}
