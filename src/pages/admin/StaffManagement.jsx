@@ -24,6 +24,21 @@ const StaffManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const handleDelete = async (id) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa nhân viên #${id} không?`)) return;
+    try {
+      const res = await apiFetch(STAFF.BY_ID(id), { method: 'DELETE' });
+      if (res.ok) {
+        setStaffDtos((prev) => prev.filter((s) => s.staffId !== id));
+      } else {
+        const json = await res.json().catch(() => null);
+        alert(json?.message || "Xóa nhân viên thất bại");
+      }
+    } catch {
+      alert("Không thể kết nối tới server để xóa nhân viên");
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -228,6 +243,14 @@ const StaffManagement = () => {
                           >
                             <i className="bi bi-pencil"></i>
                           </Link>
+                          <button
+                            type="button"
+                            className="admin-table-action-btn admin-table-action-btn--danger"
+                            title="Xóa nhân viên"
+                            onClick={() => handleDelete(staff.id)}
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -12,6 +12,8 @@ const MovieManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [movieToDelete, setMovieToDelete] = useState(null);
   const itemsPerPage = 8;
 
   const [allMovies, setAllMovies] = useState([]);
@@ -69,6 +71,55 @@ const MovieManagement = () => {
   const totalPages = Math.ceil(filteredMovies.length / itemsPerPage);
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const handleDeleteMovie = async (movie) => {
+    try {
+      const res = await apiFetch(MOVIES.DELETE(movie.id), {
+        method: "DELETE"
+      });
+      
+      if (res.ok) {
+        // Refresh danh sách
+        const refreshRes = await apiFetch(MOVIES.LIST);
+        const json = await refreshRes.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        setAllMovies(
+          arr.map((m) => ({
+            id: m.id,
+            title: m.title ?? '',
+            author: m.author ?? '—',
+            nation: m.nation ?? '—',
+            duration: m.duration ?? 0,
+            release_date: m.releaseDate ?? '',
+            base_price: m.basePrice ?? 0,
+            status: m.status === 1 ? 'Active' : 'Inactive',
+            age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
+            genre: m.genre ?? '—',
+            description: m.description ?? '',
+            describe: m.content ?? '',
+            poster: m.posterUrl || PLACEHOLDER_POSTER,
+            banner: m.banner || m.posterUrl || PLACEHOLDER_POSTER,
+            genre_id: '',
+          }))
+        );
+        setShowDeleteModal(false);
+        setMovieToDelete(null);
+      }
+    } catch (error) {
+      console.error("Error deleting movie:", error);
+    }
+  };
+
+  const openDeleteModal = (movie) => {
+    setMovieToDelete(movie);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setMovieToDelete(null);
+  };
 
   return (
     <AdminPanelPage
@@ -161,23 +212,32 @@ const MovieManagement = () => {
                         </span>
                       </td>
                       <td className="text-center">
-                        <button 
-                          className="admin-btn admin-btn-sm admin-btn-outline me-2"
-                          onClick={() => {
-                            setSelectedItem(movie);
-                            setShowModal(true);
-                          }}
-                        >
-                          <i className="bi bi-eye"></i>
-                          Xem
-                        </button>
-                        <button 
-                          className="admin-btn admin-btn-sm admin-btn-primary"
-                          onClick={() => navigate('/super-admin/movies/create', { state: { editData: movie } })}
-                        >
-                          <i className="bi bi-pencil"></i>
-                          Sửa
-                        </button>
+                        <div className="d-flex gap-1 justify-content-center">
+                          <button 
+                            className="admin-btn admin-btn-sm admin-btn-outline"
+                            onClick={() => {
+                              setSelectedItem(movie);
+                              setShowModal(true);
+                            }}
+                            title="Xem chi tiết"
+                          >
+                            <i className="bi bi-eye"></i>
+                          </button>
+                          <button 
+                            className="admin-btn admin-btn-sm admin-btn-primary"
+                            onClick={() => navigate('/super-admin/movies/create', { state: { editData: movie } })}
+                            title="Sửa phim"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button 
+                            className="admin-btn admin-btn-sm admin-btn-danger"
+                            onClick={() => openDeleteModal(movie)}
+                            title="Xóa phim"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -285,6 +345,63 @@ const MovieManagement = () => {
               >
                 <i className="bi bi-pencil me-2"></i>
                 Chỉnh sửa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận xóa phim */}
+      {showDeleteModal && movieToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa phim
+              </h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa phim này?</p>
+              <div className="alert alert-warning">
+                <div className="d-flex align-items-center gap-3">
+                  <img 
+                    src={movieToDelete.poster} 
+                    alt={movieToDelete.title} 
+                    className="rounded" 
+                    style={{ width: '60px', height: '80px', objectFit: 'cover' }}
+                  />
+                  <div>
+                    <strong>Tên phim:</strong> {movieToDelete.title}<br/>
+                    <strong>Đạo diễn:</strong> {movieToDelete.author}<br/>
+                    <strong>Thời lượng:</strong> {movieToDelete.duration} phút
+                  </div>
+                </div>
+              </div>
+              <p className="text-muted small mb-0">
+                <i className="bi bi-info-circle me-1"></i>
+                Hành động này không thể hoàn tác. Tất cả suất chiếu, vé đặt và dữ liệu liên quan sẽ bị xóa.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                className="admin-btn admin-btn-outline-secondary"
+                onClick={closeDeleteModal}
+              >
+                <i className="bi bi-x-circle me-2"></i>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-danger"
+                onClick={() => handleDeleteMovie(movieToDelete)}
+              >
+                <i className="bi bi-trash me-2"></i>
+                Xóa phim
               </button>
             </div>
           </div>
