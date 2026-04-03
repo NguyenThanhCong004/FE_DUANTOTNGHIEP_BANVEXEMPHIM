@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { VOUCHERS } from '../../constants/apiEndpoints';
 
 const CreateVoucher = () => {
   const navigate = useNavigate();
@@ -21,6 +23,7 @@ const CreateVoucher = () => {
 
   useEffect(() => {
     if (editData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         code: editData.code || '',
         discount_type: editData.discount_type || 'PERCENTAGE',
@@ -85,18 +88,52 @@ const CreateVoucher = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (editData) {
-      console.log('Cập nhật Voucher:', formData);
-      alert('Cập nhật voucher thành công!');
-    } else {
-      console.log('Dữ liệu Voucher mới:', formData);
-      alert('Tạo voucher thành công!');
+    const body = {
+      code: formData.code.trim(),
+      discountType: formData.discount_type,
+      value: parseFloat(formData.value),
+      minOrderValue: parseFloat(formData.min_order_value),
+      startDate: formData.start_date,
+      endDate: formData.end_date,
+      pointVoucher: parseInt(formData.point_voucher, 10),
+      status: formData.status === 'Active' ? 1 : 0,
+    };
+    const vid = editData?.id;
+    const url = vid ? VOUCHERS.BY_ID(vid) : VOUCHERS.LIST;
+    try {
+      const res = await apiFetch(url, {
+        method: vid ? 'PUT' : 'POST',
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        // Xử lý lỗi trùng lặp và các lỗi khác
+        const errorMessage = json?.message || 'Lưu voucher thất bại';
+        const fieldErrors = {};
+        
+        // Map các lỗi cụ thể vào field tương ứng
+        if (errorMessage.includes('Mã voucher đã tồn tại') || errorMessage.includes('code already exists')) {
+          fieldErrors.code = 'Mã voucher đã tồn tại';
+        } else if (errorMessage.includes('code')) {
+          fieldErrors.code = errorMessage;
+        } else {
+          // Nếu không phải lỗi field, hiển thị alert chung
+          alert(errorMessage);
+          return;
+        }
+        
+        setErrors(fieldErrors);
+        return;
+      }
+      alert(vid ? 'Cập nhật voucher thành công!' : 'Tạo voucher thành công!');
+      navigate('/super-admin/vouchers');
+    } catch {
+      alert('Không thể kết nối server');
     }
-    navigate('/super-admin/vouchers');
   };
 
   return (
@@ -140,6 +177,12 @@ const CreateVoucher = () => {
 
         .custom-input:focus, .custom-select:focus {
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .custom-input.is-invalid,
+        .custom-select.is-invalid {
+          border-color: #dc3545 !important;
+          box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
         }
 
         .error-message {

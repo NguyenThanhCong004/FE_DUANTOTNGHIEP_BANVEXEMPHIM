@@ -1,139 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
+import CustomerPageShell from "../../components/common/CustomerPageShell";
 import { Container, Row, Col } from "react-bootstrap";
-
-/* ══════════════════════════════════════
-   MOCK DATA — based on ERD tables
-   Orders, Orders_online, Tickets,
-   OderDetails_food, PointsHistories
-══════════════════════════════════════ */
-const MOCK_TRANSACTIONS = [
-  {
-    id: "TXN-001",
-    type: "ticket_online",       // Orders_online
-    order_code: "ONL-20250318-001",
-    created_at: "2025-03-18T14:30:00",
-    status: "completed",
-    original_amount: 180000,
-    discount_amount: 20000,
-    final_amount: 160000,
-    voucher_code: "SAVE20",
-    items: [
-      { label: "MAI — Ghế A5, A6", sub: "Phòng 1 · 15:30 · 18/03", icon: "🎬", qty: 2, price: 90000 },
-    ],
-    points_earned: 160,
-  },
-  {
-    id: "TXN-002",
-    type: "food",                // Orders (tại rạp)
-    order_code: "POS-20250318-042",
-    created_at: "2025-03-18T15:15:00",
-    status: "completed",
-    original_amount: 125000,
-    discount_amount: 0,
-    final_amount: 125000,
-    voucher_code: null,
-    items: [
-      { label: "Combo Đôi Bạn", sub: "1 Bắp lớn + 2 Nước", icon: "🍿", qty: 1, price: 125000 },
-    ],
-    points_earned: 125,
-  },
-  {
-    id: "TXN-003",
-    type: "ticket_online",
-    order_code: "ONL-20250310-007",
-    created_at: "2025-03-10T10:00:00",
-    status: "completed",
-    original_amount: 270000,
-    discount_amount: 0,
-    final_amount: 270000,
-    voucher_code: null,
-    items: [
-      { label: "DUNE 2 — Ghế C3, C4, C5", sub: "Phòng VIP · 19:00 · 10/03", icon: "🎬", qty: 3, price: 90000 },
-    ],
-    points_earned: 270,
-  },
-  {
-    id: "TXN-004",
-    type: "points",              // PointsHistories — redeem voucher
-    order_code: "PTS-20250308-003",
-    created_at: "2025-03-08T09:00:00",
-    status: "completed",
-    original_amount: 0,
-    discount_amount: 0,
-    final_amount: -500,          // negative = points spent
-    voucher_code: "SAVE20PCT",
-    items: [
-      { label: "Đổi voucher SAVE20PCT", sub: "Trừ 500 điểm tích lũy", icon: "⭐", qty: 1, price: -500 },
-    ],
-    points_earned: -500,
-  },
-  {
-    id: "TXN-005",
-    type: "ticket_online",
-    order_code: "ONL-20250301-015",
-    created_at: "2025-03-01T20:45:00",
-    status: "cancelled",
-    original_amount: 180000,
-    discount_amount: 0,
-    final_amount: 180000,
-    voucher_code: null,
-    items: [
-      { label: "KUNG FU PANDA 4 — Ghế B7, B8", sub: "Phòng 2 · 21:00 · 01/03", icon: "🎬", qty: 2, price: 90000 },
-    ],
-    points_earned: 0,
-  },
-  {
-    id: "TXN-006",
-    type: "food",
-    order_code: "POS-20250225-089",
-    created_at: "2025-02-25T18:20:00",
-    status: "completed",
-    original_amount: 85000,
-    discount_amount: 10000,
-    final_amount: 75000,
-    voucher_code: "FILM10K",
-    items: [
-      { label: "Combo Hoạt Hình", sub: "1 Bắp lớn + 1 Nước lớn", icon: "🍿", qty: 1, price: 85000 },
-    ],
-    points_earned: 75,
-  },
-  {
-    id: "TXN-007",
-    type: "points",
-    order_code: "PTS-20250220-001",
-    created_at: "2025-02-20T12:00:00",
-    status: "completed",
-    original_amount: 0,
-    discount_amount: 0,
-    final_amount: 270,          // positive = points earned from order
-    voucher_code: null,
-    items: [
-      { label: "Điểm thưởng từ đơn hàng ONL-20250310-007", sub: "+270 điểm tích lũy", icon: "⭐", qty: 1, price: 270 },
-    ],
-    points_earned: 270,
-  },
-  {
-    id: "TXN-008",
-    type: "ticket_online",
-    order_code: "ONL-20250115-003",
-    created_at: "2025-01-15T11:30:00",
-    status: "completed",
-    original_amount: 200000,
-    discount_amount: 50000,
-    final_amount: 150000,
-    voucher_code: "VIP50K",
-    items: [
-      { label: "AVENGERS — Ghế D1, D2", sub: "Phòng IMAX · 13:00 · 15/01", icon: "🎬", qty: 2, price: 100000 },
-    ],
-    points_earned: 150,
-  },
-];
+import { apiFetch } from "../../utils/apiClient";
+import { ME } from "../../constants/apiEndpoints";
+import { getAccessToken } from "../../utils/authStorage";
+import { mapMeTransactionToFe } from "../../utils/customerMeApi";
 
 const TYPE_CONFIG = {
-  ticket_online: { label: "Vé Online",   color: "#7b1fa2", bg: "rgba(123,31,162,0.12)", icon: "🎫" },
-  food:          { label: "Bắp & Nước",  color: "#e91e8c", bg: "rgba(233,30,140,0.12)", icon: "🍿" },
-  points:        { label: "Điểm",        color: "#d4e219", bg: "rgba(212,226,25,0.12)",  icon: "⭐" },
+  ticket_online: { label: "Vé Online",  color: "#7b1fa2", bg: "rgba(123,31,162,0.12)", icon: "🎫" },
+  food:          { label: "Bắp & Nước", color: "#e91e8c", bg: "rgba(233,30,140,0.12)", icon: "🍿" },
+  points:        { label: "Điểm",       color: "#d4e219", bg: "rgba(212,226,25,0.12)",  icon: "⭐" },
 };
 
 const STATUS_CONFIG = {
@@ -149,14 +27,13 @@ const fmtTime = (d) => new Date(d).toLocaleTimeString("vi-VN", { hour: "2-digit"
 /* ══ Detail Modal ══ */
 function DetailModal({ tx, onClose }) {
   if (!tx) return null;
-  const tc = TYPE_CONFIG[tx.type];
-  const sc = STATUS_CONFIG[tx.status];
+  const tc = TYPE_CONFIG[tx.type] || TYPE_CONFIG.ticket_online;
+  const sc = STATUS_CONFIG[tx.status] || STATUS_CONFIG.pending;
   return (
     <div className="th-overlay" onClick={onClose}>
       <div className="th-modal" onClick={e => e.stopPropagation()}>
         <button className="th-modal-close" onClick={onClose}>×</button>
 
-        {/* Header */}
         <div className="th-modal-header">
           <span className="th-modal-icon">{tc.icon}</span>
           <div>
@@ -170,7 +47,6 @@ function DetailModal({ tx, onClose }) {
 
         <div className="th-modal-divider" />
 
-        {/* Items */}
         <div className="th-modal-items">
           {tx.items.map((item, i) => (
             <div key={i} className="th-modal-item">
@@ -193,7 +69,6 @@ function DetailModal({ tx, onClose }) {
 
         <div className="th-modal-divider" />
 
-        {/* Summary */}
         {tx.type !== "points" && (
           <div className="th-modal-summary">
             <div className="th-sum-row">
@@ -218,7 +93,6 @@ function DetailModal({ tx, onClose }) {
           </div>
         )}
 
-        {/* Meta */}
         <div className="th-modal-meta">
           <div className="th-meta-item"><span>Thời gian</span><span>{fmtDate(tx.created_at)} · {fmtTime(tx.created_at)}</span></div>
           <div className="th-meta-item"><span>Mã giao dịch</span><span className="th-code-mono">{tx.id}</span></div>
@@ -231,24 +105,66 @@ function DetailModal({ tx, onClose }) {
 
 /* ══ Main Page ══ */
 export default function TransactionHistory() {
+  const navigate = useNavigate();
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+
   const [filterType,   setFilterType]   = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [search,       setSearch]       = useState("");
   const [selected,     setSelected]     = useState(null);
   const [expanded,     setExpanded]     = useState(null);
 
-  const filtered = MOCK_TRANSACTIONS.filter(tx => {
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setLoading(false);
+      setTransactions([]);
+      setLoadError(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const res = await apiFetch(ME.TRANSACTIONS);
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.status === 401) {
+          navigate("/login", { state: { from: "/transactionHistory" } });
+          return;
+        }
+        if (!res.ok) {
+          setLoadError(body?.message || "Không tải được lịch sử giao dịch");
+          setTransactions([]);
+          return;
+        }
+        const raw = Array.isArray(body?.data) ? body.data : [];
+        setTransactions(raw.map(mapMeTransactionToFe));
+      } catch {
+        if (!cancelled) setLoadError("Không kết nối được máy chủ");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [navigate]);
+
+  const filtered = transactions.filter(tx => {
     const matchType   = filterType   === "all" || tx.type   === filterType;
     const matchStatus = filterStatus === "all" || tx.status === filterStatus;
-    const matchSearch = tx.order_code.toLowerCase().includes(search.toLowerCase()) ||
-                        tx.items.some(i => i.label.toLowerCase().includes(search.toLowerCase()));
+    const code = String(tx.order_code || "").toLowerCase();
+    const q = search.toLowerCase();
+    const matchSearch = code.includes(q) ||
+                        tx.items.some(i => String(i.label || "").toLowerCase().includes(q));
     return matchType && matchStatus && matchSearch;
   });
 
-  /* Stats */
-  const totalSpent  = MOCK_TRANSACTIONS.filter(t => t.status === "completed" && t.type !== "points").reduce((a, t) => a + t.final_amount, 0);
-  const totalPts    = MOCK_TRANSACTIONS.filter(t => t.status === "completed").reduce((a, t) => a + (t.points_earned || 0), 0);
-  const totalOrders = MOCK_TRANSACTIONS.filter(t => t.status === "completed").length;
+  const totalSpent  = transactions.filter(t => t.status === "completed" && t.type !== "points").reduce((a, t) => a + t.final_amount, 0);
+  const totalPts    = transactions.filter(t => t.status === "completed").reduce((a, t) => a + (t.points_earned || 0), 0);
+  const totalOrders = transactions.filter(t => t.status === "completed").length;
 
   return (
     <Layout>
@@ -285,11 +201,7 @@ export default function TransactionHistory() {
         .th-title span { color: var(--yellow); }
 
         /* ── STAT CHIPS ── */
-        .th-stats {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
+        .th-stats { display: flex; gap: 12px; flex-wrap: wrap; }
         .th-stat {
           background: var(--card);
           border: 1px solid rgba(255,255,255,0.07);
@@ -315,12 +227,7 @@ export default function TransactionHistory() {
         }
 
         /* ── FILTER BAR ── */
-        .th-filters {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          align-items: center;
-        }
+        .th-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .th-filter-btn {
           font-family: 'Syne', sans-serif;
           font-weight: 700;
@@ -368,107 +275,56 @@ export default function TransactionHistory() {
           transition: border-color 0.2s, box-shadow 0.2s;
           cursor: pointer;
         }
-        .th-row:hover {
-          border-color: rgba(212,226,25,0.18);
-          box-shadow: 0 6px 24px rgba(0,0,0,0.3);
-        }
+        .th-row:hover { border-color: rgba(212,226,25,0.18); box-shadow: 0 6px 24px rgba(0,0,0,0.3); }
         .th-row.expanded { border-color: rgba(212,226,25,0.3); }
 
-        .th-row-main {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 16px 20px;
-        }
+        .th-row-main { display: flex; align-items: center; gap: 14px; padding: 16px 20px; }
 
-        /* type icon circle */
         .th-type-icon {
-          width: 44px;
-          height: 44px;
+          width: 44px; height: 44px;
           border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 20px;
-          flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 20px; flex-shrink: 0;
         }
 
-        /* info block */
         .th-row-info { flex: 1; min-width: 0; }
         .th-row-code {
           font-family: 'Bebas Neue', sans-serif;
-          font-size: 15px;
-          letter-spacing: 2px;
-          color: #fff;
-          margin-bottom: 3px;
+          font-size: 15px; letter-spacing: 2px; color: #fff; margin-bottom: 3px;
         }
         .th-row-desc {
-          font-size: 12px;
-          font-weight: 600;
+          font-size: 12px; font-weight: 600;
           color: rgba(255,255,255,0.35);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
 
-        /* date */
-        .th-row-date {
-          text-align: right;
-          flex-shrink: 0;
-        }
-        .th-row-date-val {
-          font-size: 12px;
-          font-weight: 700;
-          color: rgba(255,255,255,0.5);
-          display: block;
-        }
-        .th-row-date-time {
-          font-size: 11px;
-          color: rgba(255,255,255,0.25);
-          font-weight: 600;
-        }
+        .th-row-date { text-align: right; flex-shrink: 0; }
+        .th-row-date-val { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.5); display: block; }
+        .th-row-date-time { font-size: 11px; color: rgba(255,255,255,0.25); font-weight: 600; }
 
-        /* amount */
-        .th-row-amount {
-          text-align: right;
-          flex-shrink: 0;
-          min-width: 110px;
-        }
+        .th-row-amount { text-align: right; flex-shrink: 0; min-width: 110px; }
         .th-amount-val {
           font-family: 'Bebas Neue', sans-serif;
-          font-size: 20px;
-          letter-spacing: 1px;
-          display: block;
+          font-size: 20px; letter-spacing: 1px; display: block;
         }
         .th-amount-sub {
-          font-size: 10px;
-          font-weight: 700;
+          font-size: 10px; font-weight: 700;
           color: rgba(255,255,255,0.25);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
+          text-transform: uppercase; letter-spacing: 0.5px;
         }
 
-        /* status badge */
         .th-status-badge {
           font-family: 'Syne', sans-serif;
-          font-weight: 700;
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          padding: 3px 10px;
-          border-radius: 20px;
-          border: 1px solid;
-          white-space: nowrap;
-          flex-shrink: 0;
+          font-weight: 700; font-size: 10px;
+          letter-spacing: 1px; text-transform: uppercase;
+          padding: 3px 10px; border-radius: 20px;
+          border: 1px solid; white-space: nowrap; flex-shrink: 0;
         }
 
-        /* expand arrow */
         .th-expand-btn {
-          background: none;
-          border: none;
+          background: none; border: none;
           color: rgba(255,255,255,0.2);
-          cursor: pointer;
-          font-size: 16px;
+          cursor: pointer; font-size: 16px;
           padding: 0 4px;
           transition: color 0.2s, transform 0.25s;
           flex-shrink: 0;
@@ -486,35 +342,25 @@ export default function TransactionHistory() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .th-detail-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
+          display: flex; align-items: center; gap: 10px;
           padding: 8px 0;
           border-bottom: 1px solid rgba(255,255,255,0.04);
         }
         .th-detail-item:last-child { border-bottom: none; }
-        .th-di-icon { font-size: 20px; flex-shrink: 0; }
-        .th-di-info { flex: 1; min-width: 0; }
-        .th-di-name { font-size: 13px; font-weight: 700; color: #fff; }
-        .th-di-sub  { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
+        .th-di-icon  { font-size: 20px; flex-shrink: 0; }
+        .th-di-info  { flex: 1; min-width: 0; }
+        .th-di-name  { font-size: 13px; font-weight: 700; color: #fff; }
+        .th-di-sub   { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
         .th-di-price { font-family: 'Bebas Neue', sans-serif; font-size: 16px; color: var(--yellow); letter-spacing: 1px; }
 
         .th-detail-footer {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-top: 12px;
-          padding-top: 10px;
+          display: flex; align-items: center; justify-content: space-between;
+          margin-top: 12px; padding-top: 10px;
           border-top: 1px solid rgba(255,255,255,0.06);
-          flex-wrap: wrap;
-          gap: 8px;
+          flex-wrap: wrap; gap: 8px;
         }
         .th-df-left { display: flex; gap: 16px; flex-wrap: wrap; }
-        .th-df-item {
-          font-size: 11px;
-          font-weight: 600;
-          color: rgba(255,255,255,0.3);
-        }
+        .th-df-item { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); }
         .th-df-item span { color: rgba(255,255,255,0.6); }
         .th-df-item .voucher { color: var(--yellow); font-family: 'Bebas Neue', sans-serif; letter-spacing: 2px; font-size: 13px; }
 
@@ -524,23 +370,36 @@ export default function TransactionHistory() {
           border-radius: 7px;
           color: rgba(255,255,255,0.4);
           font-family: 'Syne', sans-serif;
-          font-size: 11px;
-          font-weight: 700;
-          padding: 5px 14px;
-          cursor: pointer;
-          transition: all 0.2s;
-          letter-spacing: 0.5px;
+          font-size: 11px; font-weight: 700;
+          padding: 5px 14px; cursor: pointer;
+          transition: all 0.2s; letter-spacing: 0.5px;
         }
         .th-see-more:hover { border-color: var(--yellow); color: var(--yellow); }
 
-        /* ── EMPTY STATE ── */
-        .th-empty {
-          text-align: center;
-          padding: 80px 20px;
+        /* ── LOADING / AUTH / ERROR / EMPTY ── */
+        .th-state-box {
+          text-align: center; padding: 80px 20px;
           color: rgba(255,255,255,0.2);
         }
-        .th-empty .ei { font-size: 52px; opacity: 0.3; margin-bottom: 12px; }
-        .th-empty p { font-size: 13px; font-weight: 600; }
+        .th-state-box .ei { font-size: 52px; opacity: 0.3; margin-bottom: 12px; }
+        .th-state-box p { font-size: 13px; font-weight: 600; margin-bottom: 0; }
+        .th-state-box a {
+          display: inline-block; margin-top: 20px;
+          padding: 10px 28px;
+          background: linear-gradient(135deg, var(--purple), var(--pink));
+          border-radius: 10px; color: #fff;
+          font-family: 'Syne', sans-serif; font-weight: 800;
+          font-size: 13px; text-decoration: none;
+          transition: opacity 0.2s;
+        }
+        .th-state-box a:hover { opacity: 0.85; color: #fff; }
+        .th-err-box {
+          background: rgba(233,30,140,0.07);
+          border: 1.5px solid rgba(233,30,140,0.22);
+          border-radius: 12px; padding: 16px 20px;
+          color: #e91e8c; font-weight: 700; font-size: 13px;
+          margin-bottom: 16px;
+        }
 
         /* ── MODAL ── */
         .th-overlay {
@@ -556,11 +415,9 @@ export default function TransactionHistory() {
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 20px;
           width: 100%; max-width: 480px;
-          padding: 28px;
-          position: relative;
+          padding: 28px; position: relative;
           animation: modalPop 0.3s ease;
-          max-height: 90vh;
-          overflow-y: auto;
+          max-height: 90vh; overflow-y: auto;
         }
         .th-modal::-webkit-scrollbar { width: 4px; }
         .th-modal::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
@@ -570,7 +427,8 @@ export default function TransactionHistory() {
         }
         .th-modal-close {
           position: absolute; top: 16px; right: 18px;
-          background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.1);
           border-radius: 7px; color: rgba(255,255,255,0.45);
           width: 32px; height: 32px; font-size: 18px; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
@@ -580,22 +438,16 @@ export default function TransactionHistory() {
 
         .th-modal-header { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
         .th-modal-icon { font-size: 32px; }
-        .th-modal-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 20px; letter-spacing: 3px; color: #fff;
-        }
-        .th-modal-code {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 13px; letter-spacing: 2px; color: rgba(255,255,255,0.35);
-        }
+        .th-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; color: #fff; }
+        .th-modal-code { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 2px; color: rgba(255,255,255,0.35); }
         .th-modal-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 16px 0; }
 
         .th-modal-items { display: flex; flex-direction: column; gap: 10px; }
         .th-modal-item { display: flex; align-items: center; gap: 10px; }
-        .th-mi-icon { font-size: 22px; flex-shrink: 0; }
-        .th-mi-info { flex: 1; min-width: 0; }
-        .th-mi-name { font-size: 13px; font-weight: 700; color: #fff; }
-        .th-mi-sub  { font-size: 11px; color: rgba(255,255,255,0.3); font-weight: 600; }
+        .th-mi-icon  { font-size: 22px; flex-shrink: 0; }
+        .th-mi-info  { flex: 1; min-width: 0; }
+        .th-mi-name  { font-size: 13px; font-weight: 700; color: #fff; }
+        .th-mi-sub   { font-size: 11px; color: rgba(255,255,255,0.3); font-weight: 600; }
         .th-mi-price { font-family: 'Bebas Neue', sans-serif; font-size: 17px; color: var(--yellow); letter-spacing: 1px; }
 
         .th-modal-summary { display: flex; flex-direction: column; gap: 7px; }
@@ -604,7 +456,11 @@ export default function TransactionHistory() {
         .th-sum-row.total { font-size: 16px; color: #fff; font-weight: 800; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.07); margin-top: 4px; }
         .th-sum-row.total span:last-child { color: var(--yellow); font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; }
         .th-sum-row.points-row { color: var(--yellow); font-size: 12px; }
-        .th-voucher-badge { font-family: 'Bebas Neue', sans-serif; font-size: 12px; letter-spacing: 2px; background: rgba(212,226,25,0.12); border: 1px solid rgba(212,226,25,0.3); border-radius: 4px; padding: 1px 6px; color: var(--yellow); margin-left: 6px; }
+        .th-voucher-badge {
+          font-family: 'Bebas Neue', sans-serif; font-size: 12px; letter-spacing: 2px;
+          background: rgba(212,226,25,0.12); border: 1px solid rgba(212,226,25,0.3);
+          border-radius: 4px; padding: 1px 6px; color: var(--yellow); margin-left: 6px;
+        }
 
         .th-modal-meta { display: flex; flex-direction: column; gap: 7px; }
         .th-meta-item { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.35); }
@@ -625,57 +481,49 @@ export default function TransactionHistory() {
               </p>
               <h1 className="th-title mb-0">LỊCH SỬ <span>GIAO DỊCH</span></h1>
             </Col>
-            <Col xs="auto">
-              <div className="th-stats">
-                <div className="th-stat">
-                  <div className="th-stat-num">{totalOrders}</div>
-                  <div className="th-stat-lbl">Giao dịch</div>
+            {!loading && getAccessToken() && transactions.length > 0 && (
+              <Col xs="auto">
+                <div className="th-stats">
+                  <div className="th-stat">
+                    <div className="th-stat-num">{totalOrders}</div>
+                    <div className="th-stat-lbl">Giao dịch</div>
+                  </div>
+                  <div className="th-stat">
+                    <div className="th-stat-num" style={{ fontSize: 18 }}>{(totalSpent / 1000).toFixed(0)}K</div>
+                    <div className="th-stat-lbl">Đã chi</div>
+                  </div>
+                  <div className="th-stat">
+                    <div className="th-stat-num">{totalPts}</div>
+                    <div className="th-stat-lbl">Điểm ⭐</div>
+                  </div>
                 </div>
-                <div className="th-stat">
-                  <div className="th-stat-num" style={{ fontSize: 18 }}>{(totalSpent / 1000).toFixed(0)}K</div>
-                  <div className="th-stat-lbl">Đã chi</div>
-                </div>
-                <div className="th-stat">
-                  <div className="th-stat-num">{totalPts}</div>
-                  <div className="th-stat-lbl">Điểm ⭐</div>
-                </div>
-              </div>
-            </Col>
+              </Col>
+            )}
           </Row>
 
           {/* ── FILTERS ── */}
           <Row className="align-items-center mb-4 gy-2">
             <Col>
               <div className="th-filters">
-                {/* Type */}
                 {[
                   { key: "all",           label: "Tất cả" },
                   { key: "ticket_online", label: "🎫 Vé" },
                   { key: "food",          label: "🍿 Bắp Nước" },
                   { key: "points",        label: "⭐ Điểm" },
                 ].map(({ key, label }) => (
-                  <button
-                    key={key}
-                    className={`th-filter-btn${filterType === key ? " active" : ""}`}
-                    onClick={() => setFilterType(key)}
-                  >
+                  <button key={key} className={`th-filter-btn${filterType === key ? " active" : ""}`} onClick={() => setFilterType(key)}>
                     {label}
                   </button>
                 ))}
 
                 <div style={{ width: 1, height: 22, background: "rgba(255,255,255,0.1)", margin: "0 4px" }} />
 
-                {/* Status */}
                 {[
                   { key: "all",       label: "Mọi trạng thái" },
                   { key: "completed", label: "Hoàn thành" },
                   { key: "cancelled", label: "Đã hủy" },
                 ].map(({ key, label }) => (
-                  <button
-                    key={key}
-                    className={`th-filter-btn${filterStatus === key ? " active" : ""}`}
-                    onClick={() => setFilterStatus(key)}
-                  >
+                  <button key={key} className={`th-filter-btn${filterStatus === key ? " active" : ""}`} onClick={() => setFilterStatus(key)}>
                     {label}
                   </button>
                 ))}
@@ -696,22 +544,34 @@ export default function TransactionHistory() {
             </Col>
           </Row>
 
-          {/* result count */}
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontWeight: 600, marginBottom: 12 }}>
             {filtered.length} giao dịch
           </div>
 
-          {/* ── LIST ── */}
-          {filtered.length === 0 ? (
-            <div className="th-empty">
+          {/* ── CONTENT ── */}
+          {loading ? (
+            <div className="th-state-box">
+              <div className="ei">⏳</div>
+              <p>Đang tải dữ liệu...</p>
+            </div>
+          ) : !getAccessToken() ? (
+            <div className="th-state-box">
+              <div className="ei">🔒</div>
+              <p>Vui lòng đăng nhập để xem lịch sử giao dịch</p>
+              <Link to="/login">Đăng nhập ngay</Link>
+            </div>
+          ) : loadError ? (
+            <div className="th-err-box">⚠ {loadError}</div>
+          ) : filtered.length === 0 ? (
+            <div className="th-state-box">
               <div className="ei">📋</div>
               <p>Không tìm thấy giao dịch nào</p>
             </div>
           ) : (
             <div>
               {filtered.map(tx => {
-                const tc = TYPE_CONFIG[tx.type];
-                const sc = STATUS_CONFIG[tx.status];
+                const tc = TYPE_CONFIG[tx.type] || TYPE_CONFIG.ticket_online;
+                const sc = STATUS_CONFIG[tx.status] || STATUS_CONFIG.pending;
                 const isExpanded = expanded === tx.id;
                 const isPoints = tx.type === "points";
                 const amountColor = tx.status === "cancelled" ? "rgba(255,255,255,0.25)"
@@ -722,37 +582,27 @@ export default function TransactionHistory() {
                   <div key={tx.id} className={`th-row${isExpanded ? " expanded" : ""}`}>
                     <div className="th-row-main" onClick={() => setExpanded(isExpanded ? null : tx.id)}>
 
-                      {/* Type icon */}
                       <div className="th-type-icon" style={{ background: tc.bg }}>
                         {tc.icon}
                       </div>
 
-                      {/* Info */}
                       <div className="th-row-info">
                         <div className="th-row-code">{tx.order_code}</div>
                         <div className="th-row-desc">
-                          {tx.items[0].label}
+                          {tx.items[0]?.label || "Giao dịch"}
                           {tx.items.length > 1 && ` +${tx.items.length - 1} khác`}
                         </div>
                       </div>
 
-                      {/* Status */}
                       <span className="th-status-badge" style={{ background: sc.bg, color: sc.color, borderColor: `${sc.color}40` }}>
                         {sc.label}
                       </span>
 
-                      {/* Date */}
-                      <div className="th-row-date" style={{ display: "none" }}>
-                        <span className="th-row-date-val">{fmtDate(tx.created_at)}</span>
-                        <span className="th-row-date-time">{fmtTime(tx.created_at)}</span>
-                      </div>
-
-                      {/* Amount */}
                       <div className="th-row-amount">
                         <span className="th-amount-val" style={{ color: amountColor }}>
                           {isPoints
                             ? `${tx.final_amount > 0 ? "+" : ""}${tx.final_amount.toLocaleString()} pts`
-                            : (tx.status === "cancelled" ? fmt(tx.final_amount) : fmt(tx.final_amount))
+                            : fmt(tx.final_amount)
                           }
                         </span>
                         <span className="th-amount-sub">
@@ -760,13 +610,14 @@ export default function TransactionHistory() {
                         </span>
                       </div>
 
-                      {/* Expand */}
-                      <button className={`th-expand-btn${isExpanded ? " open" : ""}`} onClick={e => { e.stopPropagation(); setExpanded(isExpanded ? null : tx.id); }}>
+                      <button
+                        className={`th-expand-btn${isExpanded ? " open" : ""}`}
+                        onClick={e => { e.stopPropagation(); setExpanded(isExpanded ? null : tx.id); }}
+                      >
                         ▼
                       </button>
                     </div>
 
-                    {/* Expanded detail */}
                     {isExpanded && (
                       <div className="th-row-detail">
                         {tx.items.map((item, i) => (

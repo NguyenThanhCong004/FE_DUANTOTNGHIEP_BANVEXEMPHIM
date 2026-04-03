@@ -1,24 +1,50 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import { apiFetch } from "../../utils/apiClient";
+import { GENRES } from "../../constants/apiEndpoints";
 
 const MovieTypeManagement = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const itemsPerPage = 10;
 
-  // Dữ liệu ảo cho thể loại phim
-  const [genres] = useState([
-    { id: 1, name: 'Hành động' }, { id: 2, name: 'Tình cảm' },
-    { id: 3, name: 'Kinh dị' }, { id: 4, name: 'Hoạt hình' },
-    { id: 5, name: 'Hài hước' }, { id: 6, name: 'Khoa học viễn tưởng' },
-    { id: 7, name: 'Tâm lý' }, { id: 8, name: 'Phiêu lưu' },
-    { id: 9, name: 'Gia đình' }, { id: 10, name: 'Tài liệu' }
-  ]);
+  const [genres, setGenres] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Logic lọc và tìm kiếm
-  const filteredGenres = genres.filter(genre => 
-    genre.name.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(GENRES.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        if (!mounted) return;
+        const arr = Array.isArray(list) ? list : [];
+        setGenres(
+          arr.map((g) => ({
+            id: g.genreId ?? g.id,
+            name: g.name ?? "",
+          }))
+        );
+      } catch {
+        if (mounted) setGenres([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filteredGenres = genres.filter((genre) =>
+    String(genre.name || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -26,183 +52,225 @@ const MovieTypeManagement = () => {
   const currentItems = filteredGenres.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredGenres.length / itemsPerPage);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const handleDeleteGenre = async (genre) => {
+    console.log("Attempting to delete genre:", genre);
+    console.log("Delete URL:", GENRES.DELETE(genre.id));
+    
+    try {
+      const res = await apiFetch(GENRES.DELETE(genre.id), {
+        method: "DELETE"
+      });
+      
+      console.log("Delete response status:", res.status);
+      console.log("Delete response ok:", res.ok);
+      
+      if (res.ok) {
+        // Refresh danh sách
+        const refreshRes = await apiFetch(GENRES.LIST);
+        const json = await refreshRes.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const arr = Array.isArray(list) ? list : [];
+        setGenres(
+          arr.map((g) => ({
+            id: g.genreId ?? g.id,
+            name: g.name ?? "",
+          }))
+        );
+        setShowDeleteModal(false);
+        setItemToDelete(null);
+        setDeleteError("");
+      } else {
+        // Xử lý error từ BE
+        const json = await res.json().catch(() => null);
+        console.log("Error response:", json);
+        setDeleteError(json?.message || "Xóa thể loại thất bại");
+      }
+    } catch (error) {
+      console.error("Error deleting genre:", error);
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+      setDeleteError("Không thể kết nối tới server");
+    }
+  };
+
+  const openDeleteModal = (genre) => {
+    setItemToDelete(genre);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+    setDeleteError("");
+  };
 
   return (
-    <div className="movie-type-management p-4">
-      <style>{`
-        .table-container {
-          background: white;
-          border-radius: 15px;
-          padding: 25px;
-          box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-        }
-
-        .new-search-container {
-          position: relative;
-          max-width: 500px;
-          margin-bottom: 30px;
-        }
-
-        .new-search-input {
-          width: 100%;
-          height: 50px;
-          padding: 10px 20px 10px 50px;
-          background-color: whitesmoke !important;
-          border: 2px solid black !important;
-          border-radius: 10px;
-          color: black !important;
-          font-weight: 500;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .new-search-icon {
-          position: absolute;
-          left: 15px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: black !important;
-          font-size: 1.3rem;
-          pointer-events: none;
-        }
-
-        .btn-add {
-          background: blue;
-          color: white;
-          border: none;
-          padding: 10px 20px;
-          border-radius: 8px;
-          font-weight: 500;
-          transition: all 0.2s;
-        }
-
-        .btn-add:hover {
-          background: black;
-          color: white;
-        }
-
-        .genre-badge {
-          background: #f8f9fa;
-          padding: 6px 15px;
-          border-radius: 8px;
-          font-weight: 600;
-          border: 1px solid #dee2e6;
-          color: black;
-        }
-
-        /* Đồng bộ phân trang với trang Users/Employees */
-        .pagination-btn {
-          width: 38px;
-          height: 38px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 8px;
-          border: 2px solid black;
-          background: white;
-          color: black;
-          font-weight: bold;
-          transition: all 0.2s;
-        }
-
-        .pagination-btn.active {
-          background: black;
-          color: white;
-        }
-
-        .pagination-btn:hover:not(.active) {
-          background: whitesmoke;
-        }
-        
-        /* Ép buộc màu chữ bảng luôn là đen */
-        .table tbody td {
-          color: black !important;
-        }
-        .table thead th {
-          color: black !important;
-        }
-      `}</style>
-
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2 className="fw-bold m-0 text-dark">Quản lý loại phim</h2>
-        </div>
-        <button 
-          className="btn btn-add d-flex align-items-center"
-          onClick={() => navigate('/super-admin/movie-types/create')}
+    <AdminPanelPage
+      icon="collection-play"
+      title="Thể loại phim"
+      description="Phân loại phim (hành động, tình cảm, hoạt hình…)."
+      headerRight={
+        <button
+          type="button"
+          className="admin-btn"
+          style={{ background: "white", color: "#6366f1" }}
+          onClick={() => navigate("/super-admin/movie-types/create")}
         >
-          <i className="bi bi-plus-circle me-2 fs-5"></i>
+          <i className="bi bi-plus-lg me-2"></i>
           Thêm thể loại
         </button>
-      </div>
-
-      <div className="table-container">
-        <div className="new-search-container">
-          <i className="bi bi-search new-search-icon"></i>
-          <input 
-            type="text" 
-            className="new-search-input"
-            placeholder="Tìm nhanh tên thể loại..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+      }
+    >
+      <div className="admin-card admin-slide-up">
+        <div className="admin-card-header flex-wrap gap-2">
+          <h4 className="mb-0 d-flex align-items-center gap-2">
+            <i className="bi bi-list-ul text-primary"></i>
+            Danh sách thể loại
+          </h4>
+          <span className="text-muted small">Tổng: {filteredGenres.length}</span>
         </div>
+        <div className="admin-card-body">
+          <div className="admin-search-wrapper mb-3" style={{ maxWidth: 420 }}>
+            <i className="bi bi-search admin-search-icon" aria-hidden />
+            <input
+              type="search"
+              className="admin-search-input"
+              placeholder="Tìm nhanh tên thể loại..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              aria-label="Tìm thể loại"
+            />
+          </div>
 
-        <div className="table-responsive">
-          <table className="table table-hover align-middle">
-            <thead className="table-light">
-              <tr>
-                <th className="py-3 text-center" style={{ width: '100px' }}>STT</th>
-                <th className="py-3 px-4">Tên thể loại</th>
-                <th className="py-3 text-center" style={{ width: '150px' }}>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentItems.map((genre, index) => (
-                <tr key={genre.id}>
-                  <td className="text-center fw-bold text-dark">
-                    {indexOfFirstItem + index + 1}
-                  </td>
-                  <td className="px-4">
-                    <span className="genre-badge">{genre.name}</span>
-                  </td>
-                  <td className="text-center">
-                    <button 
-                      className="btn btn-sm btn-outline-primary fw-bold"
-                      onClick={() => navigate('/super-admin/movie-types/create', { state: { editData: genre } })}
-                    >
-                      Sửa
-                    </button>
-                  </td>
+          <div className="table-responsive">
+            <table className="admin-table mb-0">
+              <thead>
+                <tr>
+                  <th style={{ width: 72 }}>STT</th>
+                  <th>Tên thể loại</th>
+                  <th className="text-center">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={3} className="text-center py-4 text-muted">
+                      Đang tải thể loại...
+                    </td>
+                  </tr>
+                ) : currentItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="text-center py-4 text-muted">
+                      Không có thể loại.
+                    </td>
+                  </tr>
+                ) : (
+                  currentItems.map((genre, index) => (
+                    <tr key={genre.id}>
+                      <td className="fw-semibold">{indexOfFirstItem + index + 1}</td>
+                      <td>
+                        <span className="admin-badge admin-badge-neutral">{genre.name}</span>
+                      </td>
+                      <td className="text-center">
+                        <div className="d-flex gap-1 justify-content-center">
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-primary"
+                            onClick={() => navigate("/super-admin/movie-types/create", { state: { editData: genre } })}
+                            title="Sửa thể loại"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-danger"
+                            onClick={() => openDeleteModal(genre)}
+                            title="Xóa thể loại"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Phân trang đồng bộ */}
-        <div className="d-flex justify-content-between align-items-center mt-4 px-2">
-          <div className="text-dark small">
-            Tổng cộng: <b>{filteredGenres.length}</b> thể loại phim
-          </div>
-          <div className="d-flex gap-2">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button 
-                key={i + 1}
-                className={`pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                onClick={() => paginate(i + 1)}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
+          {totalPages > 1 && (
+            <div className="admin-pagination-wrap mt-3">
+              <div className="admin-pagination">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i + 1}
+                    type="button"
+                    className={`admin-pagination-btn ${currentPage === i + 1 ? "active" : ""}`}
+                    onClick={() => setCurrentPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+
+      {/* Modal xác nhận xóa */}
+      {showDeleteModal && itemToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa
+              </h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa thể loại phim này?</p>
+              <div className="alert alert-warning">
+                <strong>Thể loại:</strong> {itemToDelete.name}
+              </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
+              <p className="text-muted small mb-0">
+                <i className="bi bi-info-circle me-1"></i>
+                Hành động này không thể hoàn tác. Tất cả phim thuộc thể loại này có thể bị ảnh hưởng.
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button
+                type="button"
+                className="admin-btn admin-btn-outline-secondary"
+                onClick={closeDeleteModal}
+              >
+                <i className="bi bi-x-circle me-2"></i>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn-danger"
+                onClick={() => handleDeleteGenre(itemToDelete)}
+              >
+                <i className="bi bi-trash me-2"></i>
+                Xóa thể loại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminPanelPage>
   );
 };
 

@@ -1,31 +1,68 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { apiFetch } from '../../utils/apiClient';
+import { USERS } from '../../constants/apiEndpoints';
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const mockUsers = [
-    { id: 101, name: 'Nguyễn Văn Nam', phone: '0912345678', birthDate: '15/05/1998', rank: 'Bạch kim', status: 'Hoạt động' },
-    { id: 102, name: 'Trần Thị Mai', phone: '0923456789', birthDate: '22/10/2000', rank: 'Vàng', status: 'Hoạt động' },
-    { id: 103, name: 'Lê Hoàng Anh', phone: '0934567890', birthDate: '05/02/1995', rank: 'Bạc', status: 'Khóa' },
-    { id: 104, name: 'Phạm Thu Thủy', phone: '0945678901', birthDate: '12/12/1992', rank: 'Kim cương', status: 'Hoạt động' },
-    { id: 105, name: 'Vũ Quốc Bảo', phone: '0956789012', birthDate: '30/08/1997', rank: 'Vàng', status: 'Hoạt động' },
-    { id: 106, name: 'Đặng Thùy Chi', phone: '0967890123', birthDate: '18/03/2001', rank: 'Bạc', status: 'Hoạt động' },
-    { id: 107, name: 'Bùi Đức Duy', phone: '0978901234', birthDate: '25/07/1994', rank: 'Bạch kim', status: 'Hoạt động' },
-    { id: 108, name: 'Ngô Minh Hải', phone: '0989012345', birthDate: '02/11/1996', rank: 'Bạc', status: 'Khóa' },
-    { id: 109, name: 'Lý Kim Liên', phone: '0990123456', birthDate: '09/01/1999', rank: 'Đồng', status: 'Hoạt động' },
-    { id: 110, name: 'Trịnh Gia Bảo', phone: '0901234455', birthDate: '14/04/1993', rank: 'Vàng', status: 'Hoạt động' },
-    { id: 111, name: 'Đỗ Anh Tuấn', phone: '0911223344', birthDate: '21/06/1997', rank: 'Bạc', status: 'Hoạt động' },
-    { id: 112, name: 'Phan Minh Khôi', phone: '0922334455', birthDate: '30/12/1995', rank: 'Vàng', status: 'Hoạt động' },
-  ];
+  const location = useLocation();
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const prefix = isSuperAdmin ? "/super-admin" : "/admin";
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredUsers = mockUsers.filter(user => 
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.phone.includes(searchTerm) ||
-    user.id.toString().includes(searchTerm)
-  );
+  const formatBirthday = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return String(d);
+    return `${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}/${dt.getFullYear()}`;
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(USERS.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        if (!mounted) return;
+        const arr = Array.isArray(list) ? list : [];
+        setUsers(
+          arr.map((u) => ({
+            userId: u.userId ?? u.id,
+            fullname: u.fullname ?? u.username ?? '',
+            email: u.email ?? '',
+            phone: u.phone ?? '',
+            birthday: u.birthday,
+            status: u.status ?? 1,
+            points: u.points ?? 0,
+          }))
+        );
+      } catch {
+        if (mounted) setUsers([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filteredUsers = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => {
+      const name = String(u.fullname ?? u.username ?? '').toLowerCase();
+      const phone = String(u.phone ?? '');
+      const idStr = String(u.userId ?? '');
+      return name.includes(q) || phone.includes(q) || idStr.includes(q);
+    });
+  }, [searchTerm, users]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -33,99 +70,142 @@ const UserManagement = () => {
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
   const getStatusBadge = (status) => {
-    return status === 'Hoạt động' ? 'bg-success' : 'bg-danger';
-  };
-
-  const getRankBadge = (rank) => {
-    switch(rank) {
-      case 'Kim cương': return 'text-info fw-bold';
-      case 'Bạch kim': return 'text-primary fw-bold';
-      case 'Vàng': return 'text-warning fw-bold';
-      case 'Bạc': return 'text-secondary fw-bold';
-      default: return 'text-dark fw-bold';
+    switch (status) {
+      case 1:
+        return <span className="admin-badge admin-badge-success">Hoạt động</span>;
+      case 0:
+        return <span className="admin-badge admin-badge-danger">Đã khóa</span>;
+      default:
+        return <span className="admin-badge admin-badge-neutral">Không xác định</span>;
     }
   };
 
   return (
-    <div className="user-management">
-      <style>
-        {`
-          .black-input {
-            border: 1px solid rgba(0,0,0,0.1) !important;
-            color: #000 !important;
-            font-weight: 500 !important;
-            background-color: #fff !important;
-            border-radius: 8px !important;
-          }
-          .black-input:focus {
-            box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.05) !important;
-            border-color: #000 !important;
-          }
-        `}
-      </style>
-
-      {/* Header Section */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0 fw-bold text-dark">Quản lý người dùng</h2>
-      </div>
-
-      {/* Search Bar */}
-      <div className="mb-4">
-        <div className="col-md-4 px-0 position-relative">
-          <input 
-            type="text" 
-            className="form-control black-input shadow-sm pe-5" 
-            placeholder="Tìm người dùng..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <i 
-            className="fas fa-search position-absolute top-50 end-0 translate-middle-y me-3 text-secondary"
-            style={{ pointerEvents: 'none' }}
-          ></i>
+    <div className="admin-page superadmin-page admin-fade-in">
+      <div className="admin-header">
+        <div className="admin-header-content">
+          <div>
+            <h1>
+              <i className="bi bi-people-fill me-3"></i>
+              Quản lý Khách hàng
+            </h1>
+            <p className="lead">Quản lý thông tin và tài khoản người dùng</p>
+          </div>
+          <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+            <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
+              <i className="bi bi-search admin-search-icon" aria-hidden />
+              <input
+                type="search"
+                className="admin-search-input"
+                placeholder="Tìm khách hàng..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Tìm khách hàng"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Table Section */}
-      <div className="card shadow-sm border-0 overflow-hidden" style={{ borderRadius: '15px' }}>
-        <div className="card-body p-0">
+      <div className="admin-card admin-slide-up">
+        <div className="admin-card-header">
+          <h4>
+            <i className="bi bi-people me-2 text-primary"></i>
+            Danh sách Khách hàng
+          </h4>
+        </div>
+        <div className="admin-card-body p-0">
           <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0 text-dark">
-              <thead style={{ backgroundColor: '#f8f9fa' }}>
-                <tr className="text-secondary small text-uppercase">
-                  <th className="ps-4 py-3">ID</th>
-                  <th className="py-3">Tên người dùng</th>
-                  <th className="py-3">Số điện thoại</th>
-                  <th className="py-3">Ngày sinh</th>
-                  <th className="py-3">Hạng (Rank)</th>
-                  <th className="py-3">Trạng thái</th>
-                  <th className="text-center py-3">Thao tác</th>
+            <table className="admin-table mb-0">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Khách hàng</th>
+                  <th>Liên hệ</th>
+                  <th>Ngày sinh</th>
+                  <th>Điểm</th>
+                  <th>Trạng thái</th>
+                  <th className="text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {currentItems.map((user) => (
-                  <tr key={user.id}>
-                    <td className="ps-4 fw-bold">{user.id}</td>
-                    <td className="fw-semibold">{user.name}</td>
-                    <td>{user.phone}</td>
-                    <td>{user.birthDate}</td>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-4">
+                      <div className="spinner-border text-primary me-2" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </div>
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : currentItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="admin-empty">
+                        <div className="admin-empty-icon">
+                          <i className="bi bi-people"></i>
+                        </div>
+                        <h5 className="mb-2">Không có khách hàng</h5>
+                        <p className="mb-0">Chưa có khách hàng nào trong hệ thống</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : currentItems.map((user) => (
+                  <tr key={user.userId}>
+                    <td className="fw-bold">#{user.userId}</td>
                     <td>
-                      <span className={getRankBadge(user.rank)}>
-                        {user.rank}
-                      </span>
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="admin-table-icon-tile">
+                          <i className="bi bi-person"></i>
+                        </div>
+                        <div>
+                          <div className="fw-semibold text-dark">{user.fullname}</div>
+                          <small className="text-muted">{user.email}</small>
+                        </div>
+                      </div>
                     </td>
                     <td>
-                      <span className={`badge rounded-pill ${getStatusBadge(user.status)}`} style={{ minWidth: '85px', padding: '6px 12px' }}>
-                        {user.status}
+                      <div className="d-flex flex-column gap-1">
+                        <div className="d-flex align-items-center gap-2 text-muted small">
+                          <i className="bi bi-telephone"></i>
+                          {user.phone || 'Chưa có'}
+                        </div>
+                        <div className="d-flex align-items-center gap-2 text-muted small">
+                          <i className="bi bi-envelope"></i>
+                          {user.email || 'Chưa có'}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="bi bi-calendar-event text-muted"></i>
+                        <span>{formatBirthday(user.birthday)}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="admin-points-badge">
+                        <i className="bi bi-star-fill"></i>
+                        {user.points || 0} điểm
                       </span>
                     </td>
-                    <td className="text-center">
-                      <Link 
-                        to={`/admin/users/edit/${user.id}`} 
-                        className="btn btn-sm btn-link text-primary fw-bold p-0 text-decoration-none"
-                      >
-                        Sửa
-                      </Link>
+                    <td>{getStatusBadge(user.status)}</td>
+                    <td>
+                      <div className="admin-table-action-group">
+                        <Link
+                          to={`${prefix}/users/view/${user.userId}`}
+                          className="admin-table-action-btn admin-table-action-btn--view"
+                          title="Xem chi tiết"
+                        >
+                          <i className="bi bi-eye"></i>
+                        </Link>
+                        <Link
+                          to={`${prefix}/users/edit/${user.userId}`}
+                          className="admin-table-action-btn admin-table-action-btn--edit"
+                          title="Chỉnh sửa"
+                        >
+                          <i className="bi bi-pencil"></i>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -135,33 +215,42 @@ const UserManagement = () => {
         </div>
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="d-flex justify-content-center mt-4 pb-4">
-          <nav>
-            <ul className="pagination pagination-sm gap-2">
-              <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                <button className="page-link rounded-circle border-0 shadow-sm" onClick={() => setCurrentPage(prev => prev - 1)}>
-                  <i className="fas fa-chevron-left"></i>
-                </button>
-              </li>
-              {[...Array(totalPages)].map((_, index) => (
-                <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                  <button 
-                    className={`page-link rounded-circle border-0 shadow-sm ${currentPage === index + 1 ? 'bg-primary text-white' : 'bg-white text-dark'}`}
-                    onClick={() => setCurrentPage(index + 1)}
-                  >
-                    {index + 1}
-                  </button>
-                </li>
-              ))}
-              <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                <button className="page-link rounded-circle border-0 shadow-sm" onClick={() => setCurrentPage(prev => prev + 1)}>
-                  <i className="fas fa-chevron-right"></i>
-                </button>
-              </li>
-            </ul>
-          </nav>
+        <div className="admin-pagination-bar">
+          <span className="admin-pagination-meta">
+            Hiển thị {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredUsers.length)} / {filteredUsers.length}{' '}
+            khách hàng
+          </span>
+          <div className="admin-pagination">
+            <button
+              type="button"
+              className="admin-pagination-btn"
+              onClick={() => setCurrentPage((p) => p - 1)}
+              disabled={currentPage === 1}
+              aria-label="Trang trước"
+            >
+              <i className="bi bi-chevron-left"></i>
+            </button>
+            {[...Array(totalPages)].map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                className={`admin-pagination-btn ${currentPage === index + 1 ? 'active' : ''}`}
+                onClick={() => setCurrentPage(index + 1)}
+              >
+                {index + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="admin-pagination-btn"
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={currentPage === totalPages}
+              aria-label="Trang sau"
+            >
+              <i className="bi bi-chevron-right"></i>
+            </button>
+          </div>
         </div>
       )}
     </div>

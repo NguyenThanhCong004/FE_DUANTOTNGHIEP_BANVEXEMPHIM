@@ -12,7 +12,6 @@ import {
   isSameDay, 
   addDays, 
   differenceInDays,
-  isWithinInterval,
   startOfDay,
   endOfDay
 } from 'date-fns';
@@ -26,7 +25,7 @@ const Calendar = ({ events, onEventClick, renderEvent }) => {
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
   // Tính toán các ngày hiển thị trong lịch
-  const { days, monthStart, monthEnd, startDate, endDate } = useMemo(() => {
+  const { days, monthStart } = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
     const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -38,7 +37,7 @@ const Calendar = ({ events, onEventClick, renderEvent }) => {
       days.push(day);
       day = addDays(day, 1);
     }
-    return { days, monthStart, monthEnd, startDate, endDate };
+    return { days, monthStart };
   }, [currentMonth]);
 
   // Chia danh sách ngày thành từng tuần

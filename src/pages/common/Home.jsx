@@ -1,103 +1,121 @@
-import React from 'react';
-import Layout from '../../components/layout/Layout';
-import MovieSwiper from '../../components/common/MovieSwiper';
-import HeroSlider from '../../components/common/HeroSlider';
-import SectionHeader from '../../components/common/SectionHeader';
-import ComboSwiper from '../../components/common/ComboSwiper';
+import React, { useEffect, useState } from "react";
+import Layout from "../../components/layout/Layout";
+import HeroSlider from "../../components/common/HeroSlider";
+import SectionHeader from "../../components/common/SectionHeader";
+import MovieCard from "../../components/common/MovieCard";
+import EmptyState from "../../components/common/EmptyState";
+import { apiFetch } from "../../utils/apiClient";
+import { MOVIES } from "../../constants/apiEndpoints";
+import { splitNowAndSoon } from "../../utils/movieApiMap";
 
-import 'swiper/css';
-import 'swiper/css/navigation';
-import 'swiper/css/pagination';
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
+
+const HOME_MOVIE_LIMIT = 8;
 
 const Home = () => {
-  const banners = [
-    "https://cdn-media.sforum.vn/storage/app/media/CTVSEO_Maihue/Phim%20chi%E1%BA%BFu%20r%E1%BA%A1p/phim-chieu-rap-3.jpg",
-    "https://aeonmall-review-rikkei.cdn.vccloud.vn/public/wp/21/news/eYMabpzR2xAghCdee11Fb1PRg2wSbzaG1tNZ0xfa.jpg",
-    "https://www.elleman.vn/app/uploads/2018/04/25/Avengers-Infinity-War-ELLE-Man-featured-01-01.jpg",
-    "https://image.tmdb.org/t/p/original/xJH0Y59696SbaZ9OCv999I9D6S3.jpg",
-    "https://image.tmdb.org/t/p/original/fqv8vS49EYuN6U8XjtDslSfkUvP.jpg",
-    "https://image.tmdb.org/t/p/original/stKGOm7Uyhuat5J6UFJWvL2u6vW.jpg",
-    "https://image.tmdb.org/t/p/original/dv9Ay9ZCc9Z0Of9UK0vswZba6sn.jpg"
-  ];
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [nowShowing, setNowShowing] = useState([]);
+  const [comingSoon, setComingSoon] = useState([]);
+  const [banners, setBanners] = useState([]);
 
-  const nowShowing = [
-    { id: 1, title: 'MAI', genre: 'Tâm lý', posterUrl: 'https://cdn-media.sforum.vn/storage/app/media/CTVSEO_Maihue/Phim%20chi%E1%BA%BFu%20r%E1%BA%A1p/phim-chieu-rap-3.jpg', ageLimit: 'T18' },
-    { id: 2, title: 'KUNG FU PANDA 4', genre: 'Hoạt hình', posterUrl: 'https://aeonmall-review-rikkei.cdn.vccloud.vn/public/wp/21/news/eYMabpzR2xAghCdee11Fb1PRg2wSbzaG1tNZ0xfa.jpg', ageLimit: 'P' },
-    { id: 3, title: 'AVENGERS', genre: 'Hành động', posterUrl: 'https://www.elleman.vn/app/uploads/2018/04/25/Avengers-Infinity-War-ELLE-Man-featured-01-01.jpg', ageLimit: 'T13' },
-    { id: 4, title: 'DUNE 2', genre: 'Viễn tưởng', posterUrl: 'https://wallpaperaccess.com/full/1561986.jpg', ageLimit: 'T13' },
-    { id: 7, title: 'INSIDE OUT 2', genre: 'Hoạt hình', posterUrl: 'https://image.tmdb.org/t/p/original/vpn99tmSnuS8pS9S7S0CHp9vJbs.jpg', ageLimit: 'P' },
-    { id: 8, title: 'DESPICABLE ME 4', genre: 'Hoạt hình', posterUrl: 'https://image.tmdb.org/t/p/original/wWba3eoJaME867YvUtdS99Z9ZCc.jpg', ageLimit: 'P' }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const [br, mr] = await Promise.all([apiFetch(MOVIES.HOME_BANNERS), apiFetch(MOVIES.LIST)]);
+        const [bj, mj] = await Promise.all([br.json().catch(() => null), mr.json().catch(() => null)]);
 
-  const comingSoon = [
-    { id: 5, title: 'MINIONS: RISE OF GRU', genre: 'Hoạt hình', posterUrl: 'https://images.moviesanywhere.com/568f6962451515cfb2628469850543f8/2753066a-20e8-4228-a37a-569b0f69903c.jpg', ageLimit: 'P', releaseDate: '20/07/2026' },
-    { id: 6, title: 'SPIDER-MAN', genre: 'Hành động', posterUrl: 'https://m.media-amazon.com/images/M/MV5BMzI0NmVkMjEtYmY4MS00ZDMxLTlkZmEtMzU4MDQxYTMzMjU2XkEyXkFqcGdeQXVyMzQ0MzA0NTM@._V1_.jpg', ageLimit: 'T13', releaseDate: '15/08/2026' },
-    { id: 9, title: 'MOANA 2', genre: 'Hoạt hình', posterUrl: 'https://image.tmdb.org/t/p/original/7S9vgZ6Zid7vAnv7shba6Z0itvS.jpg', ageLimit: 'P', releaseDate: '27/11/2026' },
-    { id: 10, title: 'SHREK 5', genre: 'Hoạt hình', posterUrl: 'https://image.tmdb.org/t/p/original/pB8lsz9vU92oxY360EEo9o1Z6rn.jpg', ageLimit: 'P', releaseDate: '01/07/2026' }
-  ];
+        if (cancelled) return;
 
-  const combos = [
-    { id: 1, name: "Combo Hoạt Hình", price: 85000, desc: "1 Bắp lớn + 1 Nước", img: "https://cdn-icons-png.flaticon.com/512/5787/5787016.png" },
-    { id: 2, name: "Combo Đôi Bạn", price: 125000, desc: "1 Bắp lớn + 2 Nước", img: "https://cdn-icons-png.flaticon.com/512/5787/5787016.png" },
-    { id: 3, name: "Combo Gia Đình", price: 195000, desc: "2 Bắp lớn + 4 Nước", img: "https://cdn-icons-png.flaticon.com/512/5787/5787016.png" },
-    { id: 4, name: "Bắp Rang Phô Mai", price: 55000, desc: "V vị phô mai đặc biệt", img: "https://cdn-icons-png.flaticon.com/512/5787/5787016.png" },
-    { id: 5, name: "Nước Ngọt Khổng Lồ", price: 35000, desc: "Size 1000ml cực đã", img: "https://cdn-icons-png.flaticon.com/512/5787/5787016.png" }
-  ];
+        if (br.ok && Array.isArray(bj?.data)) {
+          setBanners(bj.data.filter((u) => typeof u === "string" && u.trim()).slice(0, 8));
+        } else {
+          setBanners([]);
+        }
+
+        if (!mr.ok) {
+          setLoadError(mj?.message || "Không tải được danh sách phim");
+          setNowShowing([]);
+          setComingSoon([]);
+        } else {
+          const list = Array.isArray(mj?.data) ? mj.data : [];
+          const { nowShowing: n, comingSoon: c } = splitNowAndSoon(list);
+          setNowShowing(n.slice(0, HOME_MOVIE_LIMIT));
+          setComingSoon(c.slice(0, HOME_MOVIE_LIMIT));
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadError("Không kết nối được máy chủ (kiểm tra BE và VITE_API_BASE_URL).");
+          setNowShowing([]);
+          setComingSoon([]);
+          setBanners([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <Layout>
-      <HeroSlider banners={banners} />
+      <div className="bg-zinc-950 min-h-screen text-zinc-100">
+        {loading ? (                                                                                                                
+       <div className="container py-5 mt-5 text-center text-white">                                                              
+          <div className="spinner-border text-danger" role="status" />                                                          
+          <p className="mt-3 mb-0 small opacity-75">Đang tải dữ liệu từ server…</p>                                               
+        </div>                                                                                                                     
+      ) : null}
 
-      <div className="container my-5 pt-3">
-        {/* PHIM ĐANG CHIẾU */}
-        <SectionHeader 
-          title="Phim Đang Chiếu" 
-          gradient="var(--primary-gradient)" 
-          linkText="Tất cả" 
-          linkTo="/movies" 
-          icon="fas fa-arrow-right"
-          linkColorClass="text-danger"
-        />
-        <MovieSwiper movies={nowShowing} />
+        {!loading && loadError ? (
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+              <AlertCircle size={20} />
+              <p className="font-medium">{loadError}</p>
+            </div>
+          </div>
+        ) : null}
 
-        {/* PHIM SẮP CHIẾU */}
-        <div className="mt-5 pt-4">
-          <SectionHeader 
-            title="Phim Sắp Chiếu" 
-            gradient="var(--secondary-gradient)" 
-            linkText="Xem lịch" 
-            linkTo="/movies" 
-            icon="fas fa-calendar"
-            linkColorClass="text-primary"
-          />
+        {!loading && loadError ? (                                                                                                    
+         <div className="container py-4 mt-4">                                                                                       
+           <div className="alert alert-warning border-0 shadow-sm">{loadError}</div>                                                 
+        </div>                                                                                                                      
+      ) : null}                                                                                                                    
+                                                                                                                                     
+       {!loading && banners.length > 0 ? <HeroSlider banners={banners} /> : null}                                                    
+                                                                                                                                     
+       <div className="container my-5 pt-3">                                                                                         
+         <SectionHeader                                                                                                              
+           title="Phim Sắp Chiếu"                                                                                                  
+             gradient="var(--secondary-gradient)"                                                                                    
+             linkText="Xem lịch"                                                                                                         
+           linkTo="/movies"                                                                                                          
+           icon="fas fa-arrow-right"                                                                                                
+          linkColorClass="text-danger"                                                                                             
+        />                                                                                                                        
+         {nowShowing.length === 0 ? (                                                                                               
+          <EmptyState                                                                                                               
+            title="Chưa có phim đang chiếu"                                                                                         
+             subtitle="Thêm phim trên admin hoặc kiểm tra ngày khởi chiếu / trạng thái phim (đang chiếu = 1)."                       
+          />                                                                                                                        
+        ) : (                                                                                                                      
+          <div className="row g-4">                                                                                                
+             {nowShowing.map((movie) => (                                                                                            
+              <div key={movie.id} className="col-6 col-md-3">                                                                      
+                 <MovieCard movie={movie} showBuyButton={false} />                                                                   
+          </div>                                                                                                                
+           ))}
+            </div>
+          )}
         </div>
-        <MovieSwiper movies={comingSoon} isComingSoon={true} />
-
-        {/* COMBO BẮP NƯỚC */}
-        <div className="mt-5 pt-4">
-          <SectionHeader 
-            title="Combo Bắp Nước" 
-            gradient="linear-gradient(45deg, #FFD700, #FFA500)" 
-            linkText="Thực đơn" 
-            linkTo="/foodorder" 
-            icon="fas fa-popcorn"
-            linkColorClass="text-warning"
-          />
-        </div>
-        <ComboSwiper combos={combos} />
       </div>
-
-      <style>{`
-        .swiper-button-next, .swiper-button-prev {
-          color: white !important;
-          background: rgba(0,0,0,0.3);
-          width: 45px; height: 45px; border-radius: 50%;
-          transition: all 0.3s ease;
-        }
-        .swiper-button-next:hover, .swiper-button-prev:hover { background: var(--primary-gradient); transform: scale(1.1); }
-        .swiper-button-next:after, .swiper-button-prev:after { font-size: 18px !important; font-weight: bold; }
-        .movieSwiper { padding-bottom: 50px !important; }
-      `}</style>
     </Layout>
   );
 };

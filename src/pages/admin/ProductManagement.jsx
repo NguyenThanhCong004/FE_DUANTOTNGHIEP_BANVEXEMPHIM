@@ -1,384 +1,359 @@
-import React, { useState } from 'react';
-import { Card, Button, Badge, Form, Row, Col, InputGroup, Modal, ProgressBar, Tooltip, OverlayTrigger } from 'react-bootstrap';
-import { Search, Filter, Edit3, CheckCircle2, XCircle, Package, DollarSign, ShoppingBag, AlertCircle, Hash, Tag } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { Badge, Button, Form, Spinner, Table, Row, Col, Pagination } from "react-bootstrap";
+import { ArrowDownLeft, ArrowUpRight, Search } from "lucide-react";
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import { apiFetch } from "../../utils/apiClient";
+import { CINEMAS } from "../../constants/apiEndpoints";
+import { getStoredStaff } from "../../utils/authStorage";
+import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
 
-const ProductManagement = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('All');
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+function formatMoney(v) {
+  if (v == null || Number.isNaN(Number(v))) return "—";
+  return `${Number(v).toLocaleString("vi-VN")} đ`;
+}
 
-  const [products, setProducts] = useState([
-    { 
-      product_id: 'PROD-001', 
-      CategoriesProducts_id: 'Bắp rang', 
-      name: 'Bắp rang bơ mặn (M)', 
-      description: 'Bắp rang tươi mới mỗi ngày với hương vị bơ mặn truyền thống.',
-      price: 45000, 
-      cinema_price: 50000,
-      stock: 150,
-      max_stock: 200,
-      image: '🍿', 
-      gradient: 'linear-gradient(135deg, #FFD662 0%, #FFB200 100%)',
-      is_selling: true 
-    },
-    { 
-      product_id: 'PROD-002', 
-      CategoriesProducts_id: 'Bắp rang', 
-      name: 'Bắp rang Caramen (L)', 
-      description: 'Hạt bắp nổ đều, phủ lớp caramen vàng óng, giòn tan.',
-      price: 55000, 
-      cinema_price: 65000,
-      stock: 45,
-      max_stock: 200,
-      image: '🍿', 
-      gradient: 'linear-gradient(135deg, #FF9A8B 0%, #FF6A88 55%, #FF99AC 100%)',
-      is_selling: true 
-    },
-    { 
-      product_id: 'PROD-003', 
-      CategoriesProducts_id: 'Nước uống', 
-      name: 'Coca Cola 500ml', 
-      description: 'Nước giải khát có ga giúp tăng thêm hương vị.',
-      price: 20000, 
-      cinema_price: 25000,
-      stock: 300,
-      max_stock: 500,
-      image: '🥤', 
-      gradient: 'linear-gradient(135deg, #FEB692 0%, #EA5455 100%)',
-      is_selling: true 
-    },
-    { 
-      product_id: 'PROD-004', 
-      CategoriesProducts_id: 'Combo', 
-      name: 'Combo Couple', 
-      description: 'Bao gồm 1 Bắp XL và 2 Nước L - Tiết kiệm hơn.',
-      price: 110000, 
-      cinema_price: 130000,
-      stock: 15,
-      max_stock: 100,
-      image: '🍱', 
-      gradient: 'linear-gradient(135deg, #81FFEF 0%, #F067B4 100%)',
-      is_selling: false 
-    },
-    { 
-      product_id: 'PROD-005', 
-      CategoriesProducts_id: 'Nước uống', 
-      name: 'Nước cam ép', 
-      description: 'Nước cam ép nguyên chất, giàu vitamin C.',
-      price: 30000, 
-      cinema_price: 40000,
-      stock: 85,
-      max_stock: 150,
-      image: '🍊', 
-      gradient: 'linear-gradient(135deg, #F6D365 0%, #FDA085 100%)',
-      is_selling: true 
+function isComboCategory(name) {
+  return String(name || "")
+    .toLowerCase()
+    .includes("combo");
+}
+
+export default function ProductManagement() {
+  const location = useLocation();
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const staffSession = getStoredStaff();
+  const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
+  const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : staffSession?.cinemaId ?? null;
+
+  const [onSale, setOnSale] = useState([]);
+  const [notOnSale, setNotOnSale] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [searchA, setSearchA] = useState("");
+  const [searchB, setSearchB] = useState("");
+
+  // Pagination states
+  const [pageA, setPageA] = useState(1);
+  const [pageB, setPageB] = useState(1);
+  const itemsPerPage = 5;
+
+  const loadMenu = useCallback(async () => {
+    if (effectiveCinemaId == null) {
+      setOnSale([]);
+      setNotOnSale([]);
+      setLoading(false);
+      return;
     }
-  ]);
+    setLoading(true);
+    try {
+      const res = await apiFetch(CINEMAS.PRODUCT_MENU(effectiveCinemaId));
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setOnSale([]);
+        setNotOnSale([]);
+        return;
+      }
+      const data = json?.data ?? json;
+      setOnSale(Array.isArray(data?.onSale) ? data.onSale : []);
+      setNotOnSale(Array.isArray(data?.notOnSale) ? data.notOnSale : []);
+    } catch {
+      setOnSale([]);
+      setNotOnSale([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [effectiveCinemaId]);
 
-  const toggleSelling = (id) => {
-    setProducts(products.map(p => 
-      p.product_id === id ? { ...p, is_selling: !p.is_selling } : p
-    ));
+  useEffect(() => {
+    loadMenu();
+  }, [loadMenu]);
+
+  const toggleSelling = async (productId, selling) => {
+    if (effectiveCinemaId == null) return;
+    setBusyId(productId);
+    try {
+      const res = await apiFetch(CINEMAS.PRODUCT_MENU_SELLING(effectiveCinemaId, productId), {
+        method: "PUT",
+        body: JSON.stringify({ selling }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(json?.message || "Cập nhật thất bại");
+        return;
+      }
+
+      // Cập nhật local state để sản phẩm "nhảy" qua lại ngay lập tức
+      if (selling) {
+        // Chuyển từ "Chưa bán" -> "Đang bán"
+        const item = notOnSale.find((p) => p.productId === productId);
+        if (item) {
+          setNotOnSale((prev) => prev.filter((p) => p.productId !== productId));
+          setOnSale((prev) => [...prev, item]);
+        }
+      } else {
+        // Chuyển từ "Đang bán" -> "Chưa bán"
+        const item = onSale.find((p) => p.productId === productId);
+        if (item) {
+          setOnSale((prev) => prev.filter((p) => p.productId !== productId));
+          setNotOnSale((prev) => [...prev, item]);
+        }
+      }
+    } catch {
+      alert("Không thể kết nối server");
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const handleEdit = (product) => {
-    setSelectedProduct({ ...product });
-    setShowEditModal(true);
+  const filterRows = (rows, q) => {
+    const s = q.trim().toLowerCase();
+    if (!s) return rows;
+    return rows.filter(
+      (r) =>
+        String(r.name || "").toLowerCase().includes(s) ||
+        String(r.categoryName || "").toLowerCase().includes(s)
+    );
   };
 
-  const saveChanges = () => {
-    setProducts(products.map(p => p.product_id === selectedProduct.product_id ? selectedProduct : p));
-    setShowEditModal(false);
-  };
+  const filteredOnSale = useMemo(() => filterRows(onSale, searchA), [onSale, searchA]);
+  const filteredNotOnSale = useMemo(() => filterRows(notOnSale, searchB), [notOnSale, searchB]);
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          p.product_id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterCategory === 'All' || p.CategoriesProducts_id === filterCategory;
-    return matchesSearch && matchesFilter;
-  });
+  // Paginated rows
+  const paginatedA = useMemo(() => {
+    const start = (pageA - 1) * itemsPerPage;
+    return filteredOnSale.slice(start, start + itemsPerPage);
+  }, [filteredOnSale, pageA]);
+
+  const paginatedB = useMemo(() => {
+    const start = (pageB - 1) * itemsPerPage;
+    return filteredNotOnSale.slice(start, start + itemsPerPage);
+  }, [filteredNotOnSale, pageB]);
+
+  const totalPagesA = Math.ceil(filteredOnSale.length / itemsPerPage);
+  const totalPagesB = Math.ceil(filteredNotOnSale.length / itemsPerPage);
+
+  // Reset page when search changes
+  useEffect(() => setPageA(1), [searchA]);
+  useEffect(() => setPageB(1), [searchB]);
+
+  const cinemaLabel =
+    effectiveCinemaId != null
+      ? selectedCinemaName || `Rạp #${effectiveCinemaId}`
+      : null;
+
+  const renderTable = (rows, mode, currentPage, totalPages, setPage) => (
+    <div className="d-flex flex-column" style={{ minHeight: "400px" }}>
+      <div className="table-responsive flex-grow-1">
+        <Table hover className="align-middle mb-0" style={{ fontSize: "0.875rem" }}>
+          <thead className="table-light">
+            <tr>
+              <th className="border-0">Sản phẩm</th>
+              <th className="text-end border-0">Giá</th>
+              <th className="text-end border-0">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="text-center text-muted py-5">
+                  <i className="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
+                  Không có mục nào
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => {
+                const combo = isComboCategory(r.categoryName);
+                const id = r.productId;
+                return (
+                  <tr key={`${mode}-${id}`}>
+                    <td>
+                      <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "180px" }}>{r.name}</div>
+                      <Badge pill bg={combo ? "warning" : "info"} text="dark" style={{ fontSize: "0.6rem" }}>
+                        {combo ? "Combo" : r.categoryName || "Khác"}
+                      </Badge>
+                    </td>
+                    <td className="text-end fw-semibold text-primary">{formatMoney(r.price)}</td>
+                    <td className="text-end">
+                      {mode === "on" ? (
+                        <Button
+                          variant="light"
+                          size="sm"
+                          className="text-danger border shadow-sm"
+                          disabled={busyId === id}
+                          onClick={() => toggleSelling(id, false)}
+                          title="Gỡ khỏi rạp"
+                        >
+                          {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="light"
+                          size="sm"
+                          className="text-success border shadow-sm"
+                          disabled={busyId === id}
+                          onClick={() => toggleSelling(id, true)}
+                          title="Bán tại rạp"
+                        >
+                          {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </Table>
+      </div>
+      
+      {totalPages > 1 && (
+        <div className="p-3 border-top bg-white d-flex justify-content-center mt-auto">
+          <Pagination size="sm" className="mb-0 custom-pagination">
+            <Pagination.First disabled={currentPage === 1} onClick={() => setPage(1)} />
+            <Pagination.Prev disabled={currentPage === 1} onClick={() => setPage(p => p - 1)} />
+            
+            {[...Array(totalPages)].map((_, i) => {
+              const pageNum = i + 1;
+              // Chỉ hiển thị trang hiện tại và 2 trang lân cận nếu quá nhiều trang
+              if (totalPages > 5 && Math.abs(pageNum - currentPage) > 1 && pageNum !== 1 && pageNum !== totalPages) {
+                if (pageNum === 2 || pageNum === totalPages - 1) return <Pagination.Ellipsis key={pageNum} disabled />;
+                return null;
+              }
+              return (
+                <Pagination.Item 
+                  key={pageNum} 
+                  active={pageNum === currentPage}
+                  onClick={() => setPage(pageNum)}
+                >
+                  {pageNum}
+                </Pagination.Item>
+              );
+            })}
+            
+            <Pagination.Next disabled={currentPage === totalPages} onClick={() => setPage(p => p + 1)} />
+            <Pagination.Last disabled={currentPage === totalPages} onClick={() => setPage(totalPages)} />
+          </Pagination>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div className="product-page-compact text-dark pb-4">
+    <AdminPanelPage
+      icon="box-seam"
+      title="Sản phẩm & Combo"
+      description={
+        <div className="d-flex align-items-center gap-2 flex-wrap mt-2">
+          {cinemaLabel ? (
+            <Badge bg="primary" className="px-3 py-2 shadow-sm">
+              <i className="bi bi-geo-alt-fill me-1" />
+              {cinemaLabel}
+            </Badge>
+          ) : null}
+          <span className="text-muted small">Cập nhật danh mục sản phẩm cho rạp phim của bạn</span>
+        </div>
+      }
+    >
       <style>{`
-        .product-page-compact { background: #f8fafc; font-size: 0.9rem; }
-        .stat-card {
-          border-radius: 16px;
+        .pm-card {
           border: none;
-          background: #fff;
-          padding: 16px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.02);
-        }
-        .stat-icon {
-          width: 40px; height: 40px;
+          box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
           border-radius: 12px;
-          display: flex; align-items: center; justify-content: center;
-          margin-bottom: 10px;
-        }
-        .stat-card h3 { font-size: 1.25rem; font-weight: 800; margin: 0; }
-        
-        .compact-search-bar {
-          background: #fff;
-          border-radius: 14px;
-          padding: 8px;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-        }
-        .compact-input {
-          border: none;
-          padding: 8px 15px 8px 40px;
-          border-radius: 10px;
-          background: #f1f5f9;
-          font-weight: 600;
-          font-size: 0.85rem;
-          color: #1e293b !important;
-        }
-        
-        .product-compact-card {
-          border-radius: 20px;
-          border: 1px solid #f1f5f9;
-          background: #fff;
           overflow: hidden;
-          transition: all 0.3s ease;
+          background: #fff;
           height: 100%;
         }
-        .product-compact-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 15px 30px rgba(0,0,0,0.06);
+        .pm-header {
+          padding: 1rem;
+          background: #fff;
+          border-bottom: 1px solid #f0f0f0;
         }
-        .image-container {
-          height: 130px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 3.5rem;
+        .pm-search-input {
+          border-radius: 20px;
+          padding-left: 2.5rem;
+          background-color: #f8f9fa;
+          border: 1px solid #e9ecef;
+        }
+        .pm-search-wrapper {
           position: relative;
-          margin: 8px;
-          border-radius: 14px;
         }
-        .id-label {
-          position: absolute; top: 10px; left: 10px;
-          background: rgba(255,255,255,0.25);
-          backdrop-filter: blur(5px);
-          padding: 3px 8px;
-          border-radius: 6px;
-          font-size: 0.6rem; font-weight: 800; color: #fff;
-        }
-        .selling-status {
-          position: absolute; top: 10px; right: 10px;
-          padding: 4px 10px; border-radius: 8px;
-          font-size: 0.65rem; font-weight: 700;
-        }
-        
-        .content-body { padding: 16px; }
-        .category-pill {
-          padding: 2px 8px; border-radius: 6px;
-          font-size: 0.6rem; font-weight: 800;
-          text-transform: uppercase;
-          background: #f8fafc; color: #94a3b8;
-          margin-bottom: 8px; display: inline-block;
-        }
-        .product-name { font-size: 1rem; font-weight: 800; color: #1e293b; margin-bottom: 4px; line-height: 1.2; height: 2.4em; overflow: hidden; }
-        .price-tag { font-size: 1.1rem; font-weight: 900; color: #0d6efd; }
-        .system-price { font-size: 0.75rem; color: #94a3b8; text-decoration: line-through; margin-left: 8px; }
-        
-        .progress-xs { height: 4px; border-radius: 10px; background: #f1f5f9; }
-        .stock-label { font-size: 0.7rem; font-weight: 700; color: #64748b; }
-        
-        .action-btn-sm {
-          width: 36px; height: 36px;
-          border-radius: 10px;
-          display: flex; align-items: center; justify-content: center;
-        }
-        .btn-compact {
-          border-radius: 12px;
-          padding: 8px 15px;
-          font-weight: 700;
-          font-size: 0.8rem;
-        }
-        
-        /* Fix màu chữ trong modal */
-        .modal-input-custom {
-          background: transparent !important;
-          border: none !important;
-          font-weight: 800 !important;
-          color: #1e293b !important;
-          font-size: 1.1rem !important;
-        }
-        .modal-input-custom:focus {
-          color: #0d6efd !important;
-          box-shadow: none !important;
+        .pm-search-icon {
+          position: absolute;
+          left: 1rem;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #adb5bd;
         }
       `}</style>
 
-      {/* Header Stats */}
-      <Row className="mb-4 g-3">
-        <Col md={4}>
-          <div className="stat-card d-flex align-items-center gap-3">
-            <div className="stat-icon bg-primary-subtle text-primary mb-0"><ShoppingBag size={20}/></div>
-            <div>
-              <p className="text-muted small fw-bold text-uppercase mb-0" style={{fontSize: '0.65rem'}}>Đang kinh doanh</p>
-              <h3>{products.filter(p => p.is_selling).length} <small className="fs-6 text-muted fw-normal">SP</small></h3>
-            </div>
+      {effectiveCinemaId == null ? (
+        <div className="admin-card admin-slide-up">
+          <div className="admin-card-body text-center py-5 text-muted">
+            <h5 className="text-dark">Chưa chọn rạp</h5>
+            <p className="mb-0 small">
+              {isSuperAdmin
+                ? "Vui lòng chọn rạp ở sidebar (Super Admin)."
+                : "Tài khoản chưa được gán rạp (cinemaId). Liên hệ Super Admin."}
+            </p>
           </div>
-        </Col>
-        <Col md={4}>
-          <div className="stat-card d-flex align-items-center gap-3">
-            <div className="stat-icon bg-warning-subtle text-warning mb-0"><AlertCircle size={20}/></div>
-            <div>
-              <p className="text-muted small fw-bold text-uppercase mb-0" style={{fontSize: '0.65rem'}}>Cần nhập kho</p>
-              <h3>{products.filter(p => p.stock < 50).length} <small className="fs-6 text-muted fw-normal">SP</small></h3>
+        </div>
+      ) : loading ? (
+        <div className="text-center py-5">
+          <Spinner animation="border" variant="primary" />
+          <p className="mt-2 text-muted">Đang tải menu sản phẩm...</p>
+        </div>
+      ) : (
+        <Row className="g-4">
+          <Col lg={6}>
+            <div className="pm-card admin-slide-up">
+              <div className="pm-header">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0 fw-bold text-success d-flex align-items-center gap-2">
+                    <ArrowUpRight size={20} />
+                    Đang bán tại rạp
+                    <Badge bg="success" pill className="ms-1">{onSale.length}</Badge>
+                  </h5>
+                </div>
+                <div className="pm-search-wrapper">
+                  <Search size={16} className="pm-search-icon" />
+                  <Form.Control
+                    className="pm-search-input"
+                    placeholder="Tìm sản phẩm đang bán..."
+                    value={searchA}
+                    onChange={(e) => setSearchA(e.target.value)}
+                  />
+                </div>
+              </div>
+              {renderTable(paginatedA, "on", pageA, totalPagesA, setPageA)}
             </div>
-          </div>
-        </Col>
-        <Col md={4}>
-          <div className="stat-card d-flex align-items-center gap-3">
-            <div className="stat-icon bg-info-subtle text-info mb-0"><Package size={20}/></div>
-            <div>
-              <p className="text-muted small fw-bold text-uppercase mb-0" style={{fontSize: '0.65rem'}}>Tổng danh mục</p>
-              <h3>3 <small className="fs-6 text-muted fw-normal">Loại</small></h3>
-            </div>
-          </div>
-        </Col>
-      </Row>
-
-      {/* Search & Filter */}
-      <div className="compact-search-bar mb-4">
-        <Row className="g-2 align-items-center">
-          <Col md={7} className="position-relative">
-            <Search size={16} className="position-absolute" style={{left: '25px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8'}} />
-            <Form.Control 
-              className="compact-input"
-              placeholder="Tìm kiếm sản phẩm..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
           </Col>
-          <Col md={5}>
-            <div className="d-flex gap-2">
-              <Form.Select 
-                className="compact-input border-0"
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-              >
-                <option value="All">Tất cả</option>
-                <option value="Bắp rang">Bắp</option>
-                <option value="Nước uống">Nước</option>
-                <option value="Combo">Combo</option>
-              </Form.Select>
-              <Button variant="dark" className="rounded-3 px-3 py-1"><Filter size={16}/></Button>
+
+          <Col lg={6}>
+            <div className="pm-card admin-slide-up">
+              <div className="pm-header">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0 fw-bold text-secondary d-flex align-items-center gap-2">
+                    <ArrowDownLeft size={20} />
+                    Chưa bán tại rạp
+                    <Badge bg="secondary" pill className="ms-1">{notOnSale.length}</Badge>
+                  </h5>
+                </div>
+                <div className="pm-search-wrapper">
+                  <Search size={16} className="pm-search-icon" />
+                  <Form.Control
+                    className="pm-search-input"
+                    placeholder="Tìm sản phẩm chưa bán..."
+                    value={searchB}
+                    onChange={(e) => setSearchB(e.target.value)}
+                  />
+                </div>
+              </div>
+              {renderTable(paginatedB, "off", pageB, totalPagesB, setPageB)}
             </div>
           </Col>
         </Row>
-      </div>
-
-      {/* Product Grid */}
-      <Row className="g-3">
-        {filteredProducts.map((p) => (
-          <Col key={p.product_id} xs={12} sm={6} md={4} xl={3}>
-            <div className="product-compact-card">
-              <div className="image-container" style={{ background: p.gradient }}>
-                <div className="id-label">{p.product_id}</div>
-                <div className={`selling-status ${p.is_selling ? 'bg-white text-success' : 'bg-dark text-white'}`}>
-                  {p.is_selling ? '● Bán' : '○ Ẩn'}
-                </div>
-                {p.image}
-              </div>
-
-              <div className="content-body">
-                <span className="category-pill">{p.CategoriesProducts_id}</span>
-                <h4 className="product-name">{p.name}</h4>
-                
-                <div className="d-flex align-items-center mb-3">
-                  <span className="price-tag">{p.cinema_price.toLocaleString()}đ</span>
-                  <span className="system-price">{p.price.toLocaleString()}đ</span>
-                </div>
-
-                <div className="mb-3">
-                  <div className="d-flex justify-content-between mb-1">
-                    <span className="stock-label">Tồn kho</span>
-                    <span className={`stock-label ${p.stock < 50 ? 'text-danger' : 'text-primary'}`}>{p.stock}/{p.max_stock}</span>
-                  </div>
-                  <ProgressBar now={(p.stock/p.max_stock)*100} variant={p.stock < 50 ? 'danger' : 'primary'} className="progress-xs" />
-                </div>
-
-                <div className="d-flex gap-2">
-                  <Button 
-                    variant="primary" 
-                    className="btn-compact w-100 d-flex align-items-center justify-content-center gap-1"
-                    onClick={() => handleEdit(p)}
-                  >
-                    <Edit3 size={14} /> Thiết lập
-                  </Button>
-                  <button 
-                    className={`action-btn-sm border-0 ${p.is_selling ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'}`}
-                    onClick={() => toggleSelling(p.product_id)}
-                  >
-                    {p.is_selling ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </Col>
-        ))}
-      </Row>
-
-      {/* Modal Compact */}
-      <Modal 
-        show={showEditModal} 
-        onHide={() => setShowEditModal(false)} 
-        centered
-        size="sm"
-        contentClassName="border-0 shadow-lg"
-        style={{ borderRadius: '25px' }}
-      >
-        <Modal.Body className="p-0 overflow-hidden">
-          {selectedProduct && (
-            <div className="d-flex flex-column">
-              <div className="p-4 text-center text-white" style={{ background: selectedProduct.gradient }}>
-                <div className="fs-1 mb-2">{selectedProduct.image}</div>
-                <h5 className="fw-black mb-0">{selectedProduct.name}</h5>
-                <Badge bg="white" text="dark" className="rounded-pill px-2 py-1 small opacity-75">{selectedProduct.product_id}</Badge>
-              </div>
-              
-              <div className="p-4 bg-white" style={{marginTop: '-20px', borderRadius: '30px 30px 0 0'}}>
-                <Form>
-                  <Form.Group className="mb-3">
-                    <Form.Label className="stock-label text-uppercase mb-2">Giá bán (VNĐ)</Form.Label>
-                    <InputGroup className="bg-light rounded-3 p-1 border">
-                      <InputGroup.Text className="bg-transparent border-0 py-0"><DollarSign size={16} className="text-primary"/></InputGroup.Text>
-                      <Form.Control 
-                        type="number"
-                        className="modal-input-custom"
-                        value={selectedProduct.cinema_price}
-                        onChange={(e) => setSelectedProduct({...selectedProduct, cinema_price: parseInt(e.target.value) || 0})}
-                      />
-                    </InputGroup>
-                  </Form.Group>
-                  
-                  <Form.Group className="mb-4">
-                    <Form.Label className="stock-label text-uppercase mb-2">Tồn kho thực tế</Form.Label>
-                    <InputGroup className="bg-light rounded-3 p-1 border">
-                      <InputGroup.Text className="bg-transparent border-0 py-0"><Package size={16} className="text-warning"/></InputGroup.Text>
-                      <Form.Control 
-                        type="number"
-                        className="modal-input-custom"
-                        value={selectedProduct.stock}
-                        onChange={(e) => setSelectedProduct({...selectedProduct, stock: parseInt(e.target.value) || 0})}
-                      />
-                    </InputGroup>
-                  </Form.Group>
-
-                  <div className="d-flex gap-2">
-                    <Button variant="light" className="w-100 py-2 rounded-3 fw-bold border small" onClick={() => setShowEditModal(false)}>Hủy</Button>
-                    <Button variant="primary" className="w-100 py-2 rounded-3 fw-bold shadow-sm small" onClick={saveChanges}>Lưu</Button>
-                  </div>
-                </Form>
-              </div>
-            </div>
-          )}
-        </Modal.Body>
-      </Modal>
-    </div>
+      )}
+    </AdminPanelPage>
   );
-};
-
-export default ProductManagement;
+}
