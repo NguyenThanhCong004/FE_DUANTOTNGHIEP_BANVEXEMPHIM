@@ -20,9 +20,9 @@ function StarRating({ rating, onRate, readonly = false }) {
           key={s}
           style={{
             fontSize: 18,
-            color: s <= (readonly ? rating : (hovered || rating)) ? '#fb7185' : 'rgba(255,255,255,0.2)',
+            color: s <= (readonly ? rating : (hovered || rating)) ? '#d4e219' : 'rgba(255,255,255,0.2)',
             transition: 'color 0.15s',
-            textShadow: s <= (readonly ? rating : (hovered || rating)) ? '0 0 8px rgba(244,63,94,0.45)' : 'none',
+            textShadow: s <= (readonly ? rating : (hovered || rating)) ? '0 0 8px rgba(212,226,25,0.6)' : 'none',
           }}
           onMouseEnter={() => !readonly && setHovered(s)}
           onMouseLeave={() => !readonly && setHovered(0)}
@@ -39,7 +39,7 @@ export default function Favorites() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [filter, setFilter] = useState('all');
-  const [reviewModal, setReviewModal] = useState(null); // { favorite_id, movie }
+  const [reviewModal, setReviewModal] = useState(null);
   const [draftRating, setDraftRating] = useState(0);
   const [draftComment, setDraftComment] = useState('');
   const [removeConfirm, setRemoveConfirm] = useState(null);
@@ -137,21 +137,24 @@ export default function Favorites() {
   return (
     <Layout>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
+
         :root {
-          --navy:    #18181b;
-          --purple:  #e11d48;
-          --pink:    #f43f5e;
-          --yellow:  #fb7185;
-          --dark:    #09090b;
-          --card-bg: rgba(24,24,27,0.95);
+          --navy:    #2d3151;
+          --purple:  #7b1fa2;
+          --pink:    #e91e8c;
+          --yellow:  #d4e219;
+          --dark:    #0f102a;
+          --card-bg: rgba(20,22,50,0.92);
         }
 
         .fav-page {
           min-height: 100vh;
           background:
-            radial-gradient(ellipse 80% 45% at 50% -15%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
-            linear-gradient(180deg, #09090b 0%, #18181b 100%);
-          font-family: var(--font-ui), system-ui, sans-serif;
+            radial-gradient(ellipse 70% 45% at 10% 15%, rgba(123,31,162,0.2) 0%, transparent 60%),
+            radial-gradient(ellipse 55% 40% at 90% 85%, rgba(233,30,140,0.14) 0%, transparent 60%),
+            #0f102a;
+          font-family: 'Syne', sans-serif;
           padding: 32px 0 80px;
         }
 
@@ -163,12 +166,12 @@ export default function Favorites() {
           line-height: 1;
           color: #fff;
         }
-        .fav-title span { color: #f43f5e; }
+        .fav-title span { color: var(--yellow); }
 
         /* ── STATS ROW ── */
         .stat-chip {
           background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(63,63,70,0.85);
+          border: 1px solid rgba(255,255,255,0.08);
           border-radius: 10px;
           padding: 10px 18px;
           display: inline-flex;
@@ -179,7 +182,7 @@ export default function Favorites() {
         .stat-chip .num {
           font-family: 'Bebas Neue', sans-serif;
           font-size: 28px;
-          color: #fb7185;
+          color: var(--yellow);
           line-height: 1;
           letter-spacing: 1px;
         }
@@ -194,27 +197,25 @@ export default function Favorites() {
 
         /* ── FILTER BAR ── */
         .fav-filter-btn {
+          font-family: 'Syne', sans-serif;
           font-weight: 700;
           font-size: 12px;
           letter-spacing: 1px;
           text-transform: uppercase;
           padding: 7px 16px;
-          border-radius: 9999px;
-          border: 1.5px solid rgba(63,63,70,0.9);
+          border-radius: 8px;
+          border: 1.5px solid rgba(255,255,255,0.12);
           background: transparent;
-          color: rgba(161,161,170,0.95);
+          color: rgba(255,255,255,0.4);
           cursor: pointer;
           transition: all 0.2s ease;
         }
-        .fav-filter-btn:hover { border-color: #f43f5e; color: #fb7185; }
-        .fav-filter-btn.active { background: rgba(244,63,94,0.15); border-color: #f43f5e; color: #f43f5e; }
+        .fav-filter-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+        .fav-filter-btn.active { background: var(--yellow); border-color: var(--yellow); color: #0f102a; }
 
         /* ── MOVIE CARD WRAPPER ── */
-        .fav-card-wrap {
-          position: relative;
-        }
+        .fav-card-wrap { position: relative; }
 
-        /* Override MovieCard colors for dark theme */
         .fav-card-wrap .card {
           background: var(--card-bg) !important;
           border: 1px solid rgba(255,255,255,0.07) !important;
@@ -225,14 +226,10 @@ export default function Favorites() {
         .fav-card-wrap .card:hover {
           transform: translateY(-5px);
           box-shadow: 0 16px 48px rgba(0,0,0,0.5);
-          border-color: rgba(244,63,94,0.35) !important;
+          border-color: rgba(212,226,25,0.2) !important;
         }
-        .fav-card-wrap .card h6 {
-          color: #fff !important;
-        }
-        .fav-card-wrap .card .text-muted {
-          color: rgba(255,255,255,0.4) !important;
-        }
+        .fav-card-wrap .card h6 { color: #fff !important; }
+        .fav-card-wrap .card .text-muted { color: rgba(255,255,255,0.4) !important; }
         .fav-card-wrap .card .btn-gradient {
           background: linear-gradient(135deg, var(--purple), var(--pink));
           color: #fff;
@@ -241,12 +238,9 @@ export default function Favorites() {
           font-weight: 700;
           letter-spacing: 1px;
         }
-        .fav-card-wrap .card .btn-gradient:hover {
-          opacity: 0.88;
-          transform: translateY(-1px);
-        }
+        .fav-card-wrap .card .btn-gradient:hover { opacity: 0.88; transform: translateY(-1px); }
 
-        /* ── BOTTOM ACTION BAR (on each card) ── */
+        /* ── BOTTOM ACTION BAR ── */
         .card-actions {
           display: flex;
           gap: 6px;
@@ -268,31 +262,31 @@ export default function Favorites() {
           gap: 4px;
         }
         .btn-action.review {
-          border-color: rgba(244,63,94,0.4);
-          background: rgba(244,63,94,0.08);
-          color: #fb7185;
+          border-color: rgba(212,226,25,0.35);
+          background: rgba(212,226,25,0.07);
+          color: var(--yellow);
         }
         .btn-action.review:hover {
-          background: rgba(244,63,94,0.18);
-          border-color: #f43f5e;
+          background: rgba(212,226,25,0.18);
+          border-color: var(--yellow);
         }
         .btn-action.remove {
-          border-color: rgba(244,63,94,0.35);
-          background: rgba(244,63,94,0.06);
-          color: #f87171;
+          border-color: rgba(233,30,140,0.3);
+          background: rgba(233,30,140,0.06);
+          color: var(--pink);
         }
         .btn-action.remove:hover {
-          background: rgba(248,113,113,0.12);
-          border-color: #f87171;
+          background: rgba(233,30,140,0.18);
+          border-color: var(--pink);
         }
 
-        /* ── REVIEW BADGE ON CARD ── */
+        /* ── REVIEW BADGE ── */
         .review-badge {
           position: absolute;
           top: 12px;
           left: 12px;
-          background: rgba(9,9,11,0.9);
-          border: 1px solid rgba(244,63,94,0.4);
+          background: rgba(15,16,42,0.88);
+          border: 1px solid rgba(212,226,25,0.35);
           border-radius: 8px;
           padding: 3px 8px;
           display: flex;
@@ -301,7 +295,7 @@ export default function Favorites() {
           z-index: 10;
           font-family: 'Bebas Neue', sans-serif;
           font-size: 14px;
-          color: #fb7185;
+          color: var(--yellow);
           letter-spacing: 1px;
           pointer-events: none;
         }
@@ -319,8 +313,8 @@ export default function Favorites() {
           padding: 16px;
         }
         .fav-modal {
-          background: #18181b;
-          border: 1px solid rgba(63,63,70,0.9);
+          background: #12133a;
+          border: 1px solid rgba(255,255,255,0.1);
           border-radius: 20px;
           width: 100%;
           max-width: 460px;
@@ -351,9 +345,9 @@ export default function Favorites() {
           resize: none;
         }
         .fav-modal textarea:focus {
-          border-color: #f43f5e !important;
+          border-color: var(--yellow) !important;
           box-shadow: none !important;
-          background: rgba(244,63,94,0.05) !important;
+          background: rgba(212,226,25,0.03) !important;
         }
         .fav-modal textarea::placeholder { color: rgba(255,255,255,0.25); }
 
@@ -387,10 +381,7 @@ export default function Favorites() {
         .btn-modal-cancel:hover { color: rgba(255,255,255,0.7); }
 
         /* ── CONFIRM MODAL ── */
-        .confirm-modal {
-          max-width: 360px;
-          text-align: center;
-        }
+        .confirm-modal { max-width: 360px; text-align: center; }
         .confirm-modal p {
           color: rgba(255,255,255,0.55);
           font-size: 13px;
@@ -398,9 +389,10 @@ export default function Favorites() {
           margin: 8px 0 24px;
         }
         .btn-confirm-remove {
-          background: linear-gradient(135deg, #e11d48, #f43f5e);
+          background: linear-gradient(135deg, #c2185b, var(--pink));
           border: none;
           color: #fff;
+          font-family: 'Syne', sans-serif;
           font-weight: 800;
           font-size: 13px;
           border-radius: 10px;
@@ -440,11 +432,12 @@ export default function Favorites() {
           bottom: 32px;
           left: 50%;
           transform: translateX(-50%);
-          background: #18181b;
-          border: 1.5px solid rgba(244,63,94,0.55);
+          background: #12133a;
+          border: 1.5px solid var(--yellow);
           border-radius: 14px;
           padding: 14px 28px;
-          color: #fb7185;
+          color: var(--yellow);
+          font-family: 'Syne', sans-serif;
           font-weight: 700;
           font-size: 13px;
           letter-spacing: 0.4px;
@@ -458,7 +451,6 @@ export default function Favorites() {
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
 
-        /* section divider */
         .section-divider {
           height: 1px;
           background: rgba(255,255,255,0.05);
@@ -484,130 +476,115 @@ export default function Favorites() {
       ) : null}
 
       {!loading && getAccessToken() ? (
-      <CustomerPageShell variant="full" className="fav-page mt-4">
-        <div className="customer-page-container">
+        <CustomerPageShell variant="full" className="fav-page mt-4">
+          <div className="customer-page-container">
 
-          {/* ── HEADER ── */}
-          <Row className="align-items-end mb-4 gy-3">
-            <Col>
-              <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
-                ❤️ Danh sách cá nhân
-              </p>
-              <h1 className="fav-title mb-0">PHIM <span>YÊU THÍCH</span></h1>
-            </Col>
-            <Col xs="auto">
-              <div className="d-flex gap-2">
-                <div className="stat-chip">
-                  <span className="num">{favorites.length}</span>
-                  <span className="lbl">Phim đã lưu</span>
-                </div>
-                <div className="stat-chip">
-                  <span className="num">{favorites.filter(f => f.review).length}</span>
-                  <span className="lbl">Đã đánh giá</span>
-                </div>
-              </div>
-            </Col>
-          </Row>
-
-          {/* ── FILTER BAR ── */}
-          <div className="d-flex gap-2 mb-4 flex-wrap">
-            {[
-              { key: 'all',        label: `Tất cả (${favorites.length})` },
-              { key: 'reviewed',   label: `Đã đánh giá (${favorites.filter(f => f.review).length})` },
-              { key: 'unreviewed', label: `Chưa đánh giá (${favorites.filter(f => !f.review).length})` },
-            ].map(({ key, label }) => (
-              <button
-                key={key}
-                className={`fav-filter-btn${filter === key ? ' active' : ''}`}
-                onClick={() => setFilter(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── GRID ── */}
-          {filtered.length === 0 ? (
-            <div className="fav-empty">
-              <div className="empty-icon">🎬</div>
-              <p>Không có phim nào trong danh sách này</p>
-              <Link to="/movies">Khám phá phim ngay</Link>
-            </div>
-          ) : (
-            <Row className="g-4">
-              {filtered.map((fav) => (
-                <Col key={fav.favorite_id} xs={6} md={4} lg={3}>
-                  <div className="fav-card-wrap">
-
-                    {/* Rating badge nếu đã review */}
-                    {fav.review && (
-                      <div className="review-badge">
-                        ★ {fav.review.rating}.0
-                      </div>
-                    )}
-
-                    {/* Reuse MovieCard */}
-                    <MovieCard
-                      movie={fav.movie}
-                      isComingSoon={fav.movie.type === 'soon'}
-                    />
-
-                    {/* Action buttons */}
-                    <div className="card-actions mt-2">
-                      <button
-                        className="btn-action review"
-                        onClick={() => openReview(fav)}
-                        title={fav.review ? 'Sửa đánh giá' : 'Viết đánh giá'}
-                      >
-                        {fav.review ? '✏️ Sửa' : '⭐ Đánh giá'}
-                      </button>
-                      <button
-                        className="btn-action remove"
-                        onClick={() => setRemoveConfirm(fav)}
-                        title="Xóa khỏi yêu thích"
-                      >
-                        🗑 Xóa
-                      </button>
-                    </div>
-
-                    {/* Comment preview */}
-                    {fav.review?.comment && (
-                      <div style={{
-                        margin: '0 4px 8px',
-                        padding: '8px 10px',
-                        background: 'rgba(244,63,94,0.08)',
-                        border: '1px solid rgba(244,63,94,0.22)',
-                        borderRadius: 8,
-                        fontSize: 11,
-                        color: 'rgba(255,255,255,0.45)',
-                        fontStyle: 'italic',
-                        fontWeight: 600,
-                        lineHeight: 1.5,
-                        overflow: 'hidden',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                      }}>
-                        "{fav.review.comment}"
-                      </div>
-                    )}
+            {/* ── HEADER ── */}
+            <Row className="align-items-end mb-4 gy-3">
+              <Col>
+                <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
+                  ❤️ Danh sách cá nhân
+                </p>
+                <h1 className="fav-title mb-0">PHIM <span>YÊU THÍCH</span></h1>
+              </Col>
+              <Col xs="auto">
+                <div className="d-flex gap-2">
+                  <div className="stat-chip">
+                    <span className="num">{favorites.length}</span>
+                    <span className="lbl">Phim đã lưu</span>
                   </div>
-                </Col>
-              ))}
+                  <div className="stat-chip">
+                    <span className="num">{favorites.filter(f => f.review).length}</span>
+                    <span className="lbl">Đã đánh giá</span>
+                  </div>
+                </div>
+              </Col>
             </Row>
-          )}
 
-          {/* ── EMPTY FULL PAGE ── */}
-          {favorites.length === 0 && (
-            <div className="fav-empty" style={{ marginTop: 40 }}>
-              <div className="empty-icon">🎬</div>
-              <p>Bạn chưa có phim yêu thích nào</p>
-              <Link to="/movies">Khám phá phim ngay →</Link>
+            {/* ── FILTER BAR ── */}
+            <div className="d-flex gap-2 mb-4 flex-wrap">
+              {[
+                { key: 'all',        label: `Tất cả (${favorites.length})` },
+                { key: 'reviewed',   label: `Đã đánh giá (${favorites.filter(f => f.review).length})` },
+                { key: 'unreviewed', label: `Chưa đánh giá (${favorites.filter(f => !f.review).length})` },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={`fav-filter-btn${filter === key ? ' active' : ''}`}
+                  onClick={() => setFilter(key)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
 
-        </div>
-      </CustomerPageShell>
+            {/* ── GRID ── */}
+            {filtered.length === 0 ? (
+              <div className="fav-empty">
+                <div className="empty-icon">🎬</div>
+                <p>Không có phim nào trong danh sách này</p>
+                <Link to="/movies">Khám phá phim ngay</Link>
+              </div>
+            ) : (
+              <Row className="g-4">
+                {filtered.map((fav) => (
+                  <Col key={fav.favorite_id} xs={6} md={4} lg={3}>
+                    <div className="fav-card-wrap">
+
+                      {fav.review && (
+                        <div className="review-badge">★ {fav.review.rating}.0</div>
+                      )}
+
+                      <MovieCard
+                        movie={fav.movie}
+                        isComingSoon={fav.movie.type === 'soon'}
+                      />
+
+                      <div className="card-actions mt-2">
+                        <button
+                          className="btn-action review"
+                          onClick={() => openReview(fav)}
+                          title={fav.review ? 'Sửa đánh giá' : 'Viết đánh giá'}
+                        >
+                          {fav.review ? '✏️ Sửa' : '⭐ Đánh giá'}
+                        </button>
+                        <button
+                          className="btn-action remove"
+                          onClick={() => setRemoveConfirm(fav)}
+                          title="Xóa khỏi yêu thích"
+                        >
+                          🗑 Xóa
+                        </button>
+                      </div>
+
+                      {fav.review?.comment && (
+                        <div style={{
+                          margin: '0 4px 8px',
+                          padding: '8px 10px',
+                          background: 'rgba(212,226,25,0.05)',
+                          border: '1px solid rgba(212,226,25,0.12)',
+                          borderRadius: 8,
+                          fontSize: 11,
+                          color: 'rgba(255,255,255,0.45)',
+                          fontStyle: 'italic',
+                          fontWeight: 600,
+                          lineHeight: 1.5,
+                          overflow: 'hidden',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                        }}>
+                          "{fav.review.comment}"
+                        </div>
+                      )}
+                    </div>
+                  </Col>
+                ))}
+              </Row>
+            )}
+
+          </div>
+        </CustomerPageShell>
       ) : null}
 
       {/* ── REVIEW MODAL ── */}
@@ -624,7 +601,6 @@ export default function Favorites() {
             </div>
             <div className="fav-modal-subtitle">{reviewModal.movie.title}</div>
 
-            {/* Star rating */}
             <div className="mb-3">
               <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
                 Xếp hạng
@@ -637,7 +613,6 @@ export default function Favorites() {
               )}
             </div>
 
-            {/* Comment */}
             <div className="mb-4">
               <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
                 Nhận xét (tuỳ chọn)
