@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { MOVIES } from '../../constants/apiEndpoints';
@@ -8,6 +8,7 @@ const PLACEHOLDER_POSTER = 'https://placehold.co/120x180?text=Poster';
 
 const MovieManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -18,6 +19,21 @@ const MovieManagement = () => {
 
   const [allMovies, setAllMovies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
+  useEffect(() => {
+    if (location.state?.message) {
+      showToast(location.state.message, location.state.type || 'success');
+      // Xóa state để tránh hiện lại khi F5
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     let mounted = true;
@@ -30,23 +46,38 @@ const MovieManagement = () => {
         const arr = Array.isArray(list) ? list : [];
         if (!mounted) return;
         setAllMovies(
-          arr.map((m) => ({
-            id: m.id,
-            title: m.title ?? '',
-            author: m.author ?? '—',
-            nation: m.nation ?? '—',
-            duration: m.duration ?? 0,
-            release_date: m.releaseDate ?? '',
-            base_price: m.basePrice ?? 0,
-            status: m.status === 1 ? 'Active' : 'Inactive',
-            age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
-            genre: m.genre ?? '—',
-            description: m.description ?? '',
-            describe: m.content ?? '',
-            poster: m.posterUrl || PLACEHOLDER_POSTER,
-            banner: m.banner || m.posterUrl || PLACEHOLDER_POSTER,
-            genre_id: '',
-          }))
+          arr.map((m) => {
+            const rd = m.releaseDate ? new Date(m.releaseDate) : null;
+            if (rd) rd.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let statusStr = m.status === 1 ? 'Active' : (m.status === 2 ? 'Upcoming' : 'Inactive');
+            
+            // CHỈ tự động chuyển từ Sắp chiếu -> Đang chiếu nếu đã đến ngày
+            // Nếu là Ngưng chiếu (Inactive) thì giữ nguyên
+            if (statusStr === 'Upcoming' && rd && rd <= today) {
+              statusStr = 'Active';
+            }
+
+            return {
+              id: m.id,
+              title: m.title ?? '',
+              author: m.author ?? '—',
+              nation: m.nation ?? '—',
+              duration: m.duration ?? 0,
+              release_date: m.releaseDate ?? '',
+              base_price: m.basePrice ?? 0,
+              status: statusStr,
+              age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
+              genre: m.genre ?? '—',
+              description: m.description ?? '',
+              describe: m.content ?? '',
+              poster: m.posterUrl || PLACEHOLDER_POSTER,
+              banner: m.banner || m.posterUrl || PLACEHOLDER_POSTER,
+              genre_id: '',
+            };
+          })
         );
       } catch {
         if (mounted) setAllMovies([]);
@@ -59,11 +90,15 @@ const MovieManagement = () => {
     };
   }, []);
 
-  // Logic lọc và tìm kiếm
-  const filteredMovies = allMovies.filter(movie => 
-    String(movie.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(movie.author || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Logic lọc, tìm kiếm và sắp xếp
+  const filteredMovies = allMovies
+    .filter(movie => {
+      const matchesSearch = String(movie.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           String(movie.author || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || movie.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -79,35 +114,54 @@ const MovieManagement = () => {
       });
       
       if (res.ok) {
+        showToast('Xóa phim thành công!');
         // Refresh danh sách
         const refreshRes = await apiFetch(MOVIES.LIST);
         const json = await refreshRes.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
         setAllMovies(
-          arr.map((m) => ({
-            id: m.id,
-            title: m.title ?? '',
-            author: m.author ?? '—',
-            nation: m.nation ?? '—',
-            duration: m.duration ?? 0,
-            release_date: m.releaseDate ?? '',
-            base_price: m.basePrice ?? 0,
-            status: m.status === 1 ? 'Active' : 'Inactive',
-            age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
-            genre: m.genre ?? '—',
-            description: m.description ?? '',
-            describe: m.content ?? '',
-            poster: m.posterUrl || PLACEHOLDER_POSTER,
-            banner: m.banner || m.posterUrl || PLACEHOLDER_POSTER,
-            genre_id: '',
-          }))
+          arr.map((m) => {
+            const rd = m.releaseDate ? new Date(m.releaseDate) : null;
+            if (rd) rd.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let statusStr = m.status === 1 ? 'Active' : (m.status === 2 ? 'Upcoming' : 'Inactive');
+            
+            // CHỈ tự động chuyển từ Sắp chiếu -> Đang chiếu nếu đã đến ngày
+            // Nếu là Ngưng chiếu (Inactive) thì giữ nguyên
+            if (statusStr === 'Upcoming' && rd && rd <= today) {
+              statusStr = 'Active';
+            }
+
+            return {
+              id: m.id,
+              title: m.title ?? '',
+              author: m.author ?? '—',
+              nation: m.nation ?? '—',
+              duration: m.duration ?? 0,
+              release_date: m.releaseDate ?? '',
+              base_price: m.basePrice ?? 0,
+              status: statusStr,
+              age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
+              genre: m.genre ?? '—',
+              description: m.description ?? '',
+              describe: m.content ?? '',
+              poster: m.posterUrl || PLACEHOLDER_POSTER,
+              banner: m.banner || m.posterUrl || PLACEHOLDER_POSTER,
+              genre_id: '',
+            };
+          })
         );
         setShowDeleteModal(false);
         setMovieToDelete(null);
+      } else {
+        showToast('Xóa phim thất bại!', 'danger');
       }
     } catch (error) {
       console.error("Error deleting movie:", error);
+      showToast('Lỗi kết nối máy chủ!', 'danger');
     }
   };
 
@@ -139,19 +193,38 @@ const MovieManagement = () => {
       }
     >
       <div className="admin-table-container">
-        {/* Search Bar */}
-        <div className="admin-search-wrapper mb-4" style={{ maxWidth: '400px' }}>
-          <i className="bi bi-search admin-search-icon"></i>
-          <input 
-            type="text" 
-            className="admin-search-input"
-            placeholder="Tìm theo tên phim, đạo diễn..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
+        {/* Search & Filter Bar */}
+        <div className="d-flex flex-wrap gap-3 mb-4">
+          <div className="admin-search-wrapper" style={{ maxWidth: '400px', flex: '1' }}>
+            <i className="bi bi-search admin-search-icon"></i>
+            <input 
+              type="text" 
+              className="admin-search-input"
+              placeholder="Tìm theo tên phim, đạo diễn..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+
+          <div style={{ minWidth: '200px' }}>
+            <select 
+              className="admin-search-input w-100"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{ paddingLeft: '1rem' }}
+            >
+              <option value="All">Tất cả trạng thái</option>
+              <option value="Active">Đang chiếu</option>
+              <option value="Upcoming">Sắp chiếu</option>
+              <option value="Inactive">Ngưng chiếu</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -207,8 +280,14 @@ const MovieManagement = () => {
                         {movie.base_price.toLocaleString('vi-VN')}đ
                       </td>
                       <td className="text-center">
-                        <span className={`admin-badge ${movie.status === 'Active' ? 'admin-badge-success' : 'admin-badge-danger'}`}>
-                          {movie.status === 'Active' ? 'Đang chiếu' : 'Ngưng chiếu'}
+                        <span className={`admin-badge ${
+                          movie.status === 'Active' ? 'admin-badge-success' : 
+                          movie.status === 'Upcoming' ? 'admin-badge-warning' : 
+                          'admin-badge-danger'
+                        }`}>
+                          {movie.status === 'Active' ? 'Đang chiếu' : 
+                           movie.status === 'Upcoming' ? 'Sắp chiếu' : 
+                           'Ngưng chiếu'}
                         </span>
                       </td>
                       <td className="text-center">
@@ -308,8 +387,14 @@ const MovieManagement = () => {
                       <p className="mb-2"><strong className="text-muted">Thể loại:</strong> {selectedItem.genre}</p>
                       <p className="mb-2">
                         <strong className="text-muted">Trạng thái:</strong>
-                        <span className={`ms-2 admin-badge ${selectedItem.status === 'Active' ? 'admin-badge-success' : 'admin-badge-danger'}`}>
-                          {selectedItem.status === 'Active' ? 'Đang chiếu' : 'Ngưng chiếu'}
+                        <span className={`ms-2 admin-badge ${
+                          selectedItem.status === 'Active' ? 'admin-badge-success' : 
+                          selectedItem.status === 'Upcoming' ? 'admin-badge-warning' : 
+                          'admin-badge-danger'
+                        }`}>
+                          {selectedItem.status === 'Active' ? 'Đang chiếu' : 
+                           selectedItem.status === 'Upcoming' ? 'Sắp chiếu' : 
+                           'Ngưng chiếu'}
                         </span>
                       </p>
                     </div>
@@ -405,6 +490,17 @@ const MovieManagement = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast thông báo */}
+      {toast.show && (
+        <div 
+          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
+          style={{ minWidth: '300px' }}
+        >
+          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
+          <div className="fw-bold">{toast.message}</div>
         </div>
       )}
     </AdminPanelPage>

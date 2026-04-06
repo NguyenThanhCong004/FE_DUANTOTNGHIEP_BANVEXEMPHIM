@@ -30,7 +30,8 @@ import AdminLayout from '../components/layout/AdminLayout';
 import SuperAdminDashboard from '../pages/super-admin/Dashboard';
 import AdminDashboard from '../pages/admin/Dashboard';
 import CinemaManagement from '../pages/super-admin/Cinemas';
-import Employees from '../pages/super-admin/Employees';
+import SystemStaffManagement from '../pages/super-admin/SystemStaffManagement';
+import CreateSystemStaff from '../pages/super-admin/CreateSystemStaff';
 import SuperMovies from '../pages/super-admin/Movies';
 import SuperMovieTypes from '../pages/super-admin/MovieTypes';
 import SuperSeatTypes from '../pages/super-admin/SeatTypes';
@@ -39,7 +40,6 @@ import SuperProducts from '../pages/super-admin/Products';
 import SuperMembershipLevels from '../pages/super-admin/MembershipLevels';
 import VouchersAdmin from '../pages/super-admin/Vouchers';
 import NewsAdmin from '../pages/super-admin/News';
-import CreateEmployee from '../pages/super-admin/CreateEmployee';
 import CreateMovie from '../pages/super-admin/CreateMovie';
 import CreateMovieType from '../pages/super-admin/CreateMovieType';
 import CreateSeatType from '../pages/super-admin/CreateSeatType';
@@ -162,8 +162,8 @@ const AppRoutes = () => {
         <Route index element={<SuperAdminDashboard />} />
         <Route path="cinemas" element={<CinemaManagement />} />
         <Route path="cinemas/create" element={<CreateCinema />} />
-        <Route path="employees" element={<Employees />} />
-        <Route path="employees/create" element={<CreateEmployee />} />
+        <Route path="system-staff" element={<SystemStaffManagement />} />
+        <Route path="system-staff/create" element={<CreateSystemStaff />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="users/edit" element={<EditUserSuperAdmin />} />
         <Route path="movies" element={<SuperMovies />} />

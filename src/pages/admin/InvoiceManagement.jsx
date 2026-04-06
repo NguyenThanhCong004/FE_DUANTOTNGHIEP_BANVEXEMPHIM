@@ -9,6 +9,9 @@ const InvoiceManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
@@ -71,22 +74,6 @@ const InvoiceManagement = () => {
     };
   }, [effectiveCinemaId]);
 
-  const handleDelete = async (apiId) => {
-    if (apiId == null) return;
-    if (!window.confirm("Xóa đơn online này? Thao tác không hoàn tác.")) return;
-    try {
-      const res = await apiFetch(ORDERS_ONLINE.BY_ID(apiId), { method: "DELETE" });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        alert(json?.message || "Xóa thất bại");
-        return;
-      }
-      setInvoices((prev) => prev.filter((inv) => inv.apiId !== apiId));
-    } catch {
-      alert("Không thể kết nối server");
-    }
-  };
-
   const filteredInvoices = useMemo(() => {
     const q = searchTerm.toLowerCase();
     return invoices.filter(invoice =>
@@ -96,6 +83,17 @@ const InvoiceManagement = () => {
       String(invoice.movieTitle || '').toLowerCase().includes(q)
     );
   }, [invoices, searchTerm]);
+
+  // Pagination Logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredInvoices.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
+
+  // Reset to page 1 when searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const invoiceStats = useMemo(() => {
     const totalRev = invoices.reduce((a, i) => a + (Number(i.total) || 0), 0);
@@ -223,7 +221,7 @@ const InvoiceManagement = () => {
                       Đang tải dữ liệu...
                     </td>
                   </tr>
-                ) : filteredInvoices.length === 0 ? (
+                ) : currentItems.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
                       <div className="admin-empty">
@@ -235,7 +233,7 @@ const InvoiceManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : filteredInvoices.map((invoice) => (
+                ) : currentItems.map((invoice) => (
                   <tr key={invoice.apiId}>
                     <td className="fw-bold">{invoice.displayCode}</td>
                     <td>
@@ -285,6 +283,45 @@ const InvoiceManagement = () => {
           </div>
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="admin-pagination-bar">
+          <span className="admin-pagination-meta">
+            Hiển thị {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredInvoices.length)} / {filteredInvoices.length}{' '}
+            hóa đơn
+          </span>
+          <div className="admin-pagination">
+            <button
+              type="button"
+              className="admin-pagination-btn"
+              onClick={() => setCurrentPage((p) => p - 1)}
+              disabled={currentPage === 1}
+              aria-label="Trang trước"
+            >
+              <i className="bi bi-chevron-left"></i>
+            </button>
+            {[...Array(totalPages)].map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                className={`admin-pagination-btn ${currentPage === index + 1 ? 'active' : ''}`}
+                onClick={() => setCurrentPage(index + 1)}
+              >
+                {index + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="admin-pagination-btn"
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={currentPage === totalPages}
+              aria-label="Trang sau"
+            >
+              <i className="bi bi-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

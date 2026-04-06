@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getAccessToken } from "../../utils/authStorage";
-import { apiUrl } from "../../utils/apiClient";
+import { apiFetch } from "../../utils/apiClient";
 import { USERS } from "../../constants/apiEndpoints";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 
@@ -10,80 +9,73 @@ export default function EditUser() {
   const location = useLocation();
   const editUser = location.state?.editUser;
   
-  const [form, setForm] = useState({
+  const [formData, setFormData] = useState({
     userId: "",
     fullname: "",
     email: "",
     phone: "",
-    birthday: "",
     status: 1,
-    points: 0,
-    avatar: "",
     username: "",
+    rankName: "",
+    totalSpending: 0,
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
     if (editUser) {
-      setForm({
+      setFormData({
         userId: editUser.userId || editUser.id || "",
         fullname: editUser.fullname || "",
         email: editUser.email || "",
         phone: editUser.phone || "",
-        birthday: editUser.birthday || "",
         status: editUser.status === 0 || editUser.status === "Inactive" ? 0 : 1,
-        points: editUser.points || 0,
-        avatar: editUser.avatar || "",
         username: editUser.username || "",
+        rankName: editUser.rankName || "Hạng đồng",
+        totalSpending: editUser.totalSpending || 0,
       });
     }
   }, [editUser]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
+    setSubmitting(true);
+    setServerError("");
     setSuccess("");
 
     try {
-      const token = getAccessToken();
-      const res = await fetch(apiUrl(USERS.UPDATE(form.userId)), {
+      const body = {
+        status: Number(formData.status),
+      };
+
+      const res = await apiFetch(USERS.BY_ID(formData.userId), {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          status: form.status,
-        }),
+        body: JSON.stringify(body),
       });
 
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(json?.message || "Cập nhật người dùng thất bại");
+        setServerError(json?.message || "Cập nhật người dùng thất bại");
+        setSubmitting(false);
         return;
       }
 
-      setSuccess("Cập nhật thông tin người dùng thành công!");
+      setSuccess("Cập nhật trạng thái người dùng thành công! Hạng thành viên đã được tự động kiểm tra.");
       setTimeout(() => {
         navigate("/super-admin/users");
       }, 1500);
     } catch {
-      setError("Không thể kết nối tới server");
-    } finally {
-      setLoading(false);
+      setServerError("Không thể kết nối tới server");
+      setSubmitting(false);
     }
   };
 
-  const handleChange = (field) => (e) => {
-    const value = field === "status" || field === "points" 
-      ? (field === "status" ? parseInt(e.target.value) : parseInt(e.target.value) || 0)
-      : e.target.value;
-    setForm(prev => ({ ...prev, [field]: value }));
-    setError("");
-    setSuccess("");
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setServerError("");
   };
 
   if (!editUser) {
@@ -105,156 +97,126 @@ export default function EditUser() {
   }
 
   return (
-    <AdminPanelPage icon="people" title="Sửa trạng thái người dùng" description="Thay đổi trạng thái hoạt động của khách hàng">
-      <div className="admin-card admin-slide-up">
+    <AdminPanelPage
+      icon="person-gear"
+      title="Cập nhật trạng thái khách hàng"
+      description={`Chỉnh sửa quyền truy cập cho tài khoản: ${formData.fullname}`}
+    >
+      <div className="admin-card admin-slide-up" style={{ maxWidth: '800px', margin: '0 auto' }}>
         <div className="admin-card-header">
-          <h4 className="mb-0">Chỉnh sửa trạng thái người dùng</h4>
-          <button 
-            className="admin-btn admin-btn-outline-secondary"
-            onClick={() => navigate("/super-admin/users")}
-          >
-            <i className="bi bi-arrow-left me-2"></i>
-            Quay lại
-          </button>
+          <h4 className="mb-0">
+            <i className="bi bi-shield-lock text-primary me-2"></i>
+            Quản lý trạng thái & Hạng
+          </h4>
         </div>
-        <div className="admin-card-body">
-          {error && (
-            <div className="alert alert-danger" role="alert">
-              {error}
+        
+        <div className="admin-card-body p-4">
+          {serverError && (
+            <div className="alert alert-danger mb-4 admin-slide-up">
+              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              {serverError}
             </div>
           )}
           {success && (
-            <div className="alert alert-success" role="alert">
+            <div className="alert alert-success mb-4 admin-slide-up">
+              <i className="bi bi-check-circle-fill me-2"></i>
               {success}
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
-            <div className="row g-3">
+            <div className="row g-4">
+              {/* Read-only info section */}
+              <div className="col-md-6">
+                <label className="admin-form-label">Tên khách hàng</label>
+                <div className="admin-search-wrapper w-100 mt-1 opacity-75">
+                  <i className="bi bi-person admin-search-icon" style={{ left: '15px' }}></i>
+                  <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.fullname} disabled />
+                </div>
+              </div>
+
               <div className="col-md-6">
                 <label className="admin-form-label">Tên đăng nhập</label>
-                <input
-                  type="text"
-                  className="admin-form-control"
-                  value={form.username}
-                  disabled
-                  title="Tên đăng nhập không thể thay đổi"
-                />
-                <small className="text-muted">Tên đăng nhập không thể thay đổi</small>
-              </div>
-              
-              <div className="col-md-6">
-                <label className="admin-form-label">Họ và tên</label>
-                <input
-                  type="text"
-                  className="admin-form-control"
-                  value={form.fullname}
-                  disabled
-                  title="Họ và tên không thể thay đổi"
-                />
-                <small className="text-muted">Họ và tên không thể thay đổi</small>
+                <div className="admin-search-wrapper w-100 mt-1 opacity-75">
+                  <i className="bi bi-at admin-search-icon" style={{ left: '15px' }}></i>
+                  <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.username} disabled />
+                </div>
               </div>
 
               <div className="col-md-6">
-                <label className="admin-form-label">Email</label>
-                <input
-                  type="email"
-                  className="admin-form-control"
-                  value={form.email}
-                  disabled
-                  title="Email không thể thay đổi"
-                />
-                <small className="text-muted">Email không thể thay đổi</small>
+                <label className="admin-form-label">Tổng chi tiêu</label>
+                <div className="admin-search-wrapper w-100 mt-1 opacity-75">
+                  <i className="bi bi-cash-stack admin-search-icon" style={{ left: '15px' }}></i>
+                  <input type="text" className="admin-search-input w-100 fw-bold text-success" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.totalSpending)} disabled />
+                </div>
               </div>
 
               <div className="col-md-6">
-                <label className="admin-form-label">Số điện thoại</label>
-                <input
-                  type="tel"
-                  className="admin-form-control"
-                  value={form.phone}
-                  disabled
-                  title="Số điện thoại không thể thay đổi"
-                />
-                <small className="text-muted">Số điện thoại không thể thay đổi</small>
+                <label className="admin-form-label">Hạng hiện tại (Tự động)</label>
+                <div className="admin-search-wrapper w-100 mt-1 opacity-75">
+                  <i className="bi bi-star-fill admin-search-icon text-warning" style={{ left: '15px' }}></i>
+                  <input type="text" className="admin-search-input w-100 fw-bold text-primary" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.rankName} disabled />
+                </div>
+                <small className="text-muted italic">Hạng được hệ thống tự động cập nhật dựa trên chi tiêu.</small>
               </div>
 
-              <div className="col-md-6">
-                <label className="admin-form-label">Ngày sinh</label>
-                <input
-                  type="date"
-                  className="admin-form-control"
-                  value={form.birthday}
-                  disabled
-                  title="Ngày sinh không thể thay đổi"
-                />
-                <small className="text-muted">Ngày sinh không thể thay đổi</small>
-              </div>
-
-              <div className="col-md-6">
-                <label className="admin-form-label">Điểm tích lũy</label>
-                <input
-                  type="number"
-                  className="admin-form-control"
-                  value={form.points}
-                  disabled
-                  title="Điểm tích lũy không thể thay đổi"
-                />
-                <small className="text-muted">Điểm tích lũy không thể thay đổi</small>
-              </div>
-
-              <div className="col-md-6">
-                <label className="admin-form-label">Trạng thái <span className="text-danger">*</span></label>
-                <select
-                  className="admin-form-control"
-                  value={form.status}
-                  onChange={handleChange("status")}
-                  required
-                >
-                  <option value={1}>Đang hoạt động</option>
-                  <option value={0}>Đã khóa</option>
-                </select>
-                <small className="text-info">Chỉ có thể thay đổi trạng thái tài khoản</small>
-              </div>
-
-              <div className="col-md-6">
-                <label className="admin-form-label">Avatar URL</label>
-                <input
-                  type="url"
-                  className="admin-form-control"
-                  value={form.avatar}
-                  disabled
-                  title="Avatar không thể thay đổi"
-                />
-                <small className="text-muted">Avatar không thể thay đổi</small>
+              {/* Editable section */}
+              <div className="col-12 mt-2 pt-3 border-top">
+                <div className="row justify-content-center">
+                  <div className="col-md-6">
+                    <label className="admin-form-label fw-bold text-dark">
+                      Trạng thái hoạt động <span className="text-danger">*</span>
+                    </label>
+                    <div className="mt-1">
+                      <select 
+                        name="status"
+                        className="admin-search-input w-100 border-primary"
+                        style={{ background: 'white', padding: '0 15px', height: '50px', border: '2px solid' }}
+                        value={formData.status}
+                        onChange={handleChange}
+                        disabled={submitting}
+                      >
+                        <option value={1}>Đang hoạt động (Active)</option>
+                        <option value={0}>Đã khóa tài khoản (Locked)</option>
+                      </select>
+                    </div>
+                    <p className="small text-muted mt-2">
+                      <i className="bi bi-info-circle me-1"></i>
+                      Khóa tài khoản sẽ ngăn người dùng đăng nhập vào hệ thống.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="d-flex gap-2 mt-4">
-              <button
-                type="submit"
-                className="admin-btn admin-btn-primary"
-                disabled={loading}
+            <div className="mt-5 d-flex justify-content-center gap-3">
+              <button 
+                type="button" 
+                className="admin-btn admin-btn-outline" 
+                style={{ minWidth: '140px' }}
+                onClick={() => navigate('/super-admin/users')}
+                disabled={submitting}
               >
-                {loading ? (
+                <i className="bi bi-x-circle me-2"></i>
+                Hủy bỏ
+              </button>
+              <button 
+                type="submit" 
+                className="admin-btn admin-btn-primary"
+                style={{ minWidth: '200px' }}
+                disabled={submitting}
+              >
+                {submitting ? (
                   <>
                     <span className="spinner-border spinner-border-sm me-2"></span>
                     Đang lưu...
                   </>
                 ) : (
                   <>
-                    <i className="bi bi-check-circle me-2"></i>
-                    Lưu thay đổi
+                    <i className="bi bi-check2-circle me-2"></i>
+                    Cập nhật trạng thái
                   </>
                 )}
-              </button>
-              <button
-                type="button"
-                className="admin-btn admin-btn-outline-secondary"
-                onClick={() => navigate("/super-admin/users")}
-              >
-                <i className="bi bi-x-circle me-2"></i>
-                Hủy
               </button>
             </div>
           </form>
