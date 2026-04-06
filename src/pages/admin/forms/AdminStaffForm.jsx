@@ -77,7 +77,23 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
       tempErrors.phone = "Số điện thoại phải có 10 chữ số";
     }
 
-    if (!staff.birthDate) tempErrors.birthDate = "Vui lòng chọn ngày sinh";
+    if (!staff.birthDate) {
+      tempErrors.birthDate = "Vui lòng chọn ngày sinh";
+    } else {
+      const birthDate = new Date(staff.birthDate);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      // Nếu chưa đến tháng sinh hoặc cùng tháng nhưng chưa đến ngày sinh thì giảm 1 tuổi
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      if (age < 18) {
+        tempErrors.birthDate = "Nhân viên phải từ đủ 18 tuổi trở lên";
+      }
+    }
 
     if (!staff.avatar) tempErrors.avatar = "Hình ảnh không được để trống";
 
