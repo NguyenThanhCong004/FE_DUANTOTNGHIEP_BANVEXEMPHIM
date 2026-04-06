@@ -85,18 +85,18 @@ export default function ProductManagement() {
 
       // Cập nhật local state để sản phẩm "nhảy" qua lại ngay lập tức
       if (selling) {
-        // Chuyển từ "Chưa bán" -> "Đang bán"
+        // Chuyển từ "Chưa bán" -> "Đang bán" và đưa lên đầu
         const item = notOnSale.find((p) => p.productId === productId);
         if (item) {
           setNotOnSale((prev) => prev.filter((p) => p.productId !== productId));
-          setOnSale((prev) => [...prev, item]);
+          setOnSale((prev) => [item, ...prev]);
         }
       } else {
-        // Chuyển từ "Đang bán" -> "Chưa bán"
+        // Chuyển từ "Đang bán" -> "Chưa bán" và đưa lên đầu
         const item = onSale.find((p) => p.productId === productId);
         if (item) {
           setOnSale((prev) => prev.filter((p) => p.productId !== productId));
-          setNotOnSale((prev) => [...prev, item]);
+          setNotOnSale((prev) => [item, ...prev]);
         }
       }
     } catch {
@@ -309,30 +309,6 @@ export default function ProductManagement() {
             <div className="pm-card admin-slide-up">
               <div className="pm-header">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h5 className="mb-0 fw-bold text-success d-flex align-items-center gap-2">
-                    <ArrowUpRight size={20} />
-                    Đang bán tại rạp
-                    <Badge bg="success" pill className="ms-1">{onSale.length}</Badge>
-                  </h5>
-                </div>
-                <div className="pm-search-wrapper">
-                  <Search size={16} className="pm-search-icon" />
-                  <Form.Control
-                    className="pm-search-input"
-                    placeholder="Tìm sản phẩm đang bán..."
-                    value={searchA}
-                    onChange={(e) => setSearchA(e.target.value)}
-                  />
-                </div>
-              </div>
-              {renderTable(paginatedA, "on", pageA, totalPagesA, setPageA)}
-            </div>
-          </Col>
-
-          <Col lg={6}>
-            <div className="pm-card admin-slide-up">
-              <div className="pm-header">
-                <div className="d-flex justify-content-between align-items-center mb-3">
                   <h5 className="mb-0 fw-bold text-secondary d-flex align-items-center gap-2">
                     <ArrowDownLeft size={20} />
                     Chưa bán tại rạp
@@ -350,6 +326,30 @@ export default function ProductManagement() {
                 </div>
               </div>
               {renderTable(paginatedB, "off", pageB, totalPagesB, setPageB)}
+            </div>
+          </Col>
+
+          <Col lg={6}>
+            <div className="pm-card admin-slide-up">
+              <div className="pm-header">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0 fw-bold text-success d-flex align-items-center gap-2">
+                    <ArrowUpRight size={20} />
+                    Đang bán tại rạp
+                    <Badge bg="success" pill className="ms-1">{onSale.length}</Badge>
+                  </h5>
+                </div>
+                <div className="pm-search-wrapper">
+                  <Search size={16} className="pm-search-icon" />
+                  <Form.Control
+                    className="pm-search-input"
+                    placeholder="Tìm sản phẩm đang bán..."
+                    value={searchA}
+                    onChange={(e) => setSearchA(e.target.value)}
+                  />
+                </div>
+              </div>
+              {renderTable(paginatedA, "on", pageA, totalPagesA, setPageA)}
             </div>
           </Col>
         </Row>

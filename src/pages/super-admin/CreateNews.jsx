@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { NEWS } from '../../constants/apiEndpoints';
+
+// CKEditor 5 Imports
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -16,6 +21,7 @@ const CreateNews = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const imageInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -26,36 +32,30 @@ const CreateNews = () => {
 
   const [errors, setErrors] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState('');
 
   useEffect(() => {
     if (editData) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form from location.state
       setFormData({
         title: editData.title || '',
         content: editData.content || '',
-        status: editData.status || 'Active',
-        image: null // Giữ null cho file upload mới
+        status: editData.status === 1 || editData.status === 'Active' ? 'Active' : 'Inactive',
+        image: null 
       });
-      if (editData.image) {
-        setPreviewImage(editData.image);
-      }
+      if (editData.image) setPreviewImage(editData.image);
     }
   }, [editData]);
 
   const validateForm = () => {
     let newErrors = {};
-    if (!formData.title.trim()) {
-      newErrors.title = 'Tiêu đề không được để trống';
+    if (!formData.title.trim()) newErrors.title = 'Tiêu đề không được để trống';
+    if (!formData.content.trim() || formData.content === '<p>&nbsp;</p>') {
+      newErrors.content = 'Nội dung bài viết không được để trống';
     }
-    if (!formData.content.trim()) {
-      newErrors.content = 'Nội dung không được để trống';
-    }
-    const editing = Boolean(editData?.id);
-    if (!editing && !formData.image) {
+    
+    if (!editData?.id && !formData.image) {
       newErrors.image = 'Vui lòng chọn ảnh minh họa';
-    }
-    if (editing && !formData.image && !previewImage) {
-      newErrors.image = 'Cần ảnh minh họa (giữ ảnh cũ hoặc chọn ảnh mới)';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -64,9 +64,14 @@ const CreateNews = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  // Hàm xử lý thay đổi từ CKEditor
+  const handleEditorChange = (event, editor) => {
+    const data = editor.getData();
+    setFormData(prev => ({ ...prev, content: data }));
+    if (errors.content) setErrors(prev => ({ ...prev, content: '' }));
   };
 
   const handleFileChange = (e) => {
@@ -82,263 +87,212 @@ const CreateNews = () => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    let imageStr = previewImage;
-    if (formData.image instanceof File) {
-      try {
-        imageStr = await fileToDataUrl(formData.image);
-      } catch {
-        alert('Không đọc được file ảnh');
-        return;
-      }
-    }
-    if (!imageStr || typeof imageStr !== 'string') {
-      setErrors((prev) => ({ ...prev, image: 'Thiếu ảnh minh họa' }));
-      return;
-    }
+    setSubmitting(true);
+    setServerError('');
 
-    const body = {
-      title: formData.title.trim(),
-      content: formData.content.trim(),
-      image: imageStr,
-      status: formData.status === 'Active' ? 1 : 0,
-    };
-    const nid = editData?.id;
-    const url = nid ? NEWS.BY_ID(nid) : NEWS.LIST;
     try {
+      let imageStr = previewImage;
+      if (formData.image instanceof File) {
+        imageStr = await fileToDataUrl(formData.image);
+      }
+
+      const body = {
+        title: formData.title.trim(),
+        content: formData.content.trim(),
+        image: imageStr,
+        status: formData.status === 'Active' ? 1 : 0,
+      };
+
+      const nid = editData?.id;
+      const url = nid ? NEWS.BY_ID(nid) : NEWS.LIST;
       const res = await apiFetch(url, {
         method: nid ? 'PUT' : 'POST',
         body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        alert(json?.message || 'Lưu tin thất bại');
-        return;
+
+      if (res.ok) {
+        navigate('/super-admin/news', {
+          state: {
+            message: nid ? 'Cập nhật bài viết thành công!' : 'Đăng tin mới thành công!',
+            type: 'success'
+          }
+        });
+      } else {
+        const json = await res.json().catch(() => null);
+        setServerError(json?.message || 'Lưu tin tức thất bại');
       }
-      alert(nid ? 'Cập nhật tin thành công!' : 'Đăng tin tức thành công!');
-      navigate('/super-admin/news');
     } catch {
-      alert('Không thể kết nối server');
+      setServerError('Lỗi kết nối máy chủ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Cấu hình Toolbar CKEditor
+  const editorConfiguration = {
+    toolbar: {
+      items: [
+        'heading',
+        '|',
+        'bold',
+        'italic',
+        'link',
+        'bulletedList',
+        'numberedList',
+        '|',
+        'outdent',
+        'indent',
+        '|',
+        'imageUpload',
+        'blockQuote',
+        'insertTable',
+        'mediaEmbed',
+        'undo',
+        'redo'
+      ]
+    },
+    language: 'vi',
+    image: {
+      toolbar: [
+        'imageTextAlternative',
+        'toggleImageCaption',
+        'imageStyle:inline',
+        'imageStyle:block',
+        'imageStyle:side'
+      ]
+    },
+    table: {
+      contentToolbar: [
+        'tableColumn',
+        'tableRow',
+        'mergeTableCells'
+      ]
     }
   };
 
   return (
-    <div className="create-news p-4">
+    <AdminPanelPage 
+      icon={editData ? "bi-newspaper" : "bi-file-earmark-plus"} 
+      title={editData ? 'Cập nhật tin tức' : 'Viết tin tức mới'} 
+      description="Sử dụng bộ soạn thảo chuyên nghiệp để đăng tải tin tức, khuyến mãi."
+    >
+      <form onSubmit={handleSubmit} noValidate>
+        <div className="row g-4">
+          <div className="col-12">
+            <div className="admin-card admin-slide-up">
+              <div className="admin-card-header">
+                <h4 className="mb-0"><i className="bi bi-image-fill text-primary me-2"></i>Ảnh minh họa bài viết</h4>
+              </div>
+              <div className="admin-card-body p-4 text-center">
+                <div 
+                  className={`mx-auto mb-3 border-2 d-flex align-items-center justify-content-center overflow-hidden ${errors.image ? 'border-danger' : 'border-light'}`}
+                  style={{ width: '100%', maxWidth: '800px', aspectRatio: '16/9', cursor: 'pointer', background: '#f8fafc', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                  onClick={() => imageInputRef.current.click()}
+                >
+                  {previewImage ? (
+                    <img src={previewImage} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div className="text-muted text-center">
+                      <i className="bi bi-cloud-arrow-up fs-1"></i>
+                      <div className="small fw-bold mt-2">CHỌN ẢNH NGANG (16:9)</div>
+                    </div>
+                  )}
+                </div>
+                <input type="file" ref={imageInputRef} hidden accept="image/*" onChange={handleFileChange} />
+                {errors.image && <div className="text-danger small fw-bold">{errors.image}</div>}
+              </div>
+            </div>
+          </div>
+
+          <div className="col-12">
+            <div className="admin-card admin-slide-up">
+              <div className="admin-card-header">
+                <h4 className="mb-0"><i className="bi bi-pencil-square text-primary me-2"></i>Nội dung tin tức</h4>
+              </div>
+              <div className="admin-card-body p-4">
+                {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
+                
+                <div className="row">
+                  <div className="col-md-8 mb-4">
+                    <label className="admin-form-label">Tiêu đề bài viết <span className="text-danger">*</span></label>
+                    <input 
+                      type="text" name="title" className={`admin-search-input w-100 ${errors.title ? 'border-danger' : ''}`}
+                      placeholder="Nhập tiêu đề hấp dẫn cho bài viết..." value={formData.title} onChange={handleChange} 
+                    />
+                    {errors.title && <small className="text-danger fw-medium">{errors.title}</small>}
+                  </div>
+
+                  <div className="col-md-4 mb-4">
+                    <label className="admin-form-label">Trạng thái hiển thị</label>
+                    <select name="status" className="admin-search-input w-100" value={formData.status} onChange={handleChange}>
+                      <option value="Active">Công khai (Public)</option>
+                      <option value="Inactive">Bản nháp (Draft)</option>
+                    </select>
+                  </div>
+
+                  <div className="col-12 mb-4">
+                    <label className="admin-form-label mb-3">Nội dung chi tiết <span className="text-danger">*</span></label>
+                    <div className={`ckeditor-wrapper ${errors.content ? 'is-invalid' : ''}`}>
+                      <CKEditor
+                        editor={ClassicEditor}
+                        config={editorConfiguration}
+                        data={formData.content}
+                        onReady={editor => {
+                          // Bạn có thể tùy chỉnh thêm cho editor tại đây
+                          editor.editing.view.change(writer => {
+                            writer.setStyle('min-height', '400px', editor.editing.view.document.getRoot());
+                          });
+                        }}
+                        onChange={handleEditorChange}
+                      />
+                    </div>
+                    {errors.content && <small className="text-danger fw-medium d-block mt-1">{errors.content}</small>}
+                  </div>
+                </div>
+
+                <div className="mt-4 d-flex justify-content-center gap-3">
+                  <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/news')}>Hủy bỏ</button>
+                  <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
+                    {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                    {editData ? 'Cập nhật tin' : 'Đăng tin tức'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      {/* Tùy chỉnh CSS cho CKEditor để khớp với thiết kế Admin */}
       <style>{`
-        .form-container {
-          background: white;
-          border-radius: 15px;
-          padding: 40px;
-          box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-          max-width: 1000px;
-          margin: 0 auto;
+        .ck-editor__editable_inline {
+          padding-left: 1.5rem !important;
+          padding-right: 1.5rem !important;
+          font-size: 1.05rem;
+          line-height: 1.7;
+          color: #334155;
         }
-
-        .form-group-custom {
-          margin-bottom: 25px;
-        }
-
-        .form-label {
-          font-weight: bold;
-          color: black;
-          margin-bottom: 8px;
-          display: block;
-          text-transform: uppercase;
-          font-size: 0.85rem;
-          letter-spacing: 0.5px;
-        }
-
-        .custom-input, .custom-select {
-          width: 100%;
-          height: 50px;
-          padding: 10px 20px;
-          background-color: whitesmoke !important;
-          border: 2px solid black !important;
-          border-radius: 10px;
-          color: black !important;
-          font-weight: 500;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .custom-textarea {
-          width: 100%;
-          padding: 15px 20px;
-          background-color: whitesmoke !important;
-          border: 2px solid black !important;
-          border-radius: 10px;
-          color: black !important;
-          font-weight: 500;
-          outline: none;
-          min-height: 250px;
-        }
-
-        .custom-input:focus, .custom-textarea:focus, .custom-select:focus {
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .error-message {
-          color: #dc3545;
-          font-size: 0.8rem;
-          margin-top: 5px;
-          font-weight: 500;
-        }
-
-        /* Phần tải ảnh */
-        .image-upload-section {
-          padding: 20px;
-          border: 2px solid black;
-          border-radius: 15px;
-          background: whitesmoke;
-          margin-bottom: 30px;
-        }
-
-        .preview-box {
-          width: 100%;
-          max-width: 600px;
-          height: 300px;
-          border: 2px solid black;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .ck-editor__main {
+          border-radius: 0 0 12px 12px !important;
           overflow: hidden;
-          background: white;
-          cursor: pointer;
-          margin: 0 auto;
         }
-
-        .preview-box img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+        .ck-toolbar {
+          border-radius: 12px 12px 0 0 !important;
+          border-color: #e2e8f0 !important;
+          background-color: #f8fafc !important;
         }
-
-        .btn-save {
-          background: black;
-          color: white;
-          border: 2px solid black;
-          padding: 12px 40px;
-          border-radius: 10px;
-          font-weight: bold;
-          transition: all 0.2s;
+        .ck.ck-editor__main>.ck-editor__editable:not(.ck-focused) {
+          border-color: #e2e8f0 !important;
         }
-
-        .btn-save:hover {
-          background: whitesmoke;
-          color: black;
+        .ck.ck-editor__editable.ck-focused {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1) !important;
         }
-
-        .btn-cancel {
-          background: white;
-          color: black;
-          border: 2px solid black;
-          padding: 12px 40px;
-          border-radius: 10px;
-          font-weight: bold;
-          margin-right: 15px;
-        }
-
-        .section-title {
-          font-size: 1rem;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          margin-bottom: 25px;
-          color: black;
-          padding-bottom: 10px;
-          border-bottom: 3px solid black;
-          display: inline-block;
+        .ckeditor-wrapper.is-invalid .ck-editor__main>.ck-editor__editable {
+          border-color: #ef4444 !important;
         }
       `}</style>
-
-      <div className="mb-5">
-        <h1 className="fw-black text-dark m-0" style={{ letterSpacing: '-1px' }}>
-          {editData ? 'Cập Nhật Tin Tức' : 'Viết Tin Tức Mới'}
-        </h1>
-        <button className="btn btn-link text-dark p-0 mt-2 text-decoration-none fw-bold" onClick={() => navigate('/super-admin/news')}>
-          <i className="bi bi-arrow-left me-2"></i> TRỞ LẠI DANH SÁCH
-        </button>
-      </div>
-
-      <div className="form-container">
-        <form onSubmit={handleSubmit} noValidate>
-          {/* Image Upload */}
-          <div className="image-upload-section text-center">
-            <h5 className="section-title">HÌNH ẢNH MINH HỌA</h5>
-            <div className={`preview-box mb-3 ${errors.image ? 'border-danger' : ''}`} onClick={() => document.getElementById('news-image-input').click()}>
-              {previewImage ? (
-                <img src={previewImage} alt="Preview" />
-              ) : (
-                <div className="text-center p-3">
-                  <i className="bi bi-image fs-1 text-dark"></i>
-                  <div className="small fw-bold text-dark mt-2">CHỌN ẢNH TIN TỨC</div>
-                </div>
-              )}
-            </div>
-            {errors.image && <div className="error-message mb-2">{errors.image}</div>}
-            <input 
-              type="file" 
-              id="news-image-input" 
-              hidden 
-              accept="image/*" 
-              onChange={handleFileChange}
-            />
-            <p className="text-dark small">Khuyên dùng ảnh ngang (16:9), định dạng JPG/PNG.</p>
-          </div>
-
-          <h5 className="section-title">NỘI DUNG BÀI VIẾT</h5>
-          
-          <div className="form-group-custom">
-            <label className="form-label">Tiêu đề tin tức</label>
-            <input 
-              type="text" 
-              name="title"
-              className={`custom-input ${errors.title ? 'is-invalid' : ''}`}
-              placeholder="Nhập tiêu đề hấp dẫn cho bài viết..." 
-              value={formData.title}
-              onChange={handleChange}
-            />
-            {errors.title && <div className="error-message">{errors.title}</div>}
-          </div>
-
-          <div className="form-group-custom">
-            <label className="form-label">Nội dung chi tiết</label>
-            <textarea 
-              name="content"
-              className={`custom-textarea ${errors.content ? 'is-invalid' : ''}`}
-              placeholder="Viết nội dung bài viết tại đây..." 
-              value={formData.content}
-              onChange={handleChange}
-            ></textarea>
-            {errors.content && <div className="error-message">{errors.content}</div>}
-          </div>
-
-          <div className="row">
-            <div className="col-md-6 form-group-custom">
-              <label className="form-label">Trạng thái bài viết</label>
-              <select 
-                name="status"
-                className="custom-select"
-                value={formData.status}
-                onChange={handleChange}
-              >
-                <option value="Active">Công khai (Public)</option>
-                <option value="Inactive">Lưu bản nháp (Draft)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-5 border-top pt-4 text-center">
-            <button type="button" className="btn btn-cancel" onClick={() => navigate('/super-admin/news')}>
-              HỦY BỎ
-            </button>
-            <button type="submit" className="btn btn-save">
-              {editData ? 'CẬP NHẬT TIN TỨC' : 'XÁC NHẬN ĐĂNG TIN'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </AdminPanelPage>
   );
 };
 

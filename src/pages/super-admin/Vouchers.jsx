@@ -16,39 +16,56 @@ const VoucherManagement = () => {
 
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
+  // Mapping trạng thái sang text và màu sắc
+  const getStatusInfo = (status) => {
+    switch (status) {
+      case 1: return { label: "Đang phát hành", class: "admin-badge-success" };
+      case 2: return { label: "Chờ phát hành", class: "admin-badge-warning" };
+      case 3: return { label: "Đã kết thúc", class: "admin-badge-danger" };
+      case 0: return { label: "Dừng phát hành", class: "admin-badge-secondary" };
+      default: return { label: "Không xác định", class: "admin-badge-secondary" };
+    }
+  };
+
+  const mapVoucher = (v) => ({
+    id: v.id,
+    code: v.code ?? "",
+    value: v.value ?? 0,
+    minOrderValue: v.minOrderValue ?? 0,
+    maxDiscountAmount: v.maxDiscountAmount ?? 0,
+    startDate: v.startDate ?? "",
+    endDate: v.endDate ?? "",
+    pointVoucher: v.pointVoucher ?? 0,
+    status: v.status,
+  });
+
+  const fetchVouchers = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(VOUCHERS.LIST);
+      const json = await res.json().catch(() => null);
+      
+      const list = json?.data ?? json ?? [];
+      const arr = Array.isArray(list) ? list : [];
+      
+      setVouchers(arr.map(mapVoucher));
+    } catch (err) {
+      console.error("Lỗi fetch voucher:", err);
+      setVouchers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await apiFetch(VOUCHERS.LIST);
-        const json = await res.json().catch(() => null);
-        const list = json?.data ?? json ?? [];
-        const arr = Array.isArray(list) ? list : [];
-        if (!mounted) return;
-        setVouchers(
-          arr.map((v) => ({
-            id: v.id,
-            code: v.code ?? "",
-            discount_type: v.discountType ?? "PERCENTAGE",
-            value: v.value ?? 0,
-            min_order_value: v.minOrderValue ?? 0,
-            start_date: v.startDate ?? "",
-            end_date: v.endDate ?? "",
-            point_voucher: v.pointVoucher ?? 0,
-            status: v.status === 1 ? "Active" : "Inactive",
-          }))
-        );
-      } catch {
-        if (mounted) setVouchers([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    fetchVouchers();
   }, []);
 
   const filteredVouchers = vouchers.filter((v) =>
@@ -66,30 +83,20 @@ const VoucherManagement = () => {
         method: "DELETE"
       });
       
+      const json = await res.json().catch(() => ({}));
+      
       if (res.ok) {
-        // Refresh danh sách
-        const refreshRes = await apiFetch(VOUCHERS.LIST);
-        const json = await refreshRes.json().catch(() => null);
-        const list = json?.data ?? json ?? [];
-        const arr = Array.isArray(list) ? list : [];
-        setVouchers(
-          arr.map((v) => ({
-            id: v.id,
-            code: v.code ?? "",
-            discount_type: v.discountType ?? "PERCENTAGE",
-            value: v.value ?? 0,
-            min_order_value: v.minOrderValue ?? 0,
-            start_date: v.startDate ?? "",
-            end_date: v.endDate ?? "",
-            point_voucher: v.pointVoucher ?? 0,
-            status: v.status === 1 ? "Active" : "Inactive",
-          }))
-        );
+        showToast('Xóa voucher thành công!');
+        await fetchVouchers();
         setShowDeleteModal(false);
         setVoucherToDelete(null);
+      } else {
+        const errorMsg = json?.message || `Lỗi từ hệ thống (Mã: ${res.status})`;
+        showToast(errorMsg, 'danger');
       }
     } catch (error) {
-      console.error("Error deleting voucher:", error);
+      console.error("Lỗi khi gọi API xóa:", error);
+      showToast('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng!', 'danger');
     }
   };
 
@@ -107,7 +114,7 @@ const VoucherManagement = () => {
     <AdminPanelPage
       icon="ticket-perforated"
       title="Voucher"
-      description="Mã giảm giá, điều kiện và thời hạn áp dụng."
+      description="Quản lý mã giảm giá, chương trình tích điểm và thời hạn áp dụng."
       headerRight={
         <button
           type="button"
@@ -140,7 +147,6 @@ const VoucherManagement = () => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              aria-label="Tìm voucher"
             />
           </div>
 
@@ -149,7 +155,8 @@ const VoucherManagement = () => {
               <thead>
                 <tr>
                   <th>Mã Code</th>
-                  <th>Giảm giá</th>
+                  <th>Giảm giá (%)</th>
+                  <th>Giảm tối đa</th>
                   <th>Đơn tối thiểu</th>
                   <th>Thời gian</th>
                   <th className="text-center">Điểm đổi</th>
@@ -160,83 +167,80 @@ const VoucherManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-4 text-muted">
-                      Đang tải...
+                    <td colSpan={8} className="text-center py-4 text-muted">
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : currentItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-5 text-muted">
+                      Không tìm thấy voucher nào.
                     </td>
                   </tr>
                 ) : (
-                  currentItems.map((voucher) => (
-                    <tr key={voucher.id}>
-                      <td>
-                        <span className="font-monospace fw-bold px-2 py-1 rounded border bg-light">{voucher.code}</span>
-                      </td>
-                      <td>
-                        <div className="fw-semibold">
-                          {voucher.discount_type === "PERCENTAGE"
-                            ? `${voucher.value}%`
-                            : `${voucher.value.toLocaleString("vi-VN")} đ`}
-                        </div>
-                        <div className="small text-muted">
-                          {voucher.discount_type === "PERCENTAGE" ? "Giảm theo %" : "Giảm số tiền cố định"}
-                        </div>
-                      </td>
-                      <td className="fw-semibold">{voucher.min_order_value.toLocaleString("vi-VN")} đ</td>
-                      <td className="small">
-                        <div>Bắt đầu: {new Date(voucher.start_date).toLocaleDateString("vi-VN")}</div>
-                        <div>Kết thúc: {new Date(voucher.end_date).toLocaleDateString("vi-VN")}</div>
-                      </td>
-                      <td className="text-center fw-semibold">{voucher.point_voucher} điểm</td>
-                      <td className="text-center">
-                        <span
-                          className={
-                            voucher.status === "Active"
-                              ? "admin-badge admin-badge-success"
-                              : "admin-badge admin-badge-danger"
-                          }
-                        >
-                          {voucher.status === "Active" ? "Đang áp dụng" : "Ngưng/Hết hạn"}
-                        </span>
-                      </td>
-                      <td className="text-center">
-                        <div className="d-flex justify-content-center gap-1 flex-wrap">
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn-sm admin-btn-outline"
-                            onClick={() => {
-                              setSelectedItem(voucher);
-                              setShowModal(true);
-                            }}
-                            title="Xem chi tiết"
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn-sm admin-btn-primary"
-                            onClick={() => navigate("/super-admin/vouchers/create", { state: { editData: voucher } })}
-                            title="Sửa voucher"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </button>
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn-sm admin-btn-danger"
-                            onClick={() => openDeleteModal(voucher)}
-                            title="Xóa voucher"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  currentItems.map((voucher) => {
+                    const statusInfo = getStatusInfo(voucher.status);
+                    return (
+                      <tr key={voucher.id}>
+                        <td>
+                          <span className="font-monospace fw-bold px-2 py-1 rounded border bg-light">{voucher.code}</span>
+                        </td>
+                        <td>
+                          <div className="fw-semibold">{voucher.value}%</div>
+                        </td>
+                        <td className="fw-semibold text-danger">{voucher.maxDiscountAmount.toLocaleString("vi-VN")} đ</td>
+                        <td className="fw-semibold">{voucher.minOrderValue.toLocaleString("vi-VN")} đ</td>
+                        <td className="small">
+                          <div>Từ: {new Date(voucher.startDate).toLocaleDateString("vi-VN")}</div>
+                          <div>Đến: {new Date(voucher.endDate).toLocaleDateString("vi-VN")}</div>
+                        </td>
+                        <td className="text-center fw-semibold">{voucher.pointVoucher} điểm</td>
+                        <td className="text-center">
+                          <span className={`admin-badge ${statusInfo.class}`}>
+                            {statusInfo.label}
+                          </span>
+                        </td>
+                        <td className="text-center">
+                          <div className="d-flex justify-content-center gap-1">
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-sm admin-btn-outline"
+                              onClick={() => {
+                                setSelectedItem(voucher);
+                                setShowModal(true);
+                              }}
+                              title="Xem chi tiết"
+                            >
+                              <i className="bi bi-eye"></i>
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-sm admin-btn-primary"
+                              onClick={() => navigate("/super-admin/vouchers/create", { state: { editData: voucher } })}
+                              title="Sửa voucher"
+                            >
+                              <i className="bi bi-pencil"></i>
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-sm admin-btn-danger"
+                              onClick={() => openDeleteModal(voucher)}
+                              title="Xóa voucher"
+                            >
+                              <i className="bi bi-trash"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
 
           {totalPages > 1 && (
-            <div className="admin-pagination-wrap mt-3">
+            <div className="admin-pagination-wrap mt-3 d-flex justify-content-end">
               <div className="admin-pagination">
                 {Array.from({ length: totalPages }, (_, i) => (
                   <button
@@ -255,119 +259,86 @@ const VoucherManagement = () => {
       </div>
 
       {showModal && selectedItem && (
-        <div className="admin-modal-overlay" role="presentation" onClick={() => setShowModal(false)}>
+        <div className="admin-modal-overlay" onClick={() => setShowModal(false)}>
           <div
             className="admin-modal"
             style={{ maxWidth: 720 }}
-            role="dialog"
-            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="admin-modal-header">
               <h3>Chi tiết Voucher</h3>
-              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={() => setShowModal(false)}>
-                ×
-              </button>
+              <button type="button" className="admin-modal-close" onClick={() => setShowModal(false)}>×</button>
             </div>
             <div className="admin-modal-body">
               <div className="row g-3">
-                <div className="col-md-6">
-                  <p className="admin-form-label mb-1">Mã Voucher</p>
-                  <p className="fw-bold fs-5 text-dark mb-3">
+                <div className="col-md-6 border-end">
+                  <p className="admin-form-label mb-1 text-muted">Mã Voucher</p>
+                  <p className="fw-bold fs-5 text-dark mb-4">
                     <span className="font-monospace px-2 py-1 rounded border bg-light">{selectedItem.code}</span>
                   </p>
-                  <p className="admin-form-label mb-1">Loại giảm giá</p>
-                  <p className="mb-3">
-                    {selectedItem.discount_type === "PERCENTAGE"
-                      ? "Giảm theo phần trăm (%)"
-                      : "Giảm số tiền cố định (đ)"}
-                  </p>
-                  <p className="admin-form-label mb-1">Giá trị giảm</p>
-                  <p className="fw-bold fs-5 mb-0">
-                    {selectedItem.discount_type === "PERCENTAGE"
-                      ? `${selectedItem.value}%`
-                      : `${selectedItem.value.toLocaleString("vi-VN")} đ`}
-                  </p>
+                  <p className="admin-form-label mb-1 text-muted">Giá trị giảm</p>
+                  <p className="fw-bold fs-5 mb-4 text-primary">{selectedItem.value}%</p>
+                  <p className="admin-form-label mb-1 text-muted">Giảm tối đa</p>
+                  <p className="fw-bold fs-5 text-danger mb-0">{selectedItem.maxDiscountAmount.toLocaleString("vi-VN")} đ</p>
                 </div>
-                <div className="col-md-6">
-                  <p className="admin-form-label mb-1">Đơn tối thiểu</p>
-                  <p className="fw-semibold mb-3">{selectedItem.min_order_value.toLocaleString("vi-VN")} đ</p>
-                  <p className="admin-form-label mb-1">Điểm cần đổi</p>
-                  <p className="fw-semibold mb-3">{selectedItem.point_voucher} điểm</p>
-                  <p className="admin-form-label mb-1">Thời gian hiệu lực</p>
-                  <p className="mb-3">
-                    Từ: <b>{new Date(selectedItem.start_date).toLocaleDateString("vi-VN")}</b>
-                    <br />
-                    Đến: <b>{new Date(selectedItem.end_date).toLocaleDateString("vi-VN")}</b>
-                  </p>
-                  <p className="admin-form-label mb-1">Trạng thái</p>
-                  <span
-                    className={
-                      selectedItem.status === "Active"
-                        ? "admin-badge admin-badge-success"
-                        : "admin-badge admin-badge-danger"
-                    }
-                  >
-                    {selectedItem.status === "Active" ? "Đang áp dụng" : "Ngưng/Hết hạn"}
+                <div className="col-md-6 ps-md-4">
+                  <p className="admin-form-label mb-1 text-muted">Đơn tối thiểu</p>
+                  <p className="fw-semibold mb-3">{selectedItem.minOrderValue.toLocaleString("vi-VN")} đ</p>
+                  <p className="admin-form-label mb-1 text-muted">Điểm cần đổi</p>
+                  <p className="fw-semibold mb-3">{selectedItem.pointVoucher} điểm</p>
+                  <p className="admin-form-label mb-1 text-muted">Thời gian hiệu lực</p>
+                  <div className="mb-3 small">
+                    Từ: <b>{new Date(selectedItem.startDate).toLocaleDateString("vi-VN")}</b><br />
+                    Đến: <b>{new Date(selectedItem.endDate).toLocaleDateString("vi-VN")}</b>
+                  </div>
+                  <p className="admin-form-label mb-1 text-muted">Trạng thái hiện tại</p>
+                  <span className={`admin-badge ${getStatusInfo(selectedItem.status).class}`}>
+                    {getStatusInfo(selectedItem.status).label}
                   </span>
                 </div>
               </div>
             </div>
             <div className="admin-modal-footer">
-              <button type="button" className="admin-btn admin-btn-primary" onClick={() => setShowModal(false)}>
-                Đóng
-              </button>
+              <button type="button" className="admin-btn admin-btn-outline" onClick={() => setShowModal(false)}>Đóng</button>
+              <button 
+                type="button" 
+                className="admin-btn admin-btn-primary"
+                onClick={() => {
+                  setShowModal(false);
+                  navigate("/super-admin/vouchers/create", { state: { editData: selectedItem } });
+                }}
+              >Sửa Voucher</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal xác nhận xóa voucher */}
       {showDeleteModal && voucherToDelete && (
-        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
-          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <div className="admin-modal-overlay" onClick={closeDeleteModal}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
-              <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
-                Xác nhận xóa Voucher
-              </h3>
-              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
-                ×
-              </button>
+              <h3 className="text-danger mb-0"><i className="bi bi-exclamation-triangle me-2"></i>Xác nhận xóa</h3>
+              <button type="button" className="admin-modal-close" onClick={closeDeleteModal}>×</button>
             </div>
-            <div className="admin-modal-body">
-              <p className="mb-3">Bạn có chắc chắn muốn xóa voucher này?</p>
-              <div className="alert alert-warning">
-                <strong>Mã Voucher:</strong> <span className="font-monospace">{voucherToDelete.code}</span><br/>
-                <strong>Giảm giá:</strong> {voucherToDelete.discount_type === "PERCENTAGE" 
-                  ? `${voucherToDelete.value}%` 
-                  : `${voucherToDelete.value.toLocaleString("vi-VN")} đ`}<br/>
-                <strong>Điểm đổi:</strong> {voucherToDelete.point_voucher} điểm
-              </div>
-              <p className="text-muted small mb-0">
-                <i className="bi bi-info-circle me-1"></i>
-                Hành động này không thể hoàn tác. Voucher đã xóa sẽ không thể khôi phục.
-              </p>
+            <div className="admin-modal-body text-center py-4">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa voucher <b>{voucherToDelete.code}</b>?</p>
+              <div className="alert alert-warning py-2 small">Hành động này không thể hoàn tác.</div>
             </div>
             <div className="admin-modal-footer">
-              <button
-                type="button"
-                className="admin-btn admin-btn-outline-secondary"
-                onClick={closeDeleteModal}
-              >
-                <i className="bi bi-x-circle me-2"></i>
-                Hủy
-              </button>
-              <button
-                type="button"
-                className="admin-btn admin-btn-danger"
-                onClick={() => handleDeleteVoucher(voucherToDelete)}
-              >
-                <i className="bi bi-trash me-2"></i>
-                Xóa voucher
-              </button>
+              <button type="button" className="admin-btn admin-btn-outline" onClick={closeDeleteModal}>Hủy</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={() => handleDeleteVoucher(voucherToDelete)}>Xóa ngay</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {toast.show && (
+        <div 
+          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
+          style={{ minWidth: '300px' }}
+        >
+          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
+          <div className="fw-bold">{toast.message}</div>
         </div>
       )}
     </AdminPanelPage>
