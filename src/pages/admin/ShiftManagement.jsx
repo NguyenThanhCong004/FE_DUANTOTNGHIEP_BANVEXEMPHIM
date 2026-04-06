@@ -137,9 +137,13 @@ export default function ShiftManagement() {
   }, [loadData]);
 
   const filteredStaff = useMemo(() => {
-    // Filter out Admin and Super Admin
+    // Filter out Admin and Super Admin, AND only active staff
     return staffList
       .filter(s => {
+        // Chỉ hiện nhân viên hoạt động (status === 1)
+        const isActive = s.status === 1 || s.status === 'Hoạt động';
+        if (!isActive) return false;
+
         const role = (s.role || "").toLowerCase();
         return !role.includes("admin") && !role.includes("super");
       })
@@ -152,6 +156,14 @@ export default function ShiftManagement() {
 
   const onDropStaff = (date, shiftObj, posObj) => {
     if (!dragData) return;
+    
+    // Chặn kéo thả vào ngày quá khứ
+    const todayStr = toIso(new Date());
+    if (date < todayStr) {
+      alert("Không thể thay đổi lịch làm việc của ngày đã qua.");
+      return;
+    }
+
     const { staffId, staffName } = dragData;
     
     // Check if staff already has a shift in this specific CA (Ca 1, Ca 2, or Ca 3) on this day
@@ -298,6 +310,14 @@ export default function ShiftManagement() {
     setWeekStart(getWeekStart(new Date()));
   };
 
+  const handleDateChange = (e) => {
+    const selectedDate = e.target.value;
+    if (selectedDate) {
+      console.log("🗓️ Chọn ngày mới:", selectedDate);
+      setWeekStart(getWeekStart(new Date(selectedDate)));
+    }
+  };
+
   const hasChanges = pendingDeleteIds.length > 0 || shifts.some(s => !s.serverId || s.dirty);
 
   if (!effectiveCinemaId) {
@@ -345,15 +365,23 @@ export default function ShiftManagement() {
             >
               <ChevronRight size={16} />
             </Button>
-            <Button 
-              variant="link" 
-              size="sm" 
-              className="p-1 text-primary ms-2" 
-              onClick={goToCurrentWeek}
-              title="Quay về tuần hiện tại"
-            >
-              <Calendar size={14} />
-            </Button>
+            <div className="position-relative ms-2">
+              <input
+                type="date"
+                className="position-absolute opacity-0"
+                style={{ width: '24px', height: '24px', cursor: 'pointer', zIndex: 1, left: 0, top: 0 }}
+                onChange={handleDateChange}
+                title="Chọn ngày để xem lịch"
+              />
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="p-1 text-primary" 
+                title="Chọn ngày để xem lịch"
+              >
+                <Calendar size={14} />
+              </Button>
+            </div>
           </div>
           
           <Button 
@@ -365,15 +393,6 @@ export default function ShiftManagement() {
           >
             {saving ? <Spinner animation="border" size="sm" className="me-2" /> : <Save size={18} className="me-2" />}
             Lưu lịch làm việc
-          </Button>
-          
-          <Button 
-            variant="outline-secondary" 
-            size="sm"
-            onClick={testDebugEndpoint}
-            title="Debug - Kiểm tra data trong database"
-          >
-            🔍 Debug
           </Button>
         </div>
       }
@@ -413,7 +432,7 @@ export default function ShiftManagement() {
                 </div>
                 <div className="flex-grow-1 overflow-hidden">
                   <div className="fw-bold text-truncate" style={{ fontSize: '0.8rem' }}>{staff.fullname || staff.fullName || staff.name}</div>
-                  <div className="text-muted" style={{ fontSize: '0.65rem' }}>{staff.role}</div>
+                  <div className="text-muted" style={{ fontSize: '0.65rem' }}>Nhân viên rạp</div>
                 </div>
               </div>
             )) : (
@@ -463,7 +482,7 @@ export default function ShiftManagement() {
                                     <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.6rem' }}>
                                       {pos.icon} {pos.name}
                                     </div>
-                                    {assignment && (
+                                    {assignment && dateStr >= toIso(new Date()) && (
                                       <button 
                                         className="btn btn-link btn-sm p-0 text-danger opacity-50 hover-opacity-100"
                                         onClick={() => handleRemoveShift(assignment)}
@@ -474,19 +493,26 @@ export default function ShiftManagement() {
                                   </div>
                                   
                                   {assignment ? (
-                                    <div className="d-flex align-items-center gap-2 overflow-hidden">
-                                      <div className="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center staff-avatar-sm">
-                                        {assignment.staffName.charAt(0).toUpperCase()}
-                                      </div>
-                                      <div className="flex-grow-1">
-                                        <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.75rem' }}>
-                                          {assignment.staffName}
+                                    assignment.staffName && assignment.staffName !== "Không tên" ? (
+                                      <div className="d-flex align-items-center gap-2 overflow-hidden">
+                                        <div className="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center staff-avatar-sm">
+                                          {assignment.staffName.charAt(0).toUpperCase()}
                                         </div>
-                                        <div className="text-muted" style={{ fontSize: '0.6rem' }}>
-                                          Đã phân công
+                                        <div className="flex-grow-1">
+                                          <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.75rem' }}>
+                                            {assignment.staffName}
+                                          </div>
+                                          <div className="text-muted" style={{ fontSize: '0.6rem' }}>
+                                            Đã phân công
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
+                                    ) : (
+                                      <div className="d-flex align-items-center gap-1 text-danger fw-bold admin-fade-in" style={{ fontSize: '0.65rem' }}>
+                                        <i className="bi bi-exclamation-triangle-fill"></i>
+                                        <span>Cần bổ sung nhân sự</span>
+                                      </div>
+                                    )
                                   ) : (
                                     <div className="text-muted text-center" style={{ fontSize: '0.6rem', opacity: 0.7 }}>
                                       <div className="mb-1">👥</div>

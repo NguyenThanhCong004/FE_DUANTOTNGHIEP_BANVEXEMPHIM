@@ -26,11 +26,16 @@ export default function AdminShiftForm({ mode = "add" }) {
   const [submitting, setSubmitting] = useState(false);
 
   const staffByRole = useMemo(
-    () => ({
-      "Bán vé": staffDtos.filter((s) => s.role === "Bán vé").map((s) => ({ id: s.id, name: s.name })),
-      "Soát vé": staffDtos.filter((s) => s.role === "Soát vé").map((s) => ({ id: s.id, name: s.name })),
-      "Phục vụ": staffDtos.filter((s) => s.role === "Phục vụ").map((s) => ({ id: s.id, name: s.name })),
-    }),
+    () => {
+      // Vì yêu cầu mới: Tất cả nhân viên rạp đều có role STAFF, 
+      // nên cả 3 vị trí Bán vé, Soát vé, Phục vụ đều hiển thị chung danh sách nhân viên của rạp.
+      const allStaff = staffDtos.map((s) => ({ id: s.id, name: s.name }));
+      return {
+        "Bán vé": allStaff,
+        "Soát vé": allStaff,
+        "Phục vụ": allStaff,
+      };
+    },
     [staffDtos]
   );
 
