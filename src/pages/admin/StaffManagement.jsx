@@ -24,18 +24,59 @@ const StaffManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa nhân viên #${id} không?`)) return;
+  const handleToggleStatus = async (staff) => {
+    const isLocking = staff.status === 'Hoạt động';
+    const actionText = isLocking ? 'khóa' : 'mở khóa';
+    if (!window.confirm(`Bạn có chắc chắn muốn ${actionText} tài khoản của ${staff.name} không?`)) return;
+
     try {
-      const res = await apiFetch(STAFF.BY_ID(id), { method: 'DELETE' });
+      // Tìm dữ liệu gốc từ staffDtos để lấy đầy đủ thông tin (email, phone, birthday...)
+      const s = staffDtos.find(item => (item.staffId || item.id) === staff.id);
+      if (!s) {
+        alert("Không tìm thấy dữ liệu nhân viên để cập nhật");
+        return;
+      }
+
+      // Chuẩn bị object gửi lên BE - Đảm bảo tên trường khớp StaffDTO.java
+      const updatedData = {
+        staffId: s.staffId || s.id,
+        fullname: s.fullname || s.fullName || s.name,
+        email: s.email,
+        phone: s.phone,
+        username: s.username,
+        birthday: s.birthday || s.birthDate,
+        role: s.role,
+        avatar: s.avatar || s.image,
+        status: isLocking ? 0 : 1,
+        cinemaId: s.cinemaId
+      };
+
+      console.log("📡 Gửi yêu cầu cập nhật trạng thái:", updatedData);
+
+      const res = await apiFetch(STAFF.BY_ID(staff.id), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      });
+
       if (res.ok) {
-        setStaffDtos((prev) => prev.filter((s) => s.staffId !== id));
+        // Cập nhật lại state cục bộ
+        setStaffDtos((prev) =>
+          prev.map((item) => (item.staffId || item.id) === staff.id ? { ...item, status: isLocking ? 0 : 1 } : item)
+        );
+        
+        if (isLocking) {
+          alert(`Đã khóa tài khoản của ${staff.name}. \n\nLưu ý: Tất cả các ca làm việc từ hôm nay trở đi của nhân viên này đã được gỡ tự động. Vui lòng kiểm tra trang "Quản lý ca làm việc" để bổ sung nhân sự mới.`);
+        } else {
+          alert(`Đã mở khóa tài khoản cho ${staff.name}.`);
+        }
       } else {
         const json = await res.json().catch(() => null);
-        alert(json?.message || "Xóa nhân viên thất bại");
+        alert(json?.message || `Thao tác ${actionText} thất bại. Vui lòng kiểm tra lại dữ liệu.`);
       }
-    } catch {
-      alert("Không thể kết nối tới server để xóa nhân viên");
+    } catch (err) {
+      console.error("❌ Lỗi Toggle Status:", err);
+      alert("Không thể kết nối tới server");
     }
   };
 
@@ -245,11 +286,11 @@ const StaffManagement = () => {
                           </Link>
                           <button
                             type="button"
-                            className="admin-table-action-btn admin-table-action-btn--danger"
-                            title="Xóa nhân viên"
-                            onClick={() => handleDelete(staff.id)}
+                            className={`admin-table-action-btn ${staff.status === 'Hoạt động' ? 'admin-table-action-btn--danger' : 'admin-table-action-btn--success'}`}
+                            title={staff.status === 'Hoạt động' ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                            onClick={() => handleToggleStatus(staff)}
                           >
-                            <i className="bi bi-trash"></i>
+                            <i className={`bi ${staff.status === 'Hoạt động' ? 'bi-lock-fill' : 'bi-unlock-fill'}`}></i>
                           </button>
                         </div>
                       </td>
