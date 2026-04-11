@@ -8,6 +8,10 @@ export const AUTH = {
   LOGIN: `${API_V1}/auth/login`,
   REGISTER: `${API_V1}/auth/register`,
   REFRESH: `${API_V1}/auth/refresh`,
+  FORGOT_PASSWORD: `${API_V1}/auth/forgot-password`,
+  FORGOT_PASSWORD_VERIFY_OTP: `${API_V1}/auth/forgot-password/verify-otp`,
+  FORGOT_PASSWORD_RESEND_OTP: `${API_V1}/auth/forgot-password/resend-otp`,
+  RESET_PASSWORD: `${API_V1}/auth/reset-password`,
 };
 
 export const USERS = {
