@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { Form, Spinner, Badge } from "react-bootstrap";
+import { Spinner, Badge } from "react-bootstrap";
 import Layout from "../../components/layout/Layout";
 import EmptyState from "../../components/common/EmptyState";
 import { apiFetch } from "../../utils/apiClient";
@@ -13,23 +13,16 @@ function formatReleaseLabel(releaseDate) {
   if (!ymd) return "—";
   try {
     return new Date(ymd + "T12:00:00").toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+      day: "2-digit", month: "2-digit", year: "numeric",
     });
-  } catch {
-    return ymd;
-  }
+  } catch { return ymd; }
 }
 
 function normalizeShowtime(st) {
   const id = st.id ?? st.showtimeId;
   const movieId = st.movie_id ?? st.movieId;
   return {
-    id,
-    date: st.date,
-    time: st.time,
-    movieId,
+    id, date: st.date, time: st.time, movieId,
     movieTitle: st.movie_title ?? st.movieTitle,
     roomName: st.room_name ?? st.roomName,
     status: st.status,
@@ -37,7 +30,6 @@ function normalizeShowtime(st) {
   };
 }
 
-/** Các ngày yyyy-MM-dd có suất, sắp xếp tăng dần */
 function extractSortedDates(showtimes) {
   const set = new Set();
   for (const s of showtimes || []) {
@@ -54,9 +46,7 @@ function formatDateChipVi(ymd) {
     const wd = d.toLocaleDateString("vi-VN", { weekday: "short" });
     const rest = d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
     return `${wd}, ${rest}`;
-  } catch {
-    return ymd;
-  }
+  } catch { return ymd; }
 }
 
 const MovieDetail = () => {
@@ -77,53 +67,31 @@ const MovieDetail = () => {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState(null);
   const [showtimes, setShowtimes] = useState([]);
-  /** yyyy-MM-dd — chỉ hiện suất của ngày này */
   const [selectedDateYmd, setSelectedDateYmd] = useState("");
 
   useEffect(() => {
     if (!Number.isFinite(movieId) || movieId <= 0) {
-      setError("Mã phim không hợp lệ");
-      setLoading(false);
-      return;
+      setError("Mã phim không hợp lệ"); setLoading(false); return;
     }
     let cancelled = false;
     (async () => {
-      setLoading(true);
-      setError(null);
+      setLoading(true); setError(null);
       try {
         const res = await apiFetch(MOVIES.BY_ID(movieId));
         const body = await res.json().catch(() => null);
         if (cancelled) return;
-        if (!res.ok) {
-          setError(body?.message || "Không tìm thấy phim");
-          setMovie(null);
-        } else {
-          setMovie(body?.data || null);
-        }
-      } catch {
-        if (!cancelled) {
-          setError("Không kết nối được máy chủ.");
-          setMovie(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+        if (!res.ok) { setError(body?.message || "Không tìm thấy phim"); setMovie(null); }
+        else setMovie(body?.data || null);
+      } catch { if (!cancelled) { setError("Không kết nối được máy chủ."); setMovie(null); } }
+      finally { if (!cancelled) setLoading(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [movieId]);
 
   useEffect(() => {
-    if (!Number.isFinite(movieId) || movieId <= 0) {
-      setIsFavorite(false);
-      return;
-    }
+    if (!Number.isFinite(movieId) || movieId <= 0) { setIsFavorite(false); return; }
     const token = getAccessToken();
-    if (!token) {
-      setIsFavorite(false);
-      return;
-    }
+    if (!token) { setIsFavorite(false); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -132,36 +100,24 @@ const MovieDetail = () => {
         if (cancelled || !res.ok) return;
         const rows = Array.isArray(body?.data) ? body.data : [];
         setIsFavorite(rows.some((r) => Number(r.movieId) === movieId));
-      } catch {
-        if (!cancelled) setIsFavorite(false);
-      }
+      } catch { if (!cancelled) setIsFavorite(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [movieId]);
 
   const toggleFavorite = async () => {
     if (!Number.isFinite(movieId) || movieId <= 0) return;
-    if (!getAccessToken()) {
-      navigate("/login", { state: { from: `/movie/${movieId}` } });
-      return;
-    }
+    if (!getAccessToken()) { navigate("/login", { state: { from: `/movie/${movieId}` } }); return; }
     setFavBusy(true);
     try {
       if (isFavorite) {
         const res = await apiFetch(ME.FAVORITE_BY_MOVIE(movieId), { method: "DELETE" });
         if (res.ok) setIsFavorite(false);
       } else {
-        const res = await apiFetch(ME.FAVORITES, {
-          method: "POST",
-          body: JSON.stringify({ movieId }),
-        });
+        const res = await apiFetch(ME.FAVORITES, { method: "POST", body: JSON.stringify({ movieId }) });
         if (res.ok) setIsFavorite(true);
       }
-    } finally {
-      setFavBusy(false);
-    }
+    } finally { setFavBusy(false); }
   };
 
   useEffect(() => {
@@ -175,69 +131,39 @@ const MovieDetail = () => {
         const list = Array.isArray(body?.data) ? body.data : [];
         const active = list.filter((c) => c.status === 1 || c.status == null);
         setCinemas(active.length ? active : list);
-      } catch {
-        if (!cancelled) setCinemas([]);
-      } finally {
-        if (!cancelled) setCinemasLoading(false);
-      }
+      } catch { if (!cancelled) setCinemas([]); }
+      finally { if (!cancelled) setCinemasLoading(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     if (!Number.isFinite(movieId) || movieId <= 0) return;
-    if (!selectedCinemaId) {
-      setShowtimes([]);
-      setSlotsError(null);
-      setSelectedDateYmd("");
-      return;
-    }
+    if (!selectedCinemaId) { setShowtimes([]); setSlotsError(null); setSelectedDateYmd(""); return; }
     const cid = Number(selectedCinemaId);
     let cancelled = false;
     (async () => {
-      setSlotsLoading(true);
-      setSlotsError(null);
+      setSlotsLoading(true); setSlotsError(null);
       try {
         const q = `?movieId=${movieId}&cinemaId=${cid}`;
         const res = await apiFetch(`${SHOWTIMES.LIST}${q}`);
         const body = await res.json().catch(() => null);
         if (cancelled) return;
-        if (!res.ok) {
-          setSlotsError(body?.message || "Không tải được suất chiếu");
-          setShowtimes([]);
-          return;
-        }
+        if (!res.ok) { setSlotsError(body?.message || "Không tải được suất chiếu"); setShowtimes([]); return; }
         const raw = Array.isArray(body?.data) ? body.data : [];
         const mapped = raw.map(normalizeShowtime).filter((s) => s.id != null);
-        mapped.sort((a, b) => {
-          const da = `${a.date || ""} ${a.time || ""}`;
-          const db = `${b.date || ""} ${b.time || ""}`;
-          return da.localeCompare(db);
-        });
+        mapped.sort((a, b) => (`${a.date || ""} ${a.time || ""}`).localeCompare(`${b.date || ""} ${b.time || ""}`));
         setShowtimes(mapped);
-      } catch {
-        if (!cancelled) {
-          setSlotsError("Lỗi mạng khi tải suất chiếu");
-          setShowtimes([]);
-        }
-      } finally {
-        if (!cancelled) setSlotsLoading(false);
-      }
+      } catch { if (!cancelled) { setSlotsError("Lỗi mạng khi tải suất chiếu"); setShowtimes([]); } }
+      finally { if (!cancelled) setSlotsLoading(false); }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [movieId, selectedCinemaId]);
 
   const availableDates = useMemo(() => extractSortedDates(showtimes), [showtimes]);
 
   useEffect(() => {
-    if (availableDates.length === 0) {
-      setSelectedDateYmd("");
-      return;
-    }
+    if (availableDates.length === 0) { setSelectedDateYmd(""); return; }
     setSelectedDateYmd((prev) => (prev && availableDates.includes(prev) ? prev : availableDates[0]));
   }, [availableDates]);
 
@@ -271,250 +197,528 @@ const MovieDetail = () => {
 
   return (
     <Layout>
-      <div className="container py-4 mt-4 text-white">
-        <div className="mb-4">
-          <Link to="/movies" className="btn btn-outline-light rounded-pill btn-sm fw-bold">
-            <i className="fas fa-arrow-left me-2" /> Quay lại
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
+
+        .md-page {
+          --navy:      #0d0d2b;
+          --purple:    #8b00ff;
+          --pink:      #ff2d78;
+          --yellow:    #d4ff00;
+          --off-white: #f0f0ff;
+        }
+
+        .md-page {
+          min-height: 100vh;
+          background: var(--navy);
+          padding: 80px 0 60px;
+        }
+
+        /* ── BACK ── */
+        .md-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 20px;
+          border-radius: 10px;
+          background: rgba(255,255,255,0.05);
+          border: 1.5px solid rgba(255,255,255,0.1);
+          color: var(--off-white);
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          text-decoration: none;
+          letter-spacing: 0.5px;
+          transition: border-color .25s, background .25s, color .25s;
+          margin-bottom: 36px;
+        }
+        .md-back:hover { border-color: var(--yellow); background: rgba(212,255,0,0.05); color: var(--yellow); }
+
+        /* ── STOPPED BANNER ── */
+        .md-stopped {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          color: rgba(240,240,255,0.5);
+          padding: 12px 18px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 10px;
+          margin-bottom: 28px;
+        }
+        .md-stopped strong { color: var(--yellow); }
+
+        /* ── LOADING ── */
+        .md-loading {
+          display: flex; flex-direction: column;
+          align-items: center; padding: 80px 0; gap: 12px;
+        }
+        .md-loading p {
+          font-family: 'Syne', sans-serif; font-size: 13px;
+          font-weight: 600; color: rgba(240,240,255,0.35); margin: 0;
+        }
+
+        /* ── LAYOUT ── */
+        .md-layout {
+          display: grid;
+          grid-template-columns: 280px 1fr;
+          gap: 40px;
+          align-items: start;
+        }
+        @media (max-width: 767px) { .md-layout { grid-template-columns: 1fr; } }
+
+        /* ── POSTER ── */
+        .md-poster {
+          width: 100%; aspect-ratio: 2/3; object-fit: cover;
+          border-radius: 16px;
+          border: 1px solid rgba(212,255,0,0.12);
+          box-shadow: 0 0 40px rgba(139,0,255,0.2);
+          display: block;
+        }
+        .md-poster-empty {
+          width: 100%; aspect-ratio: 2/3;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 16px;
+          display: flex; align-items: center; justify-content: center;
+          font-family: 'Syne', sans-serif; font-size: 13px;
+          color: rgba(240,240,255,0.2); font-weight: 600;
+        }
+
+        /* ── CONTENT ── */
+        .md-strip {
+          height: 3px; width: 60px;
+          background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow));
+          border-radius: 2px; margin-bottom: 16px;
+        }
+
+        .md-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: clamp(26px, 4vw, 44px);
+          letter-spacing: 3px;
+          color: var(--off-white);
+          line-height: 1.1;
+          margin: 0 0 12px;
+          text-transform: uppercase;
+        }
+
+        .md-fav-btn {
+          display: inline-flex; align-items: center; gap: 7px;
+          padding: 8px 18px; border-radius: 10px;
+          background: rgba(255,255,255,0.05);
+          border: 1.5px solid rgba(255,255,255,0.12);
+          color: var(--off-white);
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+          cursor: pointer; transition: all .25s; white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .md-fav-btn:hover:not(:disabled) { border-color: var(--pink); color: var(--pink); background: rgba(255,45,120,0.06); }
+        .md-fav-btn.active { border-color: var(--pink); color: var(--pink); background: rgba(255,45,120,0.1); }
+        .md-fav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .md-meta {
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
+          color: rgba(240,240,255,0.35);
+          margin-bottom: 16px;
+          letter-spacing: 0.3px;
+        }
+
+        .md-info-row {
+          display: flex; align-items: baseline; gap: 8px;
+          font-family: 'Syne', sans-serif; font-size: 13px;
+          margin-bottom: 8px;
+        }
+        .md-info-label { color: rgba(240,240,255,0.4); font-weight: 600; flex-shrink: 0; }
+        .md-info-value { color: var(--off-white); font-weight: 700; }
+        .md-info-value.accent { color: var(--yellow); }
+
+        .md-section-label {
+          font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+          letter-spacing: 1.5px; text-transform: uppercase;
+          color: var(--pink); margin-bottom: 8px;
+        }
+
+        .md-desc {
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 500;
+          line-height: 1.8; color: rgba(240,240,255,0.55);
+          white-space: pre-line; margin-bottom: 24px;
+        }
+
+        /* ── BOOKING PANEL ── */
+        .md-booking-panel {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(212,255,0,0.12);
+          border-radius: 16px;
+          padding: 24px 28px;
+          margin-top: 8px;
+        }
+
+        .md-panel-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 20px; letter-spacing: 2px;
+          color: var(--off-white); margin: 0 0 6px;
+          display: flex; align-items: center; gap: 10px;
+        }
+        .md-panel-title i { color: var(--pink); font-size: 16px; }
+
+        .md-panel-hint {
+          font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
+          color: rgba(240,240,255,0.35); margin-bottom: 20px;
+        }
+        .md-panel-hint a { color: var(--yellow); text-decoration: none; font-weight: 800; }
+        .md-panel-hint a:hover { color: var(--pink); }
+
+        /* Steps breadcrumb */
+        .md-steps-bar {
+          display: flex; align-items: center; gap: 8px;
+          margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .md-step-pill {
+          font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+          letter-spacing: 0.5px; text-transform: uppercase;
+          padding: 5px 12px; border-radius: 20px;
+          background: rgba(255,255,255,0.05);
+          color: rgba(240,240,255,0.3);
+          border: 1px solid rgba(255,255,255,0.08);
+          transition: all .2s;
+        }
+        .md-step-pill.active {
+          background: rgba(255,45,120,0.12);
+          color: var(--pink);
+          border-color: rgba(255,45,120,0.3);
+        }
+        .md-step-arrow { color: rgba(240,240,255,0.2); font-size: 12px; }
+
+        /* Select */
+        .md-step-label {
+          font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+          letter-spacing: 1.2px; text-transform: uppercase;
+          color: rgba(240,240,255,0.4); margin-bottom: 8px; display: block;
+        }
+
+        .md-select {
+          width: 100%;
+          background: rgba(255,255,255,0.05);
+          border: 1.5px solid rgba(255,255,255,0.1);
+          border-radius: 10px;
+          color: var(--off-white);
+          font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600;
+          padding: 11px 16px;
+          outline: none;
+          transition: border-color .3s, box-shadow .3s;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(240,240,255,0.4)' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          padding-right: 36px;
+          margin-bottom: 20px;
+          cursor: pointer;
+        }
+        .md-select:focus { border-color: var(--yellow); box-shadow: 0 0 16px rgba(212,255,0,0.1); }
+        .md-select option { background: #0d0d2b; color: var(--off-white); }
+
+        /* Date chips */
+        .md-date-row {
+          display: flex; flex-nowrap: nowrap; gap: 8px;
+          overflow-x: auto; padding-bottom: 4px; margin-bottom: 20px;
+          -webkit-overflow-scrolling: touch;
+        }
+        .md-date-chip {
+          flex-shrink: 0;
+          font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+          padding: 8px 16px; border-radius: 20px; cursor: pointer;
+          background: rgba(255,255,255,0.05);
+          border: 1.5px solid rgba(255,255,255,0.1);
+          color: rgba(240,240,255,0.55);
+          transition: all .2s; white-space: nowrap;
+        }
+        .md-date-chip:hover { border-color: rgba(255,45,120,0.4); color: var(--pink); }
+        .md-date-chip.active {
+          background: linear-gradient(135deg, var(--purple), var(--pink));
+          border-color: transparent; color: #fff;
+          box-shadow: 0 0 16px rgba(255,45,120,0.3);
+        }
+
+        /* Showtime cards */
+        .md-slots-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 12px;
+        }
+
+        .md-slot-card {
+          background: rgba(255,255,255,0.04);
+          border: 1.5px solid rgba(212,255,0,0.12);
+          border-radius: 12px; padding: 16px;
+          display: flex; flex-direction: column;
+          transition: border-color .2s, box-shadow .2s;
+        }
+        .md-slot-card:hover { border-color: rgba(255,45,120,0.3); box-shadow: 0 0 20px rgba(255,45,120,0.1); }
+        .md-slot-card.ended {
+          background: rgba(255,255,255,0.02);
+          border-color: rgba(255,255,255,0.06);
+          opacity: 0.55;
+        }
+
+        .md-slot-time {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 28px; letter-spacing: 2px;
+          color: var(--yellow); line-height: 1; margin-bottom: 4px;
+        }
+        .md-slot-room {
+          font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
+          color: rgba(240,240,255,0.4); margin-bottom: 4px;
+        }
+        .md-slot-price {
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+          color: var(--off-white); margin-bottom: 8px;
+        }
+
+        .md-slot-badge {
+          display: inline-block;
+          font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700;
+          letter-spacing: 0.5px; text-transform: uppercase;
+          padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;
+          align-self: flex-start;
+        }
+        .md-slot-badge.showing { background: rgba(212,255,0,0.12); color: var(--yellow); border: 1px solid rgba(212,255,0,0.25); }
+        .md-slot-badge.upcoming { background: rgba(139,0,255,0.12); color: #b67fff; border: 1px solid rgba(139,0,255,0.25); }
+        .md-slot-badge.ended-badge { background: rgba(255,255,255,0.06); color: rgba(240,240,255,0.3); border: 1px solid rgba(255,255,255,0.08); }
+
+        .md-book-btn {
+          width: 100%; padding: 9px;
+          border: none; border-radius: 8px;
+          background: linear-gradient(135deg, var(--purple), var(--pink));
+          color: #fff;
+          font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 1.5px;
+          cursor: pointer; text-decoration: none; display: block; text-align: center;
+          transition: box-shadow .25s, transform .2s;
+          box-shadow: 0 0 16px rgba(255,45,120,0.25);
+          margin-top: auto;
+        }
+        .md-book-btn:hover { box-shadow: 0 0 28px rgba(255,45,120,0.5); transform: translateY(-1px); color: #fff; }
+
+        .md-hint-text {
+          font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
+          color: rgba(240,240,255,0.3); margin: 0;
+        }
+
+        .md-slots-error {
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+          color: var(--pink); padding: 12px 16px;
+          background: rgba(255,45,120,0.08); border: 1px solid rgba(255,45,120,0.2);
+          border-radius: 10px;
+        }
+
+        .md-loading-inline {
+          display: flex; align-items: center; gap: 10px;
+          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
+          color: rgba(240,240,255,0.35);
+        }
+      `}</style>
+
+      <div className="md-page">
+        <div className="container">
+          <Link to="/movies" className="md-back">
+            <i className="fas fa-arrow-left" /> Quay lại danh sách phim
           </Link>
-        </div>
 
-        {loading ? (
-          <div className="text-center py-5">
-            <Spinner animation="border" variant="danger" />
-            <p className="mt-3 small opacity-75 mb-0">Đang tải phim…</p>
-          </div>
-        ) : null}
+          {/* Loading */}
+          {loading && (
+            <div className="md-loading">
+              <Spinner animation="border" style={{ color: "var(--pink)" }} />
+              <p>Đang tải phim…</p>
+            </div>
+          )}
 
-        {!loading && error ? (
-          <EmptyState title="Không tải được phim" subtitle={error} />
-        ) : null}
+          {/* Error */}
+          {!loading && error && (
+            <EmptyState title="Không tải được phim" subtitle={error} />
+          )}
 
-        {!loading && movie ? (
-          <>
-            {isStopped ? (
-              <div className="alert alert-secondary border-0 shadow-sm mb-4">
-                Phim này đã <strong>ngừng chiếu</strong> — không hiển thị trên trang chủ / banner.
-              </div>
-            ) : null}
+          {/* Content */}
+          {!loading && movie && (
+            <>
+              {isStopped && (
+                <div className="md-stopped">
+                  Phim này đã <strong>ngừng chiếu</strong> — không hiển thị trên trang chủ / banner.
+                </div>
+              )}
 
-            <div className="row g-4 align-items-start">
-              <div className="col-md-4 col-lg-3">
-                <div className="rounded-4 overflow-hidden shadow-lg bg-dark">
-                  {poster ? (
-                    <img src={poster} alt={movie.title} className="w-100" style={{ aspectRatio: "2/3", objectFit: "cover" }} />
-                  ) : (
-                    <div className="ratio ratio-2x3 bg-secondary d-flex align-items-center justify-content-center text-white-50 small p-3">
-                      Chưa có poster
+              <div className="md-layout">
+                {/* Poster */}
+                <div>
+                  {poster
+                    ? <img src={poster} alt={movie.title} className="md-poster" />
+                    : <div className="md-poster-empty">Chưa có poster</div>
+                  }
+                </div>
+
+                {/* Info */}
+                <div>
+                  <div className="md-strip" />
+
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
+                    <h1 className="md-title">{movie.title}</h1>
+                    <button
+                      type="button"
+                      className={`md-fav-btn${isFavorite ? " active" : ""}`}
+                      disabled={favBusy}
+                      onClick={toggleFavorite}
+                    >
+                      {isFavorite ? "♥ Đã thích" : "♡ Yêu thích"}
+                    </button>
+                  </div>
+
+                  {metaLine && <p className="md-meta">{metaLine}</p>}
+
+                  <div className="md-info-row">
+                    <span className="md-info-label">Khởi chiếu:</span>
+                    <span className="md-info-value accent">{formatReleaseLabel(movie.releaseDate)}</span>
+                  </div>
+                  {movie.author && (
+                    <div className="md-info-row">
+                      <span className="md-info-label">Đạo diễn:</span>
+                      <span className="md-info-value">{movie.author}</span>
                     </div>
                   )}
-                </div>
-              </div>
-              <div className="col-md-8 col-lg-9">
-                <div className="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
-                  <h1 className="fw-black text-uppercase m-0" style={{ letterSpacing: "0.04em" }}>
-                    {movie.title}
-                  </h1>
-                  <button
-                    type="button"
-                    className="btn btn-outline-light rounded-pill btn-sm fw-bold"
-                    disabled={favBusy}
-                    onClick={toggleFavorite}
-                    title={isFavorite ? "Bỏ yêu thích" : "Thêm yêu thích"}
-                  >
-                    {isFavorite ? "♥ Đã thích" : "♡ Yêu thích"}
-                  </button>
-                </div>
-                <p className="text-white-50 small mb-3">{metaLine}</p>
-                <p className="small mb-2">
-                  <span className="text-white-50">Khởi chiếu:</span>{" "}
-                  <strong className="text-white">{formatReleaseLabel(movie.releaseDate)}</strong>
-                </p>
-                {movie.author ? (
-                  <p className="small mb-2">
-                    <span className="text-white-50">Đạo diễn:</span> <strong>{movie.author}</strong>
-                  </p>
-                ) : null}
-                {movie.basePrice != null ? (
-                  <p className="small mb-3">
-                    <span className="text-white-50">Giá gốc vé:</span>{" "}
-                    <strong>{Number(movie.basePrice).toLocaleString("vi-VN")} đ</strong>
-                  </p>
-                ) : null}
-
-                {movie.description ? (
-                  <div className="mb-3">
-                    <h6 className="text-danger fw-bold text-uppercase small mb-2">Giới thiệu</h6>
-                    <p className="text-white-75 small mb-0" style={{ whiteSpace: "pre-line" }}>
-                      {movie.description}
-                    </p>
-                  </div>
-                ) : null}
-                {movie.content ? (
-                  <div className="mb-4">
-                    <h6 className="text-danger fw-bold text-uppercase small mb-2">Nội dung</h6>
-                    <p className="text-white-75 small mb-0" style={{ whiteSpace: "pre-line" }}>
-                      {movie.content}
-                    </p>
-                  </div>
-                ) : null}
-
-                <div className="border border-secondary border-opacity-25 rounded-4 p-3 p-md-4 bg-dark bg-opacity-40">
-                  <h5 className="fw-bold mb-3 d-flex align-items-center gap-2">
-                    <i className="fas fa-ticket-alt text-danger" /> Đặt vé theo rạp — ngày — suất
-                  </h5>
-                  <p className="small text-white-50 mb-3">
-                    Muốn chỉ mua{" "}
-                    <Link to="/foodorder" className="text-warning fw-bold text-decoration-none">
-                      bắp nước
-                    </Link>{" "}
-                    (PayOS, nhận tại quầy)? Hoặc thêm món khi đặt vé ở bước chọn ghế.
-                  </p>
-
-                  <div className="d-flex flex-wrap gap-2 small text-white-50 mb-3">
-                    <span className={`rounded-pill px-2 py-1 ${selectedCinemaId ? "bg-danger bg-opacity-25 text-white" : "bg-secondary bg-opacity-25"}`}>
-                      1. Chọn rạp
-                    </span>
-                    <span className="opacity-50">→</span>
-                    <span
-                      className={`rounded-pill px-2 py-1 ${
-                        selectedCinemaId && !slotsLoading && availableDates.length > 0 && selectedDateYmd
-                          ? "bg-danger bg-opacity-25 text-white"
-                          : "bg-secondary bg-opacity-25"
-                      }`}
-                    >
-                      2. Chọn ngày
-                    </span>
-                    <span className="opacity-50">→</span>
-                    <span
-                      className={`rounded-pill px-2 py-1 ${
-                        selectedDateYmd && showtimesForSelectedDate.length > 0 ? "bg-danger bg-opacity-25 text-white" : "bg-secondary bg-opacity-25"
-                      }`}
-                    >
-                      3. Chọn suất
-                    </span>
-                  </div>
-
-                  {cinemaLoading ? (
-                    <Spinner size="sm" animation="border" variant="light" />
-                  ) : (
-                    <Form.Group className="mb-4" controlId="cinemaPick">
-                      <Form.Label className="small text-white-50 fw-bold">Bước 1 — Rạp</Form.Label>
-                      <Form.Select
-                        className="bg-dark text-white border-secondary"
-                        value={selectedCinemaId}
-                        onChange={(e) => {
-                          setSelectedCinemaId(e.target.value);
-                          setSelectedDateYmd("");
-                        }}
-                      >
-                        <option value="">— Chọn rạp —</option>
-                        {cinemas.map((c) => {
-                          const cid = c.cinemaId ?? c.id;
-                          return (
-                            <option key={cid} value={cid}>
-                              {c.name}
-                              {c.address ? ` — ${c.address}` : ""}
-                            </option>
-                          );
-                        })}
-                      </Form.Select>
-                    </Form.Group>
+                  {movie.basePrice != null && (
+                    <div className="md-info-row" style={{ marginBottom: 20 }}>
+                      <span className="md-info-label">Giá gốc vé:</span>
+                      <span className="md-info-value accent">{Number(movie.basePrice).toLocaleString("vi-VN")} đ</span>
+                    </div>
                   )}
 
-                  {!selectedCinemaId ? (
-                    <p className="small text-white-50 mb-0">Chọn rạp để xem các ngày và suất chiếu.</p>
-                  ) : slotsLoading ? (
-                    <div className="d-flex align-items-center gap-2 small text-white-50">
-                      <Spinner size="sm" animation="border" variant="danger" /> Đang tải lịch chiếu…
+                  {movie.description && (
+                    <div style={{ marginBottom: 16 }}>
+                      <p className="md-section-label">Giới thiệu</p>
+                      <p className="md-desc">{movie.description}</p>
                     </div>
-                  ) : slotsError ? (
-                    <div className="alert alert-warning py-2 small mb-0">{slotsError}</div>
-                  ) : showtimes.length === 0 ? (
-                    <p className="small text-white-50 mb-0">Chưa có suất chiếu cho phim này tại rạp đã chọn.</p>
-                  ) : (
-                    <>
-                      <div className="mb-4">
-                        <Form.Label className="small text-white-50 fw-bold d-block mb-2">Bước 2 — Ngày chiếu</Form.Label>
-                        <div
-                          className="d-flex flex-nowrap gap-2 pb-1 movie-detail-date-row"
-                          style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
-                          role="tablist"
-                          aria-label="Chọn ngày chiếu"
+                  )}
+                  {movie.content && (
+                    <div style={{ marginBottom: 16 }}>
+                      <p className="md-section-label">Nội dung</p>
+                      <p className="md-desc">{movie.content}</p>
+                    </div>
+                  )}
+
+                  {/* ── BOOKING PANEL ── */}
+                  <div className="md-booking-panel">
+                    <h5 className="md-panel-title">
+                      <i className="fas fa-ticket-alt" /> Đặt vé theo rạp — ngày — suất
+                    </h5>
+                    <p className="md-panel-hint">
+                      Muốn chỉ mua{" "}
+                      <Link to="/foodorder">bắp nước</Link>
+                      {" "}(PayOS, nhận tại quầy)? Hoặc thêm món khi đặt vé ở bước chọn ghế.
+                    </p>
+
+                    {/* Steps bar */}
+                    <div className="md-steps-bar">
+                      <span className={`md-step-pill${selectedCinemaId ? " active" : ""}`}>1. Chọn rạp</span>
+                      <span className="md-step-arrow">→</span>
+                      <span className={`md-step-pill${selectedCinemaId && !slotsLoading && availableDates.length > 0 && selectedDateYmd ? " active" : ""}`}>
+                        2. Chọn ngày
+                      </span>
+                      <span className="md-step-arrow">→</span>
+                      <span className={`md-step-pill${selectedDateYmd && showtimesForSelectedDate.length > 0 ? " active" : ""}`}>
+                        3. Chọn suất
+                      </span>
+                    </div>
+
+                    {/* Step 1 — Cinema */}
+                    {cinemaLoading ? (
+                      <Spinner size="sm" animation="border" style={{ color: "var(--off-white)" }} />
+                    ) : (
+                      <>
+                        <span className="md-step-label">Bước 1 — Rạp</span>
+                        <select
+                          className="md-select"
+                          value={selectedCinemaId}
+                          onChange={(e) => { setSelectedCinemaId(e.target.value); setSelectedDateYmd(""); }}
                         >
-                          {availableDates.map((ymd) => {
-                            const active = ymd === selectedDateYmd;
+                          <option value="">— Chọn rạp —</option>
+                          {cinemas.map((c) => {
+                            const cid = c.cinemaId ?? c.id;
                             return (
-                              <button
-                                key={ymd}
-                                type="button"
-                                role="tab"
-                                aria-selected={active}
-                                className={`btn btn-sm rounded-pill fw-bold px-3 flex-shrink-0 ${
-                                  active ? "btn-danger" : "btn-outline-light border-opacity-25"
-                                }`}
-                                onClick={() => setSelectedDateYmd(ymd)}
-                              >
-                                {formatDateChipVi(ymd)}
-                              </button>
+                              <option key={cid} value={cid}>
+                                {c.name}{c.address ? ` — ${c.address}` : ""}
+                              </option>
                             );
                           })}
-                        </div>
-                      </div>
+                        </select>
+                      </>
+                    )}
 
-                      <div>
-                        <Form.Label className="small text-white-50 fw-bold d-block mb-2">Bước 3 — Suất chiếu</Form.Label>
+                    {/* Step 2 + 3 */}
+                    {!selectedCinemaId ? (
+                      <p className="md-hint-text">Chọn rạp để xem các ngày và suất chiếu.</p>
+                    ) : slotsLoading ? (
+                      <div className="md-loading-inline">
+                        <Spinner size="sm" animation="border" style={{ color: "var(--pink)" }} />
+                        Đang tải lịch chiếu…
+                      </div>
+                    ) : slotsError ? (
+                      <div className="md-slots-error">{slotsError}</div>
+                    ) : showtimes.length === 0 ? (
+                      <p className="md-hint-text">Chưa có suất chiếu cho phim này tại rạp đã chọn.</p>
+                    ) : (
+                      <>
+                        {/* Step 2 — Dates */}
+                        <span className="md-step-label">Bước 2 — Ngày chiếu</span>
+                        <div className="md-date-row">
+                          {availableDates.map((ymd) => (
+                            <button
+                              key={ymd}
+                              type="button"
+                              className={`md-date-chip${ymd === selectedDateYmd ? " active" : ""}`}
+                              onClick={() => setSelectedDateYmd(ymd)}
+                            >
+                              {formatDateChipVi(ymd)}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Step 3 — Showtimes */}
+                        <span className="md-step-label">Bước 3 — Suất chiếu</span>
                         {!selectedDateYmd ? (
-                          <p className="small text-white-50 mb-0">Chọn một ngày ở trên.</p>
+                          <p className="md-hint-text">Chọn một ngày ở trên.</p>
                         ) : showtimesForSelectedDate.length === 0 ? (
-                          <p className="small text-white-50 mb-0">Không có suất trong ngày này.</p>
+                          <p className="md-hint-text">Không có suất trong ngày này.</p>
                         ) : (
-                          <div className="row g-2 g-md-3">
+                          <div className="md-slots-grid">
                             {showtimesForSelectedDate.map((s) => {
                               const ended = s.status === "Đã chiếu";
+                              const badgeClass = ended ? "ended-badge" : s.status === "Đang chiếu" ? "showing" : "upcoming";
                               return (
-                                <div key={s.id} className="col-6 col-sm-4 col-lg-3">
-                                  <div
-                                    className={`h-100 rounded-3 p-3 border d-flex flex-column ${
-                                      ended ? "border-secondary border-opacity-25 bg-black bg-opacity-25 opacity-60" : "border-danger border-opacity-40 bg-dark"
-                                    }`}
-                                  >
-                                    <div className="fs-4 fw-black text-danger mb-1">{s.time || "—"}</div>
-                                    <div className="small text-white-50 mb-1">{s.roomName || "Phòng"}</div>
-                                    <div className="small text-white mb-2">
-                                      {s.price != null ? `${s.price.toLocaleString("vi-VN")} đ` : "—"}
-                                    </div>
-                                    <Badge
-                                      bg={ended ? "secondary" : s.status === "Đang chiếu" ? "success" : "warning"}
-                                      className="align-self-start mb-2"
-                                    >
-                                      {s.status || "—"}
-                                    </Badge>
-                                    <div className="mt-auto">
-                                      {ended ? (
-                                        <span className="small text-white-50">Hết suất</span>
-                                      ) : (
-                                        <Link
-                                          to={`/booking/${s.id}`}
-                                          className="btn btn-sm btn-danger w-100 rounded-pill fw-bold"
-                                        >
-                                          Đặt vé
-                                        </Link>
-                                      )}
-                                    </div>
+                                <div key={s.id} className={`md-slot-card${ended ? " ended" : ""}`}>
+                                  <div className="md-slot-time">{s.time || "—"}</div>
+                                  <div className="md-slot-room">{s.roomName || "Phòng"}</div>
+                                  <div className="md-slot-price">
+                                    {s.price != null ? `${s.price.toLocaleString("vi-VN")} đ` : "—"}
                                   </div>
+                                  <span className={`md-slot-badge ${badgeClass}`}>{s.status || "—"}</span>
+                                  {ended
+                                    ? <p className="md-hint-text" style={{ marginTop: "auto" }}>Hết suất</p>
+                                    : (
+                                      <Link to={`/booking/${s.id}`} className="md-book-btn">
+                                        Đặt vé
+                                      </Link>
+                                    )
+                                  }
                                 </div>
                               );
                             })}
                           </div>
                         )}
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </>
-        ) : null}
+            </>
+          )}
+        </div>
       </div>
     </Layout>
   );
