@@ -17,9 +17,6 @@ import ForgetPassword from '../pages/auth/ForgetPassword';
 import Foodorder from '../pages/common/Foodorder';
 import TransactionHistory from '../pages/user/TransactionHistory';
 import Profile from '../pages/user/Profile';
-import PointsHistory from '../pages/user/PointsHistory';
-import MembershipStatus from '../pages/user/MembershipStatus';
-import MyVouchers from '../pages/user/MyVouchers';
 import Events from '../pages/common/Events';
 import EventDetail from '../pages/common/EventDetail';
 
@@ -111,9 +108,6 @@ const AppRoutes = () => {
       <Route path="/events" element={<Events />} />
       <Route path="/events/:id" element={<EventDetail />} />
       <Route path="/profile" element={<Profile />} />
-      <Route path="/pointsHistory" element={<PointsHistory />} />
-      <Route path="/membershipStatus" element={<MembershipStatus />} />
-      <Route path="/myVouchers" element={<MyVouchers />} />
 
       {/* Admin Route */}
       <Route

@@ -42,7 +42,6 @@ const Login = () => {
 
       const roleUpper = (data?.staff?.role ?? "").toString().toUpperCase().replace(/^ROLE_/, "");
 
-      /* Có staff → ưu tiên điều hướng nội bộ (admin / super-admin / ca làm) */
       if (data.staff) {
         clearAuthSession();
         setAuthSession({
@@ -69,7 +68,6 @@ const Login = () => {
         return;
       }
 
-      /* Chỉ khách hàng */
       if (data.user) {
         clearAuthSession();
         setAuthSession({
@@ -94,73 +92,258 @@ const Login = () => {
 
   return (
     <Layout>
-      <div className="auth-public-page auth-public-page--navbar">
-        <div
-          className="card border-0 shadow-lg p-4 rounded-4 bg-white bg-opacity-10 backdrop-blur-md"
-          style={{ width: "100%", maxWidth: "420px" }}
-        >
-          <div className="text-center mb-4">
-            <h2 className="fw-black text-white text-gradient d-inline-block tracking-tighter uppercase mb-0" style={{ fontWeight: 900 }}>ĐĂNG NHẬP</h2>
-          </div>
-          
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleLogin();
-            }}
-          >
-            <div className="mb-3">
-              <label className="form-label fw-bold small text-uppercase text-white opacity-75">Tên đăng nhập / Email</label>
-              <div className="input-group">
-                <span className="input-group-text bg-white bg-opacity-10 border-white border-opacity-10 rounded-start-pill ps-3 text-white opacity-50" style={{ borderRight: 'none' }}><i className="fas fa-user"></i></span>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
+
+        :root {
+          --navy:      #0d0d2b;
+          --purple:    #8b00ff;
+          --pink:      #ff2d78;
+          --yellow:    #d4ff00;
+          --off-white: #f0f0ff;
+          --glass:     rgba(13,13,43,0.92);
+        }
+
+        .auth-page-wrapper {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 16px;
+          background: var(--navy);
+        }
+
+        .auth-card {
+          width: 100%;
+          max-width: 440px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(212,255,0,0.15);
+          border-radius: 20px;
+          padding: 40px 36px;
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          box-shadow: 0 0 60px rgba(139,0,255,0.15), 0 0 0 1px rgba(255,45,120,0.06);
+        }
+
+        .auth-strip {
+          height: 3px;
+          width: 60px;
+          background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow));
+          border-radius: 2px;
+          margin: 0 auto 24px;
+        }
+
+        .auth-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 36px;
+          letter-spacing: 4px;
+          color: var(--off-white);
+          text-align: center;
+          margin: 0 0 4px;
+          line-height: 1;
+        }
+
+        .auth-subtitle {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(212,255,0,0.6);
+          text-align: center;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          margin: 0 0 32px;
+        }
+
+        .auth-label {
+          font-family: 'Syne', sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: rgba(240,240,255,0.5);
+          display: block;
+          margin-bottom: 8px;
+        }
+
+        .auth-input-group {
+          display: flex;
+          align-items: stretch;
+          border: 1.5px solid rgba(255,255,255,0.1);
+          border-radius: 10px;
+          overflow: hidden;
+          transition: border-color .3s, box-shadow .3s;
+          margin-bottom: 4px;
+        }
+
+        .auth-input-group:focus-within {
+          border-color: var(--yellow);
+          box-shadow: 0 0 18px rgba(212,255,0,0.12);
+        }
+
+        .auth-input-icon {
+          background: rgba(255,255,255,0.05);
+          border-right: 1px solid rgba(255,255,255,0.08);
+          padding: 0 14px;
+          display: flex;
+          align-items: center;
+          color: rgba(240,240,255,0.35);
+          flex-shrink: 0;
+          font-size: 14px;
+        }
+
+        .auth-input {
+          flex: 1;
+          background: rgba(255,255,255,0.05);
+          border: none;
+          outline: none;
+          color: var(--off-white);
+          font-family: 'Syne', sans-serif;
+          font-size: 14px;
+          padding: 11px 14px;
+          min-width: 0;
+          transition: background .3s;
+        }
+
+        .auth-input::placeholder {
+          color: rgba(240,240,255,0.25);
+        }
+
+        .auth-input:focus {
+          background: rgba(212,255,0,0.03);
+        }
+
+        .auth-field {
+          margin-bottom: 20px;
+        }
+
+        .auth-forgot {
+          font-family: 'Syne', sans-serif;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--pink);
+          text-decoration: none;
+          display: block;
+          text-align: right;
+          margin-bottom: 24px;
+          letter-spacing: 0.3px;
+          transition: color .25s;
+        }
+
+        .auth-forgot:hover {
+          color: var(--yellow);
+        }
+
+        .auth-error {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--pink);
+          text-align: center;
+          margin-bottom: 16px;
+          padding: 10px 14px;
+          background: rgba(255,45,120,0.08);
+          border: 1px solid rgba(255,45,120,0.2);
+          border-radius: 8px;
+        }
+
+        .auth-btn-primary {
+          width: 100%;
+          padding: 13px;
+          border: none;
+          border-radius: 10px;
+          background: linear-gradient(135deg, var(--purple), var(--pink));
+          color: #fff;
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 18px;
+          letter-spacing: 2px;
+          cursor: pointer;
+          transition: box-shadow .25s, transform .25s, opacity .25s;
+          box-shadow: 0 0 24px rgba(255,45,120,0.3);
+        }
+
+        .auth-btn-primary:hover:not(:disabled) {
+          box-shadow: 0 0 40px rgba(255,45,120,0.55);
+          transform: translateY(-1px);
+        }
+
+        .auth-btn-primary:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+
+        .auth-footer {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(240,240,255,0.5);
+          text-align: center;
+          margin-top: 24px;
+        }
+
+        .auth-footer a {
+          color: var(--yellow);
+          font-weight: 800;
+          text-decoration: none;
+          transition: color .25s;
+        }
+
+        .auth-footer a:hover {
+          color: var(--pink);
+        }
+      `}</style>
+
+      <div className="auth-page-wrapper">
+        <div className="auth-card">
+          <div className="auth-strip" />
+          <h2 className="auth-title">Đăng Nhập</h2>
+          <p className="auth-subtitle">Chào mừng trở lại</p>
+
+          <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+            <div className="auth-field">
+              <label className="auth-label">Tên đăng nhập / Email</label>
+              <div className="auth-input-group">
+                <span className="auth-input-icon"><i className="fas fa-user" /></span>
                 <input
                   type="text"
-                  className="form-control bg-white bg-opacity-10 border-white border-opacity-10 rounded-end-pill py-2 shadow-none text-white"
-                  style={{ borderLeft: 'none' }}
-                  placeholder="Nhập Username hoặc Email"
+                  className="auth-input"
+                  placeholder="Nhập username hoặc email"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
               </div>
             </div>
 
-            <div className="mb-3">
-              <label className="form-label fw-bold small text-uppercase text-white opacity-75">Mật khẩu</label>
-              <div className="input-group">
-                <span className="input-group-text bg-white bg-opacity-10 border-white border-opacity-10 rounded-start-pill ps-3 text-white opacity-50" style={{ borderRight: 'none' }}><i className="fas fa-lock"></i></span>
+            <div className="auth-field">
+              <label className="auth-label">Mật khẩu</label>
+              <div className="auth-input-group">
+                <span className="auth-input-icon"><i className="fas fa-lock" /></span>
                 <input
                   type="password"
                   name="password"
-                  className="form-control bg-white bg-opacity-10 border-white border-opacity-10 rounded-end-pill py-2 shadow-none text-white"
-                  style={{ borderLeft: 'none' }}
-                  placeholder="******"
+                  className="auth-input"
+                  placeholder="••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
             </div>
-            
-            <div className="text-end mb-4 small">
-              <Link to="/forgetPassword" className="text-decoration-none text-rose-400 fw-bold hover:text-white">
-                Quên mật khẩu?
-              </Link>
-            </div>
-            
-            {error && (
-              <p className="text-center fw-bold mb-3 text-rose-400 small">
-                {error}
-              </p>
-            )}
-            <button type="submit" className="btn btn-gradient w-100 rounded-pill py-2 fw-bold shadow" disabled={!username || !password}>
-              ĐĂNG NHẬP
+
+            <Link to="/forgetPassword" className="auth-forgot">Quên mật khẩu?</Link>
+
+            {error && <div className="auth-error">{error}</div>}
+
+            <button
+              type="submit"
+              className="auth-btn-primary"
+              disabled={!username || !password}
+            >
+              Đăng Nhập
             </button>
           </form>
-          
-          <div className="text-center mt-4 small text-zinc-300 fw-bold">
+
+          <div className="auth-footer">
             Chưa có tài khoản?{" "}
-            <Link to="/register" className="fw-bold text-rose-400 text-decoration-none hover:text-white">
-              Đăng ký ngay
-            </Link>
+            <Link to="/register">Đăng ký ngay</Link>
           </div>
         </div>
       </div>
