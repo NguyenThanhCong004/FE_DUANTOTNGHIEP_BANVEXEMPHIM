@@ -5,17 +5,17 @@ import { apiFetch } from '../../utils/apiClient';
 import { NEWS } from '../../constants/apiEndpoints';
 
 // CKEditor 5 Imports
-import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+// import { CKEditor } from '@ckeditor/ckeditor5-react';
+// import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+// function fileToDataUrl(file) {
+//   return new Promise((resolve, reject) => {
+//     const r = new FileReader();
+//     r.onload = () => resolve(r.result);
+//     r.onerror = reject;
+//     r.readAsDataURL(file);
+//   });
+// }
 
 const CreateNews = () => {
   const navigate = useNavigate();
