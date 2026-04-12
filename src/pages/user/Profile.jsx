@@ -1,832 +1,1066 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
 import Layout from "../../components/layout/Layout";
 import CustomerPageShell from "../../components/common/CustomerPageShell";
+import { Container, Row, Col } from "react-bootstrap";
 import {
-  User,
-  Calendar,
-  Mail,
-  Phone,
-  Shield,
-  Star,
-  History,
-  Award,
-  Settings,
-  LogOut,
-  Edit3,
-  X,
-  Check,
-  AlertCircle,
-  Camera,
-  Key,
-  TrendingUp,
-  Activity
+  User, Calendar, Mail, Phone, Shield, Star, History,
+  Award, Edit3, X, Check, AlertCircle, Camera, Key,
+  TrendingUp, TrendingDown, Activity, Ticket, Crown,
+  ChevronRight, Clock, CheckCircle, XCircle,
 } from "lucide-react";
-import { getAccessToken, getRefreshToken, getStoredStaff, getStoredUser, setAuthSession } from "../../utils/authStorage";
+import { getAccessToken, getRefreshToken, getStoredUser, setAuthSession, getStoredStaff } from "../../utils/authStorage";
 import { getUserIdFromToken } from "../../utils/jwt";
 import { apiFetch } from "../../utils/apiClient";
-import { USERS, ME } from "../../constants/apiEndpoints";
-import { mapMeTransactionToFe } from "../../utils/customerMeApi";
+import { USERS, ME, MEMBERSHIP_RANKS } from "../../constants/apiEndpoints";
+import { mapMeTransactionToFe, mapUserVoucherRow } from "../../utils/customerMeApi";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-// BE chỉ có endpoint user; không hiển thị dữ liệu mẫu.
-// Nếu chưa tải được dữ liệu từ BE thì UI sẽ ở trạng thái loading/empty.
-
-// BE chưa có endpoint rank/membership plans riêng để FE hiển thị chính xác.
-// Vì vậy FE không tính/không render rank tiers nữa.
-
-/** Chuẩn hóa ngày sinh từ BE (string yyyy-MM-dd hoặc mảng Jackson). */
+/* ─────────────────────────────────────────
+   Utils
+───────────────────────────────────────── */
 function toDateInputValue(birthday) {
   if (birthday == null || birthday === "") return "";
   if (typeof birthday === "string") return birthday.slice(0, 10);
   if (Array.isArray(birthday) && birthday.length >= 3) {
     const [y, m, d] = birthday;
-    return `${String(y)}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   }
   return "";
 }
 
-function normalizeUser(maybeUser) {
-  if (!maybeUser) return null;
-
-  // FE shape (đã chuẩn hóa trước đó)
-  if (maybeUser.user_id != null) {
-    const total = Number(maybeUser.total_spending ?? 0);
+function normalizeUser(raw) {
+  if (!raw) return null;
+  if (raw.user_id != null) {
+    return { ...raw, points: Number(raw.points ?? 0), total_spending: Number(raw.total_spending ?? 0) };
+  }
+  if (raw.userId != null) {
     return {
-      ...maybeUser,
-      points: Number(maybeUser.points ?? 0),
-      total_spending: total,
+      user_id: raw.userId,
+      username: raw.username ?? "",
+      fullname: raw.fullname ?? "",
+      email: raw.email ?? "",
+      phone: raw.phone ?? "",
+      birthday: toDateInputValue(raw.birthday),
+      avatar: raw.avatar ?? "",
+      status: raw.status,
+      points: Number(raw.points ?? 0),
+      total_spending: Number(raw.totalSpending ?? 0),
+      rank_name: raw.rankName ?? null,
     };
   }
-
-  // BE shape (UserDTO camelCase)
-  if (maybeUser.userId != null) {
-    const total = Number(maybeUser.totalSpending ?? 0);
-    return {
-      user_id: maybeUser.userId,
-      username: maybeUser.username ?? "",
-      fullname: maybeUser.fullname ?? "",
-      email: maybeUser.email ?? "",
-      phone: maybeUser.phone ?? "",
-      birthday: toDateInputValue(maybeUser.birthday),
-      avatar: maybeUser.avatar ?? "",
-      status: maybeUser.status,
-      points: Number(maybeUser.points ?? 0),
-      total_spending: total,
-      rank_name: maybeUser.rankName ?? null,
-    };
-  }
-
   return null;
 }
 
-function transactionToActivity(tx) {
-  const d = new Date(tx.created_at);
-  const dateStr = Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("vi-VN");
-  const icon = tx.type === "points" ? "⭐" : tx.type === "food" ? "🍿" : "🎫";
-  const label = tx.items?.[0]?.label || tx.order_code || "Giao dịch";
-  let pts = "—";
-  let pts_color = "rgba(255,255,255,0.35)";
-  if (tx.type === "points") {
-    pts = `${tx.final_amount > 0 ? "+" : ""}${tx.final_amount} pts`;
-    pts_color = tx.final_amount >= 0 ? "#81c784" : "#e57373";
-  } else if (tx.points_earned > 0) {
-    pts = `+${tx.points_earned} pts`;
-    pts_color = "#81c784";
-  }
-  return { icon, label, date: dateStr, pts, pts_color };
-}
-
 const fmtBirthday = (d) => {
-  if (d == null || d === "") return "—";
-  const s = typeof d === "string" ? d.slice(0, 10) : d;
-  const dt = new Date(s);
-  if (Number.isNaN(dt.getTime())) return "—";
-  return `${dt.getDate().toString().padStart(2, "0")}/${(dt.getMonth() + 1).toString().padStart(2, "0")}/${dt.getFullYear()}`;
+  if (!d) return "—";
+  const dt = new Date(typeof d === "string" ? d.slice(0, 10) : d);
+  if (isNaN(dt)) return "—";
+  return `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}/${dt.getFullYear()}`;
+};
+const fmtVnd = (n) => Number(n ?? 0).toLocaleString("vi-VN") + "đ";
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString("vi-VN") : "—";
+const fmtDatetime = (d) => {
+  if (!d) return "—";
+  const dt = new Date(d);
+  return `${dt.toLocaleDateString("vi-VN")} · ${dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
 };
 
-/* ── Avatar Component ── */
-function Avatar({ name, size = 96, avatarUrl, showEditButton = false, onEditClick }) {
-  const safeName = String(name || "?").trim() || "?";
-  const initials = safeName.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]).join("").toUpperCase() || "?";
+function formatVoucherDiscount(v) {
+  if (!v) return "";
+  const dt = String(v.discountType || "").toLowerCase();
+  if (dt === "fixed" || dt === "amount") return fmtVnd(v.value);
+  if (dt === "percent" || dt === "percentage") return `${Number(v.value ?? 0)}%`;
+  return fmtVnd(v.value);
+}
+
+const TX_TYPE = {
+  ticket_online: { label: "Vé Online",  color: "#b39ddb", bg: "rgba(123,31,162,0.18)", icon: "🎫" },
+  food:          { label: "Bắp & Nước", color: "#e91e8c", bg: "rgba(233,30,140,0.14)", icon: "🍿" },
+  points:        { label: "Điểm",       color: "#d4e219", bg: "rgba(212,226,25,0.14)",  icon: "⭐" },
+};
+const TX_STATUS = {
+  completed: { label: "Hoàn thành", color: "#81c784", bg: "rgba(76,175,80,0.13)" },
+  cancelled: { label: "Đã hủy",     color: "#e57373", bg: "rgba(244,67,54,0.13)" },
+  pending:   { label: "Chờ xử lý",  color: "#d4e219", bg: "rgba(212,226,25,0.13)" },
+};
+
+/* ─────────────────────────────────────────
+   Avatar
+───────────────────────────────────────── */
+function Avatar({ name, size = 96, avatarUrl }) {
+  const initials = String(name || "?").trim().split(/\s+/).filter(Boolean).slice(-2).map(w => w[0]).join("").toUpperCase() || "?";
   const url = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
-  const showImg = url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image");
+  const showImg = url.startsWith("http") || url.startsWith("data:image");
+  return showImg
+    ? <img src={url} alt="" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.12)", boxShadow: "0 0 28px rgba(123,31,162,0.35)", flexShrink: 0 }} />
+    : (
+      <div style={{
+        width: size, height: size, borderRadius: "50%",
+        background: "linear-gradient(135deg, #7b1fa2, #e91e8c)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "'Bebas Neue', sans-serif", fontSize: size * 0.35,
+        color: "#fff", letterSpacing: 2, flexShrink: 0,
+        boxShadow: "0 0 28px rgba(233,30,140,0.35)",
+      }}>
+        {initials}
+      </div>
+    );
+}
 
+/* ─────────────────────────────────────────
+   Toast
+───────────────────────────────────────── */
+function Toast({ toast }) {
+  if (!toast) return null;
   return (
-    <div className="relative">
-      {showImg ? (
-        <img
-          src={url}
-          alt=""
-          className={`${size === 96 ? 'w-24 h-24' : 'w-20 h-20'} rounded-full object-cover border-2 border-white/20 shadow-2xl`}
-        />
-      ) : (
-        <div className={`${size === 96 ? 'w-24 h-24' : 'w-20 h-20'} rounded-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white font-bold text-2xl shadow-2xl border-2 border-white/20`}>
-          {initials}
-        </div>
-      )}
-      {showEditButton && (
-        <button
-          onClick={onEditClick}
-          className="absolute bottom-0 right-0 bg-rose-500 hover:bg-rose-600 text-white p-2 rounded-full shadow-lg transition-colors border-2 border-zinc-900"
-        >
-          <Camera size={14} />
-        </button>
-      )}
+    <div className={`pf-toast ${toast.type}`}>
+      {toast.type === "success" ? "✓" : "⚠"} {toast.msg}
     </div>
   );
 }
 
-/* ── Input Field ── */
-function Field({ label, icon, value, name, type = "text", onChange, disabled, error, placeholder }) {
+/* ─────────────────────────────────────────
+   Field
+───────────────────────────────────────── */
+function Field({ label, value, name, type = "text", onChange, disabled, error, placeholder }) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-        {icon}
-        {label}
-      </label>
+    <div className="pf-field">
+      <label className="pf-label">{label}</label>
       <input
-        className={`w-full px-4 py-3 rounded-xl border ${error ? 'border-red-500 bg-red-500/10' : 'border-zinc-700 bg-zinc-800/50'} text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        placeholder={placeholder}
+        className={`pf-input${error ? " err" : ""}${disabled ? " disabled" : ""}`}
+        type={type} name={name} value={value ?? ""} onChange={onChange}
+        disabled={disabled} placeholder={placeholder}
       />
-      {error && (
-        <p className="text-red-400 text-sm flex items-center gap-1">
-          <AlertCircle size={14} />
-          {error}
-        </p>
-      )}
+      {error && <p className="pf-field-err">{error}</p>}
     </div>
   );
 }
 
-function TextAreaField({ label, icon, value, name, onChange, error, rows = 3, hint, placeholder }) {
+function TextAreaField({ label, value, name, onChange, rows = 2, hint, placeholder }) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-        {icon}
-        {label}
-      </label>
+    <div className="pf-field">
+      <label className="pf-label">{label}</label>
       <textarea
-        className={`w-full px-4 py-3 rounded-xl border ${error ? 'border-red-500 bg-red-500/10' : 'border-zinc-700 bg-zinc-800/50'} text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all resize-none`}
-        name={name}
-        rows={rows}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        style={{ minHeight: rows * 22 }}
+        className="pf-input" name={name} rows={rows} value={value ?? ""}
+        onChange={onChange} placeholder={placeholder}
+        style={{ resize: "none" }}
       />
-      {hint && (
-        <p className="text-zinc-500 text-xs">{hint}</p>
-      )}
-      {error && (
-        <p className="text-red-400 text-sm flex items-center gap-1">
-          <AlertCircle size={14} />
-          {error}
-        </p>
-      )}
+      {hint && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 4, fontWeight: 600 }}>{hint}</p>}
     </div>
   );
 }
 
-/* ══════════════════════════════════════
-   MAIN
-══════════════════════════════════════ */
-export default function UserProfile() {
-  const [user, setUser]         = useState(null);
-  const [editing, setEditing]   = useState(false);
-  const [draft, setDraft]       = useState({});
-  const [errors, setErrors]     = useState({});
-  const [toast, setToast]       = useState(null);
-  const [pwModal, setPwModal]   = useState(false);
-  const [pwData, setPwData]     = useState({ current: "", newPw: "", confirm: "" });
+function LoadingSpinner({ text }) {
+  return (
+    <div style={{ textAlign: "center", padding: "48px 0" }}>
+      <div className="pf-spinner" />
+      {text && <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontWeight: 700, marginTop: 14 }}>{text}</p>}
+    </div>
+  );
+}
+
+function EmptyState({ icon, text, children }) {
+  return (
+    <div style={{ textAlign: "center", padding: "48px 0" }}>
+      <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>{icon}</div>
+      <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontWeight: 700, marginBottom: 16 }}>{text}</p>
+      {children}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Password Modal
+───────────────────────────────────────── */
+function PasswordModal({ user, onClose, showToast }) {
+  const [pwData, setPwData] = useState({ current: "", newPw: "", confirm: "" });
   const [pwErrors, setPwErrors] = useState({});
-  const [activeTab, setActiveTab] = useState("info");
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
-  const [recentActivity, setRecentActivity] = useState([]);
+  const [showPw, setShowPw] = useState({ current: false, newPw: false, confirm: false });
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const handleChange = (e) => { setPwData(d => ({ ...d, [e.target.name]: e.target.value })); setPwErrors({}); };
+  const validate = () => {
+    const e = {};
+    if (!pwData.current) e.current = "Nhập mật khẩu hiện tại";
+    if (!pwData.newPw || pwData.newPw.length < 6) e.newPw = "Mật khẩu mới tối thiểu 6 ký tự";
+    if (pwData.newPw !== pwData.confirm) e.confirm = "Mật khẩu xác nhận không khớp";
+    return e;
+  };
+  const save = async () => {
+    const e = validate();
+    if (Object.keys(e).length) { setPwErrors(e); return; }
     const token = getAccessToken();
-    if (!token) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch(ME.TRANSACTIONS);
-        const body = await res.json().catch(() => null);
-        if (cancelled || !res.ok) return;
-        const raw = Array.isArray(body?.data) ? body.data : [];
-        const acts = raw.map(mapMeTransactionToFe).slice(0, 8).map(transactionToActivity);
-        setRecentActivity(acts);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    const token = getAccessToken();
-    const stored = getStoredUser();
-    const uidFromJwt = token ? getUserIdFromToken(token) : null;
-    const uidFromStore = stored?.userId ?? stored?.user_id ?? null;
-    const userId = uidFromJwt ?? uidFromStore;
-
-    if (stored) {
-      const normalized = normalizeUser(stored);
-      if (normalized) setUser(normalized);
-    }
-
-    if (!token || !userId) {
-      setInitialLoad(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      setProfileLoading(true);
-      try {
-        const res = await apiFetch(USERS.BY_ID(userId));
-        const json = await res.json().catch(() => null);
-        if (cancelled) return;
-        if (res.ok && json?.data) {
-          const normalized = normalizeUser(json.data);
-          if (normalized) {
-            setUser(normalized);
-            setAuthSession({
-              accessToken: token,
-              refreshToken: getRefreshToken(),
-              user: json.data,
-              staff: getStoredStaff(),
-            });
-          }
-        }
-      } catch {
-        /* giữ dữ liệu từ localStorage nếu có */
-      } finally {
-        if (!cancelled) {
-          setProfileLoading(false);
-          setInitialLoad(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2800);
+    if (!token || !user?.user_id) { showToast("Bạn cần đăng nhập", "error"); return; }
+    setLoading(true);
+    try {
+      const res = await apiFetch(USERS.PASSWORD(user.user_id), {
+        method: "PUT",
+        body: JSON.stringify({ currentPassword: pwData.current, newPassword: pwData.newPw }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) { showToast(json?.message || "Đổi mật khẩu thất bại", "error"); return; }
+      showToast("Đổi mật khẩu thành công!");
+      onClose();
+    } catch { showToast("Không thể kết nối máy chủ", "error"); }
+    finally { setLoading(false); }
   };
 
-  /* edit handlers */
-  const startEdit = () => { setDraft({ ...user }); setEditing(true); setErrors({}); };
+  const EyeBtn = ({ field }) => (
+    <button className="pf-eye" type="button" onClick={() => setShowPw(s => ({ ...s, [field]: !s[field] }))}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        {showPw[field]
+          ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+          : <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
+        }
+      </svg>
+    </button>
+  );
+
+  return (
+    <div className="pf-modal-overlay" onClick={onClose}>
+      <div className="pf-modal" onClick={e => e.stopPropagation()}>
+        <button className="pf-modal-close" onClick={onClose}>×</button>
+        <div className="pf-modal-title">ĐỔI <span>MẬT KHẨU</span></div>
+        {[
+          { name: "current", label: "Mật khẩu hiện tại" },
+          { name: "newPw",   label: "Mật khẩu mới" },
+          { name: "confirm", label: "Xác nhận mật khẩu mới" },
+        ].map(({ name, label }) => (
+          <div key={name} className="pf-field">
+            <label className="pf-label">{label}</label>
+            <div className="pf-pw-wrap">
+              <input
+                className={`pf-input${pwErrors[name] ? " err" : ""}`}
+                type={showPw[name] ? "text" : "password"}
+                name={name} value={pwData[name]} onChange={handleChange}
+                style={{ width: "100%" }} placeholder="••••••••"
+              />
+              <EyeBtn field={name} />
+            </div>
+            {pwErrors[name] && <p className="pf-field-err">{pwErrors[name]}</p>}
+          </div>
+        ))}
+        <div className="d-flex gap-2 mt-3">
+          <button className="pf-btn-ghost" onClick={onClose}>Hủy</button>
+          <button className="pf-btn-primary" style={{ flex: 1 }} onClick={save} disabled={loading}>
+            {loading ? "Đang lưu..." : "Lưu mật khẩu"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Tab: Thông tin
+───────────────────────────────────────── */
+function TabInfo({ user, setUser, showToast }) {
+  const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState({});
+  const [errors,  setErrors]  = useState({});
+  const [saving,  setSaving]  = useState(false);
+  const [pwModal, setPwModal] = useState(false);
+
+  const startEdit  = () => { setDraft({ ...user }); setEditing(true); setErrors({}); };
   const cancelEdit = () => { setEditing(false); setErrors({}); };
   const handleChange = (e) => {
     setDraft(d => ({ ...d, [e.target.name]: e.target.value }));
     setErrors(er => ({ ...er, [e.target.name]: "" }));
   };
-  const validateEdit = () => {
+  const validate = () => {
     const e = {};
     if (!draft.fullname?.trim()) e.fullname = "Họ tên không được để trống";
     const em = draft.email?.trim() || "";
     if (!em) e.email = "Email không được để trống";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) e.email = "Email không hợp lệ";
     if (!draft.phone?.trim()) e.phone = "Số điện thoại không được để trống";
-    else {
-      const digits = draft.phone.replace(/\D/g, "");
-      if (digits.length < 9 || digits.length > 12) e.phone = "Số điện thoại không hợp lệ";
-    }
+    else if (draft.phone.replace(/\D/g, "").length < 9) e.phone = "Số điện thoại không hợp lệ";
     return e;
   };
-  const saveEdit = async () => {
-    const e = validateEdit();
+  const save = async () => {
+    const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
-
     const token = getAccessToken();
-    if (!token || !user.user_id) {
-      showToast("Bạn cần đăng nhập để lưu thông tin", "error");
-      return;
-    }
-
+    if (!token || !user.user_id) { showToast("Bạn cần đăng nhập", "error"); return; }
+    setSaving(true);
     try {
       const body = {
-        fullname: draft.fullname.trim(),
-        email: draft.email.trim(),
-        phone: draft.phone.trim().replace(/\s/g, ""),
-        status: user.status ?? 1,
-        birthday: draft.birthday ? draft.birthday : null,
-        avatar: draft.avatar?.trim() ? draft.avatar.trim() : null,
+        fullname: draft.fullname.trim(), email: draft.email.trim(),
+        phone: draft.phone.trim().replace(/\s/g, ""), status: user.status ?? 1,
+        birthday: draft.birthday || null, avatar: draft.avatar?.trim() || null,
       };
-      const res = await apiFetch(USERS.BY_ID(user.user_id), {
-        method: "PUT",
-        body: JSON.stringify(body),
-      });
+      const res = await apiFetch(USERS.BY_ID(user.user_id), { method: "PUT", body: JSON.stringify(body) });
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.data) {
-        showToast(json?.message || "Cập nhật thất bại", "error");
-        return;
-      }
-      const normalized = normalizeUser(json.data);
-      if (normalized) setUser(normalized);
-      setAuthSession({
-        accessToken: token,
-        refreshToken: getRefreshToken(),
-        user: json.data,
-        staff: getStoredStaff(),
-      });
+      if (!res.ok || !json?.data) { showToast(json?.message || "Cập nhật thất bại", "error"); return; }
+      const n = normalizeUser(json.data);
+      if (n) setUser(n);
+      setAuthSession({ accessToken: token, refreshToken: getRefreshToken(), user: json.data, staff: getStoredStaff() });
       setEditing(false);
       showToast("Cập nhật thông tin thành công!");
-    } catch {
-      showToast("Không thể kết nối máy chủ", "error");
-    }
+    } catch { showToast("Không thể kết nối máy chủ", "error"); }
+    finally { setSaving(false); }
   };
 
-  /* password */
-  const handlePwChange = (e) => { setPwData(d => ({ ...d, [e.target.name]: e.target.value })); setPwErrors({}); };
-  const validatePw = () => {
-    const e = {};
-    if (!pwData.current) e.current = "Nhập mật khẩu hiện tại";
-    if (!pwData.newPw || pwData.newPw.length < 8) e.newPw = "Mật khẩu mới tối thiểu 8 ký tự";
-    if (pwData.newPw !== pwData.confirm) e.confirm = "Mật khẩu xác nhận không khớp";
-    return e;
-  };
-  const savePw = async () => {
-    const e = validatePw();
-    if (Object.keys(e).length) { setPwErrors(e); return; }
-
-    const token = getAccessToken();
-    if (!token || !user?.user_id) {
-      showToast("Bạn cần đăng nhập", "error");
-      return;
-    }
-
-    try {
-      const res = await apiFetch(USERS.PASSWORD(user.user_id), {
-        method: "PUT",
-        body: JSON.stringify({
-          currentPassword: pwData.current,
-          newPassword: pwData.newPw,
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        showToast(json?.message || "Đổi mật khẩu thất bại", "error");
-        return;
-      }
-      setPwModal(false);
-      setPwData({ current: "", newPw: "", confirm: "" });
-      showToast("Đổi mật khẩu thành công!");
-    } catch {
-      showToast("Không thể kết nối máy chủ", "error");
-    }
-  };
-
-  if (!user) {
-    const token = getAccessToken();
-    if (token && initialLoad) {
-      return (
-        <Layout>
-          <CustomerPageShell innerClassName="min-h-[60vh] d-flex align-items-center justify-content-center py-6">
-            <div style={{ color: "#fff", fontWeight: 700 }}>Đang tải hồ sơ...</div>
-          </CustomerPageShell>
-        </Layout>
-      );
-    }
-    return (
-      <Layout>
-        <CustomerPageShell innerClassName="min-h-[60vh] d-flex align-items-center justify-content-center py-6">
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 720,
-              background: "rgba(20,22,50,0.92)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 18,
-              padding: 22,
-              color: "#fff",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 34, letterSpacing: 3, marginBottom: 8 }}>
-              {token ? "Không tải được hồ sơ" : "Vui lòng đăng nhập"}
+  return (
+    <>
+      {pwModal && <PasswordModal user={user} onClose={() => setPwModal(false)} showToast={showToast} />}
+      <Row className="g-3">
+        <Col xs={12} lg={7}>
+          <div className="pf-card">
+            <div className="pf-card-title">
+              <span>👤</span> THÔNG TIN <span>CÁ NHÂN</span>
+              {!editing && (
+                <button className="pf-btn-yellow ms-auto" style={{ fontSize: 11, padding: "6px 16px" }} onClick={startEdit}>
+                  ✏️ Chỉnh sửa
+                </button>
+              )}
             </div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontWeight: 700, fontSize: 13, lineHeight: 1.6 }}>
-              {token
-                ? "Kiểm tra BE đang chạy và token còn hạn. Đăng nhập lại nếu cần."
-                : "Trang hồ sơ chỉ hiển thị khi bạn đăng nhập tài khoản khách."}
+            {editing ? (
+              <>
+                <Row className="g-2">
+                  <Col xs={12} md={6}><Field label="Họ và tên" name="fullname" value={draft.fullname} onChange={handleChange} error={errors.fullname} placeholder="Nhập họ và tên" /></Col>
+                  <Col xs={12} md={6}><Field label="Email" name="email" type="email" value={draft.email} onChange={handleChange} error={errors.email} placeholder="email@example.com" /></Col>
+                  <Col xs={12} md={6}><Field label="Số điện thoại" name="phone" value={draft.phone} onChange={handleChange} error={errors.phone} placeholder="0123456789" /></Col>
+                  <Col xs={12} md={6}><Field label="Ngày sinh" name="birthday" type="date" value={draft.birthday} onChange={handleChange} /></Col>
+                </Row>
+                <TextAreaField label="Link ảnh đại diện" name="avatar" rows={2} value={draft.avatar}
+                  onChange={handleChange}
+                  hint="Hỗ trợ link URL (https://...) hoặc chuỗi Base64."
+                  placeholder="https://..." />
+                <div className="d-flex gap-2 mt-2">
+                  <button className="pf-btn-ghost" onClick={cancelEdit}>Hủy bỏ</button>
+                  <button className="pf-btn-primary" onClick={save} disabled={saving}>{saving ? "Đang lưu..." : "Cập nhật ngay"}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                {[
+                  { icon: "👤", label: "Họ và tên",       value: user.fullname },
+                  { icon: "✉️", label: "Email",             value: user.email },
+                  { icon: "📱", label: "Số điện thoại",    value: user.phone },
+                  { icon: "🎂", label: "Ngày sinh",         value: fmtBirthday(user.birthday) },
+                  { icon: "🔑", label: "Tên đăng nhập",     value: "@" + user.username },
+                  { icon: "🏆", label: "Hạng thành viên",   value: user.rank_name || "Mới" },
+                ].map(({ icon, label, value }) => (
+                  <div key={label} className="pf-info-row">
+                    <span className="pf-info-icon">{icon}</span>
+                    <div>
+                      <div className="pf-info-label">{label}</div>
+                      <div className="pf-info-value">{value || "—"}</div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </Col>
+
+        <Col xs={12} lg={5}>
+          <div className="pf-card">
+            <div className="pf-card-title"><span>🔐</span> BẢO <span>MẬT</span></div>
+            <div className="pf-security-block" style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Mật khẩu</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontWeight: 600, marginBottom: 12 }}>
+                Nên đổi mật khẩu định kỳ để bảo vệ tài khoản
+              </div>
+              <button className="pf-btn-primary" style={{ fontSize: 12, padding: "9px 18px" }} onClick={() => setPwModal(true)}>
+                🔑 Đổi mật khẩu mới
+              </button>
+            </div>
+            <div className="pf-security-block">
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Trạng thái tài khoản</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: "50%",
+                  background: user.status === 1 ? "#81c784" : "#e57373",
+                  boxShadow: user.status === 1 ? "0 0 8px #81c784" : "0 0 8px #e57373",
+                  display: "inline-block"
+                }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: user.status === 1 ? "#81c784" : "#e57373" }}>
+                  {user.status === 1 ? "Tài khoản đang an toàn" : "Tài khoản bị giới hạn"}
+                </span>
+              </div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", fontWeight: 600, marginTop: 6 }}>
+                {user.status === 1 ? "Tài khoản đã được xác minh email" : "Liên hệ hỗ trợ để mở khóa"}
+              </div>
             </div>
           </div>
-        </CustomerPageShell>
+        </Col>
+      </Row>
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Tab: Điểm thưởng
+───────────────────────────────────────── */
+function TabPoints({ user, pointRows, loading }) {
+  if (loading) return <LoadingSpinner text="Đang tải lịch sử điểm..." />;
+
+  const totalEarned = pointRows.filter(e => e.delta > 0).reduce((s, e) => s + e.delta, 0);
+  const totalSpent  = pointRows.filter(e => e.delta < 0).reduce((s, e) => s + e.delta, 0);
+
+  return (
+    <Row className="g-3">
+      <Col xs={12} lg={7}>
+        <div className="pf-card">
+          <div className="pf-card-title"><span>⚡</span> LỊCH SỬ <span>ĐIỂM</span></div>
+          {pointRows.length === 0 ? (
+            <EmptyState icon="⭐" text="Chưa có lịch sử điểm" />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {pointRows.map(ev => (
+                <div key={ev.id} className="pf-activity-item" style={{ borderBottom: "none", background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: ev.delta > 0 ? "rgba(76,175,80,0.13)" : "rgba(244,67,54,0.13)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, border: `1px solid ${ev.delta > 0 ? "rgba(129,199,132,0.3)" : "rgba(229,115,115,0.3)"}` }}>
+                    {ev.delta > 0 ? "↑" : "↓"}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{ev.label}</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{ev.date}</div>
+                  </div>
+                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1, color: ev.delta > 0 ? "#81c784" : "#e57373" }}>
+                    {ev.delta > 0 ? "+" : ""}{Number(ev.delta).toLocaleString()}
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: 1, textTransform: "uppercase", textAlign: "right" }}>điểm</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Col>
+
+      <Col xs={12} lg={5}>
+        <div className="pf-card">
+          <div className="pf-card-title"><span>⭐</span> ĐIỂM <span>TÍCH LŨY</span></div>
+          <div style={{ textAlign: "center", padding: "20px 0 24px" }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 64, letterSpacing: 3, color: "var(--yellow)", lineHeight: 1 }}>
+              {(user?.points ?? 0).toLocaleString()}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: 1, textTransform: "uppercase", marginTop: 4 }}>
+              điểm hiện có
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            {[
+              { label: "Đã nhận", value: `+${totalEarned.toLocaleString()}`, color: "#81c784" },
+              { label: "Đã dùng", value: totalSpent.toLocaleString(),        color: "#e57373" },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: 12, textAlign: "center" }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: 1, color }}>{value}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ padding: "12px 14px", background: "rgba(212,226,25,0.05)", border: "1px solid rgba(212,226,25,0.12)", borderRadius: 12, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(212,226,25,0.7)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Mẹo tích điểm</div>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontWeight: 600, margin: 0, lineHeight: 1.6 }}>Mua vé và bắp nước trực tuyến để được tích điểm lên đến 5% giá trị giao dịch.</p>
+          </div>
+
+          <Link to="/voucher" style={{ display: "block", textAlign: "center", padding: 12, background: "linear-gradient(135deg, var(--purple), var(--pink))", borderRadius: 12, color: "#fff", fontFamily: "'Syne'", fontWeight: 800, fontSize: 13, textDecoration: "none", letterSpacing: 0.5, boxShadow: "0 0 20px rgba(233,30,140,0.2)", marginBottom: 10 }}>
+            🎟 Đổi điểm lấy voucher
+          </Link>
+          <Link to="/myVouchers" style={{ display: "block", textAlign: "center", padding: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, color: "rgba(255,255,255,0.6)", fontFamily: "'Syne'", fontWeight: 800, fontSize: 13, textDecoration: "none", letterSpacing: 0.5 }}>
+            🎫 Kho Voucher của tôi
+          </Link>
+        </div>
+      </Col>
+    </Row>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Tab: Voucher
+───────────────────────────────────────── */
+function TabVouchers({ vouchers, loading }) {
+  const [filter,   setFilter]   = useState("all");
+  const [selected, setSelected] = useState(null);
+
+  const filtered = useMemo(() => vouchers.filter(uv => {
+    const isExpired = uv.voucher?.status === 0;
+    const isUsed    = uv.status === 0;
+    const isActive  = !isExpired && !isUsed;
+    if (filter === "active") return isActive;
+    if (filter === "used")   return isUsed || isExpired;
+    return true;
+  }), [filter, vouchers]);
+
+  if (loading) return <LoadingSpinner text="Đang tải voucher..." />;
+
+  return (
+    <>
+      {selected && (
+        <div className="pf-modal-overlay" onClick={() => setSelected(null)}>
+          <div className="pf-modal" onClick={e => e.stopPropagation()}>
+            <button className="pf-modal-close" onClick={() => setSelected(null)}>×</button>
+            <div className="pf-modal-title">CHI TIẾT <span>VOUCHER</span></div>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, letterSpacing: 3, color: "var(--yellow)" }}>{formatVoucherDiscount(selected.voucher)}</div>
+              <div style={{ fontFamily: "monospace", fontSize: 16, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", padding: "8px 16px", borderRadius: 8, color: "#fff", display: "inline-block" }}>{selected.voucher?.code}</div>
+            </div>
+            {selected.voucher?.description && (
+              <div style={{ padding: "12px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10, marginBottom: 16 }}>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", margin: 0 }}>{selected.voucher.description}</p>
+              </div>
+            )}
+            <Row className="g-2" style={{ marginBottom: 20 }}>
+              {[["Bắt đầu", fmtDate(selected.voucher?.startDate)], ["Kết thúc", fmtDate(selected.voucher?.endDate)]].map(([k, v]) => (
+                <Col key={k} xs={6}>
+                  <div style={{ padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>{k}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{v}</div>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+            <button className="pf-btn-ghost" style={{ width: "100%" }} onClick={() => setSelected(null)}>Đóng</button>
+          </div>
+        </div>
+      )}
+
+      <Row className="g-2" style={{ marginBottom: 20 }}>
+        {[
+          { label: "Tổng",            val: vouchers.length,                                                     color: "#fff" },
+          { label: "Đang hoạt động",  val: vouchers.filter(uv => uv.voucher?.status !== 0 && uv.status !== 0).length, color: "#81c784" },
+          { label: "Đã sử dụng",     val: vouchers.filter(uv => uv.voucher?.status === 0 || uv.status === 0).length, color: "var(--yellow)" },
+        ].map(({ label, val, color }) => (
+          <Col key={label} xs={4}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 16px" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{label}</div>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: 1, color }}>{val}</div>
+            </div>
+          </Col>
+        ))}
+      </Row>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {[{ key: "all", label: "Tất cả" }, { key: "active", label: "Đang hoạt động" }, { key: "used", label: "Đã sử dụng" }].map(({ key, label }) => (
+          <button key={key} onClick={() => setFilter(key)} className={`pf-filter-btn${filter === key ? " active" : ""}`}>{label}</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState icon="🎫" text={filter === "active" ? "Bạn chưa có voucher đang hoạt động" : filter === "used" ? "Bạn chưa sử dụng voucher nào" : "Chưa có voucher nào"}>
+          <Link to="/voucher" className="pf-btn-primary" style={{ textDecoration: "none", display: "inline-block" }}>Đổi điểm lấy voucher</Link>
+        </EmptyState>
+      ) : (
+        <Row className="g-3">
+          {filtered.map(uv => {
+            const voucher   = uv.voucher;
+            const isExpired = voucher?.status === 0;
+            const isUsed    = uv.status === 0;
+            const isActive  = !isExpired && !isUsed;
+            const statusColor = isActive ? "#81c784" : isUsed ? "rgba(255,255,255,0.25)" : "#e57373";
+            const statusLabel = isActive ? "Hoạt động" : isUsed ? "Đã dùng" : "Hết hạn";
+            return (
+              <Col key={uv.id} xs={12} md={6} lg={4}>
+                <div className="pf-voucher-card" onClick={() => setSelected(uv)}>
+                  <div style={{ height: 3, background: statusColor, borderRadius: "2px 2px 0 0", margin: "-1px -1px 14px" }} />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                    <div style={{ fontFamily: "monospace", fontSize: 11, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", padding: "3px 8px", borderRadius: 6, color: "rgba(255,255,255,0.7)" }}>{voucher?.code}</div>
+                    <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44`, fontWeight: 700 }}>{statusLabel}</span>
+                  </div>
+                  <div style={{ textAlign: "center", marginBottom: 10 }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, letterSpacing: 2, color: "var(--yellow)" }}>{formatVoucherDiscount(voucher)}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Giảm giá</div>
+                  </div>
+                  {voucher?.description && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginBottom: 10, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{voucher.description}</p>}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "rgba(255,255,255,0.25)", fontWeight: 700 }}>
+                    <span>🗓 {fmtDate(voucher?.startDate)}</span>
+                    <span>⏰ {fmtDate(voucher?.endDate)}</span>
+                  </div>
+                </div>
+              </Col>
+            );
+          })}
+        </Row>
+      )}
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Tab: Hạng thành viên
+───────────────────────────────────────── */
+function TabRank({ user, ranks, loading }) {
+  const { pct, next, label } = useMemo(() => {
+    if (!ranks.length) return { pct: 0, next: null, label: user?.rank_name || "—" };
+    const spend = Number(user?.total_spending || 0);
+    let idx = -1;
+    for (let i = 0; i < ranks.length; i++) { if (spend >= Number(ranks[i].minSpending ?? 0)) idx = i; }
+    const current = idx >= 0 ? ranks[idx] : null;
+    const next = idx < ranks.length - 1 ? ranks[idx + 1] : null;
+    const rankLabel = user?.rank_name || current?.rankName || "—";
+    if (!next) return { pct: 100, next: null, label: rankLabel };
+    const curMin = Number(current?.minSpending ?? 0);
+    const nextMin = Number(next.minSpending ?? 0);
+    const pct = nextMin > curMin ? Math.min(100, Math.max(0, ((spend - curMin) / (nextMin - curMin)) * 100)) : 0;
+    return { pct, next, label: rankLabel };
+  }, [ranks, user]);
+
+  if (loading) return <LoadingSpinner text="Đang tải hạng thành viên..." />;
+
+  const currentRank = ranks.find(r => r.rankName === label);
+
+  return (
+    <Row className="g-3">
+      <Col xs={12} lg={7}>
+        <div className="pf-card">
+          <div className="pf-card-title"><span>🏆</span> CÁC HẠNG <span>THÀNH VIÊN</span></div>
+          {ranks.length === 0 ? (
+            <EmptyState icon="🏆" text="Chưa có danh sách hạng" />
+          ) : (
+            ranks.map(r => {
+              const isCurrent = r.rankName === label;
+              return (
+                <div key={r.id} className={`pf-rank-card${isCurrent ? " current" : ""}`}>
+                  <span className="pf-rank-icon">{isCurrent ? "👑" : "🏅"}</span>
+                  <div className="pf-rank-info">
+                    <div className="pf-rank-name" style={{ color: isCurrent ? "var(--yellow)" : "#b39ddb" }}>{r.rankName}</div>
+                    <div className="pf-rank-req">
+                      {Number(r.minSpending ?? 0) === 0 ? "Mặc định" : `Chi từ ${fmtVnd(r.minSpending)}`}
+                    </div>
+                    {r.description && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 3 }}>{r.description}</div>}
+                  </div>
+                  <div className="pf-rank-perks">
+                    {r.discountPercent > 0 && <span style={{ color: isCurrent ? "var(--yellow)" : "#b39ddb" }}>-{r.discountPercent}% vé</span>}
+                    {r.bonusPoint != null && <span>×{r.bonusPoint} điểm</span>}
+                    {isCurrent && <span className="pf-current-tag">Của bạn</span>}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Col>
+
+      <Col xs={12} lg={5}>
+        <div className="pf-card">
+          <div className="pf-card-title"><span>📈</span> TIẾN ĐỘ <span>HẠNG</span></div>
+
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>👑</div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 3, color: "var(--yellow)" }}>{label}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginTop: 4 }}>
+              Tổng chi tiêu: <span style={{ color: "#fff" }}>{fmtVnd(user?.total_spending)}</span>
+            </div>
+          </div>
+
+          {next && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
+                <span>{label}</span>
+                <span>{next.rankName}</span>
+              </div>
+              <div className="pf-progress-bar" style={{ marginBottom: 8 }}>
+                <div className="pf-progress-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.35)", textAlign: "center", marginBottom: 20 }}>
+                Còn <span style={{ color: "var(--yellow)" }}>{fmtVnd(Math.max(0, next.minSpending - (user?.total_spending || 0)))}</span> để lên hạng
+              </div>
+            </>
+          )}
+
+          {currentRank && (
+            <div style={{ padding: "14px 16px", background: "rgba(212,226,25,0.06)", border: "1px solid rgba(212,226,25,0.15)", borderRadius: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(212,226,25,0.7)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Quyền lợi hiện tại</div>
+              {[
+                currentRank.discountPercent > 0 && `Giảm ${currentRank.discountPercent}% giá vé`,
+                currentRank.bonusPoint != null && `Nhân ×${currentRank.bonusPoint} điểm tích lũy`,
+                "Ưu tiên đặt vé sự kiện đặc biệt",
+              ].filter(Boolean).map((perk, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
+                  <span style={{ color: "var(--yellow)" }}>✓</span> {perk}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Col>
+    </Row>
+  );
+}
+
+/* ─────────────────────────────────────────
+   MAIN
+───────────────────────────────────────── */
+const TABS = [
+  { key: "info",         label: "Thông tin" },
+  { key: "points",       label: "Điểm thưởng" },
+  { key: "vouchers",     label: "Voucher" },
+  { key: "rank",         label: "Hạng thành viên" },
+];
+
+export default function UserProfile() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [user,        setUser]        = useState(null);
+  const [toast,       setToast]       = useState(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+
+  const activeTab = TABS.some(t => t.key === searchParams.get("tab")) ? searchParams.get("tab") : "info";
+  const setActiveTab = (key) => setSearchParams({ tab: key }, { replace: true });
+
+  const [transactions, setTransactions] = useState([]);
+  const [pointRows,    setPointRows]    = useState([]);
+  const [vouchers,     setVouchers]     = useState([]);
+  const [ranks,        setRanks]        = useState([]);
+
+  const [loadingTx,  setLoadingTx]  = useState(false);
+  const [loadingPts, setLoadingPts] = useState(false);
+  const [loadingVou, setLoadingVou] = useState(false);
+  const [loadingRnk, setLoadingRnk] = useState(false);
+
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 2800);
+  };
+
+  useEffect(() => {
+    const token = getAccessToken();
+    const stored = getStoredUser();
+    if (stored) { const n = normalizeUser(stored); if (n) setUser(n); }
+    if (!token) { setInitialLoad(false); return; }
+    const userId = getUserIdFromToken(token);
+    if (!userId) { setInitialLoad(false); return; }
+    let c = false;
+    (async () => {
+      try {
+        const res = await apiFetch(USERS.BY_ID(userId));
+        const json = await res.json().catch(() => null);
+        if (c) return;
+        if (res.ok && json?.data) {
+          const n = normalizeUser(json.data);
+          if (n) {
+            setUser(n);
+            setAuthSession({ accessToken: token, refreshToken: getRefreshToken(), user: json.data, staff: getStoredStaff() });
+          }
+        }
+      } catch { }
+      finally { if (!c) setInitialLoad(false); }
+    })();
+    return () => { c = true; };
+  }, []);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token || !user) return;
+    let c = false;
+
+    if (activeTab === "transactions" && transactions.length === 0) {
+      setLoadingTx(true);
+      apiFetch(ME.TRANSACTIONS).then(r => r.json().catch(() => null)).then(body => {
+        if (c) return;
+        if (body?.data && Array.isArray(body.data)) setTransactions(body.data.map(mapMeTransactionToFe));
+      }).catch(() => {}).finally(() => { if (!c) setLoadingTx(false); });
+    }
+
+    if (activeTab === "points" && pointRows.length === 0) {
+      setLoadingPts(true);
+      apiFetch(ME.POINTS_HISTORY).then(r => r.json().catch(() => null)).then(body => {
+        if (c) return;
+        if (body?.data && Array.isArray(body.data)) {
+          setPointRows(body.data.map(r => ({
+            id: r.pointHistoryId,
+            date: r.date ? new Date(Array.isArray(r.date)
+              ? `${r.date[0]}-${String(r.date[1]).padStart(2,"0")}-${String(r.date[2]).padStart(2,"0")}`
+              : r.date).toLocaleDateString("vi-VN") : "—",
+            label: r.description || "—",
+            delta: Number(r.points ?? 0),
+          })));
+        }
+      }).catch(() => {}).finally(() => { if (!c) setLoadingPts(false); });
+    }
+
+    if (activeTab === "vouchers" && vouchers.length === 0) {
+      setLoadingVou(true);
+      apiFetch(ME.VOUCHERS).then(r => r.json().catch(() => null)).then(body => {
+        if (c) return;
+        if (body?.data && Array.isArray(body.data)) setVouchers(body.data.map(mapUserVoucherRow));
+      }).catch(() => {}).finally(() => { if (!c) setLoadingVou(false); });
+    }
+
+    if (activeTab === "rank" && ranks.length === 0) {
+      setLoadingRnk(true);
+      apiFetch(MEMBERSHIP_RANKS.LIST).then(r => r.json().catch(() => null)).then(body => {
+        if (c) return;
+        if (body?.data && Array.isArray(body.data)) {
+          setRanks([...body.data].sort((a, b) => Number(a.minSpending ?? 0) - Number(b.minSpending ?? 0)));
+        }
+      }).catch(() => {}).finally(() => { if (!c) setLoadingRnk(false); });
+    }
+
+    return () => { c = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user]);
+
+  const token = getAccessToken();
+
+  if (!user) {
+    if (token && initialLoad) return (
+      <Layout>
+        <div className="pf-page" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+          <LoadingSpinner text="Đang tải hồ sơ..." />
+        </div>
+      </Layout>
+    );
+    return (
+      <Layout>
+        <div className="pf-page" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+          <div style={{ textAlign: "center", maxWidth: 400 }}>
+            <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.2 }}>🔒</div>
+            <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: 3, color: "#fff", marginBottom: 8 }}>
+              {token ? "Không tải được hồ sơ" : "Vui lòng đăng nhập"}
+            </h2>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", fontWeight: 600, marginBottom: 24, lineHeight: 1.6 }}>
+              {token ? "Kiểm tra kết nối BE và token còn hạn." : "Trang hồ sơ chỉ hiển thị khi bạn đăng nhập."}
+            </p>
+            {!token && <Link to="/login" className="pf-btn-primary" style={{ textDecoration: "none" }}>Đăng nhập ngay</Link>}
+          </div>
+        </div>
       </Layout>
     );
   }
 
+  const completedTx = transactions.filter(t => t.status === "completed").length;
+
   return (
     <Layout>
-      {/* PASSWORD MODAL */}
-      {pwModal && (
-        <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={() => setPwModal(false)}>
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-2xl font-bold text-white flex items-center gap-3">
-                <div className="p-2 bg-rose-500/10 rounded-lg">
-                  <Key className="text-rose-500" size={24} />
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
+        :root {
+          --navy:   #2d3151;
+          --purple: #7b1fa2;
+          --pink:   #e91e8c;
+          --yellow: #d4e219;
+          --dark:   #0f102a;
+          --card:   rgba(20,22,50,0.92);
+        }
+
+        /* PAGE */
+        .pf-page {
+          min-height: 100vh;
+          background:
+            radial-gradient(ellipse 65% 50% at 15% 20%, rgba(123,31,162,0.18) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 40% at 85% 80%, rgba(233,30,140,0.13) 0%, transparent 60%),
+            #0f102a;
+          font-family: 'Syne', sans-serif;
+          padding: 32px 0 80px;
+        }
+
+        /* HERO */
+        .pf-hero {
+          background: var(--card);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 20px;
+          padding: 28px 32px;
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          position: relative;
+          overflow: hidden;
+          margin-bottom: 24px;
+        }
+        .pf-hero::before {
+          content: '';
+          position: absolute; top: 0; left: 0; right: 0; height: 3px;
+          background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow));
+          background-size: 300%;
+          animation: gradMove 5s linear infinite;
+        }
+        @keyframes gradMove { 0%{background-position:0%} 100%{background-position:300%} }
+        .pf-hero-right { flex: 1; min-width: 0; }
+        .pf-username   { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.35); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
+        .pf-fullname   { font-family: 'Bebas Neue', sans-serif; font-size: clamp(26px,4vw,40px); letter-spacing: 3px; color: #fff; line-height: 1; margin-bottom: 10px; }
+        .pf-rank-badge { display: inline-flex; align-items: center; gap: 7px; border-radius: 100px; padding: 5px 14px; border: 1px solid; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 16px; }
+
+        .pf-progress-wrap { max-width: 380px; }
+        .pf-progress-label { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); margin-bottom: 6px; }
+        .pf-progress-bar   { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+        .pf-progress-fill  { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--purple), var(--pink)); transition: width 0.6s ease; }
+
+        .pf-hero-stats { display: flex; flex-direction: column; gap: 10px; text-align: center; flex-shrink: 0; }
+        .pf-hs { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 12px 20px; min-width: 110px; }
+        .pf-hs-num { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px; color: var(--yellow); line-height: 1; }
+        .pf-hs-lbl { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+
+        /* TABS */
+        .pf-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 4px; margin-bottom: 20px; overflow-x: auto; width: fit-content; max-width: 100%; }
+        .pf-tab { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase; padding: 9px 18px; border-radius: 9px; border: none; background: transparent; color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .pf-tab.active { background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; box-shadow: 0 0 14px rgba(233,30,140,0.3); }
+        .pf-tab:hover:not(.active) { color: rgba(255,255,255,0.7); }
+
+        /* CARD */
+        .pf-card { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 24px; height: 100%; }
+        .pf-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px; color: #fff; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        .pf-card-title span { color: var(--yellow); }
+
+        /* FORM */
+        .pf-field { margin-bottom: 16px; }
+        .pf-label { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: rgba(255,255,255,0.5); margin-bottom: 7px; }
+        .pf-input { width: 100%; background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 11px 16px; color: #fff; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 400; outline: none; transition: border-color 0.2s, background 0.2s; }
+        .pf-input:focus { border-color: var(--yellow); background: rgba(212,226,25,0.03); }
+        .pf-input.disabled { color: rgba(255,255,255,0.35); cursor: default; background: rgba(255,255,255,0.02); }
+        .pf-input.err { border-color: var(--pink); }
+        .pf-field-err { font-size: 12px; font-weight: 400; color: #f48fb1; margin-top: 5px; }
+
+        /* SECURITY BLOCK */
+        .pf-security-block { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 16px; }
+
+        /* BUTTONS */
+        .pf-btn-primary { background: linear-gradient(135deg, var(--purple), var(--pink)); border: none; color: #fff; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; border-radius: 10px; padding: 11px 24px; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; box-shadow: 0 0 16px rgba(233,30,140,0.25); }
+        .pf-btn-primary:hover { box-shadow: 0 0 28px rgba(233,30,140,0.5); transform: translateY(-1px); }
+        .pf-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .pf-btn-ghost { background: transparent; border: 1.5px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.5); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.3px; border-radius: 10px; padding: 11px 20px; cursor: pointer; transition: all 0.2s; }
+        .pf-btn-ghost:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+        .pf-btn-yellow { background: var(--yellow); border: none; color: #0f102a; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; border-radius: 10px; padding: 11px 24px; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; box-shadow: 0 0 16px rgba(212,226,25,0.2); }
+        .pf-btn-yellow:hover { box-shadow: 0 0 28px rgba(212,226,25,0.45); transform: translateY(-1px); }
+
+        /* FILTER BUTTONS */
+        .pf-filter-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); color: rgba(255,255,255,0.4); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.3px; border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .pf-filter-btn:hover { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.2); }
+        .pf-filter-btn.active { background: linear-gradient(135deg, var(--purple), var(--pink)); border-color: transparent; color: #fff; }
+
+        /* SEARCH INPUT */
+        .pf-search-input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 8px; padding: 7px 14px; color: #fff; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 400; outline: none; transition: border-color 0.2s; min-width: 200px; margin-left: auto; }
+        .pf-search-input::placeholder { color: rgba(255,255,255,0.25); }
+        .pf-search-input:focus { border-color: var(--yellow); }
+
+        /* RANK CARDS */
+        .pf-rank-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 12px; transition: border-color 0.2s; margin-bottom: 10px; }
+        .pf-rank-card.current { border-color: rgba(212,226,25,0.35); background: rgba(212,226,25,0.04); }
+        .pf-rank-icon { font-size: 28px; flex-shrink: 0; }
+        .pf-rank-info { flex: 1; }
+        .pf-rank-name { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 2px; }
+        .pf-rank-req  { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); margin-top: 2px; }
+        .pf-rank-perks { display: flex; flex-direction: column; gap: 3px; text-align: right; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.4); flex-shrink: 0; }
+        .pf-current-tag { font-size: 9px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; background: var(--yellow); color: #0f102a; padding: 2px 8px; border-radius: 4px; }
+
+        /* VOUCHER CARD */
+        .pf-voucher-card { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 16px; cursor: pointer; transition: border-color 0.2s, transform 0.15s; height: 100%; }
+        .pf-voucher-card:hover { border-color: rgba(212,226,25,0.25); transform: translateY(-2px); }
+
+        /* TRANSACTION ROW */
+        .pf-tx-row { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; overflow: hidden; transition: border-color 0.2s; }
+        .pf-tx-row:hover { border-color: rgba(255,255,255,0.14); }
+        .pf-tx-row.open { border-color: rgba(212,226,25,0.25); }
+
+        /* ACTIVITY */
+        .pf-activity-item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .pf-activity-item:last-child { border-bottom: none; }
+
+        /* INFO ROW */
+        .pf-info-row { display: flex; align-items: flex-start; gap: 14px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .pf-info-row:last-child { border-bottom: none; }
+        .pf-info-icon  { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .pf-info-label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35); letter-spacing: 0.3px; margin-bottom: 3px; }
+        .pf-info-value { font-size: 14px; font-weight: 400; color: #fff; }
+
+        /* MODAL */
+        .pf-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .pf-modal { background: #0d0e28; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; width: 100%; max-width: 420px; padding: 28px; position: relative; animation: pfPop 0.3s ease; }
+        @keyframes pfPop { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
+        .pf-modal-close { position: absolute; top: 14px; right: 16px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; color: rgba(255,255,255,0.4); width: 30px; height: 30px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .pf-modal-close:hover { color: #fff; }
+        .pf-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: #fff; margin-bottom: 20px; }
+        .pf-modal-title span { color: var(--yellow); }
+        .pf-pw-wrap { position: relative; display: flex; align-items: center; }
+        .pf-pw-wrap .pf-input { padding-right: 44px; }
+        .pf-eye { position: absolute; right: 12px; background: none; border: none; color: rgba(255,255,255,0.25); cursor: pointer; padding: 0; display: flex; align-items: center; transition: color 0.2s; }
+        .pf-eye:hover { color: var(--yellow); }
+
+        /* TOAST */
+        .pf-toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); border-radius: 12px; padding: 13px 24px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.4px; z-index: 9999; white-space: nowrap; animation: pfToast 0.3s ease; display: flex; align-items: center; gap: 8px; }
+        .pf-toast.success { background: #0d0e28; border: 1.5px solid #81c784; color: #81c784; }
+        .pf-toast.error   { background: #0d0e28; border: 1.5px solid var(--pink); color: var(--pink); }
+        @keyframes pfToast { from{opacity:0;transform:translateX(-50%) translateY(14px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+        /* SPINNER */
+        .pf-spinner { width: 32px; height: 32px; border: 2px solid rgba(123,31,162,0.3); border-top-color: var(--pink); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 767px) {
+          .pf-hero { flex-direction: column; align-items: flex-start; }
+          .pf-hero-stats { flex-direction: row; }
+          .pf-tabs { width: 100%; }
+        }
+      `}</style>
+
+      <Toast toast={toast} />
+
+      <div className="pf-page mt-4">
+        <Container fluid="xl">
+
+          {/* HERO */}
+          <div className="pf-hero">
+            <Avatar name={user.fullname} avatarUrl={user.avatar} size={90} />
+
+            <div className="pf-hero-right">
+              <div className="pf-username">@{user.username}</div>
+              <div className="pf-fullname">{user.fullname}</div>
+
+              {user.rank_name && (
+                <div className="pf-rank-badge" style={{ color: "var(--yellow)", borderColor: "var(--yellow)", background: "rgba(212,226,25,0.06)" }}>
+                  🏆 {user.rank_name}
                 </div>
-                Đổi mật khẩu
-              </h3>
-              <button
-                onClick={() => setPwModal(false)}
-                className="text-zinc-400 hover:text-white transition-colors p-2 rounded-xl hover:bg-zinc-800"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              {[
-                { name: "current", label: "Mật khẩu hiện tại", icon: <Key size={18} /> },
-                { name: "newPw", label: "Mật khẩu mới", icon: <Shield size={18} /> },
-                { name: "confirm", label: "Xác nhận mật khẩu mới", icon: <Check size={18} /> },
-              ].map(({ name, label, icon }) => (
-                <div key={name} className="space-y-2">
-                  <label className="text-sm font-semibold text-zinc-400 flex items-center gap-2 ml-1">
-                    {icon}
-                    {label}
-                  </label>
-                  <input
-                    type="password"
-                    name={name}
-                    value={pwData[name]}
-                    onChange={handlePwChange}
-                    className="w-full px-5 py-4 rounded-xl border border-zinc-800 bg-zinc-950 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all"
-                    placeholder="••••••••"
-                  />
-                  {pwErrors[name] && (
-                    <p className="text-red-400 text-xs flex items-center gap-1 mt-1 ml-1 font-medium">
-                      <AlertCircle size={14} />
-                      {pwErrors[name]}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-4 mt-10">
-              <button
-                onClick={() => setPwModal(false)}
-                className="flex-1 px-6 py-4 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all font-bold"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={savePw}
-                className="flex-1 px-6 py-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-all font-bold shadow-lg shadow-rose-600/20"
-              >
-                Lưu mật khẩu
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TOAST */}
-      {toast && (
-        <div className={`fixed top-24 right-6 z-[110] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300 ${
-          toast.type === "success" 
-            ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" 
-            : "bg-red-500/10 border border-red-500/20 text-red-400"
-        } backdrop-blur-xl`}>
-          <div className={`p-1.5 rounded-full ${toast.type === "success" ? "bg-emerald-500/20" : "bg-red-500/20"}`}>
-            {toast.type === "success" ? <Check size={18} /> : <AlertCircle size={18} />}
-          </div>
-          <span className="text-sm font-bold tracking-tight">{toast.msg}</span>
-        </div>
-      )}
-
-      <CustomerPageShell variant="full" className="min-h-screen bg-zinc-950 text-zinc-300 pb-24">
-        <div className="customer-page-container pt-8">
-
-          {/* ── HERO SECTION ── */}
-          <div className="relative bg-zinc-900 border border-zinc-800 rounded-3xl p-8 md:p-12 mb-10 overflow-hidden shadow-2xl">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-pink-500 to-amber-400" />
-            
-            <div className="flex flex-col lg:flex-row items-center lg:items-center gap-8 md:gap-12 relative z-10">
-              <div className="relative group">
-                <Avatar name={user.fullname} size={128} avatarUrl={user.avatar} showEditButton={editing} onEditClick={() => {}} />
-                {editing && (
-                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="text-white" size={24} />
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex-1 text-center lg:text-left">
-                <div className="flex flex-col sm:flex-row items-center gap-4 mb-4 justify-center lg:justify-start">
-                  <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">@{user.username}</h1>
-                  {user.rank_name && (
-                    <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm font-black uppercase tracking-widest">
-                      <Star size={16} fill="currentColor" />
-                      {user.rank_name}
-                    </span>
-                  )}
-                </div>
-                <h2 className="text-xl md:text-2xl text-zinc-400 font-medium mb-8 tracking-tight">{user.fullname}</h2>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto lg:mx-0">
-                  <div className="bg-zinc-950/50 rounded-2xl p-5 border border-zinc-800/50 backdrop-blur-sm transition-transform hover:scale-[1.02]">
-                    <div className="flex items-center gap-3 text-rose-500 mb-2 justify-center lg:justify-start">
-                      <Star size={18} />
-                      <span className="text-xs font-black uppercase tracking-widest opacity-60">Điểm</span>
-                    </div>
-                    <div className="text-3xl font-black text-white tabular-nums">{user.points.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-zinc-950/50 rounded-2xl p-5 border border-zinc-800/50 backdrop-blur-sm transition-transform hover:scale-[1.02]">
-                    <div className="flex items-center gap-3 text-emerald-500 mb-2 justify-center lg:justify-start">
-                      <TrendingUp size={18} />
-                      <span className="text-xs font-black uppercase tracking-widest opacity-60">Tổng chi</span>
-                    </div>
-                    <div className="text-3xl font-black text-white tabular-nums">{(user.total_spending / 1000).toFixed(0)}K</div>
-                  </div>
-                </div>
-              </div>
-
-              {!editing && (
-                <button
-                  onClick={startEdit}
-                  className="px-8 py-4 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold transition-all shadow-xl hover:scale-105 active:scale-95 flex items-center gap-3"
-                >
-                  <Edit3 size={20} />
-                  Chỉnh sửa hồ sơ
-                </button>
               )}
+
+              <div className="pf-progress-wrap">
+                <div className="pf-progress-label">
+                  <span>{fmtVnd(user.total_spending)} đã chi</span>
+                </div>
+                <div className="pf-progress-bar">
+                  <div className="pf-progress-fill" style={{ width: `60%` }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="pf-hero-stats">
+              <div className="pf-hs">
+                <div className="pf-hs-num">{user.points.toLocaleString()}</div>
+                <div className="pf-hs-lbl">Điểm ⭐</div>
+              </div>
+              <div className="pf-hs">
+                <div className="pf-hs-num" style={{ fontSize: 18 }}>{(user.total_spending / 1000).toFixed(0)}K</div>
+                <div className="pf-hs-lbl">Tổng chi</div>
+              </div>
+              <div className="pf-hs">
+                <div className="pf-hs-num" style={{ fontSize: 18 }}>{completedTx || "—"}</div>
+                <div className="pf-hs-lbl">Giao dịch</div>
+              </div>
             </div>
           </div>
 
-          {/* ── TABS ── */}
-          <div className="flex gap-2 p-1.5 bg-zinc-900 border border-zinc-800 rounded-2xl mb-10 sticky top-24 z-40 backdrop-blur-md bg-zinc-900/90 shadow-2xl">
-            {[
-              { key: "info", label: "Thông tin cá nhân", icon: <User size={20} /> },
-              { key: "activity", label: "Hoạt động gần đây", icon: <Activity size={20} /> },
-            ].map(({ key, label, icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold transition-all duration-300 ${
-                  activeTab === key
-                    ? "bg-rose-600 text-white shadow-lg shadow-rose-600/30"
-                    : "text-zinc-500 hover:text-white hover:bg-zinc-800"
-                }`}
-              >
-                {icon}
-                <span className="hidden sm:inline">{label}</span>
+          {/* TABS */}
+          <div className="pf-tabs">
+            {TABS.map(({ key, label }) => (
+              <button key={key} className={`pf-tab${activeTab === key ? " active" : ""}`} onClick={() => setActiveTab(key)}>
+                {label}
               </button>
             ))}
           </div>
 
-          {/* ══ TAB: INFO ══ */}
-          {activeTab === "info" && (
-            <div className="grid lg:grid-cols-3 gap-10">
-              {/* Left: info / edit form */}
-              <div className="lg:col-span-2">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-xl">
-                  <div className="flex items-center gap-4 mb-10">
-                    <div className="p-3 bg-rose-600 rounded-2xl shadow-lg shadow-rose-600/20">
-                      <User className="text-white" size={24} />
-                    </div>
-                    <h3 className="text-2xl font-black text-white tracking-tight uppercase">Chi tiết tài khoản</h3>
-                  </div>
-
-                  {editing ? (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Field label="Họ và tên" icon={<User size={18} />} name="fullname" value={draft.fullname ?? ""} onChange={handleChange} error={errors.fullname} placeholder="Nhập họ và tên" />
-                        <Field label="Email" icon={<Mail size={18} />} name="email" type="email" value={draft.email ?? ""} onChange={handleChange} error={errors.email} placeholder="email@example.com" />
-                        <Field label="Số điện thoại" icon={<Phone size={18} />} name="phone" value={draft.phone ?? ""} onChange={handleChange} error={errors.phone} placeholder="0123456789" />
-                        <Field label="Ngày sinh" icon={<Calendar size={18} />} name="birthday" type="date" value={draft.birthday ?? ""} onChange={handleChange} />
-                      </div>
-                      <TextAreaField
-                        label="Liên kết ảnh đại diện"
-                        icon={<Camera size={18} />}
-                        name="avatar"
-                        rows={2}
-                        value={draft.avatar ?? ""}
-                        onChange={handleChange}
-                        hint="Hệ thống hỗ trợ link URL trực tiếp (https://...) hoặc chuỗi Base64."
-                        placeholder="https://images.unsplash.com/photo-..."
-                      />
-                      <div className="flex gap-4 pt-8">
-                        <button
-                          onClick={cancelEdit}
-                          className="flex-1 px-8 py-5 rounded-2xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all font-bold uppercase tracking-widest text-sm"
-                        >
-                          Hủy bỏ
-                        </button>
-                        <button
-                          onClick={saveEdit}
-                          disabled={profileLoading}
-                          className="flex-1 px-8 py-5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white transition-all font-bold uppercase tracking-widest text-sm shadow-xl shadow-rose-600/20 disabled:opacity-50"
-                        >
-                          {profileLoading ? "Đang lưu..." : "Cập nhật ngay"}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {[
-                        { icon: <User size={20} />, label: "Họ và tên", value: user.fullname, color: "text-rose-500" },
-                        { icon: <Mail size={20} />, label: "Địa chỉ Email", value: user.email, color: "text-blue-500" },
-                        { icon: <Phone size={20} />, label: "Số điện thoại", value: user.phone, color: "text-emerald-500" },
-                        { icon: <Calendar size={20} />, label: "Ngày sinh nhật", value: fmtBirthday(user.birthday), color: "text-amber-500" },
-                        { icon: <Shield size={20} />, label: "Tên đăng nhập", value: "@" + user.username, color: "text-purple-500" },
-                        { icon: <Award size={20} />, label: "Hạng thành viên", value: user.rank_name || "Mới", color: "text-yellow-500" },
-                      ].map(({ icon, label, value, color }) => (
-                        <div key={label} className="group flex items-start gap-5 p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50 hover:border-zinc-700 transition-all">
-                          <div className={`${color} mt-1 p-2 bg-zinc-900 rounded-xl group-hover:scale-110 transition-transform`}>
-                            {icon}
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-xs font-black text-zinc-600 uppercase tracking-widest mb-1.5">{label}</div>
-                            <div className="text-white font-bold text-lg">{value || "—"}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right: security */}
-              <div className="lg:col-span-1 space-y-8">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-xl">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="p-3 bg-zinc-800 rounded-2xl">
-                      <Shield className="text-rose-500" size={24} />
-                    </div>
-                    <h3 className="text-2xl font-black text-white tracking-tight uppercase">Bảo mật</h3>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <Key className="text-zinc-500" size={20} />
-                          <span className="font-bold text-white text-lg">Mật khẩu</span>
-                        </div>
-                      </div>
-                      <p className="text-sm text-zinc-500 mb-6 leading-relaxed">Nên đổi mật khẩu định kỳ để bảo vệ tài khoản của bạn tốt hơn.</p>
-                      <button
-                        onClick={() => setPwModal(true)}
-                        className="w-full px-6 py-4 rounded-xl bg-rose-600/10 border border-rose-600/20 text-rose-500 hover:bg-rose-600 hover:text-white transition-all font-bold text-sm uppercase tracking-widest"
-                      >
-                        Đổi mật khẩu mới
-                      </button>
-                    </div>
-
-                    <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800/50">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <Activity className="text-zinc-500" size={20} />
-                          <span className="font-bold text-white text-lg">Trạng thái</span>
-                        </div>
-                        <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                          user.status === 1 ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
-                        }`}>
-                          {user.status === 1 ? "Đang hoạt động" : "Bị khóa"}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-4 bg-zinc-900 rounded-xl border border-zinc-800/50">
-                        <div className={`w-3 h-3 rounded-full ${user.status === 1 ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
-                        <p className="text-sm font-bold text-zinc-300">
-                          {user.status === 1 ? "Tài khoản đang ở trạng thái an toàn" : "Tài khoản của bạn đang bị giới hạn"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          {/* TAB PANELS */}
+          {activeTab === "info"         && <TabInfo user={user} setUser={setUser} showToast={showToast} />}
+          {activeTab === "transactions" && (
+            <div className="pf-card">
+              <div className="pf-card-title"><span>📋</span> LỊCH SỬ <span>GIAO DỊCH</span></div>
+              <TabTransactions transactions={transactions} loading={loadingTx} />
             </div>
           )}
-
-          {/* ══ TAB: ACTIVITY ══ */}
-          {activeTab === "activity" && (
-            <div className="grid lg:grid-cols-3 gap-10">
-              <div className="lg:col-span-2">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-xl">
-                  <div className="flex items-center justify-between mb-10">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-zinc-800 rounded-2xl">
-                        <History className="text-rose-500" size={24} />
-                      </div>
-                      <h3 className="text-2xl font-black text-white tracking-tight uppercase">Giao dịch gần đây</h3>
-                    </div>
-                  </div>
-                  
-                  {recentActivity.length === 0 ? (
-                    <div className="text-center py-20 bg-zinc-950 rounded-3xl border border-dashed border-zinc-800">
-                      <History className="w-16 h-16 text-zinc-800 mx-auto mb-6" />
-                      <div className="text-xl font-bold text-zinc-500 mb-2">Chưa có giao dịch nào</div>
-                      <p className="text-zinc-600 max-w-sm mx-auto mb-10">Bạn có thể bắt đầu trải nghiệm bằng cách đặt vé xem những bộ phim hoạt hình hấp dẫn nhất.</p>
-                      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Link to="/movies" className="px-8 py-4 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-500 transition-all shadow-lg shadow-rose-600/20">Khám phá phim</Link>
-                        <Link to="/foodorder" className="px-8 py-4 rounded-xl bg-zinc-800 text-white font-bold hover:bg-zinc-700 transition-all">Đặt bắp nước</Link>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {recentActivity.map((act, i) => (
-                        <div key={i} className="group flex items-center gap-6 p-5 rounded-2xl bg-zinc-950 border border-zinc-800/50 hover:border-zinc-700 transition-all">
-                          <div className="w-14 h-14 rounded-2xl bg-zinc-900 flex items-center justify-center text-3xl shadow-inner group-hover:scale-110 transition-transform">
-                            {act.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-white font-bold text-lg truncate mb-1">{act.label}</div>
-                            <div className="flex items-center gap-3 text-sm text-zinc-500">
-                              <Calendar size={14} />
-                              {act.date}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xl font-black tracking-tight" style={{ color: act.pts_color }}>
-                              {act.pts}
-                            </div>
-                            <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Tích lũy</div>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      <div className="mt-10 pt-8 border-top border-zinc-800 text-center">
-                        <Link 
-                          to="/transactionHistory" 
-                          className="inline-flex items-center gap-3 text-rose-500 hover:text-rose-400 font-bold uppercase tracking-widest text-sm transition-all hover:gap-5"
-                        >
-                          Toàn bộ lịch sử giao dịch
-                          <TrendingUp size={18} />
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="lg:col-span-1">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-xl sticky top-24">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="p-3 bg-amber-500/10 rounded-2xl">
-                      <Award className="text-amber-500" size={24} />
-                    </div>
-                    <h3 className="text-2xl font-black text-white tracking-tight uppercase">Điểm thưởng</h3>
-                  </div>
-
-                  <div className="text-center py-10 bg-zinc-950 rounded-2xl border border-zinc-800/50 mb-8 shadow-inner">
-                    <div className="text-6xl font-black text-amber-500 mb-2 drop-shadow-2xl tracking-tighter">
-                      {user.points.toLocaleString()}
-                    </div>
-                    <div className="text-xs font-black text-zinc-600 uppercase tracking-widest">
-                      điểm thưởng hiện có
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <Link 
-                      to="/voucher" 
-                      className="flex items-center justify-center gap-3 w-full px-6 py-5 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 text-white font-black uppercase tracking-widest text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-rose-600/20"
-                    >
-                      🎟 Đổi ưu đãi ngay
-                    </Link>
-                    <Link 
-                      to="/myVouchers" 
-                      className="flex items-center justify-center gap-3 w-full px-6 py-5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white font-black uppercase tracking-widest text-sm transition-all"
-                    >
-                      🎫 Kho Voucher của tôi
-                    </Link>
-                  </div>
-                  
-                  <div className="mt-10 p-6 rounded-2xl bg-amber-500/5 border border-amber-500/10">
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 bg-amber-500/20 rounded-lg text-amber-500">
-                        <AlertCircle size={18} />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-amber-500 mb-1">Mẹo tích điểm</div>
-                        <p className="text-xs text-zinc-500 leading-relaxed">Mua vé và bắp nước trực tuyến để được tích điểm lên đến 5% giá trị giao dịch.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          {activeTab === "points"   && <TabPoints user={user} pointRows={pointRows} loading={loadingPts} />}
+          {activeTab === "vouchers" && (
+            <div className="pf-card">
+              <div className="pf-card-title"><span>🎫</span> KHO <span>VOUCHER</span></div>
+              <TabVouchers vouchers={vouchers} loading={loadingVou} />
             </div>
           )}
+          {activeTab === "rank"     && <TabRank user={user} ranks={ranks} loading={loadingRnk} />}
 
-        </div>
-      </CustomerPageShell>
+        </Container>
+      </div>
     </Layout>
   );
 }
