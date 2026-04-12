@@ -19,7 +19,7 @@ import {
 import { clearAuthSession, getAccessToken, getStoredStaff, getStoredUser } from "../../utils/authStorage";
 
 const NAV_LINKS = [
-  { to: "/",          label: "Sự kiện",        end: true },
+  { to: "/",          label: "Trang chủ",        end: true },
   { to: "/movies",    label: "Phim"                      },
   { to: "/events",    label: "Sự kiện"                   },
   { to: "/voucher",   label: "Ưu đãi"                    },
@@ -645,10 +645,10 @@ export default function CinemaNavbar() {
                           <Link to="/transactionHistory" className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
                             <History size={15} style={{ color: "rgba(240,240,255,.5)", flexShrink: 0 }} /> Lịch sử giao dịch
                           </Link>
-                          <Link to="/myVouchers"        className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
+                          <Link to="/profile?tab=vouchers"        className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
                             <Ticket  size={15} style={{ color: "#34d399", flexShrink: 0 }} /> Voucher của tôi
                           </Link>
-                          <Link to="/membershipStatus"  className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
+                          <Link to="/profile?tab=rank"  className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
                             <Award   size={15} style={{ color: "#fbbf24", flexShrink: 0 }} /> Hạng thành viên
                           </Link>
                           <div className="cn-dropdown-divider" />
@@ -748,10 +748,10 @@ export default function CinemaNavbar() {
                     <Link to="/transactionHistory" className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
                       <History size={18} style={{ color: "rgba(240,240,255,.5)" }} /> Lịch sử giao dịch
                     </Link>
-                    <Link to="/myVouchers"         className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
+                    <Link to="/profile?tab=vouchers"         className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
                       <Ticket  size={18} style={{ color: "#34d399" }} /> Voucher của tôi
                     </Link>
-                    <Link to="/membershipStatus"   className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
+                    <Link to="/profile?tab=rank"   className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
                       <Award   size={18} style={{ color: "#fbbf24" }} /> Hạng thành viên
                     </Link>
                   </>

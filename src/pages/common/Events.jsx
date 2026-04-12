@@ -52,9 +52,7 @@ const Events = () => {
         if (!c) setLoading(false);
       }
     })();
-    return () => {
-      c = true;
-    };
+    return () => { c = true; };
   }, []);
 
   const events = useMemo(() => raw, [raw]);
@@ -67,77 +65,256 @@ const Events = () => {
 
   return (
     <Layout>
-      <div className="container py-5 mt-5">
-        {loading ? (
-          <div className="text-center py-5">
-            <Spinner animation="border" variant="danger" />
-            <p className="text-white-50 small mt-2">Đang tải sự kiện / tin tức…</p>
-          </div>
-        ) : null}
-        {!loading && loadError ? (
-          <div className="alert alert-warning border-0 shadow-sm">{loadError}</div>
-        ) : null}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
 
-        <div className="row mb-5 align-items-end g-3">
-          <div className="col-lg-4">
-            <h2
-              className="fw-black text-white text-uppercase tracking-tighter m-0 display-5"
-              style={{ fontWeight: 900 }}
-            >
-              Danh Sách Sự Kiện
-            </h2>
-            <div style={{ height: "6px", width: "80px", background: "var(--primary-gradient)", borderRadius: "10px" }} />
-            <p className="small text-white-50 mt-2 mb-0">Nội dung lấy từ tin tức (News) trên hệ thống.</p>
-          </div>
+        .ev-page {
+          --navy:      #0d0d2b;
+          --purple:    #8b00ff;
+          --pink:      #ff2d78;
+          --yellow:    #d4ff00;
+          --off-white: #f0f0ff;
+        }
 
-          <div className="col-lg-8">
-            <div className="card p-3 border-0 shadow-sm bg-white bg-opacity-10 rounded-4" style={{ backdropFilter: "blur(20px)" }}>
-              <div className="row g-2 align-items-center">
-                <div className="col-md-6">
-                  <div className="input-group">
-                    <span className="input-group-text bg-white bg-opacity-10 border-0 ps-3 text-white opacity-50">
-                      <i className="fas fa-search" />
-                    </span>
-                    <input
-                      type="text"
-                      className="form-control bg-white bg-opacity-10 border-0 py-2 shadow-none text-white"
-                      placeholder="Tìm sự kiện..."
-                      value={keyword}
-                      onChange={(e) => setKeyword(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="col-md-6 text-end">
-                  <div style={{ color: "rgba(255,255,255,0.25)", fontWeight: 700, fontSize: 12 }}>
-                    {filtered.length} mục
-                  </div>
-                </div>
+        .ev-page {
+          min-height: 100vh;
+          background: var(--navy);
+          padding: 80px 0 60px;
+        }
+
+        /* ── HEADER ── */
+        .ev-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 24px;
+          margin-bottom: 40px;
+          flex-wrap: wrap;
+        }
+
+        .ev-title-block {}
+
+        .ev-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: clamp(32px, 5vw, 48px);
+          letter-spacing: 4px;
+          color: var(--off-white);
+          margin: 0 0 10px;
+          line-height: 1;
+        }
+        .ev-title span { color: var(--yellow); }
+
+        .ev-strip {
+          height: 3px;
+          width: 70px;
+          background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow));
+          border-radius: 2px;
+          margin-bottom: 10px;
+        }
+
+        .ev-subtitle {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(240,240,255,0.35);
+          margin: 0;
+        }
+
+        /* ── SEARCH BAR ── */
+        .ev-search-card {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(212,255,0,0.12);
+          border-radius: 14px;
+          padding: 16px 20px;
+          backdrop-filter: blur(20px);
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          min-width: 320px;
+        }
+
+        .ev-search-wrap {
+          display: flex;
+          align-items: stretch;
+          flex: 1;
+          border: 1.5px solid rgba(255,255,255,0.1);
+          border-radius: 10px;
+          overflow: hidden;
+          transition: border-color .3s, box-shadow .3s;
+        }
+        .ev-search-wrap:focus-within {
+          border-color: var(--yellow);
+          box-shadow: 0 0 16px rgba(212,255,0,0.1);
+        }
+
+        .ev-search-icon {
+          background: rgba(255,255,255,0.05);
+          border-right: 1px solid rgba(255,255,255,0.08);
+          padding: 0 14px;
+          display: flex;
+          align-items: center;
+          color: rgba(240,240,255,0.3);
+          font-size: 13px;
+        }
+
+        .ev-search-input {
+          flex: 1;
+          background: rgba(255,255,255,0.04);
+          border: none;
+          outline: none;
+          color: var(--off-white);
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 10px 14px;
+        }
+        .ev-search-input::placeholder { color: rgba(240,240,255,0.25); }
+        .ev-search-input:focus { background: rgba(212,255,0,0.02); }
+
+        .ev-count {
+          font-family: 'Syne', sans-serif;
+          font-size: 12px;
+          font-weight: 700;
+          color: rgba(240,240,255,0.25);
+          white-space: nowrap;
+          letter-spacing: 0.5px;
+        }
+        .ev-count strong {
+          color: var(--yellow);
+          font-size: 14px;
+        }
+
+        /* ── LOADING ── */
+        .ev-loading {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 80px 0;
+          gap: 12px;
+        }
+        .ev-loading p {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(240,240,255,0.35);
+          margin: 0;
+        }
+
+        /* ── ERROR ── */
+        .ev-error {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--pink);
+          padding: 14px 18px;
+          background: rgba(255,45,120,0.08);
+          border: 1px solid rgba(255,45,120,0.2);
+          border-radius: 10px;
+          margin-bottom: 24px;
+        }
+
+        /* ── GRID ── */
+        .ev-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 20px;
+        }
+        @media (max-width: 991px) { .ev-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 639px) { .ev-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        /* ── BACK TO TOP ── */
+        .ev-empty-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 11px 28px;
+          border: none;
+          border-radius: 10px;
+          background: linear-gradient(135deg, var(--purple), var(--pink));
+          color: #fff;
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 16px;
+          letter-spacing: 2px;
+          text-decoration: none;
+          transition: box-shadow .25s, transform .25s;
+          box-shadow: 0 0 20px rgba(255,45,120,0.3);
+        }
+        .ev-empty-btn:hover {
+          box-shadow: 0 0 36px rgba(255,45,120,0.55);
+          transform: translateY(-1px);
+          color: #fff;
+        }
+
+        @media (max-width: 767px) {
+          .ev-header { flex-direction: column; align-items: flex-start; }
+          .ev-search-card { min-width: 100%; width: 100%; }
+        }
+      `}</style>
+
+      <div className="ev-page">
+        <div className="container">
+
+          {/* Header */}
+          <div className="ev-header">
+            <div className="ev-title-block">
+              <h2 className="ev-title">Danh Sách <span>Sự Kiện</span></h2>
+              <div className="ev-strip" />
+              <p className="ev-subtitle">Nội dung lấy từ tin tức (News) trên hệ thống.</p>
+            </div>
+
+            <div className="ev-search-card">
+              <div className="ev-search-wrap">
+                <span className="ev-search-icon"><i className="fas fa-search" /></span>
+                <input
+                  type="text"
+                  className="ev-search-input"
+                  placeholder="Tìm sự kiện..."
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                />
+              </div>
+              <div className="ev-count">
+                <strong>{filtered.length}</strong> mục
               </div>
             </div>
           </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="ev-loading">
+              <Spinner animation="border" style={{ color: "var(--pink)" }} />
+              <p>Đang tải sự kiện / tin tức…</p>
+            </div>
+          )}
+
+          {/* Error */}
+          {!loading && loadError && (
+            <div className="ev-error">{loadError}</div>
+          )}
+
+          {/* Grid */}
+          {!loading && filtered.length > 0 && (
+            <div className="ev-grid">
+              {filtered.map((e) => (
+                <EventCard key={e.id} event={e} />
+              ))}
+            </div>
+          )}
+
+          {/* Empty */}
+          {!loading && !loadError && filtered.length === 0 && (
+            <EmptyState
+              title="Chưa có tin / sự kiện"
+              subtitle="Thêm tin tức (status công khai) trong quản trị."
+              action={
+                <Link to="/movies" className="ev-empty-btn">
+                  Khám phá phim
+                </Link>
+              }
+            />
+          )}
+
         </div>
-
-        {!loading && filtered.length > 0 ? (
-          <div className="row g-4">
-            {filtered.map((e) => (
-              <div key={e.id} className="col-6 col-md-3">
-                <EventCard event={e} />
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {!loading && !loadError && filtered.length === 0 ? (
-          <EmptyState
-            title="Chưa có tin / sự kiện"
-            subtitle="Thêm tin tức (status công khai) trong quản trị."
-            action={
-              <Link to="/movies" className="btn btn-gradient rounded-pill px-5 fw-bold">
-                Khám phá phim
-              </Link>
-            }
-          />
-        ) : null}
       </div>
     </Layout>
   );
