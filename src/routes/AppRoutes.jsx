@@ -65,6 +65,8 @@ import AdminRoomForm from '../pages/admin/forms/AdminRoomForm';
 import RoomManagement from '../pages/admin/RoomManagement';
 import SeatManagement from '../pages/admin/SeatManagement';
 import MyShifts from '../pages/employee/MyShifts';
+import EmployeeDashboard from '../pages/employee/Dashboard';
+import Sales from '../pages/employee/Sales';
 import AdminProfile from '../pages/admin/AdminProfile';
 import SuperAdminProfile from '../pages/super-admin/SuperAdminProfile';
 import EmployeeSelfServiceLayout from '../components/layout/EmployeeSelfServiceLayout';
@@ -87,9 +89,11 @@ const AppRoutes = () => {
           </StaffFloorGuard>
         }
       >
-        <Route index element={<Navigate to="ca-lam" replace />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<EmployeeDashboard />} />
+        <Route path="sales" element={<Sales />} />
         <Route path="ca-lam" element={<MyShifts />} />
-        <Route path="*" element={<Navigate to="ca-lam" replace />} />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
       <Route path="/register" element={<Register />} />
       <Route path="/movie/:id" element={<MovieDetail />} />

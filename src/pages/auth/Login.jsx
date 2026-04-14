@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
-import { clearAuthSession, setAuthSession } from '../../utils/authStorage';
+import { clearAuthSession, setAuthSession, setActiveShift } from '../../utils/authStorage';
 import { apiUrl } from '../../utils/apiClient';
-import { AUTH } from '../../constants/apiEndpoints';
+import { AUTH, SHIFTS } from '../../constants/apiEndpoints';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ const Login = () => {
       const roleUpper = (data?.staff?.role ?? "").toString().toUpperCase().replace(/^ROLE_/, "");
 
       if (data.staff) {
-        clearAuthSession();
+        // Lưu thông tin phiên đăng nhập cơ bản
         setAuthSession({
           accessToken: data.token,
           refreshToken: data.refreshToken,
@@ -64,7 +64,26 @@ const Login = () => {
           navigate("/super-admin");
           return;
         }
-        navigate("/staff/ca-lam");
+        
+        // Logic cho STAFF (Nhân viên sàn)
+        try {
+          const shiftRes = await fetch(apiUrl(SHIFTS.ACTIVE), {
+            headers: { "Authorization": `Bearer ${data.token}` },
+          });
+          const shiftJson = await shiftRes.json().catch(() => null);
+          const activeShift = shiftJson?.data; // Có thể null nếu không trong ca
+          
+          setActiveShift(activeShift || null);
+
+          if (activeShift) {
+            navigate("/staff/sales");
+          } else {
+            navigate("/staff/ca-lam");
+          }
+        } catch (err) {
+          console.error("Lỗi kiểm tra ca làm:", err);
+          navigate("/staff/ca-lam");
+        }
         return;
       }
 
