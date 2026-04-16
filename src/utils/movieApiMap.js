@@ -19,6 +19,8 @@ export function mapMovieForCard(m) {
         year: "numeric",
       })
     : "";
+  // Phân loại dựa vào status: 1=Đang chiếu, 2=Sắp chiếu
+  const type = m.status === 2 ? "soon" : "now";
   return {
     id: m.id,
     title: m.title ?? "",
@@ -30,16 +32,15 @@ export function mapMovieForCard(m) {
     /** Phân loại danh sách */
     releaseYmd: ymd,
     status: m.status,
-    type: ymd && ymd > new Date().toISOString().slice(0, 10) ? "soon" : "now",
+    type: type,
   };
 }
 
 export function splitNowAndSoon(movies) {
-  const today = new Date().toISOString().slice(0, 10);
-  /** status === 1: đang chiếu (admin); khác 1 = ngừng chiếu — không hiển thị */
-  const active = (movies || []).filter((m) => m.status === 1);
+  /** Hiển thị phim đang chiếu (status 1) và sắp chiếu (status 2) */
+  const active = (movies || []).filter((m) => m.status === 1 || m.status === 2);
   const mapped = active.map(mapMovieForCard);
-  const nowShowing = mapped.filter((m) => !m.releaseYmd || m.releaseYmd <= today);
-  const comingSoon = mapped.filter((m) => m.releaseYmd && m.releaseYmd > today);
+  const nowShowing = mapped.filter((m) => m.type === "now");
+  const comingSoon = mapped.filter((m) => m.type === "soon");
   return { nowShowing, comingSoon };
 }

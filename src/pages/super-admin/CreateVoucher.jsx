@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { VOUCHERS } from '../../constants/apiEndpoints';
+import { useAdminToast } from '../../components/admin/AdminToast';
 
 const CreateVoucher = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { showToast, ToastComponent } = useAdminToast();
 
   const [formData, setFormData] = useState({
     code: '',
@@ -182,7 +185,16 @@ const CreateVoucher = () => {
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        navigate('/super-admin/vouchers');
+        const json = await res.json().catch(() => null);
+        const message = json?.message || (vid ? 'Cập nhật voucher thành công!' : 'Thêm voucher mới thành công!');
+        const messageType = message === 'Không có thay đổi để cập nhật' ? 'warning' : 'success';
+
+        navigate('/super-admin/vouchers', {
+          state: {
+            message: message,
+            type: messageType
+          }
+        });
       } else {
         const json = await res.json().catch(() => null);
         const errorMessage = json?.message || 'Lưu voucher thất bại';
@@ -200,8 +212,11 @@ const CreateVoucher = () => {
       icon={editData ? "bi-ticket-perforated-fill" : "bi-ticket-perforated"} 
       title={editData ? 'Cập nhật voucher' : 'Tạo voucher mới'} 
       description="Thiết lập các mã giảm giá, chương trình ưu đãi và điểm đổi thưởng cho khách hàng."
+      headerRight={<AdminFormListBack to="/super-admin/vouchers" />}
     >
-      <div className="admin-card admin-slide-up" style={{ maxWidth: '900px', margin: '0 auto' }}>
+      <ToastComponent />
+      <div className="admin-form-page-wrap admin-form-compact">
+      <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4 className="mb-0">
             <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
@@ -211,7 +226,7 @@ const CreateVoucher = () => {
         <div className="admin-card-body p-4">
           {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="row">
               <div className="col-md-6 mb-4">
                 <label className="admin-form-label">Mã Voucher <span className="text-danger">*</span></label>
@@ -289,8 +304,7 @@ const CreateVoucher = () => {
               </div>
             </div>
 
-            <div className="mt-4 d-flex justify-content-center gap-3">
-              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/vouchers')}>Hủy bỏ</button>
+            <div className="mt-3 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
                 {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
                 {editData ? 'Cập nhật voucher' : 'Lưu voucher'}
@@ -298,6 +312,7 @@ const CreateVoucher = () => {
             </div>
           </form>
         </div>
+      </div>
       </div>
     </AdminPanelPage>
   );

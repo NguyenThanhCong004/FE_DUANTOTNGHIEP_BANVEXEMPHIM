@@ -1,16 +1,22 @@
 import React, { useMemo } from "react";
-import { Bell } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
-import { getStoredStaff } from "../../utils/authStorage";
+import { Bell, LogOut } from "lucide-react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import CinemaPicker from "./CinemaPicker";
 import "../../styles/admin-shell.css";
 import "../../styles/admin-design-system.css";
 
 export default function SuperAdminLayout({ children }) {
+  const navigate = useNavigate();
   const staff = getStoredStaff();
 
   const staffName = useMemo(() => staff?.fullname || "Super Admin", [staff]);
+
+  const handleLogout = () => {
+    clearAuthSession();
+    navigate("/login");
+  };
 
   return (
     <div className="app-shell-layout">
@@ -46,6 +52,14 @@ export default function SuperAdminLayout({ children }) {
                 </div>
               </div>
             </NavLink>
+            <button
+              type="button"
+              className="app-shell-logout-btn app-shell-logout-btn--header"
+              onClick={handleLogout}
+            >
+              <LogOut size={16} />
+              <span>Đăng xuất</span>
+            </button>
           </div>
         </header>
 

@@ -136,6 +136,7 @@ export const NEWS = {
 export const MEMBERSHIP_RANKS = {
   LIST: `${API_V1}/membership-ranks`,
   BY_ID: (id) => `${API_V1}/membership-ranks/${id}`,
+  DELETE: (id) => `${API_V1}/membership-ranks/${id}`,
 };
 
 export const PRODUCT_CATEGORIES = {

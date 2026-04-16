@@ -909,3 +909,56 @@
     transform: translateY(0);
   }
 }
+
+/* Form create/edit: rộng hơn, bỏ khoảng trống hai bên */
+.admin-form-page-wrap {
+  width: 100%;
+  max-width: min(1180px, calc(100vw - 2 * var(--admin-space-lg)));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.admin-form-page-wrap .admin-card {
+  width: 100%;
+  max-width: none !important;
+}
+
+.admin-form-compact .admin-form-label {
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.admin-form-compact .admin-search-input,
+.admin-form-compact .form-control,
+.admin-form-compact .form-select,
+.admin-form-compact textarea.admin-search-input,
+.admin-form-compact .card-body .form-control,
+.admin-form-compact .card-body .form-select,
+.admin-form-compact .card-body .black-input {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.9rem;
+}
+
+.admin-form-compact .admin-card-body.p-4 {
+  padding: 1rem 1.25rem !important;
+}
+
+.admin-form-compact .admin-card-header {
+  padding: 0.75rem 1.25rem;
+}
+
+.admin-form-compact .row.g-4 {
+  --bs-gutter-y: 0.85rem;
+  --bs-gutter-x: 0.85rem;
+}
+
+.admin-form-compact .mb-4 {
+  margin-bottom: 0.85rem !important;
+}
+
+.seat-management-page-wrap {
+  width: 100%;
+  max-width: min(1400px, calc(100vw - 2 * var(--admin-space-lg)));
+  margin-left: auto;
+  margin-right: auto;
+}

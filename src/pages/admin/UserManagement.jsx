@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Modal, Button, Badge, Row, Col, Spinner } from 'react-bootstrap';
 import { apiFetch } from '../../utils/apiClient';
 import { USERS } from '../../constants/apiEndpoints';
 
@@ -13,6 +14,41 @@ const UserManagement = () => {
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailUser, setDetailUser] = useState(null);
+
+  const openUserDetail = async (userId) => {
+    setShowDetailModal(true);
+    setDetailUser(null);
+    setDetailLoading(true);
+    try {
+      const res = await apiFetch(USERS.BY_ID(userId));
+      const json = await res.json().catch(() => null);
+      const found = json?.data ?? json;
+      if (res.ok && found) {
+        setDetailUser({
+          userId: found.userId,
+          fullname: found.fullname ?? '',
+          email: found.email ?? '',
+          phone: found.phone ?? '',
+          birthday: found.birthday ?? '',
+          points: found.points ?? 0,
+          status: found.status ?? 1,
+          avatar: found.avatar || 'https://via.placeholder.com/160',
+        });
+      }
+    } catch {
+      setDetailUser(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeUserDetail = () => {
+    setShowDetailModal(false);
+    setDetailUser(null);
+  };
 
   const formatBirthday = (d) => {
     if (!d) return '';
@@ -191,13 +227,14 @@ const UserManagement = () => {
                     <td>{getStatusBadge(user.status)}</td>
                     <td>
                       <div className="admin-table-action-group">
-                        <Link
-                          to={`${prefix}/users/view/${user.userId}`}
+                        <button
+                          type="button"
                           className="admin-table-action-btn admin-table-action-btn--view"
                           title="Xem chi tiết"
+                          onClick={() => openUserDetail(user.userId)}
                         >
                           <i className="bi bi-eye"></i>
-                        </Link>
+                        </button>
                         <Link
                           to={`${prefix}/users/edit/${user.userId}`}
                           className="admin-table-action-btn admin-table-action-btn--edit"
@@ -253,6 +290,75 @@ const UserManagement = () => {
           </div>
         </div>
       )}
+
+      <Modal show={showDetailModal} onHide={closeUserDetail} centered size="lg">
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold text-primary">Chi tiết khách hàng</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-dark pt-0">
+          {detailLoading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" className="me-2" />
+              Đang tải…
+            </div>
+          ) : !detailUser ? (
+            <p className="text-muted mb-0 py-3">Không tìm thấy thông tin khách hàng.</p>
+          ) : (
+            <Row className="g-4 align-items-start">
+              <Col md={4} className="text-center">
+                <img
+                  src={detailUser.avatar}
+                  alt={detailUser.fullname}
+                  className="rounded-circle border"
+                  style={{ width: 140, height: 140, objectFit: 'cover' }}
+                />
+                <h5 className="fw-bold mt-3 mb-1">{detailUser.fullname}</h5>
+                <Badge bg={Number(detailUser.status) === 1 ? 'success' : 'danger'}>
+                  {Number(detailUser.status) === 1 ? 'Hoạt động' : 'Khóa'}
+                </Badge>
+              </Col>
+              <Col md={8}>
+                <Row className="g-3">
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Mã khách hàng</div>
+                    <div className="fw-semibold">#{detailUser.userId}</div>
+                  </Col>
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Email</div>
+                    <div className="fw-semibold">{detailUser.email || '—'}</div>
+                  </Col>
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Số điện thoại</div>
+                    <div className="fw-semibold">{detailUser.phone || '—'}</div>
+                  </Col>
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Ngày sinh</div>
+                    <div className="fw-semibold">{formatBirthday(detailUser.birthday) || '—'}</div>
+                  </Col>
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Điểm tích lũy</div>
+                    <div className="fw-semibold">{detailUser.points} điểm</div>
+                  </Col>
+                </Row>
+                <p className="small text-muted mt-3 mb-0">
+                  Thông tin đăng nhập và mật khẩu không hiển thị tại đây.
+                </p>
+              </Col>
+            </Row>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="border-0">
+          <Button variant="secondary" onClick={closeUserDetail}>
+            Đóng
+          </Button>
+          {detailUser ? (
+            <Button variant="primary" as={Link} to={`${prefix}/users/edit/${detailUser.userId}`} onClick={closeUserDetail}>
+              <i className="bi bi-pencil me-2"></i>
+              Chỉnh sửa
+            </Button>
+          ) : null}
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

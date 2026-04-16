@@ -168,8 +168,8 @@ export default function VoucherExchange() {
           padding: 32px 0 60px;
         }
 
-        .page-title { font-family:'Bebas Neue',sans-serif; font-size:clamp(38px,7vw,64px); letter-spacing:4px; line-height:1; color:#fff; }
-        .page-title span { color:#d4e219; }
+        .page-title { color:#fff; }
+        .page-title span { color:inherit; }
 
         .points-badge { background:linear-gradient(135deg,#7b1fa2,#e91e8c); border-radius:14px; padding:14px 24px; display:inline-flex; align-items:center; gap:12px; box-shadow:0 0 32px rgba(233,30,140,0.3); }
         .points-badge .pts-num { font-family:'Bebas Neue',sans-serif; font-size:36px; color:#d4e219; line-height:1; letter-spacing:2px; }

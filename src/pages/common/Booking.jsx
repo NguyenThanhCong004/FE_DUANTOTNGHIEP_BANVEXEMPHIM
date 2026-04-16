@@ -3,15 +3,34 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
 import Layout from "../../components/layout/Layout";
 import { apiFetch } from "../../utils/apiClient";
-import { SHOWTIMES, SEATS, TICKET_ORDERS, CINEMAS, SHOWTIME_SEAT_HOLDS, SEAT_TYPES } from "../../constants/apiEndpoints";
+import { SHOWTIMES, SEATS, TICKET_ORDERS, CINEMAS, SHOWTIME_SEAT_HOLDS, SEAT_TYPES, ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { checkNoSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
+import {
+  isCoupleTypeName,
+  resolveSeatDisplayColor,
+  resolveSeatTypeColor,
+  contrastTextColorForHex,
+} from "../../utils/seatTypeColors";
 
 const HOLDER_STORAGE_KEY = "booking_seat_holder_id";
 
+// Biến module-level để lưu seatTypes có coupleSeat
+let _seatTypesData = [];
+
+// Hàm kiểm tra ghế đôi dựa vào coupleSeat từ API
+function isCoupleSeatByType(typeName) {
+  if (!typeName) return false;
+  const st = _seatTypesData.find((t) => t.name === typeName);
+  if (st && st.coupleSeat !== undefined) {
+    return st.coupleSeat === true;
+  }
+  return isCoupleTypeName(typeName);
+}
+
 // Grid constants - giống như SeatManagement
 const ROWS = 15;
-const COLS = 25;
+const COLS = 24;
 const SEAT_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 // Grid functions - giống như SeatManagement
@@ -46,12 +65,9 @@ function buildSeatGrid(seats) {
     if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
       const idx = y * COLS + x;
       
-      // Xác định loại ghế
-      let seatType = "Thường";
-      if (seat.seatTypeName?.toLowerCase().includes("vip")) seatType = "VIP";
-      if (seat.seatTypeName?.toLowerCase().includes("đôi") || seat.seatTypeName?.toLowerCase().includes("sweet")) seatType = "Đôi";
-      
-      // Đặt ghế vào grid
+      const seatType = String(seat.seatTypeName || "Thường").trim() || "Thường";
+
+      // Đặt ghế vào grid (type = tên loại trên DB để khớp màu chú thích / API)
       grid[idx] = {
         rowIdx: y,
         colIdx: x,
@@ -62,7 +78,7 @@ function buildSeatGrid(seats) {
       };
       
       // Nếu là ghế đôi, đánh dấu ô tiếp theo là OccupiedByDouble
-      if (seatType === "Đôi" && x + 1 < COLS) {
+      if (isCoupleSeatByType(seatType) && x + 1 < COLS) {
         grid[idx + 1] = {
           rowIdx: y,
           colIdx: x + 1,
@@ -77,60 +93,19 @@ function buildSeatGrid(seats) {
   return grid;
 }
 
-// Function lấy màu ghế - 100% dựa trên data từ API
-function getSeatColor(cell, r, c, seatTypes = []) {
-  if (!isPlacedSeat(cell)) return "#e9ecef"; // Placeholder (đường đi)
-  if (!cell.isActive) return "#6c757d"; // Ghế bị khóa/bảo trì - xám đậm hơn
-  
-  // Ưu tiên tuyệt đối data từ API
-  if (seatTypes && seatTypes.length > 0) {
-    const seatType = seatTypes.find(st => st.name === cell.type);
-    if (seatType) {
-      console.log(`Found seat type for "${cell.type}":`, seatType);
-      // Dùng màu từ API, nếu không có thì dùng màu mặc định cho loại ghế đó
-      const color = seatType.color || getDefaultColorForType(cell.type);
-      console.log(`Using color for "${cell.type}":`, color);
-      return color;
-    } else {
-      console.log(`No seat type found for "${cell.type}" in API data`);
-    }
-  }
-  
-  // Fallback cuối cùng cho các loại ghế cơ bản
-  const fallbackColor = getDefaultColorForType(cell.type);
-  console.log(`Using fallback color for "${cell.type}":`, fallbackColor);
-  return fallbackColor;
-}
-
-// Function màu mặc định cho các loại ghế cơ bản (chỉ dùng khi API không có)
-function getDefaultColorForType(typeName) {
-  const defaultColors = {
-    "Thường": "#007bff",    // Xanh dương
-    "VIP": "#ffc107",        // Vàng
-    "Ghế đôi Sweetbox": "#dc3545", // Đỏ
-    "Đôi": "#dc3545",        // Đỏ (để tương thích với data cũ)
-  };
-  
-  // Nếu không có trong default, tạo màu ngẫu nhiên nhưng nhất quán
-  if (!defaultColors[typeName]) {
-    const colors = ["#6f42c1", "#20c997", "#fd7e14", "#6c757d", "#17a2b8", "#e83e8c", "#28a745"];
-    const hash = typeName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  }
-  
-  return defaultColors[typeName];
+function getSeatColor(cell, seatTypes = []) {
+  if (!isPlacedSeat(cell)) return "#e9ecef";
+  if (!cell.isActive) return "#6c757d";
+  const raw = cell.seatData?.seatTypeColor ?? cell.seatData?.seat_type_color;
+  return resolveSeatDisplayColor(cell.type, seatTypes, raw);
 }
 
 // Function để lấy danh sách tên loại ghế từ API
 const getSeatTypeOptions = (seatTypes) => {
-  console.log("getSeatTypeOptions input:", seatTypes);
   if (!seatTypes || seatTypes.length === 0) {
-    console.log("No seat types, using fallback");
     return ["Thường", "VIP", "Đôi"];
   }
-  const options = seatTypes.map(st => st.name).filter(Boolean);
-  console.log("getSeatTypeOptions output:", options);
-  return options;
+  return seatTypes.map((st) => st.name).filter(Boolean);
 };
 
 function getOrCreateSeatHolderId() {
@@ -174,6 +149,7 @@ function normalizeSeat(s) {
     x: s.x != null ? Number(s.x) : 0,
     y: s.y != null ? Number(s.y) : 0,
     seatTypeName: s.seatTypeName ?? s.seat_type_name ?? "",
+    seatTypeColor: s.seatTypeColor ?? s.seat_type_color ?? "",
     surcharge: Number(s.seatTypeSurcharge ?? s.seat_type_surcharge ?? 0) || 0,
     status: s.status ?? "available", // available, locked, maintenance
   };
@@ -191,11 +167,6 @@ function buildSeatRows(seats) {
     row,
     seats: byRow.get(row).sort((a, b) => (a.x || 0) - (b.x || 0) || a.number.localeCompare(b.number, undefined, { numeric: true })),
   }));
-}
-
-function isCoupleType(name) {
-  const n = (name || "").toLowerCase();
-  return n.includes("đôi") || n.includes("sweet") || n.includes("couple");
 }
 
 function normalizeSnackProduct(o) {
@@ -228,6 +199,11 @@ const Booking = () => {
   const [peerHeldList, setPeerHeldList] = useState([]);
   const [zoomLevel, setZoomLevel] = useState(1); // Zoom level: 0.5 to 2
 
+  // Voucher states
+  const [userVouchers, setUserVouchers] = useState([]);
+  const [selectedVoucherId, setSelectedVoucherId] = useState(null);
+  const [voucherLoading, setVoucherLoading] = useState(false);
+
   const holderRef = useRef(null);
   if (!holderRef.current) {
     holderRef.current = getOrCreateSeatHolderId();
@@ -252,7 +228,7 @@ const Booking = () => {
 
   const seatRows = useMemo(() => buildSeatRows(seats), [seats]);
   
-  const seatGrid = useMemo(() => buildSeatGrid(seats), [seats]);
+  const seatGrid = useMemo(() => buildSeatGrid(seats), [seats, seatTypes]);
 
   // Zoom controls
   const handleZoomIn = () => {
@@ -324,19 +300,18 @@ const Booking = () => {
         console.log("Loading seat types from API...");
         const response = await apiFetch(SEAT_TYPES.LIST);
         console.log("Seat types API response:", response);
-        console.log("Seat types API response data:", response?.data);
-        console.log("Seat types API response data length:", response?.data?.length);
-        
-        if (response && response.data) {
-          console.log("Setting seat types from API:", response.data);
-          console.log("Seat types details:", response.data.map(st => ({
-            id: st.id,
+        // Xử lý cả trường hợp response là array hoặc có .data
+        const seatTypesData = Array.isArray(response) ? response : (response?.data || []);
+        console.log("Seat types processed:", seatTypesData);
+        if (seatTypesData.length > 0) {
+          console.log("Setting seat types from API:", seatTypesData);
+          // Lưu vào biến module-level với coupleSeat
+          _seatTypesData = seatTypesData.map(st => ({
             name: st.name,
-            color: st.color,
-            description: st.description,
-            note: st.note
-          })));
-          setSeatTypes(response.data);
+            coupleSeat: st.coupleSeat ?? st.couple_seat ?? isCoupleTypeName(st.name)
+          }));
+          console.log("_seatTypesData loaded:", _seatTypesData);
+          setSeatTypes(seatTypesData);
         } else {
           console.log("No data in API response, using fallback");
           // Fallback to default seat types
@@ -480,11 +455,11 @@ const Booking = () => {
     };
   }, [showtimeId]);
 
-  // Updated seat price calculation with VAT
+  // Tính giá ghế: basePrice + surcharge (không VAT), ghế đôi x2
   const seatPrice = (seat) => {
     const basePrice = baseTicketPrice + (seat?.surcharge || 0);
-    const priceWithVat = basePrice * (1 + vatRate / 100);
-    return Math.round(priceWithVat);
+    const multiplier = isCoupleSeatByType(seat?.seatTypeName) ? 2 : 1;
+    return Math.round(basePrice * multiplier);
   };
 
   const toggleSeat = (seat) => {
@@ -520,7 +495,65 @@ const Booking = () => {
     return t;
   }, [snackProducts, snackCart]);
 
-  const grandTotal = seatPriceTotal + snackTotal;
+  // Voucher calculations
+  const selectedVoucher = useMemo(() => {
+    return userVouchers.find(v => v.userVoucherId === selectedVoucherId);
+  }, [userVouchers, selectedVoucherId]);
+
+  const discountAmount = useMemo(() => {
+    if (!selectedVoucher) return 0;
+    const voucher = selectedVoucher.voucher;
+    if (!voucher) return 0;
+    
+    const subtotal = seatPriceTotal + snackTotal;
+    const minOrder = voucher.minOrderValue || 0;
+    
+    if (subtotal < minOrder) return 0;
+    
+    let discount = 0;
+    if (voucher.discountType === 'PERCENT' || voucher.discountType === '%') {
+      discount = subtotal * (voucher.value / 100);
+    } else {
+      discount = voucher.value;
+    }
+    
+    // Apply max discount limit
+    const maxDiscount = voucher.maxDiscountAmount;
+    if (maxDiscount != null && discount > maxDiscount) {
+      discount = maxDiscount;
+    }
+    
+    // Cannot exceed subtotal
+    if (discount > subtotal) discount = subtotal;
+    
+    return Math.round(discount);
+  }, [selectedVoucher, seatPriceTotal, snackTotal]);
+
+  const grandTotal = seatPriceTotal + snackTotal - discountAmount;
+
+  // Load user vouchers when logged in
+  useEffect(() => {
+    if (!getAccessToken()) return;
+    
+    const loadVouchers = async () => {
+      setVoucherLoading(true);
+      try {
+        const res = await apiFetch(ME.VOUCHERS);
+        const json = await res.json().catch(() => null);
+        if (res.ok && json?.data) {
+          // Filter only unused vouchers (status === 1)
+          const available = json.data.filter(v => v.status === 1);
+          setUserVouchers(available);
+        }
+      } catch (err) {
+        console.error('Failed to load vouchers:', err);
+      } finally {
+        setVoucherLoading(false);
+      }
+    };
+    
+    loadVouchers();
+  }, []);
 
   const addSnack = (productId) => {
     setSnackCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
@@ -538,7 +571,7 @@ const Booking = () => {
   const getSeatVisual = (seat, isSelected, isPeerHeld) => {
     const id = Number(seat.seatId);
     const booked = bookedSet.has(id);
-    const couple = isCoupleType(seat.seatTypeName);
+    const couple = isCoupleSeatByType(seat.seatTypeName);
     
     // Ưu tiên trạng thái từ database
     if (seat.status === "locked") {
@@ -649,6 +682,7 @@ const Booking = () => {
           clientHoldId: holderRef.current || undefined,
           returnUrl: `${origin}/payment/success`,
           cancelUrl: `${origin}/payment/cancel`,
+          userVoucherId: selectedVoucherId || undefined,
         }),
       });
       const body = await res.json().catch(() => null);
@@ -705,7 +739,13 @@ const Booking = () => {
 
   return (
     <Layout>
-      <div className="container my-5 pt-4">
+      <div className="container-fluid py-5" style={{
+        background: `radial-gradient(ellipse 65% 50% at 15% 20%, rgba(123,31,162,0.18) 0%, transparent 60%),
+          radial-gradient(ellipse 50% 40% at 85% 80%, rgba(233,30,140,0.13) 0%, transparent 60%),
+          #0f102a`,
+        minHeight: '100vh',
+        padding: '40px 20px'
+      }}>
         <div
           className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white bg-opacity-10"
           style={{ backdropFilter: "blur(10px)" }}
@@ -733,10 +773,6 @@ const Booking = () => {
                   <span className={`fw-bold ${showEnded ? "text-secondary" : "text-warning"}`}>• {showtime.status}</span>
                 ) : null}
               </div>
-            </div>
-            <div className="ms-auto text-end d-none d-md-block">
-              <small className="text-white-50 d-block">Giá vé (ước tính)</small>
-              <span className="text-danger fw-black">{baseTicketPrice.toLocaleString("vi-VN")} đ + phụ thu + {vatRate}% VAT</span>
             </div>
           </div>
         </div>
@@ -769,7 +805,7 @@ const Booking = () => {
                 <div className="alert alert-secondary border-0 small mb-3">Suất này đã kết thúc — không thể chọn ghế.</div>
               ) : null}
 
-              <div className="card p-4 border-0 shadow-lg bg-white bg-opacity-10 rounded-5 mb-4" style={{ backdropFilter: "blur(10px)" }}>
+              <div className="card p-4 border-0 shadow-lg rounded-5 mb-4" style={{ backdropFilter: "blur(10px)", background: 'rgba(20, 22, 50, 0.85)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <div className="text-center mb-4">
                   <div
                     className="mx-auto shadow-sm"
@@ -779,35 +815,23 @@ const Booking = () => {
                 </div>
 
                 <div className="d-flex flex-wrap justify-content-center gap-3 small text-white-50 mb-3">
-                  {(() => {
-                    console.log("Rendering legend with seatTypes:", seatTypes);
-                    const seatTypeOptions = getSeatTypeOptions(seatTypes);
-                    console.log("Seat type options for legend:", seatTypeOptions);
-                    return seatTypeOptions.map((typeName, index) => {
-                      // Tạo cell giả để lấy màu từ getSeatColor
-                      const mockCell = { type: typeName, isActive: true };
-                      const seatColor = getSeatColor(mockCell, 0, 0, seatTypes);
-                      // Chuyển đổi màu solid thành màu rgba cho legend
-                      const rgbaColor = seatColor.includes('rgba') ? seatColor : `${seatColor}CC`; // Thêm alpha 80%
-                      
-                      console.log(`Legend item "${typeName}": color=${seatColor}, rgba=${rgbaColor}`);
-                      
-                      return (
-                        <span key={typeName}>
-                          <span 
-                            className="d-inline-block rounded me-1 align-middle" 
-                            style={{ 
-                              width: 14, 
-                              height: 14, 
-                              background: rgbaColor, 
-                              border: `1px solid ${rgbaColor.replace('CC', 'FF')}` 
-                            }} 
-                          />{" "}
-                          {typeName}
-                        </span>
-                      );
-                    });
-                  })()}
+                  {getSeatTypeOptions(seatTypes).map((typeName) => {
+                    const seatColor = resolveSeatTypeColor(typeName, seatTypes);
+                    return (
+                      <span key={typeName}>
+                        <span
+                          className="d-inline-block rounded me-1 align-middle"
+                          style={{
+                            width: 14,
+                            height: 14,
+                            background: seatColor,
+                            border: "1px solid rgba(255,255,255,0.35)",
+                          }}
+                        />{" "}
+                        {typeName}
+                      </span>
+                    );
+                  })}
                   <span>
                     <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(40, 167, 69, 0.8)", border: "1px solid rgba(40, 167, 69, 0.9)" }} />{" "}
                     Đã bán
@@ -927,25 +951,13 @@ const Booking = () => {
                               const idx = r * COLS + c;
                               const cell = seatGrid[idx] || { type: "Empty", isActive: false, label: "" };
                               
-                              // Debug: Log cell data
-                              if (isCoupleType(cell.type)) {
-                                console.log(`Couple seat found at [${r},${c}]:`, cell);
-                                console.log(`Next cell [${r},${c+1}]:`, seatGrid[idx + 1]);
-                              }
-                              
-                              // Kiểm tra xem ô này có phải là ô thứ hai của ghế đôi không
-                              const isSecondCellOfCouple = c > 0 && isCoupleType(seatGrid[idx - 1]?.type);
-                              if (isSecondCellOfCouple) {
-                                console.log(`Skipping second cell of couple at [${r},${c}]`);
-                                return null; // Skip ô thứ hai của ghế đôi
-                              }
-                              
+                              // Bỏ qua ô bị chiếm bởi ghế đôi
                               if (cell.type === "OccupiedByDouble") return null;
                               const placed = isPlacedSeat(cell);
                               const showActive = placed && cell.isActive;
                               
                               // Kiểm tra xem có phải ghế đôi không
-                              const isCouple = isCoupleType(cell.type);
+                              const isCouple = isCoupleSeatByType(cell.type);
                               
                               // Nếu là ghế thực tế, lấy data từ seatData
                               if (placed && cell.seatData) {
@@ -955,7 +967,8 @@ const Booking = () => {
                                 const peerHeld = peerHeldSet.has(id);
                                 const vis = getSeatVisual(seat, isSelected, peerHeld);
                                 const booked = bookedSet.has(id);
-                                
+                                const seatFill = getSeatColor(cell, seatTypes);
+
                                 return (
                                   <button
                                     key={idx}
@@ -967,7 +980,7 @@ const Booking = () => {
                                         ? "Ghế đang bảo trì - không thể đặt"
                                         : peerHeld && !isSelected
                                         ? "Người khác đang chọn ghế này"
-                                        : `${seat.seatTypeName || "Ghế"} — ${baseTicketPrice.toLocaleString("vi-VN")} đ${seat?.surcharge ? ` + ${seat.surcharge.toLocaleString("vi-VN")} đ phụ thu` : ""} + ${vatRate}% VAT = ${seatPrice(seat).toLocaleString("vi-VN")} đ`
+                                        : `${seat.seatTypeName || "Ghế"}`
                                     }
                                     disabled={booked || showEnded || (peerHeld && !isSelected) || seat.status === "locked" || seat.status === "maintenance"}
                                     onClick={() => toggleSeat(seat)}
@@ -981,10 +994,8 @@ const Booking = () => {
                                       fontWeight: "bold",
                                       borderRadius: `${Math.round(6 * zoomLevel)}px`,
                                       transition: "all 0.2s",
-                                      border: "1px solid rgba(0,0,0,0.06)",
-                                      cursor: "pointer",
-                                      backgroundColor: getSeatColor(cell, r, c, seatTypes),
-                                      color: placed ? vis.color : "transparent", // Sử dụng màu từ getSeatVisual
+                                      backgroundColor: seatFill,
+                                      color: placed ? contrastTextColorForHex(seatFill) : "transparent",
                                       gridColumn: isCouple ? "span 2" : undefined,
                                       opacity: placed && !cell.isActive ? 0.85 : 1,
                                       border: vis.border,
@@ -1031,19 +1042,19 @@ const Booking = () => {
                 )}
               </div>
 
-              <div className="card p-4 border-0 shadow-lg bg-white bg-opacity-10 rounded-5" style={{ backdropFilter: "blur(10px)" }}>
-                <h4 className="fw-black mb-2 tracking-tighter text-uppercase" style={{ color: '#000' }}>
+              <div className="card p-4 border-0 shadow-lg rounded-5" style={{ backdropFilter: "blur(10px)", background: 'rgba(20, 22, 50, 0.85)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <h4 className="fw-black mb-2 tracking-tighter text-uppercase" style={{ color: '#fff' }}>
                   <i className="fas fa-popcorn text-warning me-3" />
                   Bắp nước kèm vé
                 </h4>
                 {showtime?.cinemaName ? (
-                  <p className="small mb-3" style={{ color: '#000' }}>
+                  <p className="small mb-3" style={{ color: '#fff' }}>
                     Menu rạp <span className="text-warning fw-bold">{showtime.cinemaName}</span> — thanh toán chung PayOS với vé.
                   </p>
                 ) : null}
                 {snackMenuError ? <div className="alert alert-warning py-2 small border-0 mb-0">{snackMenuError}</div> : null}
                 {!snackMenuError && snackProducts.length === 0 && showtime?.cinemaId ? (
-                  <p className="small text-center py-3 mb-0" style={{ color: '#000' }}>Rạp chưa có món đang bán.</p>
+                  <p className="small text-center py-3 mb-0" style={{ color: '#fff' }}>Rạp chưa có món đang bán.</p>
                 ) : null}
                 {!snackMenuError && snackProducts.length > 0 ? (
                   <div className="d-flex flex-column gap-2" style={{ maxHeight: 320, overflowY: "auto" }}>
@@ -1056,7 +1067,7 @@ const Booking = () => {
                           style={{ background: "rgba(0,0,0,0.2)" }}
                         >
                           <div className="flex-grow-1 min-width-0">
-                            <div className="fw-bold small text-truncate" style={{ color: '#000' }}>{p.name}</div>
+                            <div className="fw-bold small text-truncate" style={{ color: '#fff' }}>{p.name}</div>
                             <div className="text-danger fw-bold small">{p.price.toLocaleString("vi-VN")} đ</div>
                           </div>
                           <div className="d-flex align-items-center gap-1">
@@ -1068,7 +1079,7 @@ const Booking = () => {
                             >
                               −
                             </button>
-                            <span className="fw-bold px-1" style={{ minWidth: 22, textAlign: "center", color: '#000' }}>
+                            <span className="fw-bold px-1" style={{ minWidth: 22, textAlign: "center", color: '#fff' }}>
                               {q}
                             </span>
                             <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => addSnack(p.productId)}>
@@ -1085,28 +1096,28 @@ const Booking = () => {
 
             <div className="col-lg-4">
               <div
-                className="card p-4 border-0 shadow-lg rounded-5 bg-white bg-opacity-10 sticky-top"
-                style={{ top: 100, backdropFilter: "blur(20px)" }}
+                className="card p-4 border-0 shadow-lg rounded-5 sticky-top"
+                style={{ top: 100, backdropFilter: "blur(20px)", background: 'rgba(20, 22, 50, 0.9)', border: '1px solid rgba(255,255,255,0.1)' }}
               >
-                <h4 className="fw-black mb-4 text-uppercase tracking-tighter border-bottom border-white border-opacity-10 pb-3" style={{ color: '#000' }}>
+                <h4 className="fw-black mb-4 text-uppercase tracking-tighter border-bottom border-white border-opacity-10 pb-3" style={{ color: '#fff' }}>
                   Hóa đơn
                 </h4>
 
-                <div className="bg-white bg-opacity-5 p-3 rounded-4 mb-4">
+                <div className="p-3 rounded-4 mb-4" style={{ background: 'rgba(0,0,0,0.25)' }}>
                   <div className="d-flex justify-content-between mb-2">
-                    <span className="small fw-bold" style={{ color: '#000' }}>PHIM</span>
-                    <span className="fw-bold text-end small" style={{ color: '#000' }}>{showtime.movieTitle}</span>
+                    <span className="small fw-bold" style={{ color: '#fff' }}>PHIM</span>
+                    <span className="fw-bold text-end small" style={{ color: '#fff' }}>{showtime.movieTitle}</span>
                   </div>
                   <div className="d-flex justify-content-between mb-2 small">
-                    <span className="small fw-bold" style={{ color: '#000' }}>SUẤT</span>
-                    <span className="text-end" style={{ color: '#000' }}>
+                    <span className="small fw-bold" style={{ color: '#fff' }}>SUẤT</span>
+                    <span className="text-end" style={{ color: '#fff' }}>
                       {showtime.date} {showtime.time}
                     </span>
                   </div>
                   <div className="d-flex justify-content-between mb-2 border-top border-white border-opacity-5 pt-2">
-                    <span className="small fw-bold" style={{ color: '#000' }}>GHẾ ({selectedSeatIds.length})</span>
+                    <span className="small fw-bold" style={{ color: '#fff' }}>GHẾ ({selectedSeatIds.length})</span>
                     <div className="text-end">
-                      <div className="fw-bold small" style={{ color: '#000' }}>{selectedLabels.length ? selectedLabels.join(", ") : "—"}</div>
+                      <div className="fw-bold small" style={{ color: '#fff' }}>{selectedLabels.length ? selectedLabels.join(", ") : "—"}</div>
                     </div>
                   </div>
                   {selectedSeatIds.map((id) => {
@@ -1114,22 +1125,71 @@ const Booking = () => {
                     if (!s) return null;
                     return (
                       <div key={id} className="d-flex justify-content-between small mb-1">
-                        <span style={{ color: '#000' }}>
+                        <span style={{ color: '#fff' }}>
                           {s.row}
                           {s.number} ({s.seatTypeName || "Ghế"})
                         </span>
-                        <span className="fw-bold" style={{ color: '#000' }}>{seatPrice(s).toLocaleString("vi-VN")} đ</span>
+                        <span className="fw-bold" style={{ color: '#fff' }}>{seatPrice(s).toLocaleString("vi-VN")} đ</span>
                       </div>
                     );
                   })}
                   {snackTotal > 0 ? (
                     <div className="d-flex justify-content-between small mb-1 mt-2 pt-2 border-top border-white border-opacity-10">
-                      <span className="fw-bold" style={{ color: '#000' }}>BẮP NƯỚC</span>
-                      <span className="fw-bold" style={{ color: '#000' }}>{snackTotal.toLocaleString("vi-VN")} đ</span>
+                      <span className="fw-bold" style={{ color: '#fff' }}>BẮP NƯỚC</span>
+                      <span className="fw-bold" style={{ color: '#fff' }}>{snackTotal.toLocaleString("vi-VN")} đ</span>
                     </div>
                   ) : null}
+
+                  {/* Voucher Selection */}
+                  <div className="mt-3 pt-2 border-top border-white border-opacity-10">
+                    <div className="small fw-bold mb-2" style={{ color: '#fff' }}>
+                      <i className="fas fa-ticket-alt me-1 text-success" /> MÃ GIẢM GIÁ
+                    </div>
+                    {getAccessToken() ? (
+                      voucherLoading ? (
+                        <div className="small text-muted">Đang tải voucher...</div>
+                      ) : userVouchers.length === 0 ? (
+                        <div className="small text-muted">Bạn chưa có voucher nào</div>
+                      ) : (
+                        <select
+                          className="form-select form-select-sm mb-2"
+                          value={selectedVoucherId || ""}
+                          onChange={(e) => setSelectedVoucherId(e.target.value ? Number(e.target.value) : null)}
+                          style={{ fontSize: '0.85rem' }}
+                        >
+                          <option value="">-- Chọn voucher --</option>
+                          {userVouchers.map((v) => (
+                            <option key={v.userVoucherId} value={v.userVoucherId}>
+                              {v.voucher?.code} — {v.voucher?.discountType === 'PERCENT' || v.voucher?.discountType === '%' 
+                                ? `Giảm ${v.voucher?.value}%` 
+                                : `Giảm ${v.voucher?.value?.toLocaleString('vi-VN')}đ`}
+                              {v.voucher?.minOrderValue > 0 && ` (Đơn tối thiểu ${v.voucher.minOrderValue.toLocaleString('vi-VN')}đ)`}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    ) : (
+                      <div className="small text-muted">
+                        <Link to="/login" state={{ from: `/booking/${showtimeId}` }} style={{ color: '#fff' }}>
+                          Đăng nhập để sử dụng voucher
+                        </Link>
+                      </div>
+                    )}
+                    {selectedVoucher && discountAmount > 0 && (
+                      <div className="d-flex justify-content-between small mb-1 text-success">
+                        <span>Giảm giá ({selectedVoucher.voucher?.code})</span>
+                        <span className="fw-bold">-{discountAmount.toLocaleString("vi-VN")} đ</span>
+                      </div>
+                    )}
+                    {selectedVoucher && discountAmount === 0 && (
+                      <div className="small text-warning">
+                        Đơn hàng chưa đạt giá trị tối thiểu {selectedVoucher.voucher?.minOrderValue?.toLocaleString('vi-VN')}đ
+                      </div>
+                    )}
+                  </div>
+
                   <div className="d-flex justify-content-between align-items-center mt-3 border-top border-white border-opacity-10 pt-3">
-                    <span className="small fw-bold" style={{ color: '#000' }}>TỔNG</span>
+                    <span className="small fw-bold" style={{ color: '#fff' }}>TỔNG THANH TOÁN</span>
                     <h3 className="text-danger fw-black m-0">{grandTotal.toLocaleString("vi-VN")} đ</h3>
                   </div>
                 </div>

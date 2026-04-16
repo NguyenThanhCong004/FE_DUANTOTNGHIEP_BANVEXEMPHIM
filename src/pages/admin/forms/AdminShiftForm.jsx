@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Form, Button, Row, Col, Card } from "react-bootstrap";
-import { ArrowLeft, UserCheck, Calendar as CalendarIcon } from "lucide-react";
+import { UserCheck, Calendar as CalendarIcon } from "lucide-react";
 import { getAccessToken, getStoredStaff } from "../../../utils/authStorage";
 import { SuperAdminCinemaContext } from "../../../components/layout/SuperAdminCinemaContext";
 import { apiUrl } from "../../../utils/apiClient";
@@ -239,14 +239,7 @@ export default function AdminShiftForm({ mode = "add" }) {
         }
       `}</style>
 
-      <div className="d-flex align-items-center gap-3 mb-4">
-        <Button
-          variant="light"
-          className="rounded-circle p-2 shadow-sm"
-          onClick={() => navigate(`${prefix}/shifts`)}
-        >
-          <ArrowLeft size={20} />
-        </Button>
+      <div className="d-flex align-items-start justify-content-between gap-3 mb-4 flex-wrap">
         <div>
           <h2 className="mb-0 fw-bold">
             {isEdit ? `Chỉnh sửa phân ca #${id}` : "Phân ca làm việc mới"}
@@ -255,6 +248,9 @@ export default function AdminShiftForm({ mode = "add" }) {
             {isEdit ? "Cập nhật nhân sự cho các vị trí trong ca làm việc" : "Mỗi ca yêu cầu đủ 3 nhân viên cho 3 vị trí khác nhau"}
           </p>
         </div>
+        <Button variant="light" className="shadow-sm text-nowrap" onClick={() => navigate(`${prefix}/shifts`)}>
+          Danh sách ca
+        </Button>
       </div>
 
       {error ? <div className="text-center text-danger fw-bold mb-3">{error}</div> : null}
@@ -264,7 +260,7 @@ export default function AdminShiftForm({ mode = "add" }) {
         </div>
       ) : null}
 
-      <Form onSubmit={handleSubmit}>
+      <Form onSubmit={handleSubmit} noValidate>
         <Row className="justify-content-center">
           <Col lg={10}>
             <Card className="border-0 shadow-sm p-4 rounded-4 mb-4">
@@ -283,7 +279,6 @@ export default function AdminShiftForm({ mode = "add" }) {
                       className="shift-input"
                       value={formData.date}
                       onChange={handleInputChange}
-                      required
                       disabled={loadingStaff || submitting || (isSuperAdmin && selectedCinemaId == null)}
                     />
                   </Form.Group>
@@ -324,7 +319,6 @@ export default function AdminShiftForm({ mode = "add" }) {
                       className="shift-input bg-white"
                       value={formData.staff_banve}
                       onChange={handleInputChange}
-                      required
                       disabled={loadingStaff || submitting || (isSuperAdmin && selectedCinemaId == null)}
                     >
                       {isEdit ? null : <option value="">-- Chọn nhân viên --</option>}
@@ -346,7 +340,6 @@ export default function AdminShiftForm({ mode = "add" }) {
                       className="shift-input bg-white"
                       value={formData.staff_soatve}
                       onChange={handleInputChange}
-                      required
                       disabled={loadingStaff || submitting || (isSuperAdmin && selectedCinemaId == null)}
                     >
                       {isEdit ? null : <option value="">-- Chọn nhân viên --</option>}
@@ -368,7 +361,6 @@ export default function AdminShiftForm({ mode = "add" }) {
                       className="shift-input bg-white"
                       value={formData.staff_phucvu}
                       onChange={handleInputChange}
-                      required
                       disabled={loadingStaff || submitting || (isSuperAdmin && selectedCinemaId == null)}
                     >
                       {isEdit ? null : <option value="">-- Chọn nhân viên --</option>}

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { getAccessToken, getStoredStaff, getActiveShift } from '../../utils/authStorage';
 import { apiUrl } from '../../utils/apiClient';
 import { MOVIES, SHOWTIMES, CINEMAS, SEATS, COUNTER_ORDERS, SEAT_TYPES } from '../../constants/apiEndpoints';
 import { checkNoSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
+import { isCoupleTypeName, resolveSeatDisplayColor, resolveSeatTypeColor } from "../../utils/seatTypeColors";
 
 // Grid constants
 const ROWS = 15;
-const COLS = 25;
+const COLS = 24;
 
 const isPlacedSeat = (cell) =>
   cell && cell.type !== "Empty" && cell.type !== "OccupiedByDouble";
@@ -35,11 +37,8 @@ function buildSeatGrid(seats) {
     
     if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
       const idx = y * COLS + x;
-      let seatType = "Thường";
-      const name = (seat.seatTypeName || "").toLowerCase();
-      if (name.includes("vip")) seatType = "VIP";
-      if (name.includes("đôi") || name.includes("sweet") || name.includes("couple")) seatType = "Đôi";
-      
+      const seatType = String(seat.seatTypeName || "Thường").trim() || "Thường";
+
       grid[idx] = {
         rowIdx: y,
         colIdx: x,
@@ -49,7 +48,7 @@ function buildSeatGrid(seats) {
         seatData: seat,
       };
       
-      if (seatType === "Đôi" && x + 1 < COLS) {
+      if (isCoupleTypeName(seatType) && x + 1 < COLS) {
         grid[idx + 1] = {
           rowIdx: y,
           colIdx: x + 1,
@@ -66,21 +65,8 @@ function buildSeatGrid(seats) {
 function getSeatColor(cell, seatTypes = []) {
   if (!isPlacedSeat(cell)) return "transparent";
   if (!cell.isActive) return "#6c757d";
-  
-  if (seatTypes && seatTypes.length > 0) {
-    const seatType = seatTypes.find(st => {
-      const typeName = cell.type === "Đôi" ? "Ghế đôi Sweetbox" : cell.type;
-      return st.name === typeName || st.name === cell.type;
-    });
-    if (seatType && seatType.color) return seatType.color;
-  }
-  
-  const defaultColors = {
-    "Thường": "#007bff",
-    "VIP": "#ffc107",
-    "Đôi": "#dc3545",
-  };
-  return defaultColors[cell.type] || "#6c757d";
+  const raw = cell.seatData?.seatTypeColor ?? cell.seatData?.seat_type_color;
+  return resolveSeatDisplayColor(cell.type, seatTypes, raw);
 }
 
 const Sales = () => {
@@ -134,6 +120,30 @@ const Sales = () => {
     }
     return () => clearInterval(timer);
   }, [timeLeft, orderSuccess]);
+
+  // Cảnh báo khi chuyển trang trong khi đang quét mã QR
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (orderSuccess?.paymentMethod === 'TRANSFER' && orderSuccess?.orderCode === 'PENDING') {
+        e.preventDefault();
+        e.returnValue = 'Đang chờ thanh toán chuyển khoản. Nếu rời trang, đơn hàng sẽ bị hủy. Bạn có chắc chắn muốn hủy?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [orderSuccess]);
+
+  // Chặn navigation khi đang quét mã QR
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) => {
+      if (orderSuccess?.paymentMethod === 'TRANSFER' && orderSuccess?.orderCode === 'PENDING') {
+        return currentLocation.pathname !== nextLocation.pathname;
+      }
+      return false;
+    }
+  );
 
   const handleCancelPayment = () => {
     setOrderSuccess(null);
@@ -531,7 +541,7 @@ const Sales = () => {
                     const id = Number(seat.seatId);
                     const isBooked = bookedSeatIds.includes(id);
                     const isSelected = !!selectedSeats.find(s => s.seatId === id);
-                    const isDouble = cell.type === "Đôi";
+                    const isDouble = isCoupleTypeName(cell.type);
                     
                     let statusClass = "available";
                     if (isBooked) statusClass = "locked";
@@ -569,9 +579,24 @@ const Sales = () => {
         </div>
 
         <div className="seat-legend mt-4 d-flex justify-content-center flex-wrap gap-4">
-          <div className="legend-item"><span className="box available"></span> Thường</div>
-          <div className="legend-item"><span className="box vip"></span> VIP</div>
-          <div className="legend-item"><span className="box double"></span> Đôi</div>
+          {(seatTypes.length > 0 ? seatTypes : [{ name: "Thường" }, { name: "VIP" }, { name: "Đôi" }]).map((st) => {
+            const fill = resolveSeatTypeColor(st.name, seatTypes);
+            return (
+              <div key={st.name} className="legend-item d-flex align-items-center gap-1">
+                <span
+                  className="rounded"
+                  style={{
+                    display: "inline-block",
+                    width: 14,
+                    height: 14,
+                    background: fill,
+                    border: "1px solid rgba(0,0,0,0.2)",
+                  }}
+                />
+                {st.name}
+              </div>
+            );
+          })}
           <div className="legend-item"><span className="box selected"></span> Đang chọn</div>
           <div className="legend-item"><span className="box locked"></span> Đã đặt</div>
         </div>
@@ -745,6 +770,35 @@ const Sales = () => {
                 <button className="btn btn-primary w-100 py-2 fw-bold" onClick={handleNewOrder}>ĐƠN MỚI</button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Confirm dialog khi navigate trong khi đang quét QR */}
+      {blocker.state === "blocked" && (
+        <div className="pos-overlay">
+          <div className="success-modal" style={{ maxWidth: '400px' }}>
+            <h5 className="fw-bold text-white mb-3">Xác nhận rời trang?</h5>
+            <p className="text-white-50 mb-4">
+              Đang chờ thanh toán chuyển khoản. Nếu rời trang, đơn hàng sẽ bị hủy và voucher sẽ được khôi phục.
+            </p>
+            <div className="d-flex gap-2">
+              <button 
+                className="btn btn-outline-light flex-1 py-2 fw-bold" 
+                onClick={() => blocker.reset?.() || blocker.proceed?.()}
+              >
+                Ở LẠI
+              </button>
+              <button 
+                className="btn btn-danger flex-1 py-2 fw-bold" 
+                onClick={() => {
+                  handleCancelPayment();
+                  blocker.proceed?.();
+                }}
+              >
+                RỜI TRANG
+              </button>
+            </div>
           </div>
         </div>
       )}

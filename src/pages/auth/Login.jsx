@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import { clearAuthSession, setAuthSession, setActiveShift } from '../../utils/authStorage';
@@ -10,7 +10,10 @@ const Login = () => {
   const location = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(() => {
+    const registerMessage = location.state?.message;
+    if (registerMessage) return registerMessage;
     const stored = sessionStorage.getItem('fe_admin_cinema_error');
     if (stored) {
       sessionStorage.removeItem('fe_admin_cinema_error');
@@ -18,6 +21,12 @@ const Login = () => {
     }
     return "";
   });
+
+  useEffect(() => {
+    if (location.state?.message) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const handleLogin = async () => {
     setError("");
@@ -231,6 +240,16 @@ const Login = () => {
           background: rgba(212,255,0,0.03);
         }
 
+        .auth-eye-btn {
+          background: rgba(255,255,255,0.05);
+          border: none;
+          border-left: 1px solid rgba(255,255,255,0.08);
+          color: rgba(240,240,255,0.4);
+          min-width: 44px;
+          cursor: pointer;
+        }
+        .auth-eye-btn:hover { color: var(--yellow); }
+
         .auth-field {
           margin-bottom: 20px;
         }
@@ -337,13 +356,21 @@ const Login = () => {
               <div className="auth-input-group">
                 <span className="auth-input-icon"><i className="fas fa-lock" /></span>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   className="auth-input"
                   placeholder="••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  className="auth-eye-btn"
+                  onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`} />
+                </button>
               </div>
             </div>
 

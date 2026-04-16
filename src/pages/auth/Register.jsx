@@ -4,7 +4,6 @@ import Layout from '../../components/layout/Layout';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { vi } from 'date-fns/locale/vi';
-import { clearAuthSession, setAuthSession } from '../../utils/authStorage';
 import { apiUrl } from '../../utils/apiClient';
 import { AUTH } from '../../constants/apiEndpoints';
 
@@ -21,6 +20,7 @@ const Register = () => {
   const [startDate, setStartDate] = useState(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [fullname, setFullname] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -35,10 +35,10 @@ const Register = () => {
 
     if (!username || !username.trim()) {
       errors.username = "Tên đăng nhập không được để trống";
-    } else if (username.length < 4) {
-      errors.username = "Tên đăng nhập phải từ 4 đến 50 ký tự";
+    } else if (username.length < 6) {
+      errors.username = "Tên đăng nhập phải từ 6 đến 50 ký tự";
     } else if (username.length > 50) {
-      errors.username = "Tên đăng nhập phải từ 4 đến 50 ký tự";
+      errors.username = "Tên đăng nhập phải từ 6 đến 50 ký tự";
     }
 
     if (!password || !password.trim()) {
@@ -96,8 +96,8 @@ const Register = () => {
 
         if (message.includes("Tên đăng nhập không được để trống")) {
           setFieldErrors({ username: "Tên đăng nhập không được để trống" });
-        } else if (message.includes("Tên đăng nhập phải từ 4 đến 50 ký tự")) {
-          setFieldErrors({ username: "Tên đăng nhập phải từ 4 đến 50 ký tự" });
+        } else if (message.includes("Tên đăng nhập phải từ 6 đến 50 ký tự")) {
+          setFieldErrors({ username: "Tên đăng nhập phải từ 6 đến 50 ký tự" });
         } else if (message.includes("Tên đăng nhập đã tồn tại")) {
           setFieldErrors({ username: "Tên đăng nhập đã tồn tại" });
         } else if (message.includes("Mật khẩu không được để trống")) {
@@ -124,20 +124,10 @@ const Register = () => {
         return;
       }
 
-      const data = json?.data;
-      if (!data?.token) {
-        setError(json?.message || "Không nhận được token");
-        return;
-      }
-
-      clearAuthSession();
-      setAuthSession({
-        accessToken: data.token,
-        refreshToken: data.refreshToken,
-        user: data.user || null,
-        staff: null,
+      navigate("/login", {
+        replace: true,
+        state: { fromRegister: true, message: "Đăng ký thành công. Vui lòng đăng nhập." },
       });
-      navigate("/profile");
     } catch {
       setError("Không thể kết nối tới server");
     }
@@ -287,6 +277,16 @@ const Register = () => {
           background: rgba(212,255,0,0.03);
         }
 
+        .auth-eye-btn {
+          background: rgba(255,255,255,0.05);
+          border: none;
+          border-left: 1px solid rgba(255,255,255,0.08);
+          color: rgba(240,240,255,0.4);
+          min-width: 44px;
+          cursor: pointer;
+        }
+        .auth-eye-btn:hover { color: var(--yellow); }
+
         .auth-field {
           margin-bottom: 20px;
         }
@@ -418,13 +418,21 @@ const Register = () => {
                 <div className={`auth-input-group${fieldErrors.password ? ' has-error' : ''}`}>
                   <span className="auth-input-icon"><i className="fas fa-lock" /></span>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     name="password"
                     className="auth-input"
                     placeholder="••••••"
                     value={password}
                     onChange={(e) => handleFieldChange('password', e.target.value)}
                   />
+                  <button
+                    type="button"
+                    className="auth-eye-btn"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`} />
+                  </button>
                 </div>
                 {fieldErrors.password && <span className="auth-field-error">{fieldErrors.password}</span>}
               </div>

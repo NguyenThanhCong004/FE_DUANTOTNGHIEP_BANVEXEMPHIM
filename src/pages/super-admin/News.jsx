@@ -14,6 +14,7 @@ const NewsManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newsToDelete, setNewsToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const itemsPerPage = 8;
 
   const [newsList, setNewsList] = useState([]);
@@ -70,24 +71,27 @@ const NewsManagement = () => {
         await fetchNews();
         setShowDeleteModal(false);
         setNewsToDelete(null);
+        setDeleteError("");
       } else {
         const json = await res.json().catch(() => null);
-        showToast(json?.message || "Xóa tin thất bại", 'danger');
+        setDeleteError(json?.message || "Xóa tin thất bại");
       }
     } catch (error) {
       console.error("Error deleting news:", error);
-      showToast("Lỗi kết nối máy chủ", 'danger');
+      setDeleteError("Không thể kết nối đến máy chủ");
     }
   };
 
   const openDeleteModal = (news) => {
     setNewsToDelete(news);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setNewsToDelete(null);
+    setDeleteError("");
   };
 
   // Logic lọc, tìm kiếm và sắp xếp (mới nhất lên đầu)
@@ -350,6 +354,12 @@ const NewsManagement = () => {
                   </div>
                 </div>
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Bài viết sẽ bị gỡ khỏi trang chủ và ứng dụng khách hàng.

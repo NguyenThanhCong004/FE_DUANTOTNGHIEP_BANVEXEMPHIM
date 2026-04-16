@@ -11,15 +11,16 @@ html.cinetoon-public {
   --secondary-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
   --bg-gradient:
     radial-gradient(ellipse 85% 45% at 50% -20%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
-    linear-gradient(180deg, #09090b 0%, #18181b 45%, #09090b 100%);
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 45%, #f8fafc 100%);
   --toon-shadow: 0 8px 0 rgba(0, 0, 0, 0.25);
+  --customer-page-top-gap: 0px;
 }
 
 html.cinetoon-public body {
   font-family: var(--font-ui);
   background: var(--bg-gradient);
   background-attachment: fixed;
-  color: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -28,6 +29,7 @@ html.cinetoon-public body {
 
 html.cinetoon-public main {
   font-family: var(--font-content);
+  padding-top: var(--customer-page-top-gap);
 }
 
 html.cinetoon-public .toon-bg {
@@ -63,7 +65,7 @@ html.cinetoon-public .card {
   backdrop-filter: blur(10px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  color: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
 }
 
 html.cinetoon-public .card .bg-light,
@@ -84,7 +86,7 @@ html.cinetoon-public .card .bg-white .text-dark {
 
 /* Đoạn mô tả muted trực tiếp trong card (không nằm trong bg-light) — nền kính tối */
 html.cinetoon-public .card > p.text-muted {
-  color: rgba(255, 255, 255, 0.72) !important;
+  color: #64748b !important;
 }
 
 /* Form trong main — không đè ô tìm kiếm trên Navbar */
@@ -135,7 +137,7 @@ html.cinetoon-public main select.form-select option {
 
 /* Khung nội dung trang khách — cùng max-width / padding ngang với Navbar: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 */
 html.cinetoon-public .customer-page {
-  color: rgba(255, 255, 255, 0.92);
+  color: inherit;
 }
 
 html.cinetoon-public .customer-page-container {

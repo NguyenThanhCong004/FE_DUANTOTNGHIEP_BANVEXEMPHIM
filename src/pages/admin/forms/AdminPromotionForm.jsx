@@ -6,19 +6,21 @@ import {
   Film,
   Calendar,
   Percent,
-  Info,
   CheckCircle2,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import { getStoredStaff } from "../../../utils/authStorage";
 import { apiFetch } from "../../../utils/apiClient";
 import { MOVIES, PROMOTIONS } from "../../../constants/apiEndpoints";
 import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCinema";
+import { useAdminToast } from "../../../components/admin/AdminToast";
 
 export default function AdminPromotionForm({ mode = "add" }) {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = mode === "edit";
+  const { showToast, ToastComponent } = useAdminToast();
 
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
@@ -143,7 +145,10 @@ export default function AdminPromotionForm({ mode = "add" }) {
 
     if (isEdit) {
       const isUnchanged = JSON.stringify(formData) === JSON.stringify(initialFormData);
-      if (isUnchanged) newErrors.form = "Bạn chưa thay đổi thông tin nào.";
+      if (isUnchanged) {
+        showToast("Không có thay đổi để cập nhật", "warning");
+        return;
+      }
     }
 
     if (!formData.title) newErrors.title = "Tên khuyến mãi không được để trống";
@@ -156,6 +161,14 @@ export default function AdminPromotionForm({ mode = "add" }) {
     }
     if (!formData.start_date) newErrors.start_date = "Chọn ngày bắt đầu";
     if (!formData.end_date) newErrors.end_date = "Chọn ngày kết thúc";
+    if (
+      formData.start_date &&
+      formData.end_date &&
+      formData.start_date > formData.end_date
+    ) {
+      newErrors.start_date = "Ngày bắt đầu không được sau ngày kết thúc.";
+      newErrors.end_date = "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.";
+    }
     if (formData.selectedMovieIds.length === 0) newErrors.movies = "Vui lòng chọn ít nhất 1 phim";
 
     if (Object.keys(newErrors).length > 0) {
@@ -163,7 +176,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
       return;
     }
     if (cinemaId == null) {
-      setErrors({ form: "Vui lòng chọn rạp (Super Admin) hoặc đăng nhập tài khoản có cinemaId." });
+      showToast("Vui lòng chọn rạp hoặc đăng nhập tài khoản có cinemaId.", "danger");
       return;
     }
 
@@ -186,12 +199,18 @@ export default function AdminPromotionForm({ mode = "add" }) {
         });
         const json = await res.json().catch(() => null);
         if (!res.ok) {
-          setErrors({ form: json?.message || "Lưu khuyến mãi thất bại" });
+          showToast(json?.message || "Lưu khuyến mãi thất bại", "danger");
           return;
         }
-        navigate(`${prefix}/promotions`);
+        
+        navigate(`${prefix}/promotions`, {
+          state: {
+            message: isEdit ? "Cập nhật khuyến mãi thành công!" : "Thêm khuyến mãi mới thành công!",
+            type: "success"
+          }
+        });
       } catch {
-        setErrors({ form: "Không thể kết nối server" });
+        showToast("Không thể kết nối server", "danger");
       }
     })();
   };
@@ -208,6 +227,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
 
   return (
     <div className={`${isEdit ? "edit-promotion-page" : "add-promotion-page"} text-dark pb-5`}>
+      <ToastComponent />
       <style>{`
         .promo-input {
           border-radius: 10px !important;

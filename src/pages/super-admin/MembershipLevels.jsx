@@ -13,6 +13,7 @@ const MembershipLevelManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const itemsPerPage = 8;
 
   const [levels, setLevels] = useState([]);
@@ -46,6 +47,7 @@ const MembershipLevelManagement = () => {
           description: l.description ?? "",
           discount_percent: l.discountPercent ?? 0,
           bonus_point: l.bonusPoint ?? 1,
+          status: l.status ?? 1,
         }))
       );
     } catch {
@@ -81,13 +83,21 @@ const MembershipLevelManagement = () => {
         await fetchLevels();
         setShowDeleteModal(false);
         setItemToDelete(null);
+        setDeleteError("");
       } else {
-        showToast('Xóa hạng thất bại!', 'danger');
+        const json = await res.json().catch(() => null);
+        setDeleteError(json?.message || "Xóa hạng thất bại");
       }
     } catch (error) {
       console.error("Error deleting membership rank:", error);
-      showToast('Lỗi kết nối máy chủ!', 'danger');
+      setDeleteError("Không thể kết nối đến máy chủ");
     }
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+    setDeleteError("");
   };
 
   return (
@@ -145,6 +155,7 @@ const MembershipLevelManagement = () => {
                     <th className="text-end">Chi tiêu tối thiểu</th>
                     <th className="text-center">Giảm giá (%)</th>
                     <th className="text-center">Hệ số điểm</th>
+                    <th className="text-center">Trạng thái</th>
                     <th className="text-center">Thao tác</th>
                   </tr>
                 </thead>
@@ -169,6 +180,11 @@ const MembershipLevelManagement = () => {
                       </td>
                       <td className="text-center fw-medium">x{level.bonus_point}</td>
                       <td className="text-center">
+                        <span className={`admin-badge ${level.status === 1 ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                          {level.status === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                        </span>
+                      </td>
+                      <td className="text-center">
                         <div className="d-flex gap-1 justify-content-center">
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-outline"
@@ -191,6 +207,7 @@ const MembershipLevelManagement = () => {
                             className="admin-btn admin-btn-sm admin-btn-danger"
                             onClick={() => {
                               setItemToDelete(level);
+                              setDeleteError("");
                               setShowDeleteModal(true);
                             }}
                             title="Xóa hạng"
@@ -268,6 +285,16 @@ const MembershipLevelManagement = () => {
                   </div>
                 </div>
                 <div className="col-sm-12">
+                  <div className="p-3 border rounded-4 bg-light">
+                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Trạng thái</small>
+                    <div>
+                      <span className={`admin-badge ${selectedItem.status === 1 ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                        {selectedItem.status === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-sm-12">
                   <div className="p-3 border rounded-4">
                     <small className="text-muted d-block mb-2 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Mô tả đặc quyền</small>
                     <div className="text-dark" style={{ lineHeight: '1.6' }}>
@@ -298,14 +325,14 @@ const MembershipLevelManagement = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && itemToDelete && (
-        <div className="admin-modal-overlay" role="presentation" onClick={() => setShowDeleteModal(false)}>
+        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
                 <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa hạng
               </h3>
-              <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>
+              <button type="button" className="admin-modal-close" onClick={closeDeleteModal}>
                 ×
               </button>
             </div>
@@ -315,6 +342,12 @@ const MembershipLevelManagement = () => {
                 <strong>Tên hạng:</strong> {itemToDelete.rank_name.toUpperCase()}<br/>
                 <strong>Chi tiêu tối thiểu:</strong> {itemToDelete.min_spending.toLocaleString("vi-VN")}đ
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này có thể ảnh hưởng đến hạng hội viên của khách hàng hiện tại. Cân nhắc kỹ trước khi thực hiện.
@@ -324,7 +357,7 @@ const MembershipLevelManagement = () => {
               <button
                 type="button"
                 className="admin-btn admin-btn-outline-secondary"
-                onClick={() => setShowDeleteModal(false)}
+                onClick={closeDeleteModal}
               >
                 Hủy
               </button>
