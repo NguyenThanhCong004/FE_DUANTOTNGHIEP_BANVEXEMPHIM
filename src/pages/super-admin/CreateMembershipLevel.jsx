@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { MEMBERSHIP_RANKS } from '../../constants/apiEndpoints';
 
@@ -14,7 +15,8 @@ const CreateMembershipLevel = () => {
     min_spending: '',
     description: '',
     discount_percent: '',
-    bonus_point: ''
+    bonus_point: '',
+    status: '1'
   });
 
   const [errors, setErrors] = useState({});
@@ -28,7 +30,8 @@ const CreateMembershipLevel = () => {
         min_spending: editData.min_spending || '',
         description: editData.description || '',
         discount_percent: editData.discount_percent || '',
-        bonus_point: editData.bonus_point || ''
+        bonus_point: editData.bonus_point || '',
+        status: String(editData.status ?? 1)
       });
     }
   }, [editData]);
@@ -51,6 +54,9 @@ const CreateMembershipLevel = () => {
       newErrors.bonus_point = 'Hệ số điểm thưởng không được để trống';
     } else if (parseFloat(formData.bonus_point) < 1) {
       newErrors.bonus_point = 'Hệ số điểm thưởng phải lớn hơn hoặc bằng 1';
+    }
+    if (!['0', '1'].includes(String(formData.status))) {
+      newErrors.status = 'Trạng thái không hợp lệ';
     }
 
     setErrors(newErrors);
@@ -75,6 +81,7 @@ const CreateMembershipLevel = () => {
       description: formData.description || '',
       discountPercent: parseFloat(formData.discount_percent),
       bonusPoint: parseInt(formData.bonus_point, 10),
+      status: parseInt(formData.status, 10),
     };
     const rid = editData?.id;
     const url = rid ? MEMBERSHIP_RANKS.BY_ID(rid) : MEMBERSHIP_RANKS.LIST;
@@ -84,7 +91,15 @@ const CreateMembershipLevel = () => {
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        navigate('/super-admin/membership-levels');
+        const json = await res.json().catch(() => null);
+        const serverMessage = json?.message || '';
+        const isNoChange = serverMessage.includes('Không có thay đổi');
+        navigate('/super-admin/membership-levels', {
+          state: {
+            message: serverMessage || (rid ? 'Cập nhật hạng hội viên thành công' : 'Thêm hạng hội viên thành công'),
+            type: isNoChange ? 'warning' : 'success',
+          },
+        });
       } else {
         const json = await res.json().catch(() => null);
         setServerError(json?.message || 'Lưu hạng hội viên thất bại');
@@ -101,8 +116,10 @@ const CreateMembershipLevel = () => {
       icon={editData ? "bi-award-fill" : "bi-award"} 
       title={editData ? 'Cập nhật hạng hội viên' : 'Thêm hạng hội viên'} 
       description="Thiết lập các mốc chi tiêu và ưu đãi đặc quyền cho khách hàng thân thiết."
+      headerRight={<AdminFormListBack to="/super-admin/membership-levels" />}
     >
-      <div className="admin-card admin-slide-up" style={{ maxWidth: '900px', margin: '0 auto' }}>
+      <div className="admin-form-page-wrap admin-form-compact">
+      <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4 className="mb-0">
             <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
@@ -112,7 +129,7 @@ const CreateMembershipLevel = () => {
         <div className="admin-card-body p-4">
           {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="row">
               <div className="col-md-6 mb-4">
                 <label className="admin-form-label">Tên hạng <span className="text-danger">*</span></label>
@@ -157,10 +174,23 @@ const CreateMembershipLevel = () => {
                 />
                 {errors.bonus_point && <small className="text-danger fw-medium">{errors.bonus_point}</small>}
               </div>
+
+              <div className="col-md-6 mb-4">
+                <label className="admin-form-label">Trạng thái <span className="text-danger">*</span></label>
+                <select
+                  name="status"
+                  className={`admin-search-input w-100 ${errors.status ? 'border-danger' : ''}`}
+                  value={formData.status}
+                  onChange={handleChange}
+                >
+                  <option value="1">Hoạt động</option>
+                  <option value="0">Ngừng hoạt động</option>
+                </select>
+                {errors.status && <small className="text-danger fw-medium">{errors.status}</small>}
+              </div>
             </div>
 
-            <div className="mt-4 d-flex justify-content-center gap-3">
-              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/membership-levels')}>Hủy bỏ</button>
+            <div className="mt-3 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
                 {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
                 {editData ? 'Cập nhật hạng' : 'Lưu mức độ'}
@@ -168,6 +198,7 @@ const CreateMembershipLevel = () => {
             </div>
           </form>
         </div>
+      </div>
       </div>
     </AdminPanelPage>
   );

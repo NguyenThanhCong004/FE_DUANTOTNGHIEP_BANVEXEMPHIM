@@ -1,316 +1,2214 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import AdminPanelPage from '../../components/admin/AdminPanelPage';
-import { apiJson, apiFetch } from '../../utils/apiClient';
-import { STAFF, CINEMAS } from '../../constants/apiEndpoints';
+import React, { useEffect, useRef, useState } from "react";
+
+
+
+import { useNavigate, useLocation } from "react-router-dom";
+
+
+
+import { Form, Button, Row, Col, Card, Alert } from "react-bootstrap";
+
+
+
+import { apiFetch } from "../../utils/apiClient";
+
+
+
+import { STAFF, CINEMAS } from "../../constants/apiEndpoints";
+
+
+
+import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
+
+import { useAdminToast } from "../../components/admin/AdminToast";
+
+
+
+
+
+
 
 function fileToDataUrl(file) {
+
+
+
   return new Promise((resolve, reject) => {
+
+
+
     const r = new FileReader();
+
+
+
     r.onload = () => resolve(r.result);
+
+
+
     r.onerror = reject;
+
+
+
     r.readAsDataURL(file);
+
+
+
   });
+
+
+
 }
 
+
+
+
+
+
+
+const initialForm = {
+
+
+
+  name: "",
+
+
+
+  username: "",
+
+
+
+  email: "",
+
+
+
+  phone: "",
+
+
+
+  birthDate: "",
+
+
+
+  status: "Hoạt động",
+
+
+
+  role: "STAFF",
+
+
+
+  avatar: null,
+
+
+
+  image: null,
+
+
+
+  imagePreview: "https://via.placeholder.com/150",
+
+
+
+  cinemaId: null,
+
+
+
+};
+
+
+
+
+
+
+
 const CreateSystemStaff = () => {
+
+
+
   const navigate = useNavigate();
+
+
+
   const location = useLocation();
+
+
+
   const editId = location.state?.editId;
-  const fileInputRef = useRef(null);
 
-  const [formData, setFormData] = useState({
-    fullname: '',
-    email: '',
-    username: '', // Trường username riêng biệt
-    phone: '',
-    birthday: '',
-    role: 'STAFF',
-    status: 1,
-    avatar: '',
-    cinemaId: ''
-  });
 
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState('');
+
+  const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
+
+
+
+  const { showToast, ToastComponent } = useAdminToast();
+
+
+
+
+
+
+
+  const [staff, setStaff] = useState(initialForm);
+
+
+
   const [cinemas, setCinemas] = useState([]);
+
+
+
   const [errors, setErrors] = useState({});
+
+
+
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(false);
+
+
+
+  const [loading, setLoading] = useState(!!editId);
+
+
+
+  const originalDataRef = useRef(null);
+
+
+
+
+
+
+
+  const backPath = "/super-admin/system-staff";
+
+
+
+
+
+
 
   useEffect(() => {
-    fetchCinemas();
-    if (editId) fetchStaffDetail();
+
+
+
+    (async () => {
+
+
+
+      try {
+
+
+
+        const res = await apiFetch(CINEMAS.LIST);
+
+
+
+        const json = await res.json().catch(() => null);
+
+
+
+        const list = json?.data ?? json ?? [];
+
+
+
+        setCinemas(Array.isArray(list) ? list : []);
+
+
+
+      } catch {
+
+
+
+        setCinemas([]);
+
+
+
+      }
+
+
+
+    })();
+
+
+
+  }, []);
+
+
+
+
+
+
+
+  useEffect(() => {
+
+
+
+    if (!editId) {
+
+
+
+      setLoading(false);
+
+
+
+      return;
+
+
+
+    }
+
+
+
+    let mounted = true;
+
+
+
+    (async () => {
+
+
+
+      setLoading(true);
+
+
+
+      setErrors({});
+
+
+
+      try {
+
+
+
+        const res = await apiFetch(STAFF.BY_ID(editId));
+
+
+
+        const json = await res.json().catch(() => null);
+
+
+
+        const found = json?.data ?? json;
+
+
+
+        if (!mounted) return;
+
+
+
+        if (!res.ok || !found) {
+
+
+
+          setErrors({ form: json?.message || "Không tải được dữ liệu nhân sự" });
+
+
+
+          setLoading(false);
+
+
+
+          return;
+
+
+
+        }
+
+
+
+        const birth = found.birthday
+
+
+
+          ? (typeof found.birthday === "string" ? found.birthday.slice(0, 10) : "")
+
+
+
+          : "";
+
+
+
+        const statusLabel = found.status === 0 ? "Khóa" : "Hoạt động";
+
+
+
+        const next = {
+
+
+
+          name: found.fullname ?? "",
+
+
+
+          username: found.username ?? "",
+
+
+
+          email: found.email ?? "",
+
+
+
+          phone: found.phone ?? "",
+
+
+
+          birthDate: birth,
+
+
+
+          status: statusLabel,
+
+
+
+          role: String(found.role || "STAFF").toUpperCase() === "ADMIN" ? "ADMIN" : "STAFF",
+
+
+
+          avatar: found.avatar ?? null,
+
+
+
+          image: null,
+
+
+
+          imagePreview: found.avatar ?? "https://via.placeholder.com/150",
+
+
+
+          cinemaId: found.cinemaId ?? null,
+
+
+
+        };
+
+
+
+        setStaff(next);
+
+
+
+        originalDataRef.current = {
+
+
+
+          fullname: String(next.name || "").trim(),
+
+
+
+          username: String(next.username || "").trim(),
+
+
+
+          email: String(next.email || "").trim(),
+
+
+
+          phone: String(next.phone || "").trim(),
+
+
+
+          birthday: next.birthDate || "",
+
+
+
+          status: next.status === "Hoạt động" ? 1 : 0,
+
+
+
+          avatar: next.imagePreview || "",
+
+
+
+          cinemaId: next.cinemaId ?? null,
+
+
+
+          role: next.role === "ADMIN" ? "ADMIN" : "STAFF",
+
+
+
+        };
+
+
+
+      } catch {
+
+
+
+        if (mounted) setErrors({ form: "Lỗi tải dữ liệu nhân sự" });
+
+
+
+      } finally {
+
+
+
+        if (mounted) setLoading(false);
+
+
+
+      }
+
+
+
+    })();
+
+
+
+    return () => {
+
+
+
+      mounted = false;
+
+
+
+    };
+
+
+
   }, [editId]);
 
-  const fetchCinemas = async () => {
-    try {
-      const res = await apiJson(CINEMAS.LIST);
-      if (res.ok) setCinemas(res.data || []);
-    } catch (error) {
-      console.error("Lỗi lấy danh sách rạp:", error);
-    }
-  };
 
-  const fetchStaffDetail = async () => {
-    setLoading(true);
-    try {
-      const res = await apiJson(STAFF.BY_ID(editId));
-      if (res.ok && res.data) {
-        const d = res.data;
-        setFormData({
-          fullname: d.fullname || '',
-          email: d.email || '',
-          username: d.username || '',
-          phone: d.phone || '',
-          birthday: d.birthday || '',
-          role: d.role?.toUpperCase() || 'STAFF',
-          status: d.status ?? 1,
-          avatar: d.avatar || '',
-          cinemaId: d.cinemaId || ''
-        });
-        if (d.avatar) setPreviewUrl(d.avatar);
-      }
-    } catch (error) {
-      console.error("Lỗi lấy chi tiết nhân sự:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      setErrors(prev => ({ ...prev, file: '' }));
-    }
-  };
+
+
+
 
   const validate = () => {
-    let newErrors = {};
-    const now = new Date();
-    
-    if (!formData.fullname.trim()) newErrors.fullname = 'Họ tên không được để trống';
-    
-    // Bắt lỗi Username
-    if (!formData.username.trim()) {
-      newErrors.username = 'Tên đăng nhập không được để trống';
-    } else if (formData.username.trim().length < 4) {
-      newErrors.username = 'Tên đăng nhập phải ít nhất 4 ký tự';
+
+
+
+    const tempErrors = {};
+
+
+
+    if (!staff.name.trim()) tempErrors.name = "Họ tên không được để trống";
+
+
+
+
+
+
+
+    if (!staff.username?.trim()) {
+
+
+
+      tempErrors.username = "Username không được để trống";
+
+
+
+    } else if (staff.username.trim().length < 6 || staff.username.trim().length > 50) {
+
+
+
+      tempErrors.username = "Tên đăng nhập phải từ 6 đến 50 ký tự";
+
+
+
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email không được để trống';
-    } else if (!formData.email.match(/^[a-z0-9._%+-]+@gmail\.com$/i)) {
-      newErrors.email = 'Email phải có đuôi @gmail.com';
+
+
+
+
+
+
+    const emailRegex = /^[a-z0-9._%+-]+@gmail\.com$/i;
+
+
+
+    if (!staff.email) {
+
+
+
+      tempErrors.email = "Email không được để trống";
+
+
+
+    } else if (!emailRegex.test(staff.email)) {
+
+
+
+      tempErrors.email = "Email phải đúng định dạng Gmail (vd: abc@gmail.com)";
+
+
+
     }
-    
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Số điện thoại không được để trống';
-    } else if (!formData.phone.match(/^(0[3|5|7|8|9])[0-9]{8}$/)) {
-      newErrors.phone = 'SĐT không đúng định dạng VN (10 số)';
+
+
+
+
+
+
+
+    const phoneRegex = /^[0-9]{10}$/;
+
+
+
+    if (!staff.phone) {
+
+
+
+      tempErrors.phone = "Số điện thoại không được để trống";
+
+
+
+    } else if (!phoneRegex.test(staff.phone)) {
+
+
+
+      tempErrors.phone = "Số điện thoại phải có 10 chữ số";
+
+
+
     }
-    
-    if (!formData.birthday) {
-      newErrors.birthday = 'Vui lòng chọn ngày sinh';
+
+
+
+
+
+
+
+    if (!staff.birthDate) {
+
+
+
+      tempErrors.birthDate = "Vui lòng chọn ngày sinh";
+
+
+
     } else {
-      const birthDate = new Date(formData.birthday);
-      let age = now.getFullYear() - birthDate.getFullYear();
-      if (age < 18) newErrors.birthday = 'Nhân viên phải từ 18 tuổi trở lên';
+
+
+
+      const birthDate = new Date(staff.birthDate);
+
+
+
+      const today = new Date();
+
+
+
+      let age = today.getFullYear() - birthDate.getFullYear();
+
+
+
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+
+
+
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+
+
+
+        age--;
+
+
+
+      }
+
+
+
+      if (age < 18) {
+
+
+
+        tempErrors.birthDate = "Nhân viên phải từ đủ 18 tuổi trở lên";
+
+
+
+      }
+
+
+
     }
-    
-    if (!formData.cinemaId) newErrors.cinemaId = 'Vui lòng chọn rạp làm việc';
-    if (!editId && !selectedFile) newErrors.file = 'Vui lòng chọn ảnh đại diện';
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+
+
+
+
+
+
+    const hasRealAvatar =
+
+
+
+      staff.image instanceof File ||
+
+
+
+      (staff.imagePreview && !String(staff.imagePreview).includes("via.placeholder.com"));
+
+
+
+    if (!hasRealAvatar) {
+
+
+
+      tempErrors.avatar = "Hình ảnh không được để trống";
+
+
+
+    }
+
+
+
+
+
+
+
+    setErrors(tempErrors);
+
+
+
+    return Object.keys(tempErrors).length === 0;
+
+
+
   };
 
+
+
+
+
+
+
+  const handleImageChange = (e) => {
+
+
+
+    const file = e.target.files?.[0];
+
+
+
+    if (!file) return;
+
+
+
+    const previewUrl = URL.createObjectURL(file);
+
+
+
+    setStaff((prev) => ({
+
+
+
+      ...prev,
+
+
+
+      avatar: previewUrl,
+
+
+
+      image: file,
+
+
+
+      imagePreview: previewUrl,
+
+
+
+    }));
+
+
+
+    if (errors.avatar) setErrors((prev) => ({ ...prev, avatar: "" }));
+
+
+
+    if (errors.form) setErrors((prev) => ({ ...prev, form: "" }));
+
+
+
+  };
+
+
+
+
+
+
+
+  const handleInputChange = (e) => {
+
+
+
+    const { name, value } = e.target;
+
+
+
+    setStaff((prev) => ({ ...prev, [name]: value }));
+
+
+
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+
+
+
+    if (editId && errors.form) setErrors((prev) => ({ ...prev, form: "" }));
+
+
+
+  };
+
+
+
+
+
+
+
   const handleSubmit = async (e) => {
+
+
+
     e.preventDefault();
+
+
+
+    if (submitting) return;
+
+
+
     if (!validate()) return;
 
-    setSubmitting(true);
-    setErrors({});
-    try {
-      let finalAvatar = formData.avatar;
-      if (selectedFile) finalAvatar = await fileToDataUrl(selectedFile);
 
-      const body = {
-        ...formData,
-        avatar: finalAvatar,
-        role: formData.role,
-        cinemaId: Number(formData.cinemaId)
+
+
+
+
+
+    if (!editId && selectedCinemaId == null) {
+
+
+
+      setErrors({
+
+
+
+        form: "Vui lòng chọn rạp trên header (hoặc ô sidebar) trước khi thêm nhân viên.",
+
+
+
+      });
+
+
+
+      return;
+
+
+
+    }
+
+
+
+
+
+
+
+    setSubmitting(true);
+
+
+
+    setErrors({});
+
+
+
+    try {
+
+
+
+      let avatarUrl = staff.imagePreview;
+
+
+
+      if (staff.image instanceof File) {
+
+
+
+        avatarUrl = await fileToDataUrl(staff.image);
+
+
+
+      }
+
+
+
+      if (!avatarUrl || !String(avatarUrl).trim()) {
+
+
+
+        setErrors({ avatar: "Ảnh đại diện không được để trống" });
+
+
+
+        setSubmitting(false);
+
+
+
+        return;
+
+
+
+      }
+
+
+
+
+
+
+
+      const cinemaIdForSubmit = editId ? staff.cinemaId ?? undefined : selectedCinemaId ?? undefined;
+
+
+
+
+
+
+
+      const data = {
+
+
+
+        fullname: staff.name.trim(),
+
+
+
+        username: staff.username.trim(),
+
+
+
+        email: staff.email.trim(),
+
+
+
+        phone: staff.phone.trim(),
+
+
+
+        birthday: staff.birthDate,
+
+
+
+        status: staff.status === "Hoạt động" ? 1 : 0,
+
+
+
+        avatar: avatarUrl,
+
+
+
+        cinemaId: cinemaIdForSubmit ?? null,
+
+
+
+        role: staff.role === "ADMIN" ? "ADMIN" : "STAFF",
+
+
+
       };
 
-      const res = await apiFetch(editId ? STAFF.BY_ID(editId) : STAFF.LIST, {
-        method: editId ? 'PUT' : 'POST',
-        body: JSON.stringify(body)
+
+
+
+
+
+
+      if (editId && originalDataRef.current) {
+
+
+
+        const original = originalDataRef.current;
+
+
+
+        const isUnchanged =
+
+
+
+          data.fullname === original.fullname &&
+
+
+
+          data.username === original.username &&
+
+
+
+          data.email === original.email &&
+
+
+
+          data.phone === original.phone &&
+
+
+
+          data.birthday === original.birthday &&
+
+
+
+          data.status === original.status &&
+
+
+
+          data.avatar === original.avatar &&
+
+
+
+          data.cinemaId === original.cinemaId &&
+
+
+
+          data.role === original.role;
+
+
+
+        if (isUnchanged) {
+
+
+
+          setSubmitting(false);
+
+
+
+          showToast("Không có thay đổi để cập nhật.", "warning");
+
+
+
+          return;
+
+
+
+        }
+
+
+
+      }
+
+
+
+
+
+
+
+      const url = editId ? STAFF.BY_ID(editId) : STAFF.LIST;
+
+
+
+      const res = await apiFetch(url, {
+
+
+
+        method: editId ? "PUT" : "POST",
+
+
+
+        body: JSON.stringify(data),
+
+
+
       });
+
+
 
       const json = await res.json().catch(() => null);
 
-      if (res.ok) {
-        navigate('/super-admin/system-staff');
-      } else {
-        const msg = json?.message || '';
-        let backendErrors = {};
-        if (msg.toLowerCase().includes('email')) {
-          backendErrors.email = msg;
-        } else if (msg.toLowerCase().includes('username') || msg.toLowerCase().includes('đăng nhập')) {
-          backendErrors.username = msg;
-        } else if (msg.toLowerCase().includes('điện thoại') || msg.toLowerCase().includes('phone')) {
-          backendErrors.phone = msg;
-        } else if (msg.toLowerCase().includes('admin') || msg.toLowerCase().includes('rạp')) {
-          // Lỗi liên quan đến việc rạp đã có Admin hoạt động -> Gán vào cả rạp và vai trò để gây chú ý
-          backendErrors.cinemaId = msg;
-          backendErrors.role = msg;
+
+
+      if (!res.ok) {
+
+
+
+        const message = json?.message || "Lưu nhân sự thất bại";
+
+
+
+        if (message.includes("Email đã tồn tại")) {
+
+
+
+          setErrors({ email: message });
+
+
+
+        } else if (message.includes("Username đã tồn tại") || message.includes("Tên đăng nhập đã tồn tại")) {
+
+
+
+          setErrors({ username: message });
+
+
+
+        } else if (message.includes("Số điện thoại đã tồn tại")) {
+
+
+
+          setErrors({ phone: message });
+
+
+
         } else {
-          setErrors({ general: msg || "Có lỗi xảy ra khi lưu nhân sự" });
+
+
+
+          setErrors({ form: message });
+
+
+
         }
-        setErrors(prev => ({ ...prev, ...backendErrors }));
+
+
+
+        return;
+
+
+
       }
-    } catch (error) {
-      setErrors({ general: 'Lỗi kết nối máy chủ' });
+
+
+
+      navigate(backPath, {
+
+
+
+        state: {
+
+
+
+          message: editId
+
+
+
+            ? "Cập nhật nhân sự thành công."
+
+
+
+            : "Đã tạo nhân sự. Mật khẩu tạm đã được gửi tới email đã nhập.",
+
+
+
+          type: "success",
+
+
+
+        },
+
+
+
+      });
+
+
+
+    } catch {
+
+
+
+      setErrors({ form: "Không thể kết nối tới server" });
+
+
+
     } finally {
+
+
+
       setSubmitting(false);
+
+
+
     }
+
+
+
   };
 
-  if (loading) return <AdminPanelPage title="Đang tải..."><div className="text-center py-5"><div className="spinner-border text-primary"></div></div></AdminPanelPage>;
+
+
+
+
+
+
+  if (loading) {
+
+
+
+    return (
+
+
+
+      <div className="add-staff-page text-dark p-3">
+
+
+
+        <div
+
+
+
+          style={{
+
+
+
+            minHeight: "60vh",
+
+
+
+            display: "flex",
+
+
+
+            alignItems: "center",
+
+
+
+            justifyContent: "center",
+
+
+
+            fontWeight: 700,
+
+
+
+          }}
+
+
+
+        >
+
+
+
+          Đang tải dữ liệu...
+
+
+
+        </div>
+
+
+
+      </div>
+
+
+
+    );
+
+
+
+  }
+
+
+
+
+
+
 
   return (
-    <AdminPanelPage
-      icon={editId ? "bi-person-gear" : "bi-person-plus-fill"}
-      title={editId ? "Cập nhật nhân sự" : "Thêm nhân sự mới"}
-      description="Tách biệt Tên đăng nhập và Email để quản lý tài khoản chính xác hơn."
-    >
-      <div className="admin-card admin-slide-up" style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <div className="admin-card-header">
-          <h4 className="mb-0"><i className="bi bi-person-lines-fill text-primary me-2"></i>Thông tin tài khoản</h4>
-        </div>
-        <div className="admin-card-body p-4">
-          <form onSubmit={handleSubmit}>
-            {/* General Error Message */}
-            {errors.general && (
-              <div className="alert alert-danger border-0 mb-4 py-2 small d-flex align-items-center">
-                <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                {errors.general}
-              </div>
-            )}
 
-            {/* Image Upload Section */}
-            <div className="row mb-5">
-              <div className="col-md-12 text-center">
-                <div 
-                  className={`mx-auto mb-3 rounded-circle overflow-hidden d-flex align-items-center justify-content-center border-2 ${errors.file ? 'border-danger' : 'border-light'}`}
-                  style={{ width: '140px', height: '140px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', background: '#fff' }}
-                  onClick={() => fileInputRef.current.click()}
-                >
-                  {previewUrl ? <img src={previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <i className="bi bi-person-bounding-box fs-1 text-muted"></i>}
-                </div>
-                <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleFileChange} />
-                {errors.file && <div className="text-danger small fw-bold">{errors.file}</div>}
-                <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => fileInputRef.current.click()}>Tải ảnh đại diện</button>
-              </div>
-            </div>
+    <>
 
-            <div className="row">
-              <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Họ và tên <span className="text-danger">*</span></label>
-                <input 
-                  type="text" className={`admin-search-input w-100 ${errors.fullname ? 'border-danger' : ''}`}
-                  value={formData.fullname} onChange={e => setFormData({...formData, fullname: e.target.value})}
-                  placeholder="Ví dụ: Nguyễn Văn A"
-                />
-                {errors.fullname && <small className="text-danger fw-medium">{errors.fullname}</small>}
-              </div>
-              <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Tên đăng nhập (Username) <span className="text-danger">*</span></label>
-                <input 
-                  type="text" className={`admin-search-input w-100 ${errors.username ? 'border-danger' : ''}`}
-                  value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})}
-                  placeholder="Ví dụ: nhanvien01" disabled={editId} // Thường không đổi username khi sửa
-                />
-                {errors.username && <small className="text-danger fw-medium">{errors.username}</small>}
-              </div>            
-            </div>
+      <div className={editId ? "edit-staff-page" : "add-staff-page"}>
 
-            <div className="row">
-              <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Email <span className="text-danger">*</span></label>
-                <input 
-                  type="email" className={`admin-search-input w-100 ${errors.email ? 'border-danger' : ''}`}
-                  value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})}
-                  placeholder="example@gmail.com"
-                />
-                {errors.email && <small className="text-danger fw-medium">{errors.email}</small>}
-              </div>
-              <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Số điện thoại <span className="text-danger">*</span></label>
-                <input 
-                  type="text" className={`admin-search-input w-100 ${errors.phone ? 'border-danger' : ''}`}
-                  value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
-                  placeholder="0xxxxxxxxx"
-                />
-                {errors.phone && <small className="text-danger fw-medium">{errors.phone}</small>}
-              </div>
-            </div>
 
-            <div className="row">
-              <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Ngày sinh <span className="text-danger">*</span></label>
-                <input 
-                  type="date" className={`admin-search-input w-100 ${errors.birthday ? 'border-danger' : ''}`}
-                  value={formData.birthday} onChange={e => setFormData({...formData, birthday: e.target.value})}
-                />
-                {errors.birthday && <small className="text-danger fw-medium">{errors.birthday}</small>}
-              </div>
-              <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Rạp làm việc <span className="text-danger">*</span></label>
-                <select className={`admin-search-input w-100 ${errors.cinemaId ? 'border-danger' : ''}`} value={formData.cinemaId} onChange={e => setFormData({...formData, cinemaId: e.target.value})}>
-                  <option value="">-- Chọn chi nhánh --</option>
-                  {cinemas.map(c => (
-                    <option key={c.cinemaId || c.id} value={c.cinemaId || c.id}>{c.name}</option>
-                  ))}
-                </select>
-                {errors.cinemaId && <small className="text-danger fw-medium">{errors.cinemaId}</small>}
-              </div>
-            </div>
 
-            <div className="row">
-              <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Vai trò</label>
-                <select className={`admin-search-input w-100 ${errors.role ? 'border-danger' : ''}`} value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-                  <option value="STAFF">Nhân viên (STAFF)</option>
-                  <option value="ADMIN">Quản lý rạp (ADMIN)</option>
-                </select>
-                {errors.role && <small className="text-danger fw-medium">{errors.role}</small>}
-              </div>
-              <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Trạng thái</label>
-                <select className="admin-search-input w-100" value={formData.status} onChange={e => setFormData({...formData, status: Number(e.target.value)})}>
-                  <option value={1}>Đang hoạt động</option>
-                  <option value={0}>Đang khóa</option>
-                </select>
-              </div>
-            </div>
+      <style>{`
 
-            {!editId && <div className="alert alert-info py-2 small border-0"><i className="bi bi-info-circle me-2"></i>Mật khẩu mặc định là <strong>12345678</strong></div>}
 
-            <div className="mt-4 d-flex justify-content-center gap-3">
-              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/system-staff')}>Hủy bỏ</button>
-              <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '180px' }} disabled={submitting}>
-                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
-                {editId ? 'Cập nhật' : 'Lưu nhân sự'}
-              </button>
-            </div>
-          </form>
-        </div>
+
+        .black-input {
+
+
+
+          border: 1px solid rgba(0,0,0,0.1) !important;
+
+
+
+          color: #000 !important;
+
+
+
+          font-weight: 500 !important;
+
+
+
+          background-color: #fff !important;
+
+
+
+          border-radius: 8px !important;
+
+
+
+        }
+
+
+
+        .black-input:focus {
+
+
+
+          box-shadow: 0 0 0 0.2rem rgba(0, 0, 0, 0.05) !important;
+
+
+
+          border-color: #000 !important;
+
+
+
+        }
+
+
+
+        .black-input.is-invalid {
+
+
+
+          border-color: #dc3545 !important;
+
+
+
+        }
+
+
+
+        .image-upload-wrapper {
+
+
+
+          width: 200px;
+
+
+
+          height: 200px;
+
+
+
+          border: 2px dashed #ddd;
+
+
+
+          border-radius: 20px;
+
+
+
+          display: flex;
+
+
+
+          align-items: center;
+
+
+
+          justify-content: center;
+
+
+
+          cursor: pointer;
+
+
+
+          overflow: hidden;
+
+
+
+          position: relative;
+
+
+
+          transition: all 0.3s ease;
+
+
+
+          background: #f8f9fa;
+
+
+
+        }
+
+
+
+        .image-upload-wrapper:hover {
+
+
+
+          border-color: #0d6efd;
+
+
+
+          background: rgba(13, 110, 253, 0.05);
+
+
+
+        }
+
+
+
+        .image-upload-wrapper img {
+
+
+
+          width: 100%;
+
+
+
+          height: 100%;
+
+
+
+          object-fit: cover;
+
+
+
+        }
+
+
+
+      `}</style>
+
+
+
+
+
+
+
+      <div className="d-flex align-items-center justify-content-between gap-3 mb-4 flex-wrap">
+
+
+
+        <h2 className="mb-0 fw-bold text-dark">
+
+
+
+          {editId ? `Cập nhật nhân sự #${editId}` : "Thêm nhân sự mới"}
+
+
+
+        </h2>
+
+
+
+        <Button variant="outline-primary" className="text-nowrap" onClick={() => navigate(backPath)}>
+
+
+
+          Danh sách
+
+
+
+        </Button>
+
+
+
       </div>
-    </AdminPanelPage>
+
+
+
+
+
+
+
+      {!editId && selectedCinemaId != null && (
+
+
+
+        <Alert variant="secondary" className="border-0 shadow-sm mb-4 py-2" style={{ borderRadius: "12px" }}>
+
+
+
+          <strong>Rạp gán nhân sự:</strong> {selectedCinemaName || `Rạp #${selectedCinemaId}`} (chọn trên header nếu cần
+
+
+
+          đổi)
+
+
+
+        </Alert>
+
+
+
+      )}
+
+
+
+
+
+
+
+      {errors.form ? (
+
+
+
+        <Alert variant="warning" className="border-0 shadow-sm mb-4 fw-bold" style={{ borderRadius: "12px" }}>
+
+
+
+          <i className="fas fa-exclamation-triangle me-2" />
+
+
+
+          {errors.form}
+
+
+
+        </Alert>
+
+
+
+      ) : null}
+
+
+
+
+
+
+
+      <div className="admin-form-page-wrap admin-form-compact w-100">
+
+
+
+      <Card className="border-0 shadow-sm p-4" style={{ borderRadius: "20px" }}>
+
+
+
+        <Card.Body>
+
+
+
+          <Form onSubmit={handleSubmit} noValidate>
+
+
+
+            <Row>
+
+
+
+              <Col lg={4} className="d-flex flex-column align-items-center mb-4 mb-lg-0">
+
+
+
+                <Form.Label className="fw-bold mb-3 text-dark">Ảnh đại diện</Form.Label>
+
+
+
+                <label htmlFor="sysStaffImageUpload" className="image-upload-wrapper shadow-sm mb-3">
+
+
+
+                  {staff.imagePreview ? (
+
+
+
+                    <img src={staff.imagePreview} alt="Preview" />
+
+
+
+                  ) : (
+
+
+
+                    <div className="text-muted text-center">
+
+
+
+                      <i className="fas fa-camera fs-1 mb-2" />
+
+
+
+                      <small className="d-block">Tải ảnh lên</small>
+
+
+
+                    </div>
+
+
+
+                  )}
+
+
+
+                </label>
+
+
+
+                <input
+
+
+
+                  type="file"
+
+
+
+                  id="sysStaffImageUpload"
+
+
+
+                  className="d-none"
+
+
+
+                  accept="image/*"
+
+
+
+                  onChange={handleImageChange}
+
+
+
+                  disabled={submitting}
+
+
+
+                />
+
+
+
+                <p className="text-muted small text-center px-4" style={{ marginBottom: 0 }}>
+
+
+
+                  Nên chọn ảnh vuông, dung lượng dưới 2MB.
+
+
+
+                </p>
+
+
+
+                {errors.avatar ? (
+
+
+
+                  <div className="text-danger small fw-bold mt-2 text-center">{errors.avatar}</div>
+
+
+
+                ) : null}
+
+
+
+              </Col>
+
+
+
+
+
+
+
+              <Col lg={8}>
+
+
+
+                <Row className="g-4">
+
+
+
+                  <Col md={12}>
+
+
+
+                    <Form.Group>
+
+
+
+                      <Form.Label className="fw-bold small text-dark">Họ và tên nhân viên</Form.Label>
+
+
+
+                      <Form.Control
+
+
+
+                        type="text"
+
+
+
+                        name="name"
+
+
+
+                        className={`black-input py-2 ${errors.name ? "is-invalid" : ""}`}
+
+
+
+                        placeholder="Nhập đầy đủ họ và tên"
+
+
+
+                        value={staff.name}
+
+
+
+                        onChange={handleInputChange}
+
+
+
+                        disabled={submitting}
+
+
+
+                      />
+
+
+
+                      {errors.name ? <div className="text-danger small fw-bold mt-1">{errors.name}</div> : null}
+
+
+
+                    </Form.Group>
+
+
+
+                  </Col>
+
+
+
+
+
+
+
+                  <Col md={6}>
+
+
+
+                    <Form.Group>
+
+
+
+                      <Form.Label className="fw-bold small text-dark">Username</Form.Label>
+
+
+
+                      <Form.Control
+
+
+
+                        type="text"
+
+
+
+                        name="username"
+
+
+
+                        className={`black-input py-2 ${errors.username ? "is-invalid" : ""}`}
+
+
+
+                        placeholder="Nhập username"
+
+
+
+                        value={staff.username}
+
+
+
+                        onChange={handleInputChange}
+
+
+
+                        disabled={!!editId}
+
+
+
+                      />
+
+
+
+                      {errors.username ? (
+
+
+
+                        <div className="text-danger small fw-bold mt-1">{errors.username}</div>
+
+
+
+                      ) : null}
+
+
+
+                    </Form.Group>
+
+
+
+                  </Col>
+
+
+
+
+
+
+
+                  <Col md={6}>
+
+
+
+                    <Form.Group>
+
+
+
+                      <Form.Label className="fw-bold small text-dark">Địa chỉ Email</Form.Label>
+
+
+
+                      <Form.Control
+
+
+
+                        type="email"
+
+
+
+                        name="email"
+
+
+
+                        className={`black-input py-2 ${errors.email ? "is-invalid" : ""}`}
+
+
+
+                        placeholder="example@gmail.com"
+
+
+
+                        value={staff.email}
+
+
+
+                        onChange={handleInputChange}
+
+
+
+                        disabled={submitting}
+
+
+
+                      />
+
+
+
+                      {errors.email ? <div className="text-danger small fw-bold mt-1">{errors.email}</div> : null}
+
+
+
+                    </Form.Group>
+
+
+
+                  </Col>
+
+
+
+
+
+
+
+                  <Col md={6}>
+
+
+
+                    <Form.Group>
+
+
+
+                      <Form.Label className="fw-bold small text-dark">Số điện thoại</Form.Label>
+
+
+
+                      <Form.Control
+
+
+
+                        type="tel"
+
+
+
+                        name="phone"
+
+
+
+                        className={`black-input py-2 ${errors.phone ? "is-invalid" : ""}`}
+
+
+
+                        placeholder="09xx xxx xxx"
+
+
+
+                        value={staff.phone}
+
+
+
+                        onChange={handleInputChange}
+
+
+
+                        disabled={submitting}
+
+
+
+                      />
+
+
+
+                      {errors.phone ? <div className="text-danger small fw-bold mt-1">{errors.phone}</div> : null}
+
+
+
+                    </Form.Group>
+
+
+
+                  </Col>
+
+
+
+
+
+
+
+                  <Col md={6}>
+
+
+
+                    <Form.Group>
+
+
+
+                      <Form.Label className="fw-bold small text-dark">Ngày sinh</Form.Label>
+
+
+
+                      <Form.Control
+
+
+
+                        type="date"
+
+
+
+                        name="birthDate"
+
+
+
+                        className={`black-input py-2 ${errors.birthDate ? "is-invalid" : ""}`}
+
+
+
+                        value={staff.birthDate}
+
+
+
+                        onChange={handleInputChange}
+
+
+
+                        disabled={submitting}
+
+
+
+                      />
+
+
+
+                      {errors.birthDate ? (
+
+
+
+                        <div className="text-danger small fw-bold mt-1">{errors.birthDate}</div>
+
+
+
+                      ) : null}
+
+
+
+                    </Form.Group>
+
+
+
+                  </Col>
+
+
+
+
+
+
+
+                  <Col md={6}>
+
+
+
+                    <Form.Group>
+
+
+
+                      <Form.Label className="fw-bold small text-dark">Vai trò</Form.Label>
+
+
+
+                      <Form.Select
+
+
+
+                        name="role"
+
+
+
+                        className="black-input py-2 text-dark"
+
+
+
+                        value={staff.role}
+
+
+
+                        onChange={handleInputChange}
+
+
+
+                        disabled={submitting}
+
+
+
+                      >
+
+
+
+                        <option value="STAFF">Nhân viên (STAFF)</option>
+
+
+
+                        <option value="ADMIN">Quản lý rạp (ADMIN)</option>
+
+
+
+                      </Form.Select>
+
+
+
+                    </Form.Group>
+
+
+
+                  </Col>
+
+
+
+
+
+
+
+                  <Col md={6}>
+
+
+
+                    <Form.Group>
+
+
+
+                      <Form.Label className="fw-bold small text-dark">Trạng thái</Form.Label>
+
+
+
+                      <Form.Select
+
+
+
+                        name="status"
+
+
+
+                        className="black-input py-2 text-dark"
+
+
+
+                        value={staff.status}
+
+
+
+                        onChange={handleInputChange}
+
+
+
+                        disabled={submitting}
+
+
+
+                      >
+
+
+
+                        <option value="Hoạt động">Đang làm việc</option>
+
+
+
+                        <option value="Khóa">Tạm nghỉ / Khóa</option>
+
+
+
+                      </Form.Select>
+
+
+
+                    </Form.Group>
+
+
+
+                  </Col>
+
+
+
+
+
+
+
+                  {editId && staff.cinemaId != null && (
+
+
+
+                    <Col md={12}>
+
+
+
+                      <p className="small text-muted mb-0">
+
+
+
+                        <strong>Rạp:</strong>{" "}
+
+
+
+                        {cinemas.find((c) => (c.cinemaId || c.id) === staff.cinemaId)?.name ||
+
+
+
+                          `Rạp #${staff.cinemaId}`}
+
+
+
+                      </p>
+
+
+
+                    </Col>
+
+
+
+                  )}
+
+
+
+                </Row>
+
+
+
+
+
+
+
+                <div className="d-flex justify-content-end mt-4">
+
+
+
+                  <Button variant="primary" type="submit" className="px-5 fw-bold shadow-sm border-0" disabled={submitting}>
+
+
+
+                    {submitting ? "Đang lưu..." : editId ? "Cập nhật" : "Thêm nhân sự"}
+
+
+
+                  </Button>
+
+
+
+                </div>
+
+
+
+              </Col>
+
+
+
+            </Row>
+
+
+
+          </Form>
+
+
+
+        </Card.Body>
+
+
+
+      </Card>
+
+
+
+      </div>
+
+
+
+      
+
+      {submitting && (
+
+
+
+        <div
+
+
+
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center align-items-center"
+
+
+
+          style={{ backgroundColor: "rgba(17, 24, 39, 0.45)", zIndex: 1200 }}
+
+
+
+        >
+
+
+
+          <div className="bg-white rounded-4 shadow-lg px-4 py-3 d-flex align-items-center gap-3">
+
+
+
+            <span className="spinner-border text-primary" role="status" aria-hidden="true"></span>
+
+
+
+            <div className="fw-semibold text-dark">Đang cập nhật dữ liệu, vui lòng chờ...</div>
+
+
+
+          </div>
+
+
+
+        </div>
+
+
+
+      )}
+
+
+
+    </div>
+
+      <ToastComponent />
+
+    </>
+
   );
+
+
+
 };
 
+
+
+
+
+
+
 export default CreateSystemStaff;
+
+
+

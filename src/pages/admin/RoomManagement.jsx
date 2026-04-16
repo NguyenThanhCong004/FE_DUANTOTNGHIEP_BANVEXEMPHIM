@@ -9,6 +9,10 @@ const RoomManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roomsFromStore, setRoomsFromStore] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
@@ -51,17 +55,21 @@ const RoomManagement = () => {
   );
 
   const handleDelete = async (roomId) => {
-    if (!window.confirm('Xóa phòng chiếu này? (Ghế trong phòng cũng bị xóa theo ràng buộc DB)')) return;
     try {
       const res = await apiFetch(ROOMS.BY_ID(roomId), { method: 'DELETE' });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(json?.message || 'Xóa thất bại');
+        setDeleteError(json?.message || 'Xóa thất bại');
         return;
       }
       setRoomsFromStore((prev) => prev.filter((r) => String(r.id) !== String(roomId)));
+      setShowDeleteModal(false);
+      setRoomToDelete(null);
+      setDeleteError('');
+      setToast({ show: true, message: 'Xóa phòng chiếu thành công', type: 'success' });
+      setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
     } catch {
-      alert('Không thể kết nối server');
+      setDeleteError('Không thể kết nối server');
     }
   };
 
@@ -190,7 +198,11 @@ const RoomManagement = () => {
                           type="button"
                           className="admin-table-action-btn admin-table-action-btn--danger"
                           title="Xóa"
-                          onClick={() => handleDelete(room.id)}
+                          onClick={() => {
+                            setRoomToDelete(room);
+                            setDeleteError('');
+                            setShowDeleteModal(true);
+                          }}
                         >
                           <i className="bi bi-trash"></i>
                         </button>
@@ -203,6 +215,45 @@ const RoomManagement = () => {
           </div>
         </div>
       </div>
+      {showDeleteModal && roomToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={() => setShowDeleteModal(false)}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa phòng
+              </h3>
+              <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa phòng chiếu này?</p>
+              <div className="alert alert-warning">
+                <strong>Phòng:</strong> {roomToDelete.name}
+              </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
+              <p className="text-muted small mb-0">Ghế trong phòng có thể bị ảnh hưởng theo ràng buộc dữ liệu.</p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={() => setShowDeleteModal(false)}>Hủy</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={() => handleDelete(roomToDelete.id)}>Xóa phòng</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {toast.show && (
+        <div
+          className={`position-fixed bottom-0 start-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
+          style={{ minWidth: '300px' }}
+        >
+          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
+          <div className="fw-bold">{toast.message}</div>
+        </div>
+      )}
     </div>
   );
 };

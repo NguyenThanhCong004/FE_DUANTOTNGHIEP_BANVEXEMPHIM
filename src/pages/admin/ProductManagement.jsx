@@ -19,6 +19,13 @@ function isComboCategory(name) {
     .includes("combo");
 }
 
+/** Sản phẩm mới (id lớn hơn) lên trên — đồng bộ với API đã sort theo productId DESC */
+function sortProductsNewestFirst(items) {
+  return [...items].sort(
+    (a, b) => (Number(b.productId) || 0) - (Number(a.productId) || 0)
+  );
+}
+
 export default function ProductManagement() {
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
@@ -32,6 +39,9 @@ export default function ProductManagement() {
   const [busyId, setBusyId] = useState(null);
   const [searchA, setSearchA] = useState("");
   const [searchB, setSearchB] = useState("");
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
   // Pagination states
   const [pageA, setPageA] = useState(1);
@@ -55,8 +65,12 @@ export default function ProductManagement() {
         return;
       }
       const data = json?.data ?? json;
-      setOnSale(Array.isArray(data?.onSale) ? data.onSale : []);
-      setNotOnSale(Array.isArray(data?.notOnSale) ? data.notOnSale : []);
+      setOnSale(
+        Array.isArray(data?.onSale) ? sortProductsNewestFirst(data.onSale) : []
+      );
+      setNotOnSale(
+        Array.isArray(data?.notOnSale) ? sortProductsNewestFirst(data.notOnSale) : []
+      );
     } catch {
       setOnSale([]);
       setNotOnSale([]);
@@ -69,6 +83,21 @@ export default function ProductManagement() {
     loadMenu();
   }, [loadMenu]);
 
+  const showToast = (message, type = "success", duration = 3000) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), duration);
+  };
+
+  const openToggleConfirm = (product, selling) => {
+    setPendingAction({ product, selling });
+    setShowConfirmModal(true);
+  };
+
+  const closeToggleConfirm = () => {
+    setShowConfirmModal(false);
+    setPendingAction(null);
+  };
+
   const toggleSelling = async (productId, selling) => {
     if (effectiveCinemaId == null) return;
     setBusyId(productId);
@@ -79,7 +108,7 @@ export default function ProductManagement() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(json?.message || "Cập nhật thất bại");
+        showToast(json?.message || "Cập nhật thất bại", "danger");
         return;
       }
 
@@ -90,6 +119,7 @@ export default function ProductManagement() {
         if (item) {
           setNotOnSale((prev) => prev.filter((p) => p.productId !== productId));
           setOnSale((prev) => [item, ...prev]);
+          showToast(`Đã bật bán sản phẩm "${item.name}".`, "success");
         }
       } else {
         // Chuyển từ "Đang bán" -> "Chưa bán" và đưa lên đầu
@@ -97,12 +127,14 @@ export default function ProductManagement() {
         if (item) {
           setOnSale((prev) => prev.filter((p) => p.productId !== productId));
           setNotOnSale((prev) => [item, ...prev]);
+          showToast(`Đã gỡ sản phẩm "${item.name}" khỏi danh sách đang bán.`, "warning");
         }
       }
     } catch {
-      alert("Không thể kết nối server");
+      showToast("Không thể kết nối server", "danger");
     } finally {
       setBusyId(null);
+      closeToggleConfirm();
     }
   };
 
@@ -181,7 +213,7 @@ export default function ProductManagement() {
                           size="sm"
                           className="text-danger border shadow-sm"
                           disabled={busyId === id}
-                          onClick={() => toggleSelling(id, false)}
+                          onClick={() => openToggleConfirm(r, false)}
                           title="Gỡ khỏi rạp"
                         >
                           {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
@@ -192,7 +224,7 @@ export default function ProductManagement() {
                           size="sm"
                           className="text-success border shadow-sm"
                           disabled={busyId === id}
-                          onClick={() => toggleSelling(id, true)}
+                          onClick={() => openToggleConfirm(r, true)}
                           title="Bán tại rạp"
                         >
                           {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
@@ -353,6 +385,52 @@ export default function ProductManagement() {
             </div>
           </Col>
         </Row>
+      )}
+
+      {showConfirmModal && pendingAction && (
+        <div className="admin-modal-overlay" role="presentation" onClick={closeToggleConfirm}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                {pendingAction.selling ? "Xác nhận bật bán sản phẩm" : "Xác nhận gỡ sản phẩm khỏi danh sách bán"}
+              </h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeToggleConfirm}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">
+                Bạn có chắc chắn muốn {pendingAction.selling ? "bật bán" : "gỡ khỏi danh sách bán"} sản phẩm này?
+              </p>
+              <div className="alert alert-warning">
+                <strong>Sản phẩm:</strong> {pendingAction.product.name}
+              </div>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={closeToggleConfirm}>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className={`admin-btn ${pendingAction.selling ? "admin-btn-primary" : "admin-btn-danger"}`}
+                onClick={() => toggleSelling(pendingAction.product.productId, pendingAction.selling)}
+              >
+                {pendingAction.selling ? "Bật bán" : "Gỡ khỏi bán"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast.show && (
+        <div
+          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
+          style={{ minWidth: "300px" }}
+        >
+          <i className={`bi bi-${toast.type === "success" ? "check-circle-fill" : "exclamation-triangle-fill"} fs-5`} />
+          <div className="fw-bold">{toast.message}</div>
+        </div>
       )}
     </AdminPanelPage>
   );

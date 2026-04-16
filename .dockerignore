@@ -1,0 +1,23 @@
+# Loại bỏ thư mục thư viện (Nặng nhất)
+node_modules
+npm-debug.log
+
+# Loại bỏ thư mục đã build ở máy cá nhân
+dist
+build
+.path
+
+# Loại bỏ các file cấu hình Git
+.git
+.gitignore
+
+# Loại bỏ các file môi trường cá nhân
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Loại bỏ file rác hệ điều hành
+.DS_Store
+Thumbs.db

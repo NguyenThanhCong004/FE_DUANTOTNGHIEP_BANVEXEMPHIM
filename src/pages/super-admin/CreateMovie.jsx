@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { MOVIES, GENRES } from '../../constants/apiEndpoints';
+import { useAdminToast } from '../../components/admin/AdminToast';
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -33,6 +35,7 @@ const CreateMovie = () => {
   const editData = location.state?.editData;
   const posterInputRef = useRef(null);
   const bannerInputRef = useRef(null);
+  const { showToast, ToastComponent } = useAdminToast();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -57,6 +60,7 @@ const CreateMovie = () => {
   const [genreOptions, setGenreOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [originalDate, setOriginalDate] = useState('');
+  const [originalData, setOriginalData] = useState(null);
 
   useEffect(() => {
     fetchGenres();
@@ -88,6 +92,7 @@ const CreateMovie = () => {
         const gid = genreOptions.find((g) => g.name === m.genre)?.genreId;
         const rd = m.releaseDate ? String(m.releaseDate).slice(0, 10) : "";
         setOriginalDate(rd);
+        setOriginalData({ ...m, genreId: gid });
         
         setFormData({
           title: m.title || "",
@@ -240,25 +245,90 @@ const CreateMovie = () => {
       };
 
       const movieId = editData?.id ?? editData?.movie_id;
+      let payload = body;
+
+      if (movieId && originalData) {
+        // Chê dô edit: so sánh vôi dâ liêu gôc và chi gui các field thay dôi
+        const originalBody = {
+          genreId: originalData.genreId || null,
+          title: String(originalData.title || "").trim(),
+          description: originalData.description || "",
+          duration: originalData.duration != null ? originalData.duration : null,
+          ageLimit: originalData.ageLimit != null ? originalData.ageLimit : null,
+          releaseDate: originalData.releaseDate ? String(originalData.releaseDate).slice(0, 10) : null,
+          poster: originalData.posterUrl || null,
+          status: originalData.status != null ? originalData.status : 1,
+          basePrice: originalData.basePrice != null ? originalData.basePrice : null,
+          author: originalData.author || null,
+          nation: originalData.nation || null,
+          content: originalData.content || null,
+          banner: originalData.banner || null,
+        };
+
+        // Chi gui các field thay dôi
+        payload = {};
+        
+        if (body.genreId !== originalBody.genreId) payload.genreId = body.genreId;
+        if (body.title !== originalBody.title) payload.title = body.title;
+        if (body.description !== originalBody.description) payload.description = body.description;
+        if (body.duration !== originalBody.duration) payload.duration = body.duration;
+        if (body.ageLimit !== originalBody.ageLimit) payload.ageLimit = body.ageLimit;
+        if (body.releaseDate !== originalBody.releaseDate) payload.releaseDate = body.releaseDate;
+        if (body.poster !== originalBody.poster) payload.poster = body.poster;
+        if (body.status !== originalBody.status) payload.status = body.status;
+        if (body.basePrice !== originalBody.basePrice) payload.basePrice = body.basePrice;
+        if (body.author !== originalBody.author) payload.author = body.author;
+        if (body.nation !== originalBody.nation) payload.nation = body.nation;
+        if (body.content !== originalBody.content) payload.content = body.content;
+        if (body.banner !== originalBody.banner) payload.banner = body.banner;
+
+        if (Object.keys(payload).length === 0) {
+          showToast("Không có thay đổi để cập nhật", 'warning');
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        // Khi tao mõi: chi gui các field có giá tri thuc su
+        payload = {};
+        if (body.genreId != null) payload.genreId = body.genreId;
+        if (body.title != null && body.title.trim() !== "") payload.title = body.title;
+        if (body.description != null && body.description.trim() !== "") payload.description = body.description;
+        if (body.duration != null) payload.duration = body.duration;
+        if (body.ageLimit != null) payload.ageLimit = body.ageLimit;
+        if (body.releaseDate != null) payload.releaseDate = body.releaseDate;
+        if (body.poster != null) payload.poster = body.poster;
+        if (body.status != null) payload.status = body.status;
+        if (body.basePrice != null) payload.basePrice = body.basePrice;
+        if (body.author != null && body.author.trim() !== "") payload.author = body.author;
+        if (body.nation != null && body.nation.trim() !== "") payload.nation = body.nation;
+        if (body.content != null && body.content.trim() !== "") payload.content = body.content;
+        if (body.banner != null) payload.banner = body.banner;
+      }
+
       const url = movieId ? MOVIES.BY_ID(movieId) : MOVIES.LIST;
       const res = await apiFetch(url, {
         method: movieId ? "PUT" : "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
+        const json = await res.json().catch(() => null);
+        const message = json?.message || (editData ? 'Cập nhật phim thành công!' : 'Thêm phim mới thành công!');
+        const messageType = message === 'Không có thay đổi để cập nhật' ? 'warning' : 'success';
+        
         navigate("/super-admin/movies", { 
           state: { 
-            message: editData ? 'Cập nhật phim thành công!' : 'Thêm phim mới thành công!',
-            type: 'success'
+            message: message,
+            type: messageType
           } 
         });
       } else {
         const json = await res.json().catch(() => null);
-        alert(json?.message || "Lưu phim thất bại");
+        const errorMessage = json?.message || "Lưu phim thất bại";
+        showToast(errorMessage, 'danger');
       }
     } catch (error) {
-      alert("Lỗi kết nối máy chủ");
+      showToast("Lỗi kết nối máy chủ", 'danger');
     } finally {
       setSubmitting(false);
     }
@@ -267,11 +337,15 @@ const CreateMovie = () => {
   if (loading) return <AdminPanelPage title="Đang tải..."><div className="text-center py-5"><div className="spinner-border text-primary"></div></div></AdminPanelPage>;
 
   return (
-    <AdminPanelPage
-      icon={editData ? "bi-film" : "bi-plus-circle-dotted"}
-      title={editData ? "Cập nhật phim" : "Thêm phim mới"}
-      description="Quản lý thông tin phim, poster, banner và nội dung chi tiết trên hệ thống."
-    >
+    <>
+      <ToastComponent />
+      <AdminPanelPage
+        icon={editData ? "bi-film" : "bi-plus-circle-dotted"}
+        title={editData ? "Cập nhật phim" : "Thêm phim mới"}
+        description="Quản lý thông tin phim, poster, banner và nội dung chi tiết trên hệ thống."
+        headerRight={<AdminFormListBack to="/super-admin/movies" />}
+      >
+        <div className="admin-form-page-wrap admin-form-compact">
       <form onSubmit={handleSubmit} noValidate>
         <div className="row g-4">
           <div className="col-12">
@@ -433,8 +507,7 @@ const CreateMovie = () => {
           </div>
 
           <div className="col-12 mt-2">
-            <div className="d-flex justify-content-center gap-3">
-              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/movies')}>Hủy bỏ</button>
+            <div className="d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '220px' }} disabled={submitting}>
                 {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
                 {editData ? 'Cập nhật phim' : 'Lưu phim mới'}
@@ -443,7 +516,9 @@ const CreateMovie = () => {
           </div>
         </div>
       </form>
+      </div>
     </AdminPanelPage>
+    </>
   );
 };
 

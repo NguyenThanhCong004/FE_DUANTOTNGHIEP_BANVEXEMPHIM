@@ -101,6 +101,14 @@
   flex: 1;
   overflow: auto;
   padding-right: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-shell-nav-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .app-shell-nav-block {
@@ -209,6 +217,14 @@
 .app-shell-logout-btn:hover {
   background: rgba(127, 29, 29, 0.4);
   color: #fff;
+}
+
+.app-shell-logout-btn--header {
+  margin-top: 0;
+  width: auto;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  white-space: nowrap;
 }
 
 .app-shell-main {

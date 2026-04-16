@@ -1,9 +1,28 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Modal, Button, Spinner } from 'react-bootstrap';
+import { ReceiptText } from 'lucide-react';
 import { apiFetch } from '../../utils/apiClient';
 import { ORDERS_ONLINE } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
+
+function formatMoneyInvoice(v) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return `${Number(v).toLocaleString('vi-VN')} đ`;
+}
+
+function formatDtInvoice(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleString('vi-VN');
+}
+
+function orderStatusLabel(s) {
+  if (s === 0) return 'Chờ thanh toán';
+  if (s === 2) return 'Đã hủy';
+  return 'Hoàn thành';
+}
 
 const InvoiceManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -11,10 +30,37 @@ const InvoiceManagement = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailOrder, setDetailOrder] = useState(null);
+  const [detailErr, setDetailErr] = useState('');
 
-  const location = useLocation();
-  const isSuperAdmin = location.pathname.startsWith("/super-admin");
-  const prefix = isSuperAdmin ? "/super-admin" : "/admin";
+  const openOrderDetail = async (orderId) => {
+    setShowDetailModal(true);
+    setDetailOrder(null);
+    setDetailErr('');
+    setDetailLoading(true);
+    try {
+      const res = await apiFetch(ORDERS_ONLINE.BY_ID(orderId));
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setDetailErr(json?.message || 'Không tải được đơn');
+        return;
+      }
+      setDetailOrder(json?.data ?? json);
+    } catch {
+      setDetailErr('Không thể kết nối server');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeOrderDetail = () => {
+    setShowDetailModal(false);
+    setDetailOrder(null);
+    setDetailErr('');
+  };
+
   const staffSession = getStoredStaff();
   const { selectedCinemaId } = useSuperAdminCinema();
   const effectiveCinemaId = staffSession?.cinemaId ?? selectedCinemaId ?? null;
@@ -267,13 +313,14 @@ const InvoiceManagement = () => {
                     <td>{getStatusBadge(invoice.status)}</td>
                     <td className="text-center">
                       <div className="admin-table-action-group d-inline-flex">
-                        <Link
-                          to={`${prefix}/invoices/view/${invoice.apiId}`}
+                        <button
+                          type="button"
                           className="admin-table-action-btn admin-table-action-btn--view"
                           title="Xem chi tiết"
+                          onClick={() => openOrderDetail(invoice.apiId)}
                         >
                           <i className="bi bi-eye"></i>
-                        </Link>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -322,6 +369,50 @@ const InvoiceManagement = () => {
           </div>
         </div>
       )}
+
+      <Modal show={showDetailModal} onHide={closeOrderDetail} centered size="lg">
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="d-flex align-items-center gap-2 fw-bold text-primary mb-0">
+            <ReceiptText size={22} />
+            Chi tiết đơn online
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-dark">
+          {detailLoading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" />
+            </div>
+          ) : detailErr ? (
+            <p className="text-danger mb-0">{detailErr}</p>
+          ) : !detailOrder ? (
+            <p className="text-muted mb-0">Không có dữ liệu</p>
+          ) : (
+            <dl className="row mb-0">
+              <dt className="col-sm-4 text-muted">Mã đơn</dt>
+              <dd className="col-sm-8 fw-semibold">{detailOrder.orderCode || '—'}</dd>
+              <dt className="col-sm-4 text-muted">Khách</dt>
+              <dd className="col-sm-8">{detailOrder.customerName || '—'}</dd>
+              <dt className="col-sm-4 text-muted">Email</dt>
+              <dd className="col-sm-8">{detailOrder.customerEmail || '—'}</dd>
+              <dt className="col-sm-4 text-muted">Thời gian</dt>
+              <dd className="col-sm-8">{formatDtInvoice(detailOrder.createdAt)}</dd>
+              <dt className="col-sm-4 text-muted">Trạng thái</dt>
+              <dd className="col-sm-8">{orderStatusLabel(detailOrder.status)}</dd>
+              <dt className="col-sm-4 text-muted">Giá gốc</dt>
+              <dd className="col-sm-8">{formatMoneyInvoice(detailOrder.originalAmount)}</dd>
+              <dt className="col-sm-4 text-muted">Giảm giá</dt>
+              <dd className="col-sm-8">{formatMoneyInvoice(detailOrder.discountAmount)}</dd>
+              <dt className="col-sm-4 text-muted">Thanh toán</dt>
+              <dd className="col-sm-8 text-success fw-bold">{formatMoneyInvoice(detailOrder.finalAmount)}</dd>
+            </dl>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="border-0">
+          <Button variant="primary" onClick={closeOrderDetail}>
+            Đóng
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

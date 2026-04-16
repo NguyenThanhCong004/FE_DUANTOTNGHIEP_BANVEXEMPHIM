@@ -181,8 +181,26 @@ const EventDetail = () => {
           font-size: 14px;
           font-weight: 500;
           line-height: 1.85;
-          color: rgba(240,240,255,0.6);
-          white-space: pre-line;
+          color: rgba(240,240,255,0.7);
+        }
+        .ed-body img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 16px 0;
+          display: block;
+        }
+        .ed-body p {
+          margin-bottom: 1.2rem;
+        }
+        .ed-body h1, .ed-body h2, .ed-body h3 {
+          color: var(--off-white);
+          margin-top: 1.5rem;
+          margin-bottom: 1rem;
+        }
+        .ed-body ul, .ed-body ol {
+          margin-bottom: 1.2rem;
+          padding-left: 1.5rem;
         }
 
         /* ── ERROR ── */
@@ -268,9 +286,10 @@ const EventDetail = () => {
                 <div className="ed-divider" />
 
                 {(item.content || item.description) && (
-                  <div className="ed-body">
-                    {item.content || item.description}
-                  </div>
+                  <div 
+                    className="ed-body ql-editor"
+                    dangerouslySetInnerHTML={{ __html: item.content || item.description }}
+                  />
                 )}
               </div>
             </div>

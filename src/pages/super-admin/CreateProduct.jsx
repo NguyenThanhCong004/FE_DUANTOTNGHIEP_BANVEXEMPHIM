@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { PRODUCTS, PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
 
@@ -163,7 +164,15 @@ const CreateProduct = () => {
       });
 
       if (res.ok) {
-        navigate('/super-admin/catalog-products');
+        const json = await res.json().catch(() => null);
+        const serverMessage = json?.message || '';
+        const isNoChange = serverMessage.includes('Không có thay đổi');
+        navigate('/super-admin/catalog-products', {
+          state: {
+            message: serverMessage || (pid ? 'Cập nhật sản phẩm thành công' : 'Thêm sản phẩm thành công'),
+            type: isNoChange ? 'warning' : 'success',
+          },
+        });
       } else {
         const json = await res.json().catch(() => null);
         setServerError(json?.message || 'Lưu sản phẩm thất bại');
@@ -180,7 +189,9 @@ const CreateProduct = () => {
       icon={editData ? "bi-box-seam-fill" : "bi-box-seam"} 
       title={editData ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'} 
       description="Quản lý danh mục sản phẩm bắp nước, combo và quà tặng trên hệ thống."
+      headerRight={<AdminFormListBack to="/super-admin/catalog-products" />}
     >
+      <div className="admin-form-page-wrap admin-form-compact">
       <form onSubmit={handleSubmit} noValidate>
         <div className="row g-4">
           <div className="col-md-4">
@@ -265,8 +276,7 @@ const CreateProduct = () => {
                   </div>
                 </div>
 
-                <div className="mt-2 d-flex justify-content-center gap-3">
-                  <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/catalog-products')}>Hủy bỏ</button>
+                <div className="mt-2 d-flex justify-content-end">
                   <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
                     {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
                     {editData ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm'}
@@ -277,6 +287,7 @@ const CreateProduct = () => {
           </div>
         </div>
       </form>
+      </div>
     </AdminPanelPage>
   );
 };
