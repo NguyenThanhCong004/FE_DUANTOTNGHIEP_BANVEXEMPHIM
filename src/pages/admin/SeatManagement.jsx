@@ -538,7 +538,7 @@ export default function SeatManagement() {
 
   const [saveFeedback, setSaveFeedback] = useState(null);
 
-  const [seatTypeNames, setSeatTypeNames] = useState(["Thường", "VIP", "Đôi"]);
+  const [seatTypeNames, setSeatTypeNames] = useState([]);
 
   const [seatTypesForColor, setSeatTypesForColor] = useState([]);
 
@@ -667,159 +667,81 @@ export default function SeatManagement() {
 
 
 
-  const handleBulkAction = (action) => {
-
+  const handleBulkAction = (action, payload) => {
     if (selectedIndices.size === 0) return;
 
-    
-
     setSeats(prev => {
-
       const next = [...prev];
-
       selectedIndices.forEach(idx => {
-
         const cell = next[idx];
-
         if (!cell || cell.type === "OccupiedByDouble") return;
 
-
-
         switch (action) {
+          case "SET_TYPE": {
+            const typeName = payload;
+            if (!typeName) break;
 
-          case "SET_NORMAL": {
+            const isDouble = isCoupleSeatByType(typeName);
 
-            const normalT =
+            if (isDouble) {
+              // Logic đặt ghế đôi
+              if (cell.colIdx + 1 >= COLS) break;
+              if (!canPlaceCoupleAt(next, cell.rowIdx, cell.colIdx)) break;
+              const nextIdx = cell.rowIdx * COLS + cell.colIdx + 1;
+              if (!isEmptyCell(next[nextIdx])) break;
 
-              seatTypeNames.find((t) => !isCoupleSeatByType(t) && !/vip/i.test(String(t))) ||
+              // Nếu đang là ghế đơn hoặc đôi cũ, cần dọn dẹp
+              if (isCoupleSeatByType(cell.type)) clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
 
-              seatTypeNames.find((t) => !isCoupleSeatByType(t)) ||
-
-              seatTypeNames[0] ||
-
-              "Thường";
-
-            if (isCoupleSeatByType(cell.type)) clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
-
-            next[idx] = { ...next[idx], type: normalT, isActive: true, typeColor: undefined };
-
+              next[idx] = { ...cell, type: typeName, isActive: true, typeColor: undefined };
+              next[nextIdx] = {
+                rowIdx: cell.rowIdx,
+                colIdx: cell.colIdx + 1,
+                type: "OccupiedByDouble",
+                isActive: false,
+                label: "",
+              };
+            } else {
+              // Logic đặt ghế đơn
+              if (isCoupleSeatByType(cell.type)) clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
+              next[idx] = { ...next[idx], type: typeName, isActive: true, typeColor: undefined };
+            }
             break;
-
           }
-
-          case "SET_VIP": {
-
-            const vipT = seatTypeNames.find((t) => /vip/i.test(String(t))) || seatTypeNames[1] || seatTypeNames[0] || "VIP";
-
-            if (isCoupleSeatByType(cell.type)) clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
-
-            next[idx] = { ...next[idx], type: vipT, isActive: true, typeColor: undefined };
-
-            break;
-
-          }
-
-          case "SET_DOUBLE": {
-
-            const coupleT = seatTypeNames.find(isCoupleSeatByType);
-
-            if (!coupleT || isCoupleSeatByType(cell.type)) break;
-
-            if (cell.colIdx + 1 >= COLS) break;
-
-            if (!canPlaceCoupleAt(next, cell.rowIdx, cell.colIdx)) break;
-
-            const nextIdx = cell.rowIdx * COLS + cell.colIdx + 1;
-
-            if (!isEmptyCell(next[nextIdx])) break;
-
-            next[idx] = { ...cell, type: coupleT, isActive: true, typeColor: undefined };
-
-            next[nextIdx] = {
-
-              rowIdx: cell.rowIdx,
-
-              colIdx: cell.colIdx + 1,
-
-              type: "OccupiedByDouble",
-
-              isActive: false,
-
-              label: "",
-
-            };
-
-            break;
-
-          }
-
           case "TOGGLE_ACTIVE":
-
             if (isPlacedSeat(cell)) {
-
               next[idx] = { ...cell, isActive: !cell.isActive };
-
             }
-
             break;
-
           case "DELETE":
-
             if (isCoupleSeatByType(cell.type)) {
-
               const nIdx = cell.rowIdx * COLS + cell.colIdx + 1;
-
               next[nIdx] = emptyCell(cell.rowIdx, cell.colIdx + 1);
-
             }
-
             next[idx] = emptyCell(cell.rowIdx, cell.colIdx);
-
             break;
-
           default: break;
-
         }
-
       });
-
       return recomputeSeatLabels(next);
-
     });
-
-    // Don't clear selection immediately so user can see result, but maybe it's better to clear
-
   };
-
-
 
   const clearSeatAtInPlace = (grid, r, c) => {
-
     const idx = r * COLS + c;
-
     const cell = grid[idx];
-
     if (isCoupleSeatByType(cell.type) && c + 1 < COLS) {
-
       const i2 = r * COLS + c + 1;
-
       grid[i2] = emptyCell(r, c + 1);
-
     }
-
     grid[idx] = emptyCell(r, c);
-
   };
 
-
-
   const selectedRoom = useMemo(
-
     () => rooms.find((r) => String(r.id) === String(selectedRoomId)) || location.state?.roomInfo,
-
     [rooms, selectedRoomId, location.state?.roomInfo]
-
   );
+
 
 
 
@@ -1375,38 +1297,6 @@ export default function SeatManagement() {
 
 
 
-  const bulkToolbarNormalName = useMemo(
-
-    () =>
-
-      seatTypeNames.find((t) => !isCoupleSeatByType(t) && !/vip/i.test(String(t))) ||
-
-      seatTypeNames.find((t) => !isCoupleSeatByType(t)) ||
-
-      seatTypeNames[0] ||
-
-      "Thường",
-
-    [seatTypeNames]
-
-  );
-
-
-
-  const bulkToolbarVipName = useMemo(
-
-    () => seatTypeNames.find((t) => /vip/i.test(String(t))) || "VIP",
-
-    [seatTypeNames]
-
-  );
-
-
-
-  const bulkToolbarCoupleName = useMemo(() => seatTypeNames.find(isCoupleSeatByType), [seatTypeNames]);
-
-
-
   return (
 
     <AdminPanelPage
@@ -1697,6 +1587,14 @@ export default function SeatManagement() {
 
         }
 
+        .bulk-actions-toolbar {
+          box-shadow: 0 10px 30px rgba(0,0,0,0.25) !important;
+          border: 1px solid rgba(255,255,255,0.1);
+          max-width: 90vw;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .bulk-actions-toolbar::-webkit-scrollbar { display: none; }
       `}</style>
 
 
@@ -1873,85 +1771,33 @@ export default function SeatManagement() {
 
               <div className="bulk-actions-toolbar shadow-lg d-flex align-items-center gap-2 p-3 bg-dark rounded-pill" style={{ position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
 
-                <span className="text-white fw-bold me-2 ps-2">{selectedIndices.size} ghế đang chọn</span>
+                <span className="text-white fw-bold me-2 ps-3 text-nowrap">{selectedIndices.size} ghế đang chọn</span>
 
-                <Button
+                <div className="d-flex gap-2 pe-2 border-end border-secondary me-2">
+                  {seatTypeNames.map(name => {
+                    const fill = resolveSeatTypeColor(name, seatTypesForColor);
+                    return (
+                      <Button
+                        key={name}
+                        size="sm"
+                        className="rounded-pill border-0 text-nowrap"
+                        style={{
+                          backgroundColor: fill,
+                          color: contrastTextColorForHex(fill),
+                        }}
+                        onClick={() => handleBulkAction("SET_TYPE", name)}
+                      >
+                        {name}
+                      </Button>
+                    );
+                  })}
+                </div>
 
-                  size="sm"
-
-                  className="rounded-pill border-0"
-
-                  style={{
-
-                    backgroundColor: resolveSeatTypeColor(bulkToolbarNormalName, seatTypesForColor),
-
-                    color: contrastTextColorForHex(resolveSeatTypeColor(bulkToolbarNormalName, seatTypesForColor)),
-
-                  }}
-
-                  onClick={() => handleBulkAction("SET_NORMAL")}
-
-                >
-
-                  {bulkToolbarNormalName}
-
-                </Button>
-
-                <Button
-
-                  size="sm"
-
-                  className="rounded-pill border-0"
-
-                  style={{
-
-                    backgroundColor: resolveSeatTypeColor(bulkToolbarVipName, seatTypesForColor),
-
-                    color: contrastTextColorForHex(resolveSeatTypeColor(bulkToolbarVipName, seatTypesForColor)),
-
-                  }}
-
-                  onClick={() => handleBulkAction("SET_VIP")}
-
-                >
-
-                  {bulkToolbarVipName}
-
-                </Button>
-
-                {bulkToolbarCoupleName ? (
-
-                  <Button
-
-                    size="sm"
-
-                    className="rounded-pill border-0"
-
-                    style={{
-
-                      backgroundColor: resolveSeatTypeColor(bulkToolbarCoupleName, seatTypesForColor),
-
-                      color: contrastTextColorForHex(resolveSeatTypeColor(bulkToolbarCoupleName, seatTypesForColor)),
-
-                    }}
-
-                    onClick={() => handleBulkAction("SET_DOUBLE")}
-
-                  >
-
-                    {bulkToolbarCoupleName}
-
-                  </Button>
-
-                ) : null}
-
-                <div className="vr bg-white mx-1" style={{ height: '20px' }}></div>
-
-                <Button variant="outline-light" size="sm" className="rounded-pill" onClick={() => handleBulkAction("TOGGLE_ACTIVE")}>Bật/Tắt</Button>
-
-                <Button variant="danger" size="sm" className="rounded-pill" onClick={() => handleBulkAction("DELETE")}>Xóa</Button>
-
-                <Button variant="secondary" size="sm" className="rounded-pill ms-2" onClick={() => setSelectedIndices(new Set())}>Hủy</Button>
+                <div className="d-flex gap-2">
+                  <Button variant="outline-light" size="sm" className="rounded-pill text-nowrap" onClick={() => handleBulkAction("TOGGLE_ACTIVE")}>Bật/Tắt</Button>
+                  <Button variant="danger" size="sm" className="rounded-pill text-nowrap" onClick={() => handleBulkAction("DELETE")}>Xóa</Button>
+                  <Button variant="secondary" size="sm" className="rounded-pill text-nowrap ms-2 pe-3" onClick={() => setSelectedIndices(new Set())}>Hủy</Button>
+                </div>
 
               </div>
 

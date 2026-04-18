@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Form, Button, Row, Col, Card, Badge, InputGroup, Alert } from "react-bootstrap";
+import { Form, Button, Row, Col, Card, Badge, InputGroup, Alert, Spinner } from "react-bootstrap";
 import {
   ArrowLeft,
   Film,
@@ -31,11 +31,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
 
   const staff = getStoredStaff();
   const { selectedCinemaId } = useSuperAdminCinema();
-  const cinemaId = location.pathname.startsWith("/super-admin")
-    ? selectedCinemaId
-    : staff?.cinemaId ?? null;
-
-  const [movies, setMovies] = useState([]);
+  const cinemaId = isSuperAdmin ? selectedCinemaId : staff?.cinemaId ?? null;
 
   const initialData = useMemo(
     () => ({
@@ -50,62 +46,22 @@ export default function AdminPromotionForm({ mode = "add" }) {
   );
 
   const [formData, setFormData] = useState(initialData);
-  const [initialFormData, setInitialFormData] = useState(initialData); // dùng cho check "chưa đổi"
+  const [initialFormData, setInitialFormData] = useState(initialData);
+  const [movies, setMovies] = useState([]);
+  const [moviesLoading, setMoviesLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(isEdit);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-    if (isEdit && errors.form) setErrors((prev) => ({ ...prev, form: "" }));
-  };
-
-  const toggleMovieSelection = (movieId) => {
-    setFormData((prev) => {
-      const isSelected = prev.selectedMovieIds.includes(movieId);
-      const nextSelected = isSelected
-        ? prev.selectedMovieIds.filter((id2) => id2 !== movieId)
-        : [...prev.selectedMovieIds, movieId];
-
-      return { ...prev, selectedMovieIds: nextSelected };
-    });
-
-    if (errors.movies) setErrors((prev) => ({ ...prev, movies: "" }));
-  };
-
-  const selectAllMovies = () => {
-    setFormData((prev) => {
-      const allIds = movies.map((m) => m.id);
-      const isAllSelected = prev.selectedMovieIds.length === allIds.length;
-      return { ...prev, selectedMovieIds: isAllSelected ? [] : allIds };
-    });
-  };
-
+  // 1. Load chi tiết khuyến mãi nếu là chế độ Sửa
   useEffect(() => {
+    if (!isEdit) {
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
     (async () => {
       try {
-        const mr = await apiFetch(MOVIES.LIST);
-        const mj = await mr.json().catch(() => null);
-        const moviesList = Array.isArray(mj?.data) ? mj.data : [];
-        if (mounted) {
-          setMovies(
-            moviesList.map((m) => ({
-              id: m.id,
-              title: m.title,
-              genre: m.genre,
-              duration: m.duration,
-            }))
-          );
-        }
-
-        if (!isEdit) {
-          if (mounted) setLoading(false);
-          return;
-        }
-
         const pr = await apiFetch(PROMOTIONS.BY_ID(id));
         const pj = await pr.json().catch(() => null);
         const promoData = pj?.data ?? pj;
@@ -118,8 +74,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
 
         const next = {
           title: promoData.title ?? "",
-          discount_percent:
-            promoData.discount_percent != null ? String(promoData.discount_percent) : "",
+          discount_percent: promoData.discount_percent != null ? String(promoData.discount_percent) : "",
           start_date: promoData.startDate ?? promoData.start_date ?? "",
           end_date: promoData.endDate ?? promoData.end_date ?? "",
           selectedMovieIds: promoData.selectedMovieIds ?? [],
@@ -133,50 +88,97 @@ export default function AdminPromotionForm({ mode = "add" }) {
         if (mounted) setLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [id, isEdit]);
+
+  // 2. Load danh sách phim PHÙ HỢP theo cinemaId và thời gian
+  useEffect(() => {
+    let mounted = true;
+    if (!cinemaId || !formData.start_date || !formData.end_date) {
+      setMovies([]);
+      return;
+    }
+
+    (async () => {
+      setMoviesLoading(true);
+      try {
+        const query = `?cinemaId=${cinemaId}&startDate=${formData.start_date}&endDate=${formData.end_date}`;
+        const res = await apiFetch(`${MOVIES.LIST}/promotion-eligible${query}`);
+        const json = await res.json().catch(() => null);
+        const list = Array.isArray(json?.data) ? json.data : [];
+        if (mounted) {
+          setMovies(list.map(m => ({
+            id: m.id,
+            title: m.title,
+            genre: m.genre,
+            duration: m.duration
+          })));
+        }
+      } catch (err) {
+        console.error("Lỗi tải phim phù hợp:", err);
+      } finally {
+        if (mounted) setMoviesLoading(false);
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [cinemaId, formData.start_date, formData.end_date]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const toggleMovieSelection = (movieId) => {
+    setFormData((prev) => {
+      const isSelected = prev.selectedMovieIds.includes(movieId);
+      const nextSelected = isSelected
+        ? prev.selectedMovieIds.filter((id2) => id2 !== movieId)
+        : [...prev.selectedMovieIds, movieId];
+      return { ...prev, selectedMovieIds: nextSelected };
+    });
+    if (errors.movies) setErrors((prev) => ({ ...prev, movies: "" }));
+  };
+
+  const selectAllMovies = () => {
+    setFormData((prev) => {
+      const allIds = movies.map((m) => m.id);
+      const isAllSelected = prev.selectedMovieIds.length === allIds.length;
+      return { ...prev, selectedMovieIds: isAllSelected ? [] : allIds };
+    });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     const newErrors = {};
 
-    if (isEdit) {
-      const isUnchanged = JSON.stringify(formData) === JSON.stringify(initialFormData);
-      if (isUnchanged) {
-        showToast("Không có thay đổi để cập nhật", "warning");
-        return;
-      }
+    if (isEdit && JSON.stringify(formData) === JSON.stringify(initialFormData)) {
+      showToast("Không có thay đổi để cập nhật", "warning");
+      return;
     }
 
     if (!formData.title) newErrors.title = "Tên khuyến mãi không được để trống";
-    if (
-      !formData.discount_percent ||
-      Number(formData.discount_percent) <= 0 ||
-      Number(formData.discount_percent) > 100
-    ) {
+    if (!formData.discount_percent || Number(formData.discount_percent) <= 0 || Number(formData.discount_percent) > 100) {
       newErrors.discount_percent = "Phần trăm giảm giá từ 1-100%";
     }
     if (!formData.start_date) newErrors.start_date = "Chọn ngày bắt đầu";
+    else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selDate = new Date(formData.start_date);
+      if (selDate < today) {
+        newErrors.start_date = "Ngày bắt đầu không được là ngày quá khứ.";
+      }
+    }
     if (!formData.end_date) newErrors.end_date = "Chọn ngày kết thúc";
-    if (
-      formData.start_date &&
-      formData.end_date &&
-      formData.start_date > formData.end_date
-    ) {
+    if (formData.start_date && formData.end_date && formData.start_date > formData.end_date) {
       newErrors.start_date = "Ngày bắt đầu không được sau ngày kết thúc.";
-      newErrors.end_date = "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.";
     }
     if (formData.selectedMovieIds.length === 0) newErrors.movies = "Vui lòng chọn ít nhất 1 phim";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      return;
-    }
-    if (cinemaId == null) {
-      showToast("Vui lòng chọn rạp hoặc đăng nhập tài khoản có cinemaId.", "danger");
       return;
     }
 
@@ -197,15 +199,14 @@ export default function AdminPromotionForm({ mode = "add" }) {
           method: isEdit ? "PUT" : "POST",
           body: JSON.stringify(body),
         });
-        const json = await res.json().catch(() => null);
         if (!res.ok) {
+          const json = await res.json().catch(() => null);
           showToast(json?.message || "Lưu khuyến mãi thất bại", "danger");
           return;
         }
-        
         navigate(`${prefix}/promotions`, {
           state: {
-            message: isEdit ? "Cập nhật khuyến mãi thành công!" : "Thêm khuyến mãi mới thành công!",
+            message: isEdit ? "Cập nhật thành công!" : "Thêm mới thành công!",
             type: "success"
           }
         });
@@ -217,10 +218,9 @@ export default function AdminPromotionForm({ mode = "add" }) {
 
   if (loading) {
     return (
-      <div className="add-promotion-page text-dark">
-        <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
-          Đang tải dữ liệu...
-        </div>
+      <div className="add-promotion-page text-dark py-5 text-center">
+        <Spinner animation="border" variant="primary" />
+        <p className="mt-3 fw-bold">Đang tải dữ liệu...</p>
       </div>
     );
   }
@@ -229,67 +229,28 @@ export default function AdminPromotionForm({ mode = "add" }) {
     <div className={`${isEdit ? "edit-promotion-page" : "add-promotion-page"} text-dark pb-5`}>
       <ToastComponent />
       <style>{`
-        .promo-input {
-          border-radius: 10px !important;
-          border: 1.5px solid #eee !important;
-          padding: 10px 15px !important;
-          color: #000 !important;
+        .promo-input { border-radius: 10px !important; border: 1.5px solid #eee !important; padding: 10px 15px !important; color: #000 !important; }
+        /* Loại bỏ icon chấm than của Bootstrap */
+        .promo-input.is-invalid { 
+          background-image: none !important; 
+          padding-right: 15px !important;
+          border-color: #dc3545 !important;
         }
-        .promo-input::placeholder {
-          color: #000 !important;
-          opacity: 0.6;
-        }
-        .movie-badge-item {
-          cursor: pointer;
-          transition: all 0.2s;
-          border: 1px solid #eee;
-          user-select: none;
-        }
-        .movie-badge-item.selected {
-          background-color: #0d6efd !important;
-          color: white !important;
-          border-color: #0d6efd;
-          transform: scale(1.05);
-        }
-        .movie-list-container {
-          max-height: 250px;
-          overflow-y: auto;
-          border: 1.5px solid #eee;
-          border-radius: 12px;
-          padding: 15px;
-        }
+        .movie-badge-item { cursor: pointer; transition: all 0.2s; border: 1px solid #eee; user-select: none; }
+        .movie-badge-item.selected { background-color: #0d6efd !important; color: white !important; border-color: #0d6efd; transform: scale(1.05); }
+        .movie-list-container { max-height: 250px; overflow-y: auto; border: 1.5px solid #eee; border-radius: 12px; padding: 15px; min-height: 100px; }
+        .error-msg { fontSize: 11px; marginTop: 4px; fontWeight: bold; color: #dc3545; }
       `}</style>
 
       <div className="d-flex align-items-center gap-3 mb-4">
-        <Button
-          variant="light"
-          className="rounded-circle p-2 shadow-sm"
-          onClick={() => navigate(`${prefix}/promotions`)}
-        >
+        <Button variant="light" className="rounded-circle p-2 shadow-sm" onClick={() => navigate(`${prefix}/promotions`)}>
           <ArrowLeft size={20} />
         </Button>
         <div>
-          <h3 className="mb-0 fw-bold">
-            {isEdit ? `Chỉnh sửa khuyến mãi #${id}` : "Tạo khuyến mãi đa phim"}
-          </h3>
-          <p className="text-muted small mb-0">
-            {isEdit
-              ? "Cập nhật mức giảm giá và danh sách phim áp dụng"
-              : "Thiết lập mức giảm giá cho một hoặc nhiều bộ phim cùng lúc"}
-          </p>
+          <h3 className="mb-0 fw-bold">{isEdit ? `Chỉnh sửa khuyến mãi #${id}` : "Tạo khuyến mãi rạp"}</h3>
+          <p className="text-muted small mb-0">Thiết lập ưu đãi cho các phim có suất chiếu trong khoảng thời gian đã chọn</p>
         </div>
       </div>
-
-      {isEdit && errors.form ? (
-        <Alert
-          variant="warning"
-          className="border-0 shadow-sm mb-4 d-flex align-items-center gap-2"
-          style={{ borderRadius: "15px" }}
-        >
-          <AlertTriangle size={20} />
-          <span className="fw-bold">{errors.form}</span>
-        </Alert>
-      ) : null}
 
       <Form onSubmit={handleSubmit}>
         <Row className="justify-content-center">
@@ -307,11 +268,11 @@ export default function AdminPromotionForm({ mode = "add" }) {
                     <Form.Control
                       name="title"
                       placeholder="VD: Ưu đãi phim tháng 3"
-                      className={`promo-input ${errors.title ? "is-invalid" : ""}`}
+                      className={`promo-input ${errors.title ? "is-invalid border-danger" : ""}`}
                       value={formData.title}
                       onChange={handleInputChange}
                     />
-                    {errors.title ? <div className="text-danger small mt-1">{errors.title}</div> : null}
+                    {errors.title && <div className="text-danger" style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{errors.title}</div>}
                   </Form.Group>
 
                   <Form.Group className="mb-4">
@@ -320,18 +281,14 @@ export default function AdminPromotionForm({ mode = "add" }) {
                       <Form.Control
                         type="number"
                         name="discount_percent"
-                        placeholder="VD: 20 hoặc -10"
-                        className={`promo-input ${errors.discount_percent ? "is-invalid" : ""}`}
+                        placeholder="VD: 20"
+                        className={`promo-input ${errors.discount_percent ? "is-invalid border-danger" : ""}`}
                         value={formData.discount_percent}
                         onChange={handleInputChange}
                       />
-                      <InputGroup.Text className="bg-light border-start-0 rounded-end-3">
-                        <Percent size={16} />
-                      </InputGroup.Text>
+                      <InputGroup.Text className="bg-light border-start-0 rounded-end-3"><Percent size={16} /></InputGroup.Text>
                     </InputGroup>
-                    {errors.discount_percent ? (
-                      <div className="text-danger small mt-1">{errors.discount_percent}</div>
-                    ) : null}
+                    {errors.discount_percent && <div className="text-danger" style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{errors.discount_percent}</div>}
                   </Form.Group>
 
                   <div className="d-flex align-items-center gap-2 mb-3 text-primary">
@@ -345,37 +302,28 @@ export default function AdminPromotionForm({ mode = "add" }) {
                       <Form.Control
                         type="date"
                         name="start_date"
-                        className={`promo-input ${errors.start_date ? "is-invalid" : ""}`}
+                        className={`promo-input ${errors.start_date ? "is-invalid border-danger" : ""}`}
                         value={formData.start_date}
                         onChange={handleInputChange}
                       />
-                      {errors.start_date ? (
-                        <div className="text-danger small mt-1">{errors.start_date}</div>
-                      ) : null}
+                      {errors.start_date && <div className="text-danger" style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{errors.start_date}</div>}
                     </Col>
                     <Col>
                       <Form.Label className="small fw-bold text-muted">Đến ngày</Form.Label>
                       <Form.Control
                         type="date"
                         name="end_date"
-                        className={`promo-input ${errors.end_date ? "is-invalid" : ""}`}
+                        className={`promo-input ${errors.end_date ? "is-invalid border-danger" : ""}`}
                         value={formData.end_date}
                         onChange={handleInputChange}
                       />
-                      {errors.end_date ? <div className="text-danger small mt-1">{errors.end_date}</div> : null}
+                      {errors.end_date && <div className="text-danger" style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{errors.end_date}</div>}
                     </Col>
                   </Row>
 
                   <Form.Group className="mb-3">
-                    <Form.Label className="small fw-bold text-muted">Mô tả (Không bắt buộc)</Form.Label>
-                    <Form.Control
-                      as="textarea"
-                      name="description"
-                      rows={2}
-                      className="promo-input"
-                      value={formData.description}
-                      onChange={handleInputChange}
-                    />
+                    <Form.Label className="small fw-bold text-muted">Mô tả</Form.Label>
+                    <Form.Control as="textarea" name="description" rows={2} className="promo-input" value={formData.description} onChange={handleInputChange} />
                   </Form.Group>
                 </Col>
 
@@ -385,69 +333,58 @@ export default function AdminPromotionForm({ mode = "add" }) {
                       <Film size={20} />
                       <h5 className="fw-bold mb-0">Chọn phim áp dụng</h5>
                     </div>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="text-decoration-none fw-bold"
-                      onClick={selectAllMovies}
-                    >
-                      {formData.selectedMovieIds.length === movies.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                    </Button>
+                    {movies.length > 0 && (
+                      <Button variant="link" size="sm" className="text-decoration-none fw-bold" onClick={selectAllMovies}>
+                        {formData.selectedMovieIds.length === movies.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                      </Button>
+                    )}
                   </div>
 
                   <div className={`movie-list-container ${errors.movies ? "border-danger" : ""}`}>
-                    <div className="d-flex flex-wrap gap-2">
-                      {movies.map((movie) => {
-                        const selected = formData.selectedMovieIds.includes(movie.id);
-                        return (
-                          <Badge
-                            key={movie.id}
-                            bg="light"
-                            text="dark"
-                            className={`movie-badge-item px-3 py-2 rounded-pill fw-normal d-flex align-items-center gap-2 ${
-                              selected ? "selected" : ""
-                            }`}
-                            onClick={() => toggleMovieSelection(movie.id)}
-                          >
-                            {selected ? <CheckCircle2 size={14} /> : null}
-                            {movie.title}
-                          </Badge>
-                        );
-                      })}
-                    </div>
+                    {moviesLoading ? (
+                      <div className="text-center py-4"><Spinner animation="border" size="sm" variant="primary" /></div>
+                    ) : !formData.start_date || !formData.end_date ? (
+                      <div className="text-center py-4 text-muted small italic">Vui lòng chọn khoảng thời gian để hiển thị danh sách phim</div>
+                    ) : movies.length === 0 ? (
+                      <div className="text-center py-4 text-muted small italic">Không có phim nào có suất chiếu trong khoảng thời gian này</div>
+                    ) : (
+                      <div className="d-flex flex-wrap gap-2">
+                        {movies.map((movie) => {
+                          const selected = formData.selectedMovieIds.includes(movie.id);
+                          return (
+                            <Badge
+                              key={movie.id}
+                              bg="light"
+                              text="dark"
+                              className={`movie-badge-item px-3 py-2 rounded-pill fw-normal d-flex align-items-center gap-2 ${selected ? "selected" : ""}`}
+                              onClick={() => toggleMovieSelection(movie.id)}
+                            >
+                              {selected && <CheckCircle2 size={14} />}
+                              {movie.title}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-
-                  {errors.movies ? <div className="text-danger small mt-2 fw-bold">{errors.movies}</div> : null}
+                  {errors.movies && <div className="text-danger small mt-2 fw-bold">{errors.movies}</div>}
 
                   <div className="mt-4 p-3 bg-light rounded-3">
-                    <h6 className="fw-bold small mb-2">
-                      {isEdit ? "Xem trước danh sách áp dụng:" : "Tóm tắt áp dụng:"}
-                    </h6>
+                    <h6 className="fw-bold small mb-2">Tóm tắt áp dụng:</h6>
                     <div className="d-flex flex-wrap gap-1">
                       {formData.selectedMovieIds.length > 0 ? (
                         formData.selectedMovieIds.map((mid) => (
-                          <Badge key={mid} bg="primary" className="fw-normal">
-                            {movies.find((m) => m.id === mid)?.title}
-                          </Badge>
+                          <Badge key={mid} bg="primary" className="fw-normal">{movies.find((m) => m.id === mid)?.title}</Badge>
                         ))
                       ) : (
-                        <span className="text-muted small italic">
-                          {isEdit ? "Vui lòng chọn ít nhất 1 phim" : "Chưa có phim nào được chọn"}
-                        </span>
+                        <span className="text-muted small italic">Chưa có phim nào được chọn</span>
                       )}
                     </div>
                   </div>
 
                   <div className="d-grid gap-2 mt-4 pt-3">
                     <Button type="submit" variant="primary" className="py-2 fw-bold shadow-sm rounded-3">
-                      {isEdit ? "Lưu các thay đổi" : "Lưu và Phát hành khuyến mãi"}
-                    </Button>
-                    <Button
-                      variant="outline-secondary"
-                      className="py-2 border-0"
-                      onClick={() => navigate(`${prefix}/promotions`)}
-                    >
-                      {isEdit ? "Hủy bỏ & Quay lại" : "Hủy bỏ"}
+                      {isEdit ? "Lưu thay đổi" : "Phát hành khuyến mãi"}
                     </Button>
                   </div>
                 </Col>
@@ -459,4 +396,3 @@ export default function AdminPromotionForm({ mode = "add" }) {
     </div>
   );
 }
-

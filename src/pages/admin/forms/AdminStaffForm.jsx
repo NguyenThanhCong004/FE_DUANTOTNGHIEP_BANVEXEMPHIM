@@ -53,11 +53,8 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
   const isEdit = mode === "edit";
 
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
-
-  /** Super Admin thêm nhân viên: không nhập mật khẩu — BE sinh và gửi email */
-
-  const autoPasswordByEmail = isSuperAdmin && !isEdit;
-
+  /** Khi thêm mới nhân viên (cả Admin và Super Admin): không nhập mật khẩu — BE sinh và gửi email */
+  const autoPasswordByEmail = !isEdit;
   const backPath = isSuperAdmin ? "/super-admin/staff" : "/admin/staff";
 
   const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : (getStoredStaff()?.cinemaId ?? cinemaId ?? null);
@@ -93,8 +90,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
 
   const [staff, setStaff] = useState(initialStaffState);
-
-  const [showPassword, setShowPassword] = useState(false);
 
   const [initialStaff, setInitialStaff] = useState(null);
 
@@ -329,27 +324,20 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
       }
 
       const data = {
-
         fullname: staff.name.trim(),
-
         username: staff.username.trim(),
-
         email: staff.email.trim(),
-
         phone: staff.phone.trim(),
-
         birthday: staff.birthDate,
-
         status: staff.status === "Hoạt động" ? 1 : 0,
-
         avatar: avatarUrl,
-
         cinemaId: effectiveCinemaId ?? staff.cinemaId ?? null,
-
-        /** Mặc định nhân viên sàn — Super Admin tạo quản trị viên rạp dùng trang Quản trị viên rạp. */
-
-        role: "STAFF",
-
+        /** 
+         * Lấy role hiện tại nếu đang sửa, mặc định STAFF nếu thêm mới.
+         * Super Admin tạo quản trị viên rạp nên dùng trang Quản trị hệ thống (nếu có) 
+         * hoặc trang này sẽ giữ nguyên role ADMIN của họ.
+         */
+        role: isEdit ? (initialStaff?.role ?? "STAFF") : "STAFF",
       };
 
 
@@ -810,177 +798,67 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
 
 
-                  {autoPasswordByEmail ? (
+                  <Col md={6}>
 
-                    <>
+                    <Form.Group>
 
-                      <Col md={6}>
+                      <Form.Label className="fw-bold small text-dark">Username</Form.Label>
 
-                        <Form.Group>
+                      <Form.Control
 
-                          <Form.Label className="fw-bold small text-dark">Username</Form.Label>
+                        type="text"
 
-                          <Form.Control
+                        name="username"
 
-                            type="text"
+                        className={`black-input py-2 ${errors.username ? "is-invalid" : ""}`}
 
-                            name="username"
+                        placeholder="Nhập username"
 
-                            className={`black-input py-2 ${errors.username ? "is-invalid" : ""}`}
+                        value={staff.username}
 
-                            placeholder="Nhập username"
+                        onChange={handleInputChange}
 
-                            value={staff.username}
+                      />
 
-                            onChange={handleInputChange}
+                      {errors.username ? (
 
-                          />
+                        <div className="text-danger small fw-bold mt-1">{errors.username}</div>
 
-                          {errors.username ? (
+                      ) : null}
 
-                            <div className="text-danger small fw-bold mt-1">{errors.username}</div>
+                    </Form.Group>
 
-                          ) : null}
+                  </Col>
 
-                        </Form.Group>
 
-                      </Col>
 
-                      <Col md={6}>
+                  <Col md={6}>
 
-                        <Form.Group>
+                    <Form.Group>
 
-                          <Form.Label className="fw-bold small text-dark">Địa chỉ Email</Form.Label>
+                      <Form.Label className="fw-bold small text-dark">Địa chỉ Email</Form.Label>
 
-                          <Form.Control
+                      <Form.Control
 
-                            type="email"
+                        type="email"
 
-                            name="email"
+                        name="email"
 
-                            className={`black-input py-2 ${errors.email ? "is-invalid" : ""}`}
+                        className={`black-input py-2 ${errors.email ? "is-invalid" : ""}`}
 
-                            placeholder="example@gmail.com"
+                        placeholder="example@gmail.com"
 
-                            value={staff.email}
+                        value={staff.email}
 
-                            onChange={handleInputChange}
+                        onChange={handleInputChange}
 
-                          />
+                      />
 
-                          {errors.email ? <div className="text-danger small fw-bold mt-1">{errors.email}</div> : null}
+                      {errors.email ? <div className="text-danger small fw-bold mt-1">{errors.email}</div> : null}
 
-                        </Form.Group>
+                    </Form.Group>
 
-                      </Col>
-
-                    </>
-
-                  ) : (
-
-                    <>
-
-                      <Col md={6}>
-
-                        <Form.Group>
-
-                          <Form.Label className="fw-bold small text-dark">Username</Form.Label>
-
-                          <Form.Control
-
-                            type="text"
-
-                            name="username"
-
-                            className={`black-input py-2 ${errors.username ? "is-invalid" : ""}`}
-
-                            placeholder="Nhập username"
-
-                            value={staff.username}
-
-                            onChange={handleInputChange}
-
-                          />
-
-                          {errors.username ? (
-
-                            <div className="text-danger small fw-bold mt-1">{errors.username}</div>
-
-                          ) : null}
-
-                        </Form.Group>
-
-                      </Col>
-
-                      <Col md={6}>
-
-                        <Form.Group className="pw-wrap">
-
-                          <Form.Label className="fw-bold small text-dark">Mật khẩu</Form.Label>
-
-                          <Form.Control
-
-                            type={showPassword ? "text" : "password"}
-
-                            name="password"
-
-                            className={`black-input py-2 ${errors.password ? "is-invalid" : ""}`}
-
-                            placeholder={isEdit ? "Để trống nếu không đổi" : "Nhập mật khẩu"}
-
-                            value={staff.password || ""}
-
-                            onChange={handleInputChange}
-
-                          />
-
-                          <button type="button" className="pw-eye" onClick={() => setShowPassword((s) => !s)}>
-
-                            <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`} />
-
-                          </button>
-
-                          {errors.password ? (
-
-                            <div className="text-danger small fw-bold mt-1">{errors.password}</div>
-
-                          ) : null}
-
-                        </Form.Group>
-
-                      </Col>
-
-                      <Col md={6}>
-
-                        <Form.Group>
-
-                          <Form.Label className="fw-bold small text-dark">Địa chỉ Email</Form.Label>
-
-                          <Form.Control
-
-                            type="email"
-
-                            name="email"
-
-                            className={`black-input py-2 ${errors.email ? "is-invalid" : ""}`}
-
-                            placeholder="example@cinema.com"
-
-                            value={staff.email}
-
-                            onChange={handleInputChange}
-
-                          />
-
-                          {errors.email ? <div className="text-danger small fw-bold mt-1">{errors.email}</div> : null}
-
-                        </Form.Group>
-
-                      </Col>
-
-                    </>
-
-                  )}
+                  </Col>
 
 
 

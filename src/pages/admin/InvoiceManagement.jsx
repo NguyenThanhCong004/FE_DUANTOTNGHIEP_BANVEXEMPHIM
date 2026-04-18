@@ -70,7 +70,8 @@ const InvoiceManagement = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(ORDERS_ONLINE.LIST);
+        const query = effectiveCinemaId ? `?cinemaId=${effectiveCinemaId}` : '';
+        const res = await apiFetch(`${ORDERS_ONLINE.LIST}${query}`);
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
@@ -97,16 +98,12 @@ const InvoiceManagement = () => {
             displayCode: o.orderCode ? String(o.orderCode) : `#${o.id}`,
             customerName: o.customerName || '—',
             customerEmail: o.customerEmail || '—',
-            movieTitle: 'Đơn online',
+            movieTitle: o.tickets?.[0]?.movieTitle || (o.foods?.length > 0 ? 'Chỉ đặt đồ ăn' : 'Đơn online'),
             showtime: formatShowtime(o.createdAt),
-            roomName: '—',
-            seats: [],
-            subtotal: o.originalAmount ?? 0,
-            tax: o.discountAmount ?? 0,
             total: o.finalAmount ?? 0,
             status: mapOrderStatus(o.status),
-            paymentMethod: 'bank_transfer',
             createdAt: o.createdAt,
+            cinemaName: o.cinemaName,
           }))
         );
       } catch {
@@ -283,15 +280,7 @@ const InvoiceManagement = () => {
                   <tr key={invoice.apiId}>
                     <td className="fw-bold">{invoice.displayCode}</td>
                     <td>
-                      <div className="d-flex align-items-center gap-3">
-                        <div className="admin-table-icon-tile" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
-                          <i className="bi bi-person"></i>
-                        </div>
-                        <div>
-                          <div className="fw-semibold text-dark">{invoice.customerName}</div>
-                          <small className="text-muted">{invoice.customerEmail}</small>
-                        </div>
-                      </div>
+                      <div className="fw-semibold text-dark">{invoice.customerName}</div>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-2">
@@ -374,7 +363,7 @@ const InvoiceManagement = () => {
         <Modal.Header closeButton className="border-0 pb-0">
           <Modal.Title className="d-flex align-items-center gap-2 fw-bold text-primary mb-0">
             <ReceiptText size={22} />
-            Chi tiết đơn online
+            Chi tiết hóa đơn
           </Modal.Title>
         </Modal.Header>
         <Modal.Body className="text-dark">
@@ -387,29 +376,121 @@ const InvoiceManagement = () => {
           ) : !detailOrder ? (
             <p className="text-muted mb-0">Không có dữ liệu</p>
           ) : (
-            <dl className="row mb-0">
-              <dt className="col-sm-4 text-muted">Mã đơn</dt>
-              <dd className="col-sm-8 fw-semibold">{detailOrder.orderCode || '—'}</dd>
-              <dt className="col-sm-4 text-muted">Khách</dt>
-              <dd className="col-sm-8">{detailOrder.customerName || '—'}</dd>
-              <dt className="col-sm-4 text-muted">Email</dt>
-              <dd className="col-sm-8">{detailOrder.customerEmail || '—'}</dd>
-              <dt className="col-sm-4 text-muted">Thời gian</dt>
-              <dd className="col-sm-8">{formatDtInvoice(detailOrder.createdAt)}</dd>
-              <dt className="col-sm-4 text-muted">Trạng thái</dt>
-              <dd className="col-sm-8">{orderStatusLabel(detailOrder.status)}</dd>
-              <dt className="col-sm-4 text-muted">Giá gốc</dt>
-              <dd className="col-sm-8">{formatMoneyInvoice(detailOrder.originalAmount)}</dd>
-              <dt className="col-sm-4 text-muted">Giảm giá</dt>
-              <dd className="col-sm-8">{formatMoneyInvoice(detailOrder.discountAmount)}</dd>
-              <dt className="col-sm-4 text-muted">Thanh toán</dt>
-              <dd className="col-sm-8 text-success fw-bold">{formatMoneyInvoice(detailOrder.finalAmount)}</dd>
-            </dl>
+            <div className="invoice-detail-content">
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <h6 className="fw-bold border-bottom pb-2 mb-3">Thông tin chung</h6>
+                  <dl className="row mb-0 small">
+                    <dt className="col-5 text-muted">Mã đơn:</dt>
+                    <dd className="col-7 fw-semibold">{detailOrder.orderCode || `#${detailOrder.id}`}</dd>
+                    <dt className="col-5 text-muted">Thời gian đặt:</dt>
+                    <dd className="col-7">{formatDtInvoice(detailOrder.createdAt)}</dd>
+                    <dt className="col-5 text-muted">Rạp chiếu:</dt>
+                    <dd className="col-7 text-primary fw-bold">{detailOrder.cinemaName || '—'}</dd>
+                    <dt className="col-5 text-muted">Nhân viên:</dt>
+                    <dd className="col-7">{detailOrder.staffName || 'Đặt online'}</dd>
+                    <dt className="col-5 text-muted">Trạng thái:</dt>
+                    <dd className="col-7">{getStatusBadge(detailOrder.status === 0 ? 'pending' : detailOrder.status === 2 ? 'cancelled' : 'completed')}</dd>
+                  </dl>
+                </div>
+                <div className="col-md-6">
+                  <h6 className="fw-bold border-bottom pb-2 mb-3">Khách hàng</h6>
+                  <dl className="row mb-0 small">
+                    <dt className="col-5 text-muted">Họ tên:</dt>
+                    <dd className="col-7">{detailOrder.customerName || '—'}</dd>
+                    <dt className="col-5 text-muted">Email:</dt>
+                    <dd className="col-7 text-break">{detailOrder.customerEmail || '—'}</dd>
+                  </dl>
+                </div>
+
+                <div className="col-12">
+                  <h6 className="fw-bold border-bottom pb-2 mb-3 mt-2">Chi tiết vé phim</h6>
+                  {detailOrder.tickets && detailOrder.tickets.length > 0 ? (
+                    <div className="table-responsive">
+                      <table className="table table-sm table-bordered small">
+                        <thead className="bg-light">
+                          <tr>
+                            <th>Phim</th>
+                            <th>Suất chiếu</th>
+                            <th className="text-center">Ghế</th>
+                            <th className="text-end">Giá gốc</th>
+                            <th className="text-end">Khuyến mãi</th>
+                            <th className="text-end">Thành tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailOrder.tickets.map((t, idx) => (
+                            <tr key={idx}>
+                              <td className="fw-semibold">{t.movieTitle}</td>
+                              <td>{formatDtInvoice(t.showtime)}</td>
+                              <td className="text-center"><span className="badge bg-secondary">{t.seatNumber}</span></td>
+                              <td className="text-end">{formatMoneyInvoice(t.originalPrice)}</td>
+                              <td className="text-end text-danger">-{formatMoneyInvoice(t.promotionDiscount)}</td>
+                              <td className="text-end fw-bold">{formatMoneyInvoice(t.price)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="small text-muted italic">Không có thông tin vé</p>
+                  )}
+                </div>
+
+                {detailOrder.foods && detailOrder.foods.length > 0 && (
+                  <div className="col-12">
+                    <h6 className="fw-bold border-bottom pb-2 mb-3 mt-2">Bắp nước / Combo</h6>
+                    <div className="table-responsive">
+                      <table className="table table-sm table-bordered small">
+                        <thead className="bg-light">
+                          <tr>
+                            <th>Sản phẩm</th>
+                            <th className="text-center">Số lượng</th>
+                            <th className="text-end">Đơn giá</th>
+                            <th className="text-end">Thành tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailOrder.foods.map((f, idx) => (
+                            <tr key={idx}>
+                              <td>{f.productName}</td>
+                              <td className="text-center">{f.quantity}</td>
+                              <td className="text-end">{formatMoneyInvoice(f.price)}</td>
+                              <td className="text-end fw-bold">{formatMoneyInvoice(f.price * f.quantity)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                <div className="col-12 mt-3">
+                  <div className="bg-light p-3 rounded">
+                    <div className="d-flex justify-content-between mb-1 small">
+                      <span className="text-muted">Tổng tiền tạm tính:</span>
+                      <span>{formatMoneyInvoice(detailOrder.originalAmount)}</span>
+                    </div>
+                    <div className="d-flex justify-content-between mb-2 small">
+                      <span className="text-muted">Giảm giá / Voucher:</span>
+                      <span className="text-danger">-{formatMoneyInvoice(detailOrder.discountAmount)}</span>
+                    </div>
+                    <div className="d-flex justify-content-between border-top pt-2 fw-bold">
+                      <span>Tổng thanh toán:</span>
+                      <span className="text-success fs-5">{formatMoneyInvoice(detailOrder.finalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </Modal.Body>
         <Modal.Footer className="border-0">
-          <Button variant="primary" onClick={closeOrderDetail}>
+          <Button variant="outline-secondary" onClick={closeOrderDetail}>
             Đóng
+          </Button>
+          <Button variant="primary" onClick={() => window.print()} className="d-none d-print-inline-block">
+            <i className="bi bi-printer me-2"></i>In hóa đơn
           </Button>
         </Modal.Footer>
       </Modal>

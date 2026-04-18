@@ -112,29 +112,47 @@ export default function ProductManagement() {
         return;
       }
 
-      // Cập nhật local state để sản phẩm "nhảy" qua lại ngay lập tức
-      if (selling) {
-        // Chuyển từ "Chưa bán" -> "Đang bán" và đưa lên đầu
-        const item = notOnSale.find((p) => p.productId === productId);
-        if (item) {
-          setNotOnSale((prev) => prev.filter((p) => p.productId !== productId));
-          setOnSale((prev) => [item, ...prev]);
-          showToast(`Đã bật bán sản phẩm "${item.name}".`, "success");
-        }
+      // Cập nhật local state
+      setOnSale(prev => prev.map(p => p.productId === productId ? { ...p, isActive: selling } : p));
+      
+      // Nếu sản phẩm đang ở danh sách "Chưa bán" và được bật bán
+      const inNotOnSale = notOnSale.find(p => p.productId === productId);
+      if (inNotOnSale && selling) {
+        setNotOnSale(prev => prev.filter(p => p.productId !== productId));
+        setOnSale(prev => [{ ...inNotOnSale, isActive: true }, ...prev]);
+        showToast(`Đã thêm "${inNotOnSale.name}" vào menu rạp.`, "success");
       } else {
-        // Chuyển từ "Đang bán" -> "Chưa bán" và đưa lên đầu
-        const item = onSale.find((p) => p.productId === productId);
-        if (item) {
-          setOnSale((prev) => prev.filter((p) => p.productId !== productId));
-          setNotOnSale((prev) => [item, ...prev]);
-          showToast(`Đã gỡ sản phẩm "${item.name}" khỏi danh sách đang bán.`, "warning");
-        }
+        showToast(selling ? "Đã cập nhật: Còn hàng" : "Đã cập nhật: Hết hàng", "success");
       }
     } catch {
       showToast("Không thể kết nối server", "danger");
     } finally {
       setBusyId(null);
       closeToggleConfirm();
+    }
+  };
+
+  const removeFromMenu = async (productId) => {
+    if (effectiveCinemaId == null) return;
+    setBusyId(productId);
+    try {
+      const res = await apiFetch(`${CINEMAS.PRODUCT_MENU(effectiveCinemaId)}/products/${productId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        showToast(json?.message || "Gỡ thất bại", "danger");
+        return;
+      }
+
+      const item = onSale.find(p => p.productId === productId) || notOnSale.find(p => p.productId === productId);
+      setOnSale(prev => prev.filter(p => p.productId !== productId));
+      setNotOnSale(prev => [{ ...item, isActive: false }, ...prev]);
+      showToast(`Đã gỡ "${item?.name}" khỏi menu rạp.`, "warning");
+    } catch {
+      showToast("Lỗi kết nối", "danger");
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -182,13 +200,14 @@ export default function ProductManagement() {
             <tr>
               <th className="border-0">Sản phẩm</th>
               <th className="text-end border-0">Giá</th>
+              <th className="text-center border-0" style={{ width: "100px" }}>Trạng thái</th>
               <th className="text-end border-0">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={3} className="text-center text-muted py-5">
+                <td colSpan={4} className="text-center text-muted py-5">
                   <i className="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
                   Không có mục nào
                 </td>
@@ -197,39 +216,60 @@ export default function ProductManagement() {
               rows.map((r) => {
                 const combo = isComboCategory(r.categoryName);
                 const id = r.productId;
+                // isActive từ API/state (CinemaProduct.is_active)
+                const inStock = r.isActive !== false; 
+
                 return (
                   <tr key={`${mode}-${id}`}>
                     <td>
-                      <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "180px" }}>{r.name}</div>
+                      <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "150px" }}>{r.name}</div>
                       <Badge pill bg={combo ? "warning" : "info"} text="dark" style={{ fontSize: "0.6rem" }}>
                         {combo ? "Combo" : r.categoryName || "Khác"}
                       </Badge>
                     </td>
                     <td className="text-end fw-semibold text-primary">{formatMoney(r.price)}</td>
-                    <td className="text-end">
+                    <td className="text-center">
                       {mode === "on" ? (
-                        <Button
-                          variant="light"
-                          size="sm"
-                          className="text-danger border shadow-sm"
+                        <Form.Check 
+                          type="switch"
+                          id={`stock-switch-${id}`}
+                          checked={inStock}
                           disabled={busyId === id}
-                          onClick={() => openToggleConfirm(r, false)}
-                          title="Gỡ khỏi rạp"
-                        >
-                          {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
-                        </Button>
+                          onChange={(e) => toggleSelling(id, e.target.checked)}
+                          title={inStock ? "Đang còn hàng" : "Đã hết hàng"}
+                        />
                       ) : (
-                        <Button
-                          variant="light"
-                          size="sm"
-                          className="text-success border shadow-sm"
-                          disabled={busyId === id}
-                          onClick={() => openToggleConfirm(r, true)}
-                          title="Bán tại rạp"
-                        >
-                          {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
-                        </Button>
+                        <span className="text-muted small">—</span>
                       )}
+                    </td>
+                    <td className="text-end">
+                      <div className="d-flex justify-content-end gap-1">
+                        {mode === "on" ? (
+                          <>
+                            <Button
+                              variant="light"
+                              size="sm"
+                              className="text-danger border shadow-sm"
+                              disabled={busyId === id}
+                              onClick={() => removeFromMenu(id)}
+                              title="Gỡ khỏi rạp"
+                            >
+                              {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="light"
+                            size="sm"
+                            className="text-success border shadow-sm"
+                            disabled={busyId === id}
+                            onClick={() => toggleSelling(id, true)}
+                            title="Thêm vào rạp"
+                          >
+                            {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
