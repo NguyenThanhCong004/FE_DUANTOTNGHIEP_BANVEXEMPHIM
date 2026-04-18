@@ -97,44 +97,86 @@ export default function EditUser() {
     <div className="text-dark">
       <div className="d-flex align-items-center gap-3 mb-4">
         <Button variant="link" className="p-0 text-dark" onClick={() => navigate(`${prefix}/users`)}>
-          <i className="fas fa-arrow-left fs-4"></i>
+          <i className="bi bi-arrow-left fs-4"></i>
         </Button>
-        <h2 className="mb-0 fw-bold">Cap nhat trang thai khach hang</h2>
+        <h2 className="mb-0 fw-bold">Cập nhật thông tin khách hàng</h2>
       </div>
 
       <Card className="border-0 shadow-sm p-4" style={{ borderRadius: 18 }}>
         <Form onSubmit={submit}>
           <Row className="g-4">
             <Col md={6}>
-              <div className="small text-muted fw-bold">HO VA TEN</div>
-              <div className="fw-semibold">{user.fullname}</div>
+              <Form.Group>
+                <Form.Label className="small fw-bold text-muted">HỌ VÀ TÊN</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={user.fullname}
+                  onChange={(e) => setUser({ ...user, fullname: e.target.value })}
+                  placeholder="Nhập họ và tên"
+                  required
+                />
+              </Form.Group>
             </Col>
             <Col md={6}>
-              <div className="small text-muted fw-bold">EMAIL</div>
-              <div className="fw-semibold">{user.email || "-"}</div>
+              <Form.Group>
+                <Form.Label className="small fw-bold text-muted">EMAIL</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={user.email}
+                  onChange={(e) => setUser({ ...user, email: e.target.value })}
+                  placeholder="Nhập email"
+                  required
+                />
+              </Form.Group>
             </Col>
             <Col md={6}>
-              <div className="small text-muted fw-bold">SO DIEN THOAI</div>
-              <div className="fw-semibold">{user.phone || "-"}</div>
+              <Form.Group>
+                <Form.Label className="small fw-bold text-muted">SỐ ĐIỆN THOẠI</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={user.phone}
+                  onChange={(e) => setUser({ ...user, phone: e.target.value })}
+                  placeholder="Nhập số điện thoại"
+                />
+              </Form.Group>
             </Col>
             <Col md={6}>
-              <div className="small text-muted fw-bold">DIEM</div>
-              <div className="fw-semibold">{user.points} diem</div>
+              <Form.Group>
+                <Form.Label className="small fw-bold text-muted">NGÀY SINH</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={user.birthday ? user.birthday.split('T')[0] : ""}
+                  onChange={(e) => setUser({ ...user, birthday: e.target.value })}
+                />
+              </Form.Group>
             </Col>
-            <Col md={12}>
-              <Form.Label className="fw-bold">Trang thai tai khoan</Form.Label>
-              <div className="d-flex gap-4">
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label className="small fw-bold text-muted">ĐIỂM TÍCH LŨY</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={user.points}
+                  onChange={(e) => setUser({ ...user, points: Number(e.target.value) })}
+                  min="0"
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Label className="small fw-bold text-muted">TRẠNG THÁI TÀI KHOẢN</Form.Label>
+              <div className="d-flex gap-4 mt-1">
                 <Form.Check
                   type="radio"
+                  id="status-active"
                   name="status"
-                  label="Hoat dong"
+                  label="Hoạt động"
                   checked={Number(user.status) === 1}
                   onChange={() => setUser((prev) => ({ ...prev, status: 1 }))}
                 />
                 <Form.Check
                   type="radio"
+                  id="status-locked"
                   name="status"
-                  label="Khoa"
+                  label="Khóa"
                   checked={Number(user.status) === 0}
                   onChange={() => setUser((prev) => ({ ...prev, status: 0 }))}
                 />
@@ -142,9 +184,15 @@ export default function EditUser() {
             </Col>
           </Row>
 
-          <div className="d-flex justify-content-end gap-2 mt-4">
-            <Button variant="light" onClick={() => navigate(`${prefix}/users`)}>Huy</Button>
-            <Button type="submit">Luu trang thai</Button>
+          {err && <div className="text-danger mt-3 small fw-bold">{err}</div>}
+
+          <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+            <Button variant="light" className="px-4" style={{ borderRadius: 10 }} onClick={() => navigate(`${prefix}/users`)}>
+              Hủy
+            </Button>
+            <Button type="submit" variant="primary" className="px-4" style={{ borderRadius: 10 }}>
+              Lưu thay đổi
+            </Button>
           </div>
         </Form>
       </Card>

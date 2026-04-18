@@ -7,6 +7,7 @@ import { apiFetch } from "../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
+import { useAdminToast } from "../../components/admin/AdminToast";
 
 const DAY_NAMES = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 const SHIFT_TYPES = [
@@ -47,13 +48,13 @@ export default function ShiftManagement() {
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const staffSession = getStoredStaff();
   const { selectedCinemaId } = useSuperAdminCinema();
+  const { showToast, ToastComponent } = useAdminToast();
   const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : staffSession?.cinemaId ?? null;
 
   const [staffList, setStaffList] = useState([]);
   const [shifts, setShifts] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [weekStart, setWeekStart] = useState(getWeekStart(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   const [dragData, setDragData] = useState(null);
@@ -150,8 +151,8 @@ export default function ShiftManagement() {
       .filter(s => (s.fullname || s.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()));
   }, [staffList, searchTerm]);
 
-  const getShiftInCell = (date, shiftName, role) => {
-    return shifts.find(s => s.date === date && s.shiftType === shiftName && s.role === role);
+  const getShiftsInCell = (date, shiftName, role) => {
+    return shifts.filter(s => s.date === date && s.shiftType === shiftName && s.role === role);
   };
 
   const onDropStaff = (date, shiftObj, posObj) => {
@@ -160,44 +161,34 @@ export default function ShiftManagement() {
     // Chặn kéo thả vào ngày quá khứ
     const todayStr = toIso(new Date());
     if (date < todayStr) {
-      alert("Không thể thay đổi lịch làm việc của ngày đã qua.");
+      showToast("Không thể thay đổi lịch làm việc của ngày đã qua.", "warning");
       return;
     }
 
     const { staffId, staffName } = dragData;
     
-    // Check if staff already has a shift in this specific CA (Ca 1, Ca 2, or Ca 3) on this day
+    // Kiểm tra xem nhân viên này đã có mặt trong CA này chưa (bất kể vị trí nào)
     const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
     
     if (alreadyInShift) {
-      if (alreadyInShift.role === posObj.role) return; // Same position, do nothing
-      alert(`Nhân viên ${staffName} đã được phân công vị trí "${alreadyInShift.role}" trong ${shiftObj.name}. Một người không thể làm nhiều vị trí trong cùng một ca.`);
+      showToast(`Nhân viên ${staffName} đã có lịch làm trong ${shiftObj.name} (vị trí: ${alreadyInShift.role}).`, "warning");
       return;
     }
 
-    const existing = getShiftInCell(date, shiftObj.name, posObj.role);
-    
-    if (existing) {
-      setShifts(prev => prev.map(s => 
-        s === existing 
-          ? { ...s, staffId, staffName, dirty: true } 
-          : s
-      ));
-    } else {
-      const newShift = {
-        id: `local-${Date.now()}-${Math.random()}`,
-        serverId: null,
-        date,
-        shiftType: shiftObj.name,
-        startTime: shiftObj.start,
-        endTime: shiftObj.end,
-        role: posObj.role,
-        staffId,
-        staffName,
-        dirty: false
-      };
-      setShifts(prev => [...prev, newShift]);
-    }
+    // Luôn tạo một bản ghi mới (hỗ trợ nhiều người cùng vị trí)
+    const newShift = {
+      id: `local-${Date.now()}-${Math.random()}`,
+      serverId: null,
+      date,
+      shiftType: shiftObj.name,
+      startTime: shiftObj.start,
+      endTime: shiftObj.end,
+      role: posObj.role,
+      staffId,
+      staffName,
+      dirty: true // Đánh dấu là mới/thay đổi để lưu
+    };
+    setShifts(prev => [...prev, newShift]);
     setDragData(null);
   };
 
@@ -206,28 +197,6 @@ export default function ShiftManagement() {
       setPendingDeleteIds(prev => [...prev, shift.serverId]);
     }
     setShifts(prev => prev.filter(s => s.id !== shift.id));
-  };
-
-  const testDebugEndpoint = async () => {
-    console.log("🔍 Testing debug endpoint...");
-    try {
-      const response = await apiFetch(`${SHIFTS.LIST}/debug`);
-      const data = await response.json();
-      console.log("🔍 Debug response:", data);
-      console.log("🔍 Total shifts in database:", data.data?.length || 0);
-      
-      if (data.data?.length > 0) {
-        console.log("🔍 First few shifts:");
-        data.data.slice(0, 3).forEach((shift, index) => {
-          console.log(`  ${index + 1}.`, shift);
-        });
-      }
-      
-      alert(`Debug: Có ${data.data?.length || 0} ca làm trong database. Xem console để chi tiết.`);
-    } catch (err) {
-      console.error("🔍 Debug endpoint failed:", err);
-      alert("Debug endpoint thất bại! Xem console để chi tiết.");
-    }
   };
 
   const handleSave = async () => {
@@ -279,18 +248,15 @@ export default function ShiftManagement() {
       }
       
       console.log("✅ Lưu thành công, bắt đầu tải lại dữ liệu...");
-      setSuccessMessage("Đã lưu lịch làm việc thành công!");
+      showToast("Đã lưu lịch làm việc thành công!", "success");
       
       // Tải lại dữ liệu để hiển thị các ca đã lưu
       await loadData();
       console.log("🔄 Tải lại dữ liệu hoàn tất");
       
-      // Clear success message sau 3 giây
-      setTimeout(() => setSuccessMessage(''), 3000);
-      
     } catch (err) {
       console.error("❌ Lỗi khi lưu lịch làm việc:", err);
-      alert("Lỗi khi lưu lịch làm việc: " + (err.message || "Vui lòng thử lại."));
+      showToast("Lỗi khi lưu lịch làm việc: " + (err.message || "Vui lòng thử lại."), "danger");
     } finally {
       setSaving(false);
     }
@@ -466,59 +432,76 @@ export default function ShiftManagement() {
                     </td>
                     {weekDays.map((day, dIdx) => {
                       const dateStr = toIso(day);
+                      const isPast = dateStr < toIso(new Date());
                       return (
                         <td key={dIdx} className="p-2 align-top">
                           <div className="d-flex flex-column gap-2">
                             {POSITIONS.map(pos => {
-                              const assignment = getShiftInCell(dateStr, shift.name, pos.role);
+                              const assignments = getShiftsInCell(dateStr, shift.name, pos.role);
+                              const hasAssignments = assignments.length > 0;
                               return (
                                 <div 
                                   key={pos.id}
-                                  onDragOver={(e) => e.preventDefault()}
-                                  onDrop={() => onDropStaff(dateStr, shift, pos)}
-                                  className={`position-slot-v2 p-2 rounded ${assignment ? 'border-solid-v2 bg-white shadow-xs' : 'bg-light bg-opacity-50'}`}
+                                  onDragOver={(e) => !isPast && e.preventDefault()}
+                                  onDrop={() => !isPast && onDropStaff(dateStr, shift, pos)}
+                                  className={`position-slot-v2 p-2 rounded ${
+                                    isPast 
+                                      ? (hasAssignments ? 'border-past-v2 bg-past-assigned' : 'bg-past-empty border-dashed-past')
+                                      : (hasAssignments ? 'border-solid-v2 bg-white shadow-xs' : 'bg-light bg-opacity-50')
+                                  } ${isPast ? 'past-no-hover' : ''}`}
+                                  style={{ cursor: isPast ? 'not-allowed' : 'default', minHeight: '60px' }}
                                 >
-                                  <div className="d-flex align-items-center justify-content-between mb-1">
-                                    <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.6rem' }}>
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className={`d-flex align-items-center gap-1 fw-bold ${isPast ? 'text-muted opacity-50' : 'text-primary opacity-75'}`} style={{ fontSize: '0.6rem' }}>
                                       {pos.icon} {pos.name}
                                     </div>
-                                    {assignment && dateStr >= toIso(new Date()) && (
-                                      <button 
-                                        className="btn btn-link btn-sm p-0 text-danger opacity-50 hover-opacity-100"
-                                        onClick={() => handleRemoveShift(assignment)}
-                                      >
-                                        <Trash2 size={12} />
-                                      </button>
+                                    {hasAssignments && (
+                                      <Badge bg={isPast ? "secondary" : "primary"} className="rounded-pill" style={{ fontSize: '0.55rem' }}>
+                                        {assignments.length} người
+                                      </Badge>
                                     )}
                                   </div>
                                   
-                                  {assignment ? (
-                                    assignment.staffName && assignment.staffName !== "Không tên" ? (
-                                      <div className="d-flex align-items-center gap-2 overflow-hidden">
-                                        <div className="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center staff-avatar-sm">
-                                          {assignment.staffName.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="flex-grow-1">
-                                          <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.75rem' }}>
-                                            {assignment.staffName}
+                                  <div className="d-flex flex-column gap-2">
+                                    {hasAssignments ? (
+                                      assignments.map((assignment, idx) => (
+                                        <div 
+                                          key={assignment.id || idx} 
+                                          className={`d-flex align-items-center gap-2 p-1 rounded ${!isPast ? 'bg-light' : ''}`}
+                                          style={{ borderBottom: idx < assignments.length - 1 ? '1px solid #f1f5f9' : 'none' }}
+                                        >
+                                          <div className={`${isPast ? 'bg-secondary' : 'bg-success'} bg-opacity-10 ${isPast ? 'text-secondary' : 'text-success'} rounded-circle d-flex align-items-center justify-content-center staff-avatar-sm flex-shrink-0`}>
+                                            {assignment.staffName.charAt(0).toUpperCase()}
                                           </div>
-                                          <div className="text-muted" style={{ fontSize: '0.6rem' }}>
-                                            Đã phân công
+                                          <div className="flex-grow-1 overflow-hidden">
+                                            <div className={`fw-bold ${isPast ? 'text-muted' : 'text-dark'} text-truncate`} style={{ fontSize: '0.7rem' }}>
+                                              {assignment.staffName}
+                                            </div>
+                                            {!isPast && (
+                                              <div className="text-muted" style={{ fontSize: '0.55rem' }}>Đã phân công</div>
+                                            )}
                                           </div>
+                                          {!isPast && (
+                                            <button 
+                                              className="btn btn-link btn-sm p-0 text-danger opacity-50 hover-opacity-100 flex-shrink-0"
+                                              onClick={() => handleRemoveShift(assignment)}
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          )}
                                         </div>
-                                      </div>
+                                      ))
                                     ) : (
-                                      <div className="d-flex align-items-center gap-1 text-danger fw-bold admin-fade-in" style={{ fontSize: '0.65rem' }}>
-                                        <i className="bi bi-exclamation-triangle-fill"></i>
-                                        <span>Cần bổ sung nhân sự</span>
+                                      <div className="text-muted text-center py-2" style={{ fontSize: '0.6rem', opacity: isPast ? 0.3 : 0.5 }}>
+                                        {isPast ? '—' : (
+                                          <>
+                                            <div className="mb-1 small">👥</div>
+                                            <div>Kéo vào đây</div>
+                                          </>
+                                        )}
                                       </div>
-                                    )
-                                  ) : (
-                                    <div className="text-muted text-center" style={{ fontSize: '0.6rem', opacity: 0.7 }}>
-                                      <div className="mb-1">👥</div>
-                                      <div>Kéo nhân viên vào đây</div>
-                                    </div>
-                                  )}
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -566,6 +549,19 @@ export default function ShiftManagement() {
           border: 1px solid #e2e8f0 !important;
           border-left: 3px solid #6366f1 !important;
         }
+        .shift-management-v2 .border-past-v2 {
+          border: 1px solid #cbd5e1 !important;
+          border-left: 3px solid #94a3b8 !important;
+        }
+        .shift-management-v2 .bg-past-empty {
+          background-color: #f8fafc !important;
+        }
+        .shift-management-v2 .bg-past-assigned {
+          background-color: #f1f5f9 !important;
+        }
+        .shift-management-v2 .border-dashed-past {
+          border: 1px dashed #e2e8f0 !important;
+        }
         .shift-management-v2 .staff-avatar-sm {
           width: 18px;
           height: 18px;
@@ -582,6 +578,7 @@ export default function ShiftManagement() {
           box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
         }
       `}</style>
+      <ToastComponent />
     </AdminPanelPage>
   );
 }
