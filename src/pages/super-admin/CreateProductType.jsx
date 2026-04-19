@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
 
@@ -77,7 +78,15 @@ const CreateProductType = () => {
         body: JSON.stringify({ name: typeName.trim() }),
       });
       if (res.ok) {
-        navigate('/super-admin/product-types');
+        const json = await res.json().catch(() => null);
+        const serverMessage = json?.message || '';
+        const isNoChange = serverMessage.includes('Không có thay đổi');
+        navigate('/super-admin/product-types', {
+          state: {
+            message: serverMessage || (tid ? 'Cập nhật loại sản phẩm thành công' : 'Thêm loại sản phẩm thành công'),
+            type: isNoChange ? 'warning' : 'success',
+          },
+        });
       } else {
         const json = await res.json().catch(() => null);
         setServerError(json?.message || 'Lưu loại sản phẩm thất bại');
@@ -94,8 +103,10 @@ const CreateProductType = () => {
       icon={editData ? "bi-grid-fill" : "bi-grid-plus"} 
       title={editData ? 'Cập nhật loại sản phẩm' : 'Thêm loại sản phẩm mới'} 
       description="Quản lý các nhóm danh mục sản phẩm như Bắp, Nước, Combo..."
+      headerRight={<AdminFormListBack to="/super-admin/product-types" />}
     >
-      <div className="admin-card admin-slide-up" style={{ maxWidth: '700px', margin: '0 auto' }}>
+      <div className="admin-form-page-wrap admin-form-compact">
+      <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4 className="mb-0">
             <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
@@ -105,7 +116,7 @@ const CreateProductType = () => {
         <div className="admin-card-body p-4">
           {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="mb-4">
               <label className="admin-form-label">Tên loại sản phẩm <span className="text-danger">*</span></label>
               <input 
@@ -119,8 +130,7 @@ const CreateProductType = () => {
               {errors.typeName && <small className="text-danger fw-medium">{errors.typeName}</small>}
             </div>
 
-            <div className="mt-5 d-flex justify-content-center gap-3">
-              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/product-types')}>Hủy bỏ</button>
+            <div className="mt-4 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '180px' }} disabled={submitting}>
                 {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
                 {editData ? 'Cập nhật' : 'Lưu loại'}
@@ -128,6 +138,7 @@ const CreateProductType = () => {
             </div>
           </form>
         </div>
+      </div>
       </div>
     </AdminPanelPage>
   );

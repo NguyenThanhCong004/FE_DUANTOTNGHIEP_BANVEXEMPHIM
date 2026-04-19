@@ -15,6 +15,7 @@ const ProductManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const itemsPerPage = 8;
 
   const [products, setProducts] = useState([]);
@@ -51,7 +52,7 @@ const ProductManagement = () => {
           categoryId: p.categoryId,
           status: p.status === 1 ? "Active" : "Inactive",
           image: p.image || "https://placehold.co/200x200?text=Product",
-        })).sort((a, b) => b.id - a.id)
+        })).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
       );
     } catch {
       setProducts([]);
@@ -101,14 +102,21 @@ const ProductManagement = () => {
         await fetchProducts();
         setShowDeleteModal(false);
         setProductToDelete(null);
+        setDeleteError("");
       } else {
         const json = await res.json().catch(() => null);
-        showToast(json?.message || "Xóa sản phẩm thất bại", 'danger');
+        setDeleteError(json?.message || "Xóa sản phẩm thất bại");
       }
     } catch (error) {
       console.error("Error deleting product:", error);
-      showToast("Lỗi kết nối máy chủ", 'danger');
+      setDeleteError("Không thể kết nối đến máy chủ");
     }
+  };
+
+  const closeProductDeleteModal = () => {
+    setShowDeleteModal(false);
+    setProductToDelete(null);
+    setDeleteError("");
   };
 
   return (
@@ -258,6 +266,7 @@ const ProductManagement = () => {
                             className="admin-btn admin-btn-sm admin-btn-danger"
                             onClick={() => {
                               setProductToDelete(product);
+                              setDeleteError("");
                               setShowDeleteModal(true);
                             }}
                             title="Xóa sản phẩm"
@@ -363,14 +372,14 @@ const ProductManagement = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && productToDelete && (
-        <div className="admin-modal-overlay" role="presentation" onClick={() => setShowDeleteModal(false)}>
+        <div className="admin-modal-overlay" role="presentation" onClick={closeProductDeleteModal}>
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
                 <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa sản phẩm
               </h3>
-              <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>
+              <button type="button" className="admin-modal-close" onClick={closeProductDeleteModal}>
                 ×
               </button>
             </div>
@@ -390,6 +399,12 @@ const ProductManagement = () => {
                   </div>
                 </div>
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Lưu ý: Chỉ có thể xóa sản phẩm nếu chưa có chi nhánh rạp nào nhập về bán.
@@ -399,7 +414,7 @@ const ProductManagement = () => {
               <button
                 type="button"
                 className="admin-btn admin-btn-outline-secondary"
-                onClick={() => setShowDeleteModal(false)}
+                onClick={closeProductDeleteModal}
               >
                 Hủy
               </button>

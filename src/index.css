@@ -21,6 +21,31 @@ body {
   font-family: var(--font-ui, system-ui, sans-serif);
 }
 
+/* Ep dung 1 font duy nhat toan bo FE */
+html,
+body,
+#root,
+button,
+input,
+select,
+textarea,
+label,
+p,
+span,
+div,
+a,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+li,
+td,
+th {
+  font-family: var(--font-ui, system-ui, sans-serif) !important;
+}
+
 /* Trang quản trị: nền đồng bộ shell admin */
 html.admin-panel body {
   background-color: var(--admin-bg-deep, #070b17);

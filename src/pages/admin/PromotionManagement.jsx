@@ -22,6 +22,10 @@ const PromotionManagement = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPromo, setSelectedPromo] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [promoToDelete, setPromoToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const loadPromotions = useCallback(async () => {
     setLoading(true);
@@ -36,14 +40,20 @@ const PromotionManagement = () => {
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
       setPromotions(
-        arr.map((p) => ({
-          id: p.id,
-          title: p.title ?? '',
-          discount: p.discount_percent != null ? `${p.discount_percent}%` : (p.discountAmount != null ? `${p.discountAmount.toLocaleString()}đ` : '—'),
-          startDate: p.startDate ?? '',
-          endDate: p.endDate ?? '',
-          status: String(p.status || '').toLowerCase().includes('đang') ? 'active' : 'upcoming',
-        }))
+        arr.map((p) => {
+          const label = String(p.status ?? '');
+          let statusKey = 'upcoming';
+          if (label.includes('Đang diễn ra')) statusKey = 'active';
+          else if (label.includes('Đã kết thúc')) statusKey = 'ended';
+          return {
+            id: p.id,
+            title: p.title ?? '',
+            discount: p.discount_percent != null ? `${p.discount_percent}%` : (p.discountAmount != null ? `${p.discountAmount.toLocaleString()}đ` : '—'),
+            startDate: p.startDate ?? '',
+            endDate: p.endDate ?? '',
+            status: statusKey,
+          };
+        })
       );
     } catch (err) {
       console.error("Lỗi tải khuyến mãi:", err);
@@ -58,6 +68,7 @@ const PromotionManagement = () => {
   }, [loadPromotions]);
 
   const handleOpenView = async (promoId) => {
+    setSelectedPromo(null);
     setModalLoading(true);
     setShowViewModal(true);
     try {
@@ -75,17 +86,21 @@ const PromotionManagement = () => {
   };
 
   const handleDelete = async (promoId) => {
-    if (!window.confirm("Xóa nhóm khuyến mãi này?")) return;
     try {
       const res = await apiFetch(PROMOTIONS.BY_ID(promoId), { method: "DELETE" });
       if (res.ok) {
         setPromotions((prev) => prev.filter((p) => String(p.id) !== String(promoId)));
+        setShowDeleteModal(false);
+        setPromoToDelete(null);
+        setDeleteError('');
+        setToast({ show: true, message: 'Xóa khuyến mãi thành công', type: 'success' });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
       } else {
         const json = await res.json().catch(() => null);
-        alert(json?.message || "Xóa thất bại");
+        setDeleteError(json?.message || "Xóa thất bại");
       }
     } catch {
-      alert("Không thể kết nối server");
+      setDeleteError("Không thể kết nối server");
     }
   };
 
@@ -99,6 +114,20 @@ const PromotionManagement = () => {
       const d = new Date(dateStr);
       return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch { return dateStr; }
+  };
+
+  /** Danh sách tên phim áp dụng từ API (camelCase hoặc snake_case). */
+  const appliedMovieLabels = (p) => {
+    if (!p) return [];
+    const titles = p.selectedMovieTitles ?? p.selected_movie_titles;
+    const ids = p.selectedMovieIds ?? p.selected_movie_ids;
+    if (Array.isArray(titles) && titles.length > 0) {
+      return titles.filter(Boolean).map(String);
+    }
+    if (Array.isArray(ids) && ids.length > 0) {
+      return ids.map((id) => `Phim #${id}`);
+    }
+    return [];
   };
 
   return (
@@ -200,8 +229,8 @@ const PromotionManagement = () => {
                       </div>
                     </td>
                     <td>
-                      <Badge bg={promo.status === 'active' ? 'success' : 'warning'}>
-                        {promo.status === 'active' ? 'Đang diễn ra' : 'Sắp diễn ra'}
+                      <Badge bg={promo.status === 'active' ? 'success' : promo.status === 'ended' ? 'secondary' : 'warning'}>
+                        {promo.status === 'active' ? 'Đang diễn ra' : promo.status === 'ended' ? 'Đã kết thúc' : 'Sắp diễn ra'}
                       </Badge>
                     </td>
                     <td>
@@ -223,8 +252,15 @@ const PromotionManagement = () => {
                         <button
                           type="button"
                           className="admin-table-action-btn admin-table-action-btn--danger"
-                          title="Xóa"
-                          onClick={() => handleDelete(promo.id)}
+                          title={promo.status === 'active' ? 'Không thể xóa khi khuyến mãi đang diễn ra' : 'Xóa'}
+                          disabled={promo.status === 'active'}
+                          style={promo.status === 'active' ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+                          onClick={() => {
+                            if (promo.status === 'active') return;
+                            setPromoToDelete(promo);
+                            setDeleteError('');
+                            setShowDeleteModal(true);
+                          }}
                         >
                           <i className="bi bi-trash"></i>
                         </button>
@@ -261,9 +297,16 @@ const PromotionManagement = () => {
                 </Col>
                 <Col md={6}>
                   <div className="small text-muted fw-bold mb-1 text-uppercase">Trạng thái</div>
-                  <Badge bg={String(selectedPromo.status || '').toLowerCase().includes('đang') ? 'success' : 'warning'} className="px-3 py-2 fs-6">
-                    {selectedPromo.status || "Chưa xác định"}
-                  </Badge>
+                  {(() => {
+                    const st = String(selectedPromo.status || '');
+                    const isActive = st.includes('Đang diễn ra');
+                    const isEnded = st.includes('Đã kết thúc');
+                    return (
+                      <Badge bg={isActive ? 'success' : isEnded ? 'secondary' : 'warning'} className="px-3 py-2 fs-6">
+                        {selectedPromo.status || 'Chưa xác định'}
+                      </Badge>
+                    );
+                  })()}
                 </Col>
                 <Col md={6}>
                   <div className="small text-muted fw-bold mb-1 text-uppercase">Ngày bắt đầu</div>
@@ -272,6 +315,24 @@ const PromotionManagement = () => {
                 <Col md={6}>
                   <div className="small text-muted fw-bold mb-1 text-uppercase">Ngày kết thúc</div>
                   <div className="fw-bold text-dark"><i className="bi bi-calendar-check me-2"></i>{formatDate(selectedPromo.endDate)}</div>
+                </Col>
+                <Col md={12}>
+                  <hr className="my-2" />
+                  <div className="small text-muted fw-bold mb-2 text-uppercase d-flex align-items-center gap-2">
+                    <i className="bi bi-film text-primary"></i>
+                    Phim áp dụng
+                  </div>
+                  <div className="d-flex flex-wrap gap-2">
+                    {appliedMovieLabels(selectedPromo).length > 0 ? (
+                      appliedMovieLabels(selectedPromo).map((name, idx) => (
+                        <Badge key={`${idx}-${name}`} bg="primary" className="fw-normal px-3 py-2 rounded-pill">
+                          {name}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted small">Chưa có danh sách phim từ máy chủ.</span>
+                    )}
+                  </div>
                 </Col>
                 <Col md={12}>
                   <hr />
@@ -291,6 +352,44 @@ const PromotionManagement = () => {
           </Link>
         </Modal.Footer>
       </Modal>
+      {showDeleteModal && promoToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={() => setShowDeleteModal(false)}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa khuyến mãi
+              </h3>
+              <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa chương trình này?</p>
+              <div className="alert alert-warning">
+                <strong>Khuyến mãi:</strong> {promoToDelete.title}
+              </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={() => setShowDeleteModal(false)}>Hủy</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={() => handleDelete(promoToDelete.id)}>Xóa</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {toast.show && (
+        <div
+          className={`position-fixed bottom-0 start-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
+          style={{ minWidth: '300px' }}
+        >
+          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
+          <div className="fw-bold">{toast.message}</div>
+        </div>
+      )}
     </div>
   );
 };

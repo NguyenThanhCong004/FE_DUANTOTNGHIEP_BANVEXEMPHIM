@@ -19,6 +19,13 @@ function isComboCategory(name) {
     .includes("combo");
 }
 
+/** Sản phẩm mới (id lớn hơn) lên trên — đồng bộ với API đã sort theo productId DESC */
+function sortProductsNewestFirst(items) {
+  return [...items].sort(
+    (a, b) => (Number(b.productId) || 0) - (Number(a.productId) || 0)
+  );
+}
+
 export default function ProductManagement() {
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
@@ -32,6 +39,9 @@ export default function ProductManagement() {
   const [busyId, setBusyId] = useState(null);
   const [searchA, setSearchA] = useState("");
   const [searchB, setSearchB] = useState("");
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
 
   // Pagination states
   const [pageA, setPageA] = useState(1);
@@ -55,8 +65,12 @@ export default function ProductManagement() {
         return;
       }
       const data = json?.data ?? json;
-      setOnSale(Array.isArray(data?.onSale) ? data.onSale : []);
-      setNotOnSale(Array.isArray(data?.notOnSale) ? data.notOnSale : []);
+      setOnSale(
+        Array.isArray(data?.onSale) ? sortProductsNewestFirst(data.onSale) : []
+      );
+      setNotOnSale(
+        Array.isArray(data?.notOnSale) ? sortProductsNewestFirst(data.notOnSale) : []
+      );
     } catch {
       setOnSale([]);
       setNotOnSale([]);
@@ -69,6 +83,21 @@ export default function ProductManagement() {
     loadMenu();
   }, [loadMenu]);
 
+  const showToast = (message, type = "success", duration = 3000) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), duration);
+  };
+
+  const openToggleConfirm = (product, selling) => {
+    setPendingAction({ product, selling });
+    setShowConfirmModal(true);
+  };
+
+  const closeToggleConfirm = () => {
+    setShowConfirmModal(false);
+    setPendingAction(null);
+  };
+
   const toggleSelling = async (productId, selling) => {
     if (effectiveCinemaId == null) return;
     setBusyId(productId);
@@ -79,28 +108,49 @@ export default function ProductManagement() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(json?.message || "Cập nhật thất bại");
+        showToast(json?.message || "Cập nhật thất bại", "danger");
         return;
       }
 
-      // Cập nhật local state để sản phẩm "nhảy" qua lại ngay lập tức
-      if (selling) {
-        // Chuyển từ "Chưa bán" -> "Đang bán" và đưa lên đầu
-        const item = notOnSale.find((p) => p.productId === productId);
-        if (item) {
-          setNotOnSale((prev) => prev.filter((p) => p.productId !== productId));
-          setOnSale((prev) => [item, ...prev]);
-        }
+      // Cập nhật local state
+      setOnSale(prev => prev.map(p => p.productId === productId ? { ...p, isActive: selling } : p));
+      
+      // Nếu sản phẩm đang ở danh sách "Chưa bán" và được bật bán
+      const inNotOnSale = notOnSale.find(p => p.productId === productId);
+      if (inNotOnSale && selling) {
+        setNotOnSale(prev => prev.filter(p => p.productId !== productId));
+        setOnSale(prev => [{ ...inNotOnSale, isActive: true }, ...prev]);
+        showToast(`Đã thêm "${inNotOnSale.name}" vào menu rạp.`, "success");
       } else {
-        // Chuyển từ "Đang bán" -> "Chưa bán" và đưa lên đầu
-        const item = onSale.find((p) => p.productId === productId);
-        if (item) {
-          setOnSale((prev) => prev.filter((p) => p.productId !== productId));
-          setNotOnSale((prev) => [item, ...prev]);
-        }
+        showToast(selling ? "Đã cập nhật: Còn hàng" : "Đã cập nhật: Hết hàng", "success");
       }
     } catch {
-      alert("Không thể kết nối server");
+      showToast("Không thể kết nối server", "danger");
+    } finally {
+      setBusyId(null);
+      closeToggleConfirm();
+    }
+  };
+
+  const removeFromMenu = async (productId) => {
+    if (effectiveCinemaId == null) return;
+    setBusyId(productId);
+    try {
+      const res = await apiFetch(`${CINEMAS.PRODUCT_MENU(effectiveCinemaId)}/products/${productId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        showToast(json?.message || "Gỡ thất bại", "danger");
+        return;
+      }
+
+      const item = onSale.find(p => p.productId === productId) || notOnSale.find(p => p.productId === productId);
+      setOnSale(prev => prev.filter(p => p.productId !== productId));
+      setNotOnSale(prev => [{ ...item, isActive: false }, ...prev]);
+      showToast(`Đã gỡ "${item?.name}" khỏi menu rạp.`, "warning");
+    } catch {
+      showToast("Lỗi kết nối", "danger");
     } finally {
       setBusyId(null);
     }
@@ -150,13 +200,14 @@ export default function ProductManagement() {
             <tr>
               <th className="border-0">Sản phẩm</th>
               <th className="text-end border-0">Giá</th>
+              <th className="text-center border-0" style={{ width: "100px" }}>Trạng thái</th>
               <th className="text-end border-0">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={3} className="text-center text-muted py-5">
+                <td colSpan={4} className="text-center text-muted py-5">
                   <i className="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
                   Không có mục nào
                 </td>
@@ -165,39 +216,60 @@ export default function ProductManagement() {
               rows.map((r) => {
                 const combo = isComboCategory(r.categoryName);
                 const id = r.productId;
+                // isActive từ API/state (CinemaProduct.is_active)
+                const inStock = r.isActive !== false; 
+
                 return (
                   <tr key={`${mode}-${id}`}>
                     <td>
-                      <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "180px" }}>{r.name}</div>
+                      <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "150px" }}>{r.name}</div>
                       <Badge pill bg={combo ? "warning" : "info"} text="dark" style={{ fontSize: "0.6rem" }}>
                         {combo ? "Combo" : r.categoryName || "Khác"}
                       </Badge>
                     </td>
                     <td className="text-end fw-semibold text-primary">{formatMoney(r.price)}</td>
-                    <td className="text-end">
+                    <td className="text-center">
                       {mode === "on" ? (
-                        <Button
-                          variant="light"
-                          size="sm"
-                          className="text-danger border shadow-sm"
+                        <Form.Check 
+                          type="switch"
+                          id={`stock-switch-${id}`}
+                          checked={inStock}
                           disabled={busyId === id}
-                          onClick={() => toggleSelling(id, false)}
-                          title="Gỡ khỏi rạp"
-                        >
-                          {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
-                        </Button>
+                          onChange={(e) => toggleSelling(id, e.target.checked)}
+                          title={inStock ? "Đang còn hàng" : "Đã hết hàng"}
+                        />
                       ) : (
-                        <Button
-                          variant="light"
-                          size="sm"
-                          className="text-success border shadow-sm"
-                          disabled={busyId === id}
-                          onClick={() => toggleSelling(id, true)}
-                          title="Bán tại rạp"
-                        >
-                          {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
-                        </Button>
+                        <span className="text-muted small">—</span>
                       )}
+                    </td>
+                    <td className="text-end">
+                      <div className="d-flex justify-content-end gap-1">
+                        {mode === "on" ? (
+                          <>
+                            <Button
+                              variant="light"
+                              size="sm"
+                              className="text-danger border shadow-sm"
+                              disabled={busyId === id}
+                              onClick={() => removeFromMenu(id)}
+                              title="Gỡ khỏi rạp"
+                            >
+                              {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="light"
+                            size="sm"
+                            className="text-success border shadow-sm"
+                            disabled={busyId === id}
+                            onClick={() => toggleSelling(id, true)}
+                            title="Thêm vào rạp"
+                          >
+                            {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -353,6 +425,52 @@ export default function ProductManagement() {
             </div>
           </Col>
         </Row>
+      )}
+
+      {showConfirmModal && pendingAction && (
+        <div className="admin-modal-overlay" role="presentation" onClick={closeToggleConfirm}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                {pendingAction.selling ? "Xác nhận bật bán sản phẩm" : "Xác nhận gỡ sản phẩm khỏi danh sách bán"}
+              </h3>
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeToggleConfirm}>
+                ×
+              </button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">
+                Bạn có chắc chắn muốn {pendingAction.selling ? "bật bán" : "gỡ khỏi danh sách bán"} sản phẩm này?
+              </p>
+              <div className="alert alert-warning">
+                <strong>Sản phẩm:</strong> {pendingAction.product.name}
+              </div>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={closeToggleConfirm}>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className={`admin-btn ${pendingAction.selling ? "admin-btn-primary" : "admin-btn-danger"}`}
+                onClick={() => toggleSelling(pendingAction.product.productId, pendingAction.selling)}
+              >
+                {pendingAction.selling ? "Bật bán" : "Gỡ khỏi bán"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast.show && (
+        <div
+          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
+          style={{ minWidth: "300px" }}
+        >
+          <i className={`bi bi-${toast.type === "success" ? "check-circle-fill" : "exclamation-triangle-fill"} fs-5`} />
+          <div className="fw-bold">{toast.message}</div>
+        </div>
       )}
     </AdminPanelPage>
   );

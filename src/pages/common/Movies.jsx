@@ -36,7 +36,8 @@ const Movies = () => {
           return;
         }
         const list = Array.isArray(json?.data) ? json.data : [];
-        setAllMovies(list.filter((x) => x.status === 1).map(mapMovieForCard));
+        // Hiển thị phim đang chiếu (status 1) và sắp chiếu (status 2)
+        setAllMovies(list.filter((x) => x.status === 1 || x.status === 2).map(mapMovieForCard));
       } catch {
         if (m) {
           setError("Không kết nối được máy chủ.");

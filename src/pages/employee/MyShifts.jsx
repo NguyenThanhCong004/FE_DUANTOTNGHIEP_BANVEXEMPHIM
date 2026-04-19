@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Calendar, Clock, RefreshCw } from "lucide-react";
+import { Calendar, Clock, RefreshCw, ChevronRight, CheckCircle2, History } from "lucide-react";
 import { apiFetch } from "../../utils/apiClient";
 import { SHIFTS } from "../../constants/apiEndpoints";
 import { clearAuthSession } from "../../utils/authStorage";
@@ -41,31 +41,63 @@ export default function MyShifts() {
     load();
   }, [load]);
 
-  const groupedByDate = useMemo(() => {
-    const m = new Map();
-    for (const r of rows) {
-      const d = r.date || "—";
-      if (!m.has(d)) m.set(d, []);
-      m.get(d).push(r);
-    }
-    return [...m.entries()].sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+  const { upcomingShifts, pastShifts } = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    const upcoming = [];
+    const past = [];
+
+    rows.forEach(r => {
+      // Giả sử r.date định dạng YYYY-MM-DD
+      if (r.date >= todayStr) {
+        upcoming.push(r);
+      } else {
+        past.push(r);
+      }
+    });
+
+    // Sắp xếp ca tương lai: ca gần nhất lên trước (tăng dần)
+    upcoming.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+    
+    // Sắp xếp ca quá khứ: ca mới xong nhất lên trước (giảm dần)
+    past.sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
+
+    return { upcomingShifts: upcoming, pastShifts: past };
   }, [rows]);
 
-  return (
-    <div>
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div>
-          <h1 className="h4 fw-bold text-white mb-1">Ca làm của tôi</h1>
-          <p className="text-secondary small mb-0">
-            Chỉ hiển thị các ca được phân cho tài khoản của bạn (theo hệ thống).
-          </p>
+  const ShiftCard = ({ shift, isPast }) => (
+    <div className={`shift-card ${isPast ? 'past' : ''}`}>
+      <div className="shift-date-box">
+        <span className="month">{new Date(shift.date).toLocaleDateString('vi-VN', { month: 'short' })}</span>
+        <span className="day">{new Date(shift.date).getDate()}</span>
+      </div>
+      <div className="shift-info">
+        <div className="shift-type">{shift.shiftType || "Ca làm việc"}</div>
+        <div className="shift-time">
+          <Clock size={14} />
+          <span>{shift.startTime} - {shift.endTime}</span>
         </div>
-        <button
-          type="button"
-          className="btn btn-outline-info btn-sm d-flex align-items-center gap-2"
-          onClick={load}
-          disabled={loading}
-        >
+        <div className="shift-role">{shift.role || "Nhân viên"}</div>
+      </div>
+      <div className="shift-status">
+        {isPast ? (
+          <span className="status-badge completed"><CheckCircle2 size={12} /> Hoàn thành</span>
+        ) : (
+          <span className="status-badge upcoming">Sắp tới</span>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="my-shifts-container custom-scrollbar">
+      <div className="page-header d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1 className="h4 fw-bold text-white mb-1">Lịch làm việc của tôi</h1>
+          <p className="text-white-50 small mb-0">Theo dõi và quản lý các ca làm việc đã được phân công.</p>
+        </div>
+        <button className="refresh-btn" onClick={load} disabled={loading}>
           <RefreshCw size={16} className={loading ? "spin" : ""} />
           Làm mới
         </button>
@@ -74,63 +106,124 @@ export default function MyShifts() {
       {loading ? (
         <div className="text-center py-5 text-secondary">
           <div className="spinner-border text-info" role="status" />
-          <p className="mt-3 mb-0">Đang tải lịch ca…</p>
+          <p className="mt-3">Đang tải lịch làm việc...</p>
         </div>
       ) : error ? (
-        <div className="alert alert-danger border-0 shadow-sm">{error}</div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-3 p-5 text-center border border-secondary border-opacity-25 bg-dark bg-opacity-25">
-          <Calendar className="mx-auto mb-3 text-secondary" size={40} />
-          <p className="fw-semibold text-white mb-1">Chưa có ca nào được phân</p>
-          <p className="text-secondary small mb-0">
-            Khi quản lý rạp thêm bạn vào ca (Bán vé / Soát vé / Phục vụ), lịch sẽ hiện tại đây.
-          </p>
-        </div>
+        <div className="alert-custom">{error}</div>
       ) : (
-        <div className="d-flex flex-column gap-4">
-          {groupedByDate.map(([date, items]) => (
-            <section key={date}>
-              <h2 className="h6 text-info mb-3 d-flex align-items-center gap-2">
-                <Calendar size={18} />
-                {date}
-              </h2>
-              <div className="table-responsive rounded-3 border border-secondary border-opacity-25 overflow-hidden">
-                <table className="table table-dark table-hover mb-0 align-middle">
-                  <thead className="table-secondary text-dark">
-                    <tr>
-                      <th>Ca</th>
-                      <th>Giờ</th>
-                      <th>Vai trò</th>
-                      <th>Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((r) => (
-                      <tr key={r.id}>
-                        <td className="fw-semibold">{r.shiftType || "—"}</td>
-                        <td>
-                          <span className="d-inline-flex align-items-center gap-1">
-                            <Clock size={14} className="text-secondary" />
-                            {r.startTime || "—"} – {r.endTime || "—"}
-                          </span>
-                        </td>
-                        <td>{r.role || "—"}</td>
-                        <td>
-                          <span className="badge bg-primary bg-opacity-75">{r.status || "—"}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ))}
+        <div className="shifts-content-area">
+          {/* Section: Upcoming */}
+          <section className="shifts-section">
+            <h2 className="section-title"><Calendar size={18} /> LỊCH LÀM SẮP TỚI</h2>
+            <div className="shifts-grid">
+              {upcomingShifts.length > 0 ? (
+                upcomingShifts.map(s => <ShiftCard key={s.id} shift={s} isPast={false} />)
+              ) : (
+                <div className="empty-mini">Không có lịch làm sắp tới.</div>
+              )}
+            </div>
+          </section>
+
+          {/* Section: History */}
+          <section className="shifts-section mt-5">
+            <h2 className="section-title history"><History size={18} /> LỊCH SỬ CA LÀM</h2>
+            <div className="shifts-grid">
+              {pastShifts.length > 0 ? (
+                pastShifts.map(s => <ShiftCard key={s.id} shift={s} isPast={true} />)
+              ) : (
+                <div className="empty-mini">Chưa có lịch sử làm việc.</div>
+              )}
+            </div>
+          </section>
         </div>
       )}
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .my-shifts-container { 
+          padding: 24px; 
+          color: white; 
+          height: calc(100vh - 64px); 
+          overflow-y: auto; 
+          background: #0f172a;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        .refresh-btn { 
+          display: flex; 
+          align-items: center; 
+          gap: 8px; 
+          background: rgba(56, 189, 248, 0.1); 
+          border: 1px solid rgba(56, 189, 248, 0.2); 
+          color: #38bdf8; 
+          padding: 8px 16px; 
+          border-radius: 10px; 
+          font-size: 13px; 
+          font-weight: 700; 
+          cursor: pointer; 
+          transition: all 0.2s;
+        }
+        .refresh-btn:hover { background: #38bdf8; color: #0f172a; }
         .spin { animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .shifts-section { margin-bottom: 32px; }
+        .section-title { 
+          font-size: 14px; 
+          font-weight: 800; 
+          color: #38bdf8; 
+          display: flex; 
+          align-items: center; 
+          gap: 10px; 
+          margin-bottom: 20px; 
+          letter-spacing: 1px;
+        }
+        .section-title.history { color: #94a3b8; }
+
+        .shifts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+        
+        .shift-card { 
+          background: #1e293b; 
+          border-radius: 16px; 
+          padding: 16px; 
+          display: flex; 
+          align-items: center; 
+          gap: 16px; 
+          border: 1px solid rgba(255,255,255,0.05); 
+          transition: all 0.2s;
+          position: relative;
+          overflow: hidden;
+        }
+        .shift-card:hover { transform: translateY(-4px); border-color: #38bdf8; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .shift-card.past { opacity: 0.7; background: rgba(30, 41, 59, 0.5); }
+        .shift-card.past:hover { opacity: 1; }
+
+        .shift-date-box { 
+          width: 60px; 
+          height: 60px; 
+          background: #0f172a; 
+          border-radius: 12px; 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          justify-content: center; 
+          flex-shrink: 0;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        .shift-date-box .month { font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; }
+        .shift-date-box .day { font-size: 20px; font-weight: 900; color: #f1f5f9; line-height: 1; }
+
+        .shift-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .shift-type { font-weight: 800; font-size: 15px; color: #f1f5f9; }
+        .shift-time { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #94a3b8; font-weight: 600; }
+        .shift-role { font-size: 12px; color: #38bdf8; font-weight: 700; background: rgba(56, 189, 248, 0.1); padding: 2px 8px; border-radius: 4px; width: fit-content; margin-top: 4px; }
+
+        .status-badge { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 100px; display: flex; align-items: center; gap: 4px; }
+        .status-badge.upcoming { background: #38bdf8; color: #0f172a; }
+        .status-badge.completed { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+
+        .empty-mini { padding: 30px; text-align: center; background: rgba(15, 23, 42, 0.3); border-radius: 16px; color: #64748b; font-size: 14px; border: 1px dashed rgba(255,255,255,0.1); }
+        .alert-custom { background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 16px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2); font-weight: 600; }
       `}</style>
     </div>
   );

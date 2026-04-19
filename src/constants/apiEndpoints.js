@@ -95,6 +95,8 @@ export const SHIFTS = {
   BY_ID: (id) => `${API_V1}/shifts/${id}`,
   /** GET — JWT bắt buộc; chỉ nhân viên (staff), trả ca của chính mình */
   ME: `${API_V1}/shifts/me`,
+  /** GET — ca làm việc hiện tại của nhân viên */
+  ACTIVE: `${API_V1}/shifts/active`,
 };
 
 export const PAYOS = {
@@ -114,6 +116,12 @@ export const FOOD_ORDERS = {
   CANCEL_PENDING: `${API_V1}/food-orders/cancel-pending`,
 };
 
+/** Đặt vé & bắp nước tại quầy (POS) — JWT nhân viên (STAFF/ADMIN) */
+export const COUNTER_ORDERS = {
+  CHECKOUT: `${API_V1}/counter-orders/checkout`,
+  CONFIRM_PAID: (orderCode) => `${API_V1}/counter-orders/${orderCode}/confirm-paid`,
+};
+
 export const VOUCHERS = {
   LIST: `${API_V1}/vouchers`,
   BY_ID: (id) => `${API_V1}/vouchers/${id}`,
@@ -128,6 +136,7 @@ export const NEWS = {
 export const MEMBERSHIP_RANKS = {
   LIST: `${API_V1}/membership-ranks`,
   BY_ID: (id) => `${API_V1}/membership-ranks/${id}`,
+  DELETE: (id) => `${API_V1}/membership-ranks/${id}`,
 };
 
 export const PRODUCT_CATEGORIES = {
@@ -160,4 +169,12 @@ export const ME = {
   VOUCHERS: `${API_V1}/me/vouchers`,
   REDEEM_VOUCHER: `${API_V1}/me/vouchers/redeem`,
   POINTS_HISTORY: `${API_V1}/me/points-history`,
+};
+
+export const STAFF_DASHBOARD = {
+  STATS: `${API_V1}/staff/dashboard-stats`,
+  RECENT_ORDERS: `${API_V1}/staff/dashboard-stats/recent-orders`,
+  ORDER_DETAIL: (orderCode) => `${API_V1}/staff/dashboard-stats/orders/${orderCode}`,
+  PRODUCTS_BREAKDOWN: `${API_V1}/staff/dashboard-stats/products-breakdown`,
+  REVENUE_BREAKDOWN: `${API_V1}/staff/dashboard-stats/revenue-breakdown`,
 };

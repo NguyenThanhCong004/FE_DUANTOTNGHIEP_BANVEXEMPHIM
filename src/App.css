@@ -5,3 +5,39 @@
   margin: 0;
   padding: 0;
 }
+
+html.cinetoon-public main {
+  padding-top: 32px;
+}
+
+/* Đồng bộ khoảng cách từ header đến nội dung giữa các page public */
+html.cinetoon-public main > *:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Nhiều page đặt <style> trước wrapper nội dung, cần reset phần tử kế tiếp */
+html.cinetoon-public main > style + * {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Dong bo tieu de cac trang public */
+html.cinetoon-public .page-title,
+html.cinetoon-public .mv-title,
+html.cinetoon-public .ev-title,
+html.cinetoon-public .fav-title,
+html.cinetoon-public .fd-title,
+html.cinetoon-public .th-title,
+html.cinetoon-public .auth-title,
+html.cinetoon-public .fp-card-title,
+html.cinetoon-public .md-title,
+html.cinetoon-public .ed-title {
+  font-family: var(--font-ui, system-ui, sans-serif) !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  margin-bottom: 8px !important;
+}

@@ -32,21 +32,33 @@ const Home = () => {
 
         if (cancelled) return;
 
-        if (br.ok && Array.isArray(bj?.data)) {
-          setBanners(bj.data.filter((u) => typeof u === "string" && u.trim()).slice(0, 8));
-        } else {
-          setBanners([]);
-        }
-
         if (!mr.ok) {
           setLoadError(mj?.message || "Không tải được danh sách phim");
           setNowShowing([]);
           setComingSoon([]);
+          setBanners([]);
         } else {
           const list = Array.isArray(mj?.data) ? mj.data : [];
           const { nowShowing: n, comingSoon: c } = splitNowAndSoon(list);
           setNowShowing(n.slice(0, HOME_MOVIE_LIMIT));
           setComingSoon(c.slice(0, HOME_MOVIE_LIMIT));
+
+          const bannerUrls = br.ok && Array.isArray(bj?.data)
+            ? bj.data.filter((u) => typeof u === "string" && u.trim()).slice(0, 8)
+            : [];
+          const slides = bannerUrls.map((url) => {
+            const matchedMovie = list.find((m) => {
+              const banner = typeof m?.banner === "string" ? m.banner.trim() : "";
+              const poster = typeof m?.poster === "string" ? m.poster.trim() : "";
+              return banner === url || poster === url;
+            });
+            return {
+              imageUrl: url,
+              movieId: matchedMovie?.movieId ?? matchedMovie?.id ?? null,
+              title: matchedMovie?.title ?? "Phim nổi bật",
+            };
+          });
+          setBanners(slides);
         }
       } catch {
         if (!cancelled) {

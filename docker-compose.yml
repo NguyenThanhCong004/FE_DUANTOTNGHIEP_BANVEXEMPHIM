@@ -1,0 +1,15 @@
+services:
+  movie_frontend:
+    build: .
+    container_name: movie_frontend_container
+    restart: always
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://host.docker.internal:8080
+    networks:
+      - movie_network
+
+networks:
+  movie_network:
+    driver: bridge

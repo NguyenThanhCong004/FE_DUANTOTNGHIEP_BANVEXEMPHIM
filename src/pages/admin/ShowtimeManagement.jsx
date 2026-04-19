@@ -7,6 +7,8 @@ import { ROOMS, MOVIES, SHOWTIMES } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
 
+import { useAdminToast } from "../../components/admin/AdminToast";
+
 const SLOT_INTERVAL = 5; 
 const SLOT_WIDTH = 12;
 
@@ -97,12 +99,16 @@ const isPastShowtime = (businessDate, startTime) => {
 
 const DAY_NAMES = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 
+const CLEANUP_TIME = 15; // Khoảng nghỉ 15 phút
+
 export default function ShowtimeManagement() {
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const staffSession = getStoredStaff();
   const { selectedCinemaId } = useSuperAdminCinema();
   const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : staffSession?.cinemaId ?? null;
+
+  const { showToast, ToastComponent } = useAdminToast();
 
   const [state, setState] = useState({ rooms: [], movies: [], events: [] });
   const [dataLoading, setDataLoading] = useState(false);
@@ -133,8 +139,21 @@ export default function ShowtimeManagement() {
       const movies = (mRes?.data || []).map(m => ({ id: m.id, title: m.title, durationMin: m.duration || 120, basePrice: m.basePrice || 60000 }));
       const events = (sRes?.data || []).map(s => ({
         id: s.id, serverId: s.id, movieId: s.movie_id || s.movieId, roomId: s.room_id || s.roomId,
-        businessDate: getBusinessDate(s.date, s.time), startTime: s.time, surcharge: s.surcharge || 0, dirty: false
+        businessDate: getBusinessDate(s.date, s.time), startTime: s.time, surcharge: s.surcharge || 0, 
+        soldTicketsCount: s.sold_tickets_count || 0, dirty: false
       }));
+
+      // Tự động trích xuất phụ thu theo thứ từ dữ liệu suất chiếu hiện có (nếu chưa có trong state)
+      const extractedSurcharges = { ...weeklySurcharge };
+      events.forEach(ev => {
+        const day = new Date(ev.businessDate).getDay();
+        // Nếu ngày này trong state đang là 0 và suất chiếu có phụ thu > 0, cập nhật state
+        if (extractedSurcharges[day] === 0 && ev.surcharge > 0) {
+          extractedSurcharges[day] = ev.surcharge;
+        }
+      });
+      setWeeklySurcharge(extractedSurcharges);
+
       setState({ rooms, movies, events });
       setPendingDeleteIds([]);
       const initialRoomDates = {};
@@ -158,8 +177,8 @@ export default function ShowtimeManagement() {
         else await apiFetch(SHOWTIMES.LIST, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
       await loadShowtimeData();
-      alert("Đã lưu lịch chiếu thành công!");
-    } catch (e) { alert("Lỗi khi lưu dữ liệu."); } finally { setSaving(false); }
+      showToast("Đã lưu lịch chiếu thành công!", "success");
+    } catch (e) { showToast("Lỗi khi lưu dữ liệu.", "danger"); } finally { setSaving(false); }
   };
 
   const handleDragStart = (e, type, data) => {
@@ -175,43 +194,115 @@ export default function ShowtimeManagement() {
     if (!dragData) return;
     const bDate = roomDates[roomId] || globalDate;
     
-    // Chặn thêm/sửa vào quá khứ
     if (isPastShowtime(bDate, time)) {
-      alert("❌ Không thể thêm hoặc chuyển suất chiếu vào thời gian đã qua.");
+      showToast("Không thể thêm hoặc chuyển suất chiếu vào thời gian đã qua.", "warning");
       return;
     }
 
     const movieId = dragData.type === "movie" ? dragData.movieId : state.events.find(e => e.id === dragData.eventId)?.movieId;
     if (!movieId) return;
     
-    // Nếu là di chuyển suất chiếu cũ, kiểm tra xem suất cũ có phải quá khứ không
-    if (dragData.type === "event") {
-      const oldEv = state.events.find(e => e.id === dragData.eventId);
-      if (oldEv && isPastShowtime(oldEv.businessDate, oldEv.startTime)) {
-        alert("❌ Suất chiếu đã hoặc đang diễn ra, không được phép di chuyển.");
-        return;
-      }
-    }
-
     let startMins = toBusinessMinutes(time);
     if (dragData.slotOffset) startMins -= dragData.slotOffset * SLOT_INTERVAL;
     if (startMins < 7 * 60) startMins = 7 * 60;
-    const finalStartTime = fromBusinessMinutes(startMins);
-    const duration = movieMap[movieId]?.durationMin || 120;
-    if (startMins + duration > 25 * 60) { alert("⚠️ Quá giờ hoạt động!"); return; }
-    const overlap = state.events.some(ev => {
-      if (ev.id === dragData.eventId || ev.roomId !== roomId || ev.businessDate !== bDate) return false;
-      const s = toBusinessMinutes(ev.startTime);
-      const e = s + (movieMap[ev.movieId]?.durationMin || 120);
-      return startMins < e && s < (startMins + duration);
+
+    const movie = movieMap[movieId];
+    const duration = movie?.durationMin || 120;
+
+    if (startMins + duration > 25 * 60) { showToast("Quá giờ hoạt động!", "warning"); return; }
+
+    setState(p => {
+      let updatedEvents = [...p.events];
+      const dropTimeStr = fromBusinessMinutes(startMins);
+      let targetId = dragData.eventId;
+
+      const eventAtDrop = updatedEvents.find(ev => ev.roomId === roomId && ev.businessDate === bDate && ev.startTime === dropTimeStr);
+
+      if (eventAtDrop && eventAtDrop.soldTicketsCount > 0) {
+        showToast("Suất chiếu tại vị trí này đã có vé được bán, không thể hoán đổi hay đẩy lùi.", "danger");
+        return p;
+      }
+
+      if (dragData.type === "event") {
+        const sourceEv = updatedEvents.find(e => e.id === dragData.eventId);
+        if (!sourceEv) return p;
+        if (sourceEv.soldTicketsCount > 0) {
+          showToast("Suất chiếu này đã có vé được bán, không thể di chuyển.", "danger");
+          return p;
+        }
+
+        if (eventAtDrop && eventAtDrop.id !== sourceEv.id) {
+          const oldSourceTime = sourceEv.startTime;
+          sourceEv.startTime = eventAtDrop.startTime;
+          eventAtDrop.startTime = oldSourceTime;
+          sourceEv.dirty = true;
+          eventAtDrop.dirty = true;
+          return { ...p, events: updatedEvents };
+        } else {
+          updatedEvents = updatedEvents.map(ev => 
+            ev.id === dragData.eventId ? { ...ev, roomId, businessDate: bDate, startTime: dropTimeStr, dirty: true } : ev
+          );
+        }
+      } else {
+        targetId = "local-" + Date.now();
+        updatedEvents.push({ 
+          id: targetId, 
+          serverId: null, 
+          movieId, 
+          roomId, 
+          businessDate: bDate, 
+          startTime: dropTimeStr, 
+          surcharge: weeklySurcharge[new Date(bDate).getDay()] || 0, 
+          dirty: true,
+          soldTicketsCount: 0
+        });
+      }
+
+      const roomEvents = updatedEvents
+        .filter(ev => ev.roomId === roomId && ev.businessDate === bDate)
+        .sort((a, b) => {
+          const diff = toBusinessMinutes(a.startTime) - toBusinessMinutes(b.startTime);
+          if (diff !== 0) return diff;
+          if (a.id === targetId) return -1;
+          if (b.id === targetId) return 1;
+          return 0;
+        });
+
+      let changed = true;
+      let iterations = 0;
+      while (changed && iterations < 50) {
+        changed = false;
+        for (let i = 0; i < roomEvents.length - 1; i++) {
+          const current = roomEvents[i];
+          const next = roomEvents[i+1];
+          const currentEnd = toBusinessMinutes(current.startTime) + (movieMap[current.movieId]?.durationMin || 120);
+          const nextStart = toBusinessMinutes(next.startTime);
+          const minNextStart = currentEnd + CLEANUP_TIME;
+          
+          if (nextStart < minNextStart) {
+            if (next.soldTicketsCount > 0) {
+              showToast(`Không thể lùi lịch suất chiếu "${movieMap[next.movieId]?.title}" vì đã có vé được bán.`, "danger");
+              return p; 
+            }
+            next.startTime = fromBusinessMinutes(minNextStart);
+            next.dirty = next.serverId ? true : next.dirty;
+            changed = true;
+          }
+        }
+        iterations++;
+      }
+
+      if (roomEvents.length > 0) {
+        const lastEv = roomEvents[roomEvents.length - 1];
+        if (toBusinessMinutes(lastEv.startTime) + (movieMap[lastEv.movieId]?.durationMin || 120) > 25 * 60) {
+          showToast("Việc đẩy lịch khiến các suất chiếu sau vượt quá giờ hoạt động (1h sáng).", "warning");
+          return p;
+        }
+      }
+
+      return { ...p, events: updatedEvents };
     });
-    if (overlap) { alert("⚠️ Trùng lịch!"); return; }
-    if (dragData.type === "movie") {
-      const newEv = { id: "local-" + Date.now(), serverId: null, movieId, roomId, businessDate: bDate, startTime: finalStartTime, surcharge: weeklySurcharge[new Date(bDate).getDay()] || 0, dirty: true };
-      setState(p => ({ ...p, events: [...p.events, newEv] }));
-    } else {
-      setState(p => ({ ...p, events: p.events.map(ev => ev.id === dragData.eventId ? { ...ev, roomId, businessDate: bDate, startTime: finalStartTime, dirty: true } : ev) }));
-    }
+
     setDragData(null);
   };
 
@@ -233,20 +324,6 @@ export default function ShowtimeManagement() {
             const nd = {}; state.rooms.forEach(r => nd[r.id] = e.target.value);
             setRoomDates(nd);
           }} />
-          <div className="px-3 border rounded d-flex align-items-center small text-danger" onDragOver={e => { e.preventDefault(); setDeleteZone(true); }} onDragLeave={() => setDeleteZone(false)} onDrop={e => {
-            e.preventDefault();
-            if (dragData?.type === "event") {
-              const ev = state.events.find(x => x.id === dragData.eventId);
-              if (ev && isPastShowtime(ev.businessDate, ev.startTime)) {
-                alert("❌ Suất chiếu đã hoặc đang diễn ra, không được phép xóa.");
-                setDeleteZone(false);
-                return;
-              }
-              if (ev?.serverId) setPendingDeleteIds(p => [...p, ev.serverId]);
-              setState(p => ({ ...p, events: p.events.filter(x => x.id !== dragData.eventId) }));
-            }
-            setDeleteZone(false);
-          }} style={{ backgroundColor: deleteZone ? "#fee2e2" : "white" }}><Trash2 size={14} className="me-1"/> Thùng rác</div>
         </div>
       </div>
 
@@ -258,7 +335,32 @@ export default function ShowtimeManagement() {
               <Col key={d} xs={6} md={3} lg>
                 <div className="p-2 border rounded bg-light d-flex justify-content-between align-items-center shadow-xs">
                   <span className="small fw-bold text-muted">{DAY_NAMES[d]}</span>
-                  <input type="number" className="form-control form-control-sm border-0 bg-transparent text-end fw-bold text-primary p-0" style={{ width: "70px" }} value={weeklySurcharge[d]} onChange={e => setWeeklySurcharge(p => ({ ...p, [d]: Number(e.target.value) }))} step="1000" />
+                  <input 
+                    type="number" 
+                    className="form-control form-control-sm border-0 bg-transparent text-end fw-bold text-primary p-0" 
+                    style={{ width: "70px" }} 
+                    value={weeklySurcharge[d]} 
+                    onChange={e => {
+                      const newVal = Number(e.target.value);
+                      setWeeklySurcharge(p => ({ ...p, [d]: newVal }));
+                      
+                      // Tự động cập nhật phụ thu cho các suất chiếu cùng thứ trong tuần
+                      setState(prev => ({
+                        ...prev,
+                        events: prev.events.map(ev => {
+                          const eventDay = new Date(ev.businessDate).getDay();
+                          const isFuture = !isPastShowtime(ev.businessDate, ev.startTime);
+                          
+                          // Chỉ cập nhật nếu: Cùng thứ, chưa diễn ra, và chưa bán vé
+                          if (eventDay === d && isFuture && ev.soldTicketsCount === 0) {
+                            return { ...ev, surcharge: newVal, dirty: !!ev.serverId };
+                          }
+                          return ev;
+                        })
+                      }));
+                    }} 
+                    step="1000" 
+                  />
                 </div>
               </Col>
             ))}
@@ -331,6 +433,23 @@ export default function ShowtimeManagement() {
                             {movie?.title || "Đang tải..."}
                             {isPast && <span className="ms-1 small opacity-75">(Đã chiếu)</span>}
                           </div>
+
+                          {/* Nút X xóa suất chiếu */}
+                          {!isPast && ev.soldTicketsCount === 0 && (
+                            <button
+                              type="button"
+                              className="btn-close btn-close-white position-absolute"
+                              style={{ top: "4px", right: "4px", fontSize: "0.5rem", zIndex: 10, padding: "0.4rem", filter: "invert(1)" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Bạn có chắc muốn xóa suất chiếu phim "${movie?.title}" không?`)) {
+                                  if (ev.serverId) setPendingDeleteIds(prev => [...prev, ev.serverId]);
+                                  setState(prev => ({ ...prev, events: prev.events.filter(x => x.id !== ev.id) }));
+                                }
+                              }}
+                            />
+                          )}
+
                           <div className="small opacity-75" style={{ fontSize: "0.65rem" }}><i className="bi bi-clock me-1"></i>{ev.startTime} - {calculateEndTime(ev.startTime, duration)}</div>
                           <div className="mt-auto d-flex justify-content-between align-items-center pt-2">
                             <span className="badge bg-dark bg-opacity-10 text-dark" style={{ fontSize: "0.6rem" }}>+{ev.surcharge.toLocaleString()}đ</span>
@@ -395,6 +514,8 @@ export default function ShowtimeManagement() {
         </Modal.Body>
         <Modal.Footer className="border-0 pt-0"><Button variant="secondary" className="w-100 fw-bold py-2 rounded-2" onClick={() => setShowDetailModal(false)}>Đóng</Button></Modal.Footer>
       </Modal>
+
+      <ToastComponent />
     </div>
   );
 }
