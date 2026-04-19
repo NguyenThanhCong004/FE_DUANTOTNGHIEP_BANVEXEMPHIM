@@ -40,7 +40,13 @@ export function splitNowAndSoon(movies) {
   /** Hiển thị phim đang chiếu (status 1) và sắp chiếu (status 2) */
   const active = (movies || []).filter((m) => m.status === 1 || m.status === 2);
   const mapped = active.map(mapMovieForCard);
-  const nowShowing = mapped.filter((m) => m.type === "now");
-  const comingSoon = mapped.filter((m) => m.type === "soon");
+  const byNewest = (a, b) => {
+    const ad = a.releaseYmd || "";
+    const bd = b.releaseYmd || "";
+    if (ad !== bd) return bd.localeCompare(ad);
+    return Number(b.id || 0) - Number(a.id || 0);
+  };
+  const nowShowing = mapped.filter((m) => m.type === "now").sort(byNewest);
+  const comingSoon = mapped.filter((m) => m.type === "soon").sort(byNewest);
   return { nowShowing, comingSoon };
 }

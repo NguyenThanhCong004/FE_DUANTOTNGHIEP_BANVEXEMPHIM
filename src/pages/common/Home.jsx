@@ -43,21 +43,34 @@ const Home = () => {
           setNowShowing(n.slice(0, HOME_MOVIE_LIMIT));
           setComingSoon(c.slice(0, HOME_MOVIE_LIMIT));
 
-          const bannerUrls = br.ok && Array.isArray(bj?.data)
-            ? bj.data.filter((u) => typeof u === "string" && u.trim()).slice(0, 8)
-            : [];
-          const slides = bannerUrls.map((url) => {
-            const matchedMovie = list.find((m) => {
-              const banner = typeof m?.banner === "string" ? m.banner.trim() : "";
-              const poster = typeof m?.poster === "string" ? m.poster.trim() : "";
-              return banner === url || poster === url;
-            });
-            return {
+          const newestMovies = [...list]
+            .sort((a, b) => {
+              const ad = String(a?.releaseDate || "");
+              const bd = String(b?.releaseDate || "");
+              if (ad !== bd) return bd.localeCompare(ad);
+              return Number(b?.id || 0) - Number(a?.id || 0);
+            })
+            .filter((m) => m?.status === 1 || m?.status === 2);
+          const slides = newestMovies
+            .map((m) => ({
+              imageUrl: (m?.banner || m?.poster || "").trim(),
+              movieId: m?.movieId ?? m?.id ?? null,
+              title: m?.title ?? "Phim mới",
+            }))
+            .filter((s) => s.imageUrl)
+            .slice(0, 8);
+          if (!slides.length) {
+            const bannerUrls = br.ok && Array.isArray(bj?.data)
+              ? bj.data.filter((u) => typeof u === "string" && u.trim()).slice(0, 8)
+              : [];
+            const fallbackSlides = bannerUrls.map((url) => ({
               imageUrl: url,
-              movieId: matchedMovie?.movieId ?? matchedMovie?.id ?? null,
-              title: matchedMovie?.title ?? "Phim nổi bật",
-            };
-          });
+              movieId: null,
+              title: "Phim nổi bật",
+            }));
+            setBanners(fallbackSlides);
+            return;
+          }
           setBanners(slides);
         }
       } catch {
