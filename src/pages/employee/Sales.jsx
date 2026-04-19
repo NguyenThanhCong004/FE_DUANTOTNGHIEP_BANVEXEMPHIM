@@ -640,7 +640,7 @@ const Sales = () => {
           </div>
         </header>
 
-        <section className="pos-view-area custom-scrollbar">
+        <section className="pos-view-area custom-scrollbar" style={{ paddingTop: '30px' }}>
           {activeTab === 'showtimes' && (
             <div className="view-showtimes">
               <h3 className="section-title">{selectedMovie ? `Suất chiếu: ${selectedMovie.title}` : "Chọn phim bên trái"}</h3>
@@ -768,11 +768,11 @@ const Sales = () => {
             ) : (
               <>
                 <CheckCircle2 size={48} className="text-success mb-3" />
-                <h4 className="fw-bold text-white">Thanh toán thành công!</h4>
-                <div className="modal-details text-start mt-3 p-3 bg-dark-subtle rounded">
-                  <div className="d-flex justify-content-between mb-1 text-white-50"><span>Mã đơn:</span> <strong className="text-white">{orderSuccess.orderCode}</strong></div>
-                  <div className="d-flex justify-content-between mb-1 text-white-50"><span>Tổng tiền:</span> <strong className="text-white">{orderSuccess.finalAmount?.toLocaleString()}đ</strong></div>
-                  <div className="d-flex justify-content-between text-white-50"><span>Hình thức:</span> <span className="text-white">{orderSuccess.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span></div>
+                <h4 className="fw-bold text-success">Thanh toán thành công!</h4>
+                <div className="modal-details text-start mt-3 p-3 bg-light rounded">
+                  <div className="d-flex justify-content-between mb-1 text-dark"><span>Mã đơn:</span> <strong className="text-dark">{orderSuccess.orderCode}</strong></div>
+                  <div className="d-flex justify-content-between mb-1 text-dark"><span>Tổng tiền:</span> <strong className="text-dark">{orderSuccess.finalAmount?.toLocaleString()}đ</strong></div>
+                  <div className="d-flex justify-content-between text-dark"><span>Hình thức:</span> <span className="text-dark">{orderSuccess.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span></div>
                 </div>
                 <div className="mt-4 text-info small mb-3">Đã in vé và lưu vào thư mục preview.</div>
                 <button className="btn btn-primary w-100 py-2 fw-bold" onClick={handleNewOrder}>ĐƠN MỚI</button>

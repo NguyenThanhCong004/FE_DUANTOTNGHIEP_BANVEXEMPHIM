@@ -223,7 +223,7 @@ const EmployeeDashboard = () => {
   );
 
   return (
-    <div className="dashboard-container-full">
+    <div className="pos-container dashboard-container-full">
       <section className="dashboard-main-scroll custom-scrollbar">
         <div className="stats-grid">
           <StatCard 
@@ -302,16 +302,16 @@ const EmployeeDashboard = () => {
           
           <div className="side-card">
             <h3>Thông tin ca trực</h3>
-            <div className="info-list">
-              <div className="info-item">
+            <div className="dashboard-info-list">
+              <div className="dashboard-info-item">
                 <span>Ngày làm việc</span>
                 <strong>{new Date().toLocaleDateString('vi-VN')}</strong>
               </div>
-              <div className="info-item">
+              <div className="dashboard-info-item">
                 <span>Rạp làm việc</span>
                 <strong>{stats.cinemaName || staff?.cinemaName || 'N/A'}</strong>
               </div>
-              <div className="info-item">
+              <div className="dashboard-info-item">
                 <span>Vai trò</span>
                 <strong>Nhân viên bán vé</strong>
               </div>
@@ -495,6 +495,15 @@ const EmployeeDashboard = () => {
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
+        /* Layout matching Sales page */
+        .pos-container { 
+          display: grid; 
+          grid-template-columns: 1fr; 
+          height: 100vh; 
+          background: #0f172a; 
+          overflow: hidden;
+        }
+        
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .stat-card { background: #1e293b; padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 15px; position: relative; }
         .stat-card.clickable { cursor: pointer; transition: all 0.2s; }
@@ -545,10 +554,10 @@ const EmployeeDashboard = () => {
         .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 0; color: #475569; gap: 15px; text-align: center; }
         
         .side-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
-        .info-list { display: flex; flex-direction: column; gap: 16px; }
-        .info-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .info-item span { color: #94a3b8; font-size: 14px; }
-        .info-item strong { color: #f1f5f9; font-size: 14px; }
+        .dashboard-info-list { display: flex; flex-direction: column; gap: 16px; }
+        .dashboard-info-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .dashboard-info-item span { color: #94a3b8; font-size: 14px; }
+        .dashboard-info-item strong { color: #f1f5f9; font-size: 14px; }
 
         .pos-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 20px; }
         .detail-modal { background: #1e293b; border-radius: 20px; width: 100%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
