@@ -30,10 +30,27 @@ function normalizeShowtime(st) {
   };
 }
 
-function extractSortedDates(showtimes) {
+function getTodayYmd() {
+  const d = new Date();
+  return d.toLocaleDateString('sv-SE'); // YYYY-MM-DD
+}
+
+function getMaxDateYmd(days = 7) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('sv-SE');
+}
+
+function extractSortedDates(showtimes, minDate = null, maxDate = null) {
   const set = new Set();
   for (const s of showtimes || []) {
-    if (s.date && String(s.date).trim()) set.add(String(s.date).slice(0, 10));
+    if (s.date && String(s.date).trim()) {
+      const ymd = String(s.date).slice(0, 10);
+      // Chỉ lấy ngày trong khoảng minDate đến maxDate
+      if (minDate && ymd < minDate) continue;
+      if (maxDate && ymd > maxDate) continue;
+      set.add(ymd);
+    }
   }
   return [...set].sort((a, b) => a.localeCompare(b));
 }
@@ -160,7 +177,9 @@ const MovieDetail = () => {
     return () => { cancelled = true; };
   }, [movieId, selectedCinemaId]);
 
-  const availableDates = useMemo(() => extractSortedDates(showtimes), [showtimes]);
+  const todayYmd = useMemo(() => getTodayYmd(), []);
+  const maxDateYmd = useMemo(() => getMaxDateYmd(7), []);
+  const availableDates = useMemo(() => extractSortedDates(showtimes, todayYmd, maxDateYmd), [showtimes, todayYmd, maxDateYmd]);
 
   useEffect(() => {
     if (availableDates.length === 0) { setSelectedDateYmd(""); return; }
@@ -169,8 +188,11 @@ const MovieDetail = () => {
 
   const showtimesForSelectedDate = useMemo(() => {
     if (!selectedDateYmd) return [];
-    return showtimes.filter((s) => String(s.date || "").slice(0, 10) === selectedDateYmd);
-  }, [showtimes, selectedDateYmd]);
+    return showtimes.filter((s) => {
+      const ymd = String(s.date || "").slice(0, 10);
+      return ymd === selectedDateYmd && ymd >= todayYmd && ymd <= maxDateYmd;
+    });
+  }, [showtimes, selectedDateYmd, todayYmd, maxDateYmd]);
 
   const poster = movie?.posterUrl || movie?.poster || "";
   const isStopped = movie && movie.status !== 1;

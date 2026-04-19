@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch } from "../../utils/apiClient";
 import { GENRES } from "../../constants/apiEndpoints";
+import { useAdminToast } from "../../components/admin/AdminToast";
 
 const MovieTypeManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { showToast, ToastComponent } = useAdminToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -15,6 +18,16 @@ const MovieTypeManagement = () => {
 
   const [genres, setGenres] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      showToast(
+        location.state.message,
+        location.state.type || "success"
+      );
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     let mounted = true;
@@ -53,16 +66,10 @@ const MovieTypeManagement = () => {
   const totalPages = Math.ceil(filteredGenres.length / itemsPerPage);
 
   const handleDeleteGenre = async (genre) => {
-    console.log("Attempting to delete genre:", genre);
-    console.log("Delete URL:", GENRES.DELETE(genre.id));
-    
     try {
       const res = await apiFetch(GENRES.DELETE(genre.id), {
         method: "DELETE"
       });
-      
-      console.log("Delete response status:", res.status);
-      console.log("Delete response ok:", res.ok);
       
       if (res.ok) {
         // Refresh danh sách
@@ -79,22 +86,20 @@ const MovieTypeManagement = () => {
         setShowDeleteModal(false);
         setItemToDelete(null);
         setDeleteError("");
+        showToast("Xóa thể loại thành công", "success");
       } else {
         // Xử lý error từ BE
         const json = await res.json().catch(() => null);
-        console.log("Error response:", json);
         setDeleteError(json?.message || "Xóa thể loại thất bại");
       }
     } catch (error) {
-      console.error("Error deleting genre:", error);
-      console.error("Error details:", error.message);
-      console.error("Error stack:", error.stack);
       setDeleteError("Không thể kết nối tới server");
     }
   };
 
   const openDeleteModal = (genre) => {
     setItemToDelete(genre);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
@@ -121,6 +126,7 @@ const MovieTypeManagement = () => {
         </button>
       }
     >
+      <ToastComponent />
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">

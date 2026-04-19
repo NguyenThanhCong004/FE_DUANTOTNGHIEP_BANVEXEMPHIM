@@ -1,21 +1,35 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch } from "../../utils/apiClient";
 import { PRODUCT_CATEGORIES } from "../../constants/apiEndpoints";
 
 const ProductTypeManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [typeToDelete, setTypeToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   const itemsPerPage = 10;
 
   const [productTypes, setProductTypes] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setToast({
+        show: true,
+        message: location.state.message,
+        type: location.state.type || "success",
+      });
+      window.history.replaceState({}, document.title);
+      const timer = setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     let mounted = true;
@@ -64,20 +78,18 @@ const ProductTypeManagement = () => {
         setShowDeleteModal(false);
         setTypeToDelete(null);
         setDeleteError('');
-        setSuccessMessage(`Đã xóa loại sản phẩm "${type.name}" thành công!`);
-        
-        // Clear success message sau 3 giây
-        setTimeout(() => setSuccessMessage(''), 3000);
+        setToast({ show: true, message: `Đã xóa loại sản phẩm "${type.name}" thành công!`, type: "success" });
+        setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
       } else {
         // Xử lý error từ BE
         const json = await res.json().catch(() => null);
         setDeleteError(json?.message || "Xóa loại sản phẩm thất bại");
-        setSuccessMessage('');
+        setToast({ show: false, message: "", type: "success" });
       }
     } catch (error) {
       console.error("Error deleting product type:", error);
       setDeleteError("Không thể kết nối tới server");
-      setSuccessMessage('');
+      setToast({ show: false, message: "", type: "success" });
     }
   };
 
@@ -109,15 +121,6 @@ const ProductTypeManagement = () => {
         </button>
       }
     >
-      {/* Success Message */}
-      {successMessage && (
-        <div className="alert alert-success alert-dismissible fade show mb-3" role="alert">
-          <i className="bi bi-check-circle me-2"></i>
-          {successMessage}
-          <button type="button" className="btn-close" onClick={() => setSuccessMessage('')}></button>
-        </div>
-      )}
-
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
@@ -257,6 +260,15 @@ const ProductTypeManagement = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {toast.show && (
+        <div
+          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
+          style={{ minWidth: "300px" }}
+        >
+          <i className={`bi bi-${toast.type === "success" ? "check-circle-fill" : "exclamation-triangle-fill"} fs-5`}></i>
+          <div className="fw-bold">{toast.message}</div>
         </div>
       )}
     </AdminPanelPage>

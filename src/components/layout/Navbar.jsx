@@ -418,7 +418,7 @@ export default function CinemaNavbar() {
 
         /* ── BOTTOM NAV ── */
         .cn-bottom {
-          background: rgba(0,0,0,.25);
+          background: var(--glass);
           border-top: 1px solid rgba(255,255,255,.05);
           padding: 0;
         }
@@ -461,7 +461,10 @@ export default function CinemaNavbar() {
         .cn-nav-link.active::after { transform: scaleX(1); }
 
         /* ── SPACER ── */
-        .cn-spacer { height: 78px; }
+        .cn-spacer {
+          height: 108px;
+          background: var(--navy);
+        }
 
         /* ── MOBILE TOGGLER ── */
         .cn-toggler {
@@ -549,7 +552,10 @@ export default function CinemaNavbar() {
           .cn-search,
           .cn-bottom { display: none !important; }
           .cn-toggler { display: flex; }
-          .cn-spacer { height: 58px; }
+          .cn-spacer {
+            height: 62px;
+            background: var(--navy);
+          }
         }
         @media (min-width: 992px) {
           .cn-toggler,
@@ -633,17 +639,14 @@ export default function CinemaNavbar() {
                       ) : (
                         <>
                           <div className="cn-dropdown-label">Tài khoản</div>
-                          <Link to="/profile"           className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
+                          <Link to="/profile?tab=info"           className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
                             <User    size={15} style={{ color: "rgba(240,240,255,.5)", flexShrink: 0 }} /> Hồ sơ cá nhân
                           </Link>
-                          <Link to="/movieFavorite"     className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                            <Heart   size={15} style={{ color: "#f472b6", flexShrink: 0 }} /> Phim yêu thích
+                          <Link to="/profile?tab=points" className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
+                            <History size={15} style={{ color: "rgba(240,240,255,.5)", flexShrink: 0 }} /> Điểm thưởng
                           </Link>
                           <Link to="/foodorder"         className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
                             <Popcorn size={15} style={{ color: "#fbbf24", flexShrink: 0 }} /> Đặt bắp nước
-                          </Link>
-                          <Link to="/transactionHistory" className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                            <History size={15} style={{ color: "rgba(240,240,255,.5)", flexShrink: 0 }} /> Lịch sử giao dịch
                           </Link>
                           <Link to="/profile?tab=vouchers"        className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
                             <Ticket  size={15} style={{ color: "#34d399", flexShrink: 0 }} /> Voucher của tôi
@@ -736,17 +739,14 @@ export default function CinemaNavbar() {
                   </Link>
                 ) : (
                   <>
-                    <Link to="/profile"            className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
+                    <Link to="/profile?tab=info"   className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
                       <User    size={18} style={{ color: "rgba(240,240,255,.5)" }} /> Hồ sơ cá nhân
                     </Link>
-                    <Link to="/movieFavorite"      className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
-                      <Heart   size={18} style={{ color: "#f472b6" }} /> Phim yêu thích
+                    <Link to="/profile?tab=points" className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
+                      <History size={18} style={{ color: "rgba(240,240,255,.5)" }} /> Điểm thưởng
                     </Link>
                     <Link to="/foodorder"          className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
                       <Popcorn size={18} style={{ color: "#fbbf24" }} /> Đặt bắp nước
-                    </Link>
-                    <Link to="/transactionHistory" className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
-                      <History size={18} style={{ color: "rgba(240,240,255,.5)" }} /> Lịch sử giao dịch
                     </Link>
                     <Link to="/profile?tab=vouchers"         className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
                       <Ticket  size={18} style={{ color: "#34d399" }} /> Voucher của tôi

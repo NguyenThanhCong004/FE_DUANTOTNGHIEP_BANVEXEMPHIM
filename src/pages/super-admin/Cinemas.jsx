@@ -13,6 +13,7 @@ const CinemaManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cinemaToDelete, setCinemaToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const itemsPerPage = 10;
 
@@ -68,24 +69,27 @@ const CinemaManagement = () => {
         await fetchCinemas();
         setShowDeleteModal(false);
         setCinemaToDelete(null);
+        setDeleteError("");
       } else {
         const json = await res.json().catch(() => null);
-        showToast(json?.message || "Xóa rạp thất bại", 'danger');
+        setDeleteError(json?.message || "Xóa rạp thất bại");
       }
     } catch (error) {
       console.error("Error deleting cinema:", error);
-      showToast("Không thể kết nối tới server", 'danger');
+      setDeleteError("Không thể kết nối tới server");
     }
   };
 
   const openDeleteModal = (cinema) => {
     setCinemaToDelete(cinema);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setCinemaToDelete(null);
+    setDeleteError("");
   };
 
   const renderStatusBadge = (status) => {
@@ -287,6 +291,12 @@ const CinemaManagement = () => {
                 <strong>Địa chỉ:</strong> {cinemaToDelete.address}<br/>
                 <strong>Trạng thái:</strong> {renderStatusBadge(cinemaToDelete.status)}
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả phòng chiếu, suất chiếu và lịch trình của rạp này sẽ bị ảnh hưởng.

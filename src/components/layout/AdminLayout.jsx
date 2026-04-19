@@ -146,7 +146,7 @@ export default function AdminLayout() {
         <div className="app-shell-brand">
           <div className="app-shell-brand-dot" />
           <div>
-            <div className="app-shell-brand-title">CINETOON</div>
+            <div className="app-shell-brand-title">ERROR404</div>
             <div className="app-shell-brand-sub">Quản trị rạp</div>
           </div>
         </div>
@@ -158,11 +158,6 @@ export default function AdminLayout() {
           {sectionsCinema.map(renderNavSection)}
           {sectionsRest.map(renderNavSection)}
         </nav>
-
-        <button type="button" className="app-shell-logout-btn" onClick={handleLogout}>
-          <LogOut size={16} />
-          <span>Đăng xuất</span>
-        </button>
       </aside>
 
       <main className="app-shell-main">
@@ -196,6 +191,14 @@ export default function AdminLayout() {
                 </div>
               </div>
             </NavLink>
+            <button
+              type="button"
+              className="app-shell-logout-btn app-shell-logout-btn--header"
+              onClick={handleLogout}
+            >
+              <LogOut size={16} />
+              <span>Đăng xuất</span>
+            </button>
           </div>
         </header>
 

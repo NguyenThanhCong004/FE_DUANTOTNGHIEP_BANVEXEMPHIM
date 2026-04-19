@@ -1,7 +1,5 @@
 import React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
-import { clearAuthSession } from "../../utils/authStorage";
+import { NavLink } from "react-router-dom";
 import { useSuperAdminCinema } from "./useSuperAdminCinema";
 import CinemaPicker from "./CinemaPicker";
 
@@ -54,21 +52,15 @@ const menuSections = [
 ];
 
 export default function SuperAdminSidebar() {
-  const navigate = useNavigate();
   const { selectedCinemaId } = useSuperAdminCinema();
   const cinemaReady = selectedCinemaId != null;
-
-  const handleLogout = () => {
-    clearAuthSession();
-    navigate("/login");
-  };
 
   return (
     <aside className="app-shell-sidebar">
       <div className="app-shell-brand">
         <div className="app-shell-brand-dot" />
         <div>
-          <div className="app-shell-brand-title">CINETOON CORE</div>
+          <div className="app-shell-brand-title">ERROR404</div>
           <div className="app-shell-brand-sub">SUPER ADMIN</div>
         </div>
       </div>
@@ -121,11 +113,6 @@ export default function SuperAdminSidebar() {
           );
         })}
       </nav>
-
-      <button type="button" className="app-shell-logout-btn" onClick={handleLogout}>
-        <LogOut size={16} />
-        <span>Đăng xuất</span>
-      </button>
     </aside>
   );
 }

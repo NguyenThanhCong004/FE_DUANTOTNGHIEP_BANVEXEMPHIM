@@ -3,29 +3,26 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { MOVIES } from '../../constants/apiEndpoints';
+import { useAdminToast } from '../../components/admin/AdminToast';
 
 const PLACEHOLDER_POSTER = 'https://placehold.co/120x180?text=Poster';
 
 const MovieManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { showToast, ToastComponent } = useAdminToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [movieToDelete, setMovieToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const itemsPerPage = 8;
 
   const [allMovies, setAllMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
 
   useEffect(() => {
     if (location.state?.message) {
@@ -156,27 +153,32 @@ const MovieManagement = () => {
         );
         setShowDeleteModal(false);
         setMovieToDelete(null);
+        setDeleteError("");
       } else {
-        showToast('Xóa phim thất bại!', 'danger');
+        const errJson = await res.json().catch(() => null);
+        setDeleteError(errJson?.message || "Xóa phim thất bại");
       }
     } catch (error) {
       console.error("Error deleting movie:", error);
-      showToast('Lỗi kết nối máy chủ!', 'danger');
+      setDeleteError("Không thể kết nối đến máy chủ");
     }
   };
 
   const openDeleteModal = (movie) => {
     setMovieToDelete(movie);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setMovieToDelete(null);
+    setDeleteError("");
   };
 
   return (
-    <AdminPanelPage
+    <>
+      <AdminPanelPage
       icon="film"
       title="Quản lý phim"
       description="Kho phim toàn hệ thống — poster, giá, trạng thái chiếu."
@@ -466,6 +468,12 @@ const MovieManagement = () => {
                   </div>
                 </div>
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả suất chiếu, vé đặt và dữ liệu liên quan sẽ bị xóa.
@@ -493,17 +501,9 @@ const MovieManagement = () => {
         </div>
       )}
 
-      {/* Toast thông báo */}
-      {toast.show && (
-        <div 
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
-    </AdminPanelPage>
+      </AdminPanelPage>
+      <ToastComponent />
+    </>
   );
 };
 

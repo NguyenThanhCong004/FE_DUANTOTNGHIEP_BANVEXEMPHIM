@@ -181,8 +181,6 @@ const MovieCard = ({ movie, isComingSoon = false, showBuyButton = true }) => {
             <MoviePoster
               src={movie.posterUrl}
               alt={movie.title}
-              ageLimit={movie.ageLimit}
-              isComingSoon={isComingSoon}
             />
             <div className="mc-overlay" />
 

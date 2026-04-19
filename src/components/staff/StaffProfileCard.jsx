@@ -80,6 +80,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const [toast, setToast] = useState(null);
 
   const [pw, setPw] = useState({ current: "", newPw: "", confirm: "" });
+  const [showPw, setShowPw] = useState({ current: false, newPw: false, confirm: false });
   const [pwErrors, setPwErrors] = useState({});
   const [pwSaving, setPwSaving] = useState(false);
 
@@ -534,48 +535,77 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
               <span className="fw-bold">Đổi mật khẩu</span>
             </div>
             <Form.Group className="mb-3">
-              <Form.Label className="small text-secondary">Mật khẩu hiện tại</Form.Label>
-              <Form.Control
-                type="password"
-                name="current"
-                value={pw.current}
-                onChange={handlePw}
-                className={inputDark || undefined}
-                autoComplete="current-password"
-                isInvalid={!!pwErrors.current}
-              />
+              <Form.Label className="small text-secondary fw-bold">Mật khẩu hiện tại</Form.Label>
+              <div style={{ position: "relative" }}>
+                <Form.Control
+                  type={showPw.current ? "text" : "password"}
+                  name="current"
+                  value={pw.current}
+                  onChange={handlePw}
+                  className={`${inputDark || ""} ${pwErrors.current ? "is-invalid border-danger" : ""}`.trim()}
+                  autoComplete="current-password"
+                  style={{ paddingRight: 42, backgroundImage: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => ({ ...s, current: !s.current }))}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
+                >
+                  <i className={`fas ${showPw.current ? "fa-eye-slash" : "fa-eye"}`} />
+                </button>
+              </div>
               {pwErrors.current && (
-                <Form.Control.Feedback type="invalid">{pwErrors.current}</Form.Control.Feedback>
+                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.current}</div>
               )}
             </Form.Group>
+
             <Form.Group className="mb-3">
-              <Form.Label className="small text-secondary">Mật khẩu mới (≥ 8 ký tự)</Form.Label>
-              <Form.Control
-                type="password"
-                name="newPw"
-                value={pw.newPw}
-                onChange={handlePw}
-                className={inputDark || undefined}
-                autoComplete="new-password"
-                isInvalid={!!pwErrors.newPw}
-              />
+              <Form.Label className="small text-secondary fw-bold">Mật khẩu mới (≥ 8 ký tự)</Form.Label>
+              <div style={{ position: "relative" }}>
+                <Form.Control
+                  type={showPw.newPw ? "text" : "password"}
+                  name="newPw"
+                  value={pw.newPw}
+                  onChange={handlePw}
+                  className={`${inputDark || ""} ${pwErrors.newPw ? "is-invalid border-danger" : ""}`.trim()}
+                  autoComplete="new-password"
+                  style={{ paddingRight: 42, backgroundImage: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => ({ ...s, newPw: !s.newPw }))}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
+                >
+                  <i className={`fas ${showPw.newPw ? "fa-eye-slash" : "fa-eye"}`} />
+                </button>
+              </div>
               {pwErrors.newPw && (
-                <Form.Control.Feedback type="invalid">{pwErrors.newPw}</Form.Control.Feedback>
+                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.newPw}</div>
               )}
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label className="small text-secondary">Xác nhận mật khẩu mới</Form.Label>
-              <Form.Control
-                type="password"
-                name="confirm"
-                value={pw.confirm}
-                onChange={handlePw}
-                className={inputDark || undefined}
-                autoComplete="new-password"
-                isInvalid={!!pwErrors.confirm}
-              />
+
+            <Form.Group className="mb-4">
+              <Form.Label className="small text-secondary fw-bold">Xác nhận mật khẩu mới</Form.Label>
+              <div style={{ position: "relative" }}>
+                <Form.Control
+                  type={showPw.confirm ? "text" : "password"}
+                  name="confirm"
+                  value={pw.confirm}
+                  onChange={handlePw}
+                  className={`${inputDark || ""} ${pwErrors.confirm ? "is-invalid border-danger" : ""}`.trim()}
+                  autoComplete="new-password"
+                  style={{ paddingRight: 42, backgroundImage: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => ({ ...s, confirm: !s.confirm }))}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
+                >
+                  <i className={`fas ${showPw.confirm ? "fa-eye-slash" : "fa-eye"}`} />
+                </button>
+              </div>
               {pwErrors.confirm && (
-                <Form.Control.Feedback type="invalid">{pwErrors.confirm}</Form.Control.Feedback>
+                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.confirm}</div>
               )}
             </Form.Group>
             <Button variant="warning" className="text-dark fw-semibold" onClick={savePassword} disabled={pwSaving}>

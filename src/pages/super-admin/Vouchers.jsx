@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch } from "../../utils/apiClient";
 import { VOUCHERS } from "../../constants/apiEndpoints";
 
 const VoucherManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [voucherToDelete, setVoucherToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const itemsPerPage = 10;
 
   const [vouchers, setVouchers] = useState([]);
@@ -22,6 +24,13 @@ const VoucherManagement = () => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
   };
+
+  useEffect(() => {
+    if (location.state?.message) {
+      showToast(location.state.message, location.state.type || 'success');
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Mapping trạng thái sang text và màu sắc
   const getStatusInfo = (status) => {
@@ -90,24 +99,27 @@ const VoucherManagement = () => {
         await fetchVouchers();
         setShowDeleteModal(false);
         setVoucherToDelete(null);
+        setDeleteError("");
       } else {
         const errorMsg = json?.message || `Lỗi từ hệ thống (Mã: ${res.status})`;
-        showToast(errorMsg, 'danger');
+        setDeleteError(errorMsg);
       }
     } catch (error) {
       console.error("Lỗi khi gọi API xóa:", error);
-      showToast('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng!', 'danger');
+      setDeleteError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng!");
     }
   };
 
   const openDeleteModal = (voucher) => {
     setVoucherToDelete(voucher);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setVoucherToDelete(null);
+    setDeleteError("");
   };
 
   return (
@@ -323,6 +335,12 @@ const VoucherManagement = () => {
             <div className="admin-modal-body text-center py-4">
               <p className="mb-3">Bạn có chắc chắn muốn xóa voucher <b>{voucherToDelete.code}</b>?</p>
               <div className="alert alert-warning py-2 small">Hành động này không thể hoàn tác.</div>
+              {deleteError && (
+                <div className="alert alert-danger mb-0 mt-3 text-start">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
             </div>
             <div className="admin-modal-footer">
               <button type="button" className="admin-btn admin-btn-outline" onClick={closeDeleteModal}>Hủy</button>
@@ -332,6 +350,7 @@ const VoucherManagement = () => {
         </div>
       )}
 
+      {/* Toast thông báo giống News.jsx */}
       {toast.show && (
         <div 
           className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
