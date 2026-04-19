@@ -654,6 +654,9 @@ export default function CinemaNavbar() {
                           <Link to="/profile?tab=rank"  className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
                             <Award   size={15} style={{ color: "#fbbf24", flexShrink: 0 }} /> Hạng thành viên
                           </Link>
+                          <Link to="/transactionHistory" className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
+                            <History size={15} style={{ color: "rgba(240,240,255,.5)", flexShrink: 0 }} /> Lịch sử giao dịch
+                          </Link>
                           <div className="cn-dropdown-divider" />
                         </>
                       )}
@@ -753,6 +756,9 @@ export default function CinemaNavbar() {
                     </Link>
                     <Link to="/profile?tab=rank"   className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
                       <Award   size={18} style={{ color: "#fbbf24" }} /> Hạng thành viên
+                    </Link>
+                    <Link to="/transactionHistory" className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
+                      <History size={18} style={{ color: "rgba(240,240,255,.5)" }} /> Lịch sử giao dịch
                     </Link>
                   </>
                 )}

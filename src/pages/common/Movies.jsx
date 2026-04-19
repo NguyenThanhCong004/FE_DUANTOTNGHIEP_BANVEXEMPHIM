@@ -51,7 +51,7 @@ const Movies = () => {
   }, []);
 
   const filteredMovies = useMemo(() => {
-    return allMovies.filter((movie) => {
+    const list = allMovies.filter((movie) => {
       const matchKeyword = movie.title.toLowerCase().includes(filter.keyword.toLowerCase());
       const matchGenre   = filter.genre === "" || movie.genre === filter.genre;
       const matchStatus  =
@@ -59,6 +59,12 @@ const Movies = () => {
         (filter.status === "now"  && movie.type === "now") ||
         (filter.status === "soon" && movie.type === "soon");
       return matchKeyword && matchGenre && matchStatus;
+    });
+    return list.sort((a, b) => {
+      const ad = a.releaseYmd || "";
+      const bd = b.releaseYmd || "";
+      if (ad !== bd) return bd.localeCompare(ad);
+      return Number(b.id || 0) - Number(a.id || 0);
     });
   }, [allMovies, filter]);
 
