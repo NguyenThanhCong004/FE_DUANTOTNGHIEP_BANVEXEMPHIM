@@ -139,13 +139,20 @@ const InvoiceManagement = () => {
   }, [searchTerm]);
 
   const invoiceStats = useMemo(() => {
-    const totalRev = invoices.reduce((a, i) => a + (Number(i.total) || 0), 0);
+    // Chỉ cộng dồn doanh thu nếu trạng thái là 'completed'
+    const totalRev = invoices.reduce((a, i) => {
+      if (i.status === 'completed') {
+        return a + (Number(i.total) || 0);
+      }
+      return a;
+    }, 0);
+    
     const pending = invoices.filter((i) => i.status === 'pending').length;
     const completed = invoices.filter((i) => i.status === 'completed').length;
     const cancelled = invoices.filter((i) => i.status === 'cancelled').length;
+    
     return { totalRev, pending, completed, cancelled };
   }, [invoices]);
-
   const getStatusBadge = (status) => {
     switch (status) {
       case 'completed':
