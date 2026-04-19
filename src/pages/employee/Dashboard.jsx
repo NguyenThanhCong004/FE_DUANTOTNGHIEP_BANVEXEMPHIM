@@ -278,7 +278,11 @@ const EmployeeDashboard = () => {
                   <div key={order.orderOnlineId} className="order-item" onClick={() => fetchOrderDetail(order.orderCode)}>
                     <div className="order-main">
                       <div className="order-code">{order.orderCode}</div>
-                      <div className="order-time">{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div className="order-time">
+                        {new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                        {" - "}
+                        {new Date(order.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                      </div>
                     </div>
                     <div className="order-meta">
                       <div className="order-method">{order.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</div>
@@ -339,7 +343,20 @@ const EmployeeDashboard = () => {
               <div className="order-summary-box">
                 <div className="summary-row"><span>Mã đơn hàng:</span> <strong>{selectedOrder.orderCode}</strong></div>
                 <div className="summary-row"><span>Thời gian:</span> <span>{selectedOrder.createdAt}</span></div>
-                <div className="summary-row"><span>Thanh toán:</span> <span className="badge-method">{selectedOrder.paymentMethod}</span></div>
+                <div className="summary-row">
+                  <span>Trạng thái:</span> 
+                  <strong className={selectedOrder.status === 1 ? "text-success" : "text-danger"}>
+                    {selectedOrder.status === 1 ? "Thành công" : "Đã hủy"}
+                  </strong>
+                </div>
+                <div className="summary-row">
+                  <span>Thanh toán:</span> 
+                  <span className="badge-method">
+                    {selectedOrder.paymentMethod === 'CASH' ? 'Tiền mặt' : 
+                     selectedOrder.paymentMethod === 'TRANSFER' ? 'Chuyển khoản' : 
+                     selectedOrder.paymentMethod === 'PAYOS' ? 'Ví điện tử' : selectedOrder.paymentMethod}
+                  </span>
+                </div>
                 <div className="summary-row"><span>Khách hàng:</span> <span><UserIcon size={14} /> {selectedOrder.customerName}</span></div>
               </div>
               {selectedOrder.tickets?.length > 0 && (
