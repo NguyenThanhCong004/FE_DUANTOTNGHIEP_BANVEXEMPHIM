@@ -106,6 +106,7 @@ export const PAYOS = {
 
 /** Đặt vé online — JWT khách (ROLE_USER), tạo đơn + link PayOS */
 export const TICKET_ORDERS = {
+  QUOTE: `${API_V1}/ticket-orders/quote`,
   CHECKOUT: `${API_V1}/ticket-orders/checkout`,
   CANCEL_PENDING: `${API_V1}/ticket-orders/cancel-pending`,
 };
