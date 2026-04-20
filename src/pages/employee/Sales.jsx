@@ -514,7 +514,7 @@ const Sales = () => {
       if (res.ok && json) {
         if (paymentMethod === 'TRANSFER' && json.data?.checkoutUrl) {
           setPaymentData(json.data);
-          setTimeLeft(600); 
+          setTimeLeft(180); 
           setOrderSuccess({ 
             orderCode: "PENDING", 
             finalAmount: totalPrice, 
