@@ -72,7 +72,7 @@ const EmployeeDashboard = () => {
             <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 5px;">Ghế / Seats</div>
             ${order.tickets.map(t => `
               <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px;">
-                <span>${t.seatNumber}</span>
+                <span>${t.seatNumber} (${t.seatTypeName || 'Ghế thường'})</span>
                 <span style="font-weight: bold;">${(t.price || 0).toLocaleString()}đ</span>
               </div>
             `).join("")}
