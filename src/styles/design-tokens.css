@@ -1,11 +1,21 @@
 /**
- * Design tokens — font sans-serif hiện đại, dễ đọc (Inter + fallback hệ thống).
+ * Design tokens — modern sans-serif font, easy to read (Inter + system fallback).
+ * Imported first in main.jsx (before Bootstrap).
  */
 @import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 
 :root {
-  --font-ui: "Inter", system-ui, -apple-system, sans-serif;
-  --font-content: "Inter", sans-serif;
+  /* Inter + Roboto/Open Sans/Lato/Arial/Tahoma via fallback (no extra downloads for performance) */
+  --font-ui:
+    "Inter",
+    "Roboto",
+    "Open Sans",
+    "Lato",
+    "Segoe UI",
+    Tahoma,
+    Arial,
+    sans-serif;
+  --font-content: var(--font-ui);
   --font-brand: "Bebas Neue", var(--font-ui);
 
   --admin-bg-deep: #070b17;

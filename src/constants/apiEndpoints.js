@@ -154,7 +154,13 @@ export const PRODUCTS = {
 export const SUPER_ADMIN_DASHBOARD = {
   SUMMARY: `${API_V1}/super-admin/dashboard/summary`,
   REVENUE_CHART: (year) => `${API_V1}/super-admin/dashboard/revenue-chart${year ? `?year=${year}` : ""}`,
-  CINEMA_RANKING: `${API_V1}/super-admin/dashboard/cinema-ranking`,
+  CINEMA_RANKING: (year, month) => {
+    const q = new URLSearchParams();
+    if (year) q.set("year", String(year));
+    if (month) q.set("month", String(month));
+    const qs = q.toString();
+    return `${API_V1}/super-admin/dashboard/cinema-ranking${qs ? `?${qs}` : ""}`;
+  },
   CINEMA_DETAIL: (id) => `${API_V1}/super-admin/dashboard/cinema-detail/${id}`,
 };
 

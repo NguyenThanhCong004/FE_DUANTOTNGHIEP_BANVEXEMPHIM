@@ -1,4 +1,4 @@
-/* Xóa bỏ CSS mặc định của React Template */
+/* Remove default React Template CSS */
 .App {
   width: 100%;
   min-height: 100vh;
@@ -10,19 +10,19 @@ html.cinetoon-public main {
   padding-top: 32px;
 }
 
-/* Đồng bộ khoảng cách từ header đến nội dung giữa các page public */
+/* Sync spacing from header to content across public pages */
 html.cinetoon-public main > *:first-child {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
 
-/* Nhiều page đặt <style> trước wrapper nội dung, cần reset phần tử kế tiếp */
+/* Many pages place <style> before content wrapper, need to reset next element */
 html.cinetoon-public main > style + * {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
 
-/* Dong bo tieu de cac trang public */
+/* Sync page titles across public pages */
 html.cinetoon-public .page-title,
 html.cinetoon-public .mv-title,
 html.cinetoon-public .ev-title,

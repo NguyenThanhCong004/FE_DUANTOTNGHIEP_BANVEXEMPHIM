@@ -1,12 +1,12 @@
 /**
- * Theme giao diện khách / trang công khai — CHỈ áp dụng khi html.cinetoon-public
- * (xem RouteThemeSync + index.html). Không đè lên admin-panel.
- * Font: design-tokens.css (không @import trùng).
- * Không style .navbar / .nav-link toàn cục — tránh đè Navbar/Footer (site-chrome.css).
+ * Public/customer interface theme — ONLY applies when html.cinetoon-public
+ * (see RouteThemeSync + index.html). Does not override admin-panel.
+ * Font: design-tokens.css (no duplicate @import).
+ * Do not style .navbar / .nav-link globally — avoid overriding Navbar/Footer (site-chrome.css).
  */
 
 html.cinetoon-public {
-  /* Đồng bộ với Navbar (Tailwind zinc-950 + rose): thanh điều hướng cố định */
+  /* Sync with Navbar (Tailwind zinc-950 + rose): fixed navigation bar */
   --primary-gradient: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
   --secondary-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
   --bg-gradient:
@@ -56,7 +56,7 @@ html.cinetoon-public .btn-gradient:hover {
   color: white;
 }
 
-/* Card glass — chữ sáng mặc định; vùng nền sáng bên trong dùng chữ đậm */
+/* Card glass — light text by default; bright background areas use bold text */
 html.cinetoon-public .card {
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -83,12 +83,12 @@ html.cinetoon-public .card .bg-white .text-dark {
   color: #212529 !important;
 }
 
-/* Đoạn mô tả muted trực tiếp trong card (không nằm trong bg-light) — nền kính tối */
+/* Muted description directly in card (not within bg-light) — dark glass background */
 html.cinetoon-public .card > p.text-muted {
   color: #64748b !important;
 }
 
-/* Form trong main — không đè ô tìm kiếm trên Navbar */
+/* Forms in main — do not override search box on Navbar */
 html.cinetoon-public main input.form-control,
 html.cinetoon-public main select.form-select,
 html.cinetoon-public main textarea.form-control {
@@ -111,7 +111,7 @@ html.cinetoon-public main textarea.form-control::placeholder {
   color: rgba(255, 255, 255, 0.5) !important;
 }
 
-/* Form trong auth page (Login, Register) - không nằm trong main */
+/* Forms in auth page (Login, Register) - not within main */
 html.cinetoon-public .auth-public-page input.form-control,
 html.cinetoon-public .auth-public-page select.form-select,
 html.cinetoon-public .auth-public-page textarea.form-control {
@@ -134,7 +134,7 @@ html.cinetoon-public main select.form-select option {
   color: #ffffff;
 }
 
-/* Khung nội dung trang khách — cùng max-width / padding ngang với Navbar: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 */
+/* Customer page content frame — same max-width / horizontal padding as Navbar: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 */
 html.cinetoon-public .customer-page {
   color: inherit;
 }
@@ -166,7 +166,7 @@ html.cinetoon-public .customer-page--full {
   min-height: 0;
 }
 
-/* Không ép .text-dark / .text-muted toàn cục — để Bootstrap + ngữ cảnh quyết định */
+/* Do not force .text-dark / .text-muted globally — let Bootstrap + context decide */
 
 html.cinetoon-public .text-gradient {
   background: var(--primary-gradient);
