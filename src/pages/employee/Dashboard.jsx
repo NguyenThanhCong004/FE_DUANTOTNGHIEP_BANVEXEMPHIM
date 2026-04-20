@@ -483,13 +483,6 @@ const EmployeeDashboard = () => {
           to { transform: translate(-50%, 0); opacity: 1; }
         }
 
-        /* Đồng bộ Header từ trang Bán hàng */
-        :global(.employee-self-header) {
-          background: #1e293b !important;
-          border-bottom: 1px solid rgba(255,255,255,0.05) !important;
-          box-shadow: none !important;
-        }
-
         .dashboard-container-full { background: #0f172a; height: 100%; color: white; display: flex; flex-direction: column; overflow: hidden; }
         .dashboard-main-scroll { flex: 1; overflow-y: auto; padding: 24px; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
