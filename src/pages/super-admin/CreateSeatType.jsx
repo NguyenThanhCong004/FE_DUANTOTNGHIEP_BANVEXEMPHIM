@@ -308,16 +308,18 @@ const CreateSeatType = () => {
               <Form.Control
                 type="number"
                 name="surcharge"
+                step="1000"
+                min="0"
                 inputMode="numeric"
                 className={`admin-search-input ${errors.surcharge ? "border-danger" : ""}`}
-                placeholder="0"
+                placeholder="Ví dụ: 0, 1000, 20000..."
                 value={formData.surcharge}
                 onChange={handleChange}
               />
               {errors.surcharge ? <Form.Text className="text-danger d-block">{errors.surcharge}</Form.Text> : null}
               <Form.Text className="text-muted d-block mt-2">
                 <i className="bi bi-info-circle me-1" />
-                Số tiền cộng thêm vào giá vé cơ bản. Có thể nhập <strong>0</strong>.
+                Số tiền cộng thêm (chỉ chấp nhận số tròn nghìn, VD: 1000, 5000, 100000).
               </Form.Text>
             </Form.Group>
 

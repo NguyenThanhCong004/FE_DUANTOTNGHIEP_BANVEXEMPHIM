@@ -133,7 +133,7 @@ const AppRoutes = () => {
         <Route
           path="/admin"
           element={
-            <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+            <RoleGuard allowedRoles={['ADMIN']}>
               <AdminLayout />
             </RoleGuard>
           }

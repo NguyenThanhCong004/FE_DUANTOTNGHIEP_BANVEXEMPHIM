@@ -351,17 +351,12 @@ const SystemStaffManagement = () => {
 
 
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
-
-
-
+    // 1. Ưu tiên ADMIN lên đầu
     if (a.role === 'ADMIN' && b.role !== 'ADMIN') return -1;
+    if (a.role !== 'ADMIN' && b.role === 'ADMIN') return 1;
 
-
-
-    return a.role !== 'ADMIN' && b.role === 'ADMIN' ? 1 : 0;
-
-
-
+    // 2. Cùng role thì ai mới hơn (ID lớn hơn) lên trước
+    return (b.id || 0) - (a.id || 0);
   });
 
 
