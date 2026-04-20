@@ -14,13 +14,18 @@ const GlobalInvoiceManagement = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
+  // Fetch dữ liệu và sắp xếp mới nhất lên đầu
   const fetchOrders = async () => {
     setLoading(true);
     try {
       const res = await apiFetch(ORDERS_ONLINE.LIST);
       const json = await res.json();
       if (res.ok) {
-        setOrders(json.data || []);
+        // Sắp xếp theo ngày tạo giảm dần (mới nhất lên trên)
+        const sorted = (json.data || []).sort((a, b) => 
+          new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setOrders(sorted);
       }
     } catch (error) {
       console.error("Error fetching global orders:", error);
@@ -33,6 +38,7 @@ const GlobalInvoiceManagement = () => {
     fetchOrders();
   }, []);
 
+  // Xử lý xuất PDF trực tiếp có lề 15mm
   const handleDownloadPDF = async () => {
     const element = document.querySelector(".invoice-print-area");
     if (!element) return;
@@ -71,9 +77,8 @@ const GlobalInvoiceManagement = () => {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF('p', 'mm', 'a4');
       
-      const margin = 15; // Lề 15mm cho 4 góc
+      const margin = 15; 
       const pdfWidth = pdf.internal.pageSize.getWidth() - 2 * margin;
-      
       const imgProps = pdf.getImageProperties(imgData);
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
