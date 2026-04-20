@@ -145,7 +145,15 @@ const CreateVoucher = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (name === 'code') {
+      // Chỉ cho phép chữ cái và số, tự động viết hoa để đồng bộ
+      const val = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      setFormData(prev => ({ ...prev, [name]: val }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     if (name === 'startDate' || name === 'endDate' || name === 'status') {
       setErrors(prev => ({ ...prev, status: '' }));
@@ -220,7 +228,7 @@ const CreateVoucher = () => {
         <div className="admin-card-header">
           <h4 className="mb-0">
             <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
-            Cấu hình chương trình Voucher
+            Thông tin chương trình Voucher
           </h4>
         </div>
         <div className="admin-card-body p-4">
@@ -231,11 +239,16 @@ const CreateVoucher = () => {
               <div className="col-md-6 mb-4">
                 <label className="admin-form-label">Mã Voucher <span className="text-danger">*</span></label>
                 <input 
-                  type="text" name="code" className={`admin-search-input w-100 ${errors.code ? 'border-danger' : ''}`}
-                  placeholder="Ví dụ: HE2024, CHAOXUAN..." value={formData.code} onChange={handleChange}
-                  style={{ textTransform: 'uppercase' }}
+                  type="text" 
+                  name="code" 
+                  className={`admin-search-input w-100 ${errors.code ? 'border-danger' : ''}`}
+                  placeholder="Nhập mã (Ví dụ: KM50, TET2024)" 
+                  value={formData.code} 
+                  onChange={handleChange}
+                  maxLength={15}
                 />
-                {errors.code && <small className="text-danger fw-medium">{errors.code}</small>}
+                {errors.code && <div className="text-danger small fw-bold mt-1">{errors.code}</div>}
+                <small className="text-muted d-block mt-1">Viết hoa, không dấu, không khoảng cách (Tối đa 15 ký tự).</small>
               </div>
 
               <div className="col-md-6 mb-4">

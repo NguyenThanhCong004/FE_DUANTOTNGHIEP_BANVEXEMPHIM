@@ -248,39 +248,21 @@ const CreateMovie = () => {
       let payload = body;
 
       if (movieId && originalData) {
-        // Chê dô edit: so sánh vôi dâ liêu gôc và chi gui các field thay dôi
-        const originalBody = {
-          genreId: originalData.genreId || null,
-          title: String(originalData.title || "").trim(),
-          description: originalData.description || "",
-          duration: originalData.duration != null ? originalData.duration : null,
-          ageLimit: originalData.ageLimit != null ? originalData.ageLimit : null,
-          releaseDate: originalData.releaseDate ? String(originalData.releaseDate).slice(0, 10) : null,
-          poster: originalData.posterUrl || null,
-          status: originalData.status != null ? originalData.status : 1,
-          basePrice: originalData.basePrice != null ? originalData.basePrice : null,
-          author: originalData.author || null,
-          nation: originalData.nation || null,
-          content: originalData.content || null,
-          banner: originalData.banner || null,
-        };
-
-        // Chi gui các field thay dôi
         payload = {};
         
-        if (body.genreId !== originalBody.genreId) payload.genreId = body.genreId;
-        if (body.title !== originalBody.title) payload.title = body.title;
-        if (body.description !== originalBody.description) payload.description = body.description;
-        if (body.duration !== originalBody.duration) payload.duration = body.duration;
-        if (body.ageLimit !== originalBody.ageLimit) payload.ageLimit = body.ageLimit;
-        if (body.releaseDate !== originalBody.releaseDate) payload.releaseDate = body.releaseDate;
-        if (body.poster !== originalBody.poster) payload.poster = body.poster;
-        if (body.status !== originalBody.status) payload.status = body.status;
-        if (body.basePrice !== originalBody.basePrice) payload.basePrice = body.basePrice;
-        if (body.author !== originalBody.author) payload.author = body.author;
-        if (body.nation !== originalBody.nation) payload.nation = body.nation;
-        if (body.content !== originalBody.content) payload.content = body.content;
-        if (body.banner !== originalBody.banner) payload.banner = body.banner;
+        if (body.genreId !== originalData.genreId) payload.genreId = body.genreId;
+        if (body.title !== originalData.title) payload.title = body.title;
+        if (body.description !== originalData.description) payload.description = body.description;
+        if (body.duration !== originalData.duration) payload.duration = body.duration;
+        if (body.ageLimit !== originalData.ageLimit) payload.ageLimit = body.ageLimit;
+        if (body.releaseDate !== (originalData.releaseDate ? String(originalData.releaseDate).slice(0, 10) : null)) payload.releaseDate = body.releaseDate;
+        if (body.poster !== originalData.posterUrl) payload.poster = body.poster;
+        if (body.status !== originalData.status) payload.status = body.status;
+        if (body.basePrice !== originalData.basePrice) payload.basePrice = body.basePrice;
+        if (body.author !== originalData.author) payload.author = body.author;
+        if (body.nation !== originalData.nation) payload.nation = body.nation;
+        if (body.content !== originalData.content) payload.content = body.content;
+        if (body.banner !== originalData.banner) payload.banner = body.banner;
 
         if (Object.keys(payload).length === 0) {
           showToast("Không có thay đổi để cập nhật", 'warning');
@@ -288,7 +270,6 @@ const CreateMovie = () => {
           return;
         }
       } else {
-        // Khi tao mõi: chi gui các field có giá tri thuc su
         payload = {};
         if (body.genreId != null) payload.genreId = body.genreId;
         if (body.title != null && body.title.trim() !== "") payload.title = body.title;
