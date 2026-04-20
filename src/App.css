@@ -33,11 +33,11 @@ html.cinetoon-public .auth-title,
 html.cinetoon-public .fp-card-title,
 html.cinetoon-public .md-title,
 html.cinetoon-public .ed-title {
-  font-family: var(--font-ui, system-ui, sans-serif) !important;
+  font-family: var(--font-brand) !important;
   font-size: 32px !important;
   font-weight: 700 !important;
   line-height: 1.25 !important;
-  letter-spacing: 0.5px !important;
+  letter-spacing: 0.05em !important;
   text-transform: uppercase !important;
   margin-bottom: 8px !important;
 }

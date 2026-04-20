@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useBlocker } from 'react-router-dom';
 import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { getAccessToken, getStoredStaff, getActiveShift } from '../../utils/authStorage';
 import { apiUrl } from '../../utils/apiClient';
@@ -135,21 +134,17 @@ const Sales = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [orderSuccess]);
 
-  // Chặn navigation khi đang quét mã QR
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => {
-      if (orderSuccess?.paymentMethod === 'TRANSFER' && orderSuccess?.orderCode === 'PENDING') {
-        return currentLocation.pathname !== nextLocation.pathname;
-      }
-      return false;
+  const handleCancelPayment = async () => {
+    if (orderSuccess?.orderCode && paymentData?.orderCode) {
+      try {
+        await fetch(apiUrl(COUNTER_ORDERS.CANCEL(paymentData.orderCode)), {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+      } catch (err) { console.error("Lỗi hủy đơn hàng:", err); }
     }
-  );
-
-  const handleCancelPayment = () => {
-    setOrderSuccess(null);
-    setPaymentData(null);
-    setTimeLeft(0);
-    showToast("Thanh toán đã hết hạn (10 phút). Đơn hàng đã tự động hủy.", "warning");
+    handleNewOrder(); // Reset giao diện về trạng thái ban đầu
+    showToast("Đã hủy đơn hàng thành công. Vé và ghế đã được giải phóng.", "warning");
   };
 
   const formatTime = (seconds) => {
@@ -409,9 +404,11 @@ const Sales = () => {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(body)
       });
-      const json = await res.json();
-      if (res.ok) {
-        if (paymentMethod === 'TRANSFER' && json.data.checkoutUrl) {
+      
+      const json = await res.json().catch(() => null);
+      
+      if (res.ok && json) {
+        if (paymentMethod === 'TRANSFER' && json.data?.checkoutUrl) {
           setPaymentData(json.data);
           setTimeLeft(600); // Bắt đầu đếm ngược 10 phút
           setOrderSuccess({ 
@@ -429,13 +426,13 @@ const Sales = () => {
           setSelectedProducts([]);
           if (selectedShowtime?.id) {
             const resST = await fetch(apiUrl(SHOWTIMES.BY_ID(selectedShowtime.id)));
-            const jsonST = await resST.json();
+            const jsonST = await resST.json().catch(() => null);
             if (jsonST?.data?.bookedSeatIds) setBookedSeatIds(jsonST.data.bookedSeatIds);
           }
           showToast("Thanh toán thành công!", "success");
         }
       } else { 
-        showToast(json.message || "Thanh toán thất bại.", "error"); 
+        showToast(json?.message || "Thanh toán thất bại hoặc phiên làm việc hết hạn.", "error"); 
       }
     } catch (err) { 
       console.error("Lỗi checkout:", err); 
@@ -500,11 +497,11 @@ const Sales = () => {
     if (!seats.length) return <div className="p-5 text-white-50 text-center w-100">Đang tải sơ đồ ghế...</div>;
     
     const seatGrid = buildSeatGrid(seats);
-    const seatSize = 30;
-    const doubleSeatSize = 66;
-    const gapSize = 5;
-    const fontSize = 9;
-    const labelFontSize = 10;
+    const seatSize = 24; // Giảm từ 30 xuống 24
+    const doubleSeatSize = 53; // Tương ứng (24*2 + 5)
+    const gapSize = 4; // Giảm từ 5 xuống 4
+    const fontSize = 8; // Giảm từ 9 xuống 8
+    const labelFontSize = 9;
     const rowLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
     return (
@@ -515,9 +512,9 @@ const Sales = () => {
             
             <div style={{
               display: 'grid',
-              gridTemplateColumns: `40px repeat(${COLS}, ${seatSize}px)`,
+              gridTemplateColumns: `30px repeat(${COLS}, ${seatSize}px)`,
               gap: `${gapSize}px`,
-              padding: '20px',
+              padding: '10px',
               minWidth: 'fit-content',
             }}>
               <div />
@@ -527,7 +524,7 @@ const Sales = () => {
 
               {[...Array(ROWS)].map((_, r) => (
                 <React.Fragment key={`row-${r}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '900', color: '#38bdf8' }}>{rowLetters[r]}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900', color: '#38bdf8' }}>{rowLetters[r]}</div>
                   {[...Array(COLS)].map((_, c) => {
                     const idx = r * COLS + c;
                     const cell = seatGrid[idx];
@@ -562,8 +559,8 @@ const Sales = () => {
                           opacity: isBooked ? 0.4 : 1,
                           fontSize: `${fontSize}px`,
                           zIndex: isSelected ? 10 : 1,
-                          borderRadius: '6px',
-                          border: isSelected ? '2px solid white' : '1px solid rgba(255,255,255,0.1)'
+                          borderRadius: '4px',
+                          border: isSelected ? '1px solid white' : '1px solid rgba(255,255,255,0.1)'
                         }}
                         onClick={() => toggleSeat(seat)} 
                         title={`${seat.seatTypeName}: ${seat.number}`}
@@ -578,7 +575,7 @@ const Sales = () => {
           </div>
         </div>
 
-        <div className="seat-legend mt-4 d-flex justify-content-center flex-wrap gap-4">
+        <div className="seat-legend mt-3 d-flex justify-content-center flex-wrap gap-3">
           {(seatTypes.length > 0 ? seatTypes : [{ name: "Thường" }, { name: "VIP" }, { name: "Đôi" }]).map((st) => {
             const fill = resolveSeatTypeColor(st.name, seatTypes);
             return (
@@ -625,14 +622,25 @@ const Sales = () => {
         </div>
       </aside>
 
-      <main className="pos-main-content">
-        <header className="pos-tabs">
-          <button className={`pos-tab ${activeTab === 'showtimes' ? 'active' : ''}`} onClick={() => setActiveTab('showtimes')}><Ticket size={16} /> Suất chiếu</button>
-          <button className={`pos-tab ${activeTab === 'seats' ? 'active' : ''}`} disabled={!selectedShowtime} onClick={() => setActiveTab('seats')}><User size={16} /> Chọn Ghế</button>
-          <button className={`pos-tab ${activeTab === 'food' ? 'active' : ''}`} disabled={selectedSeats.length === 0} onClick={() => setActiveTab('food')}><Utensils size={16} /> Bắp nước</button>
+      <main className="pos-main-content" style={{ padding: 0, margin: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <header className="pos-stepper">
+          <div className={`step-item ${activeTab === 'showtimes' ? 'active' : ''} completed`} onClick={() => setActiveTab('showtimes')}>
+            <div className="step-circle"><Ticket size={14} /></div>
+            <span className="step-text">Suất chiếu</span>
+          </div>
+          <div className={`step-line ${selectedShowtime ? 'active' : ''}`} />
+          <div className={`step-item ${activeTab === 'seats' ? 'active' : ''} ${selectedShowtime ? 'completed' : 'disabled'}`} onClick={() => selectedShowtime && setActiveTab('seats')}>
+            <div className="step-circle"><User size={14} /></div>
+            <span className="step-text">Chọn Ghế</span>
+          </div>
+          <div className={`step-line ${selectedSeats.length > 0 ? 'active' : ''}`} />
+          <div className={`step-item ${activeTab === 'food' ? 'active' : ''} ${selectedSeats.length > 0 ? 'completed' : 'disabled'}`} onClick={() => selectedSeats.length > 0 && setActiveTab('food')}>
+            <div className="step-circle"><Utensils size={14} /></div>
+            <span className="step-text">Bắp nước</span>
+          </div>
         </header>
 
-        <section className="pos-view-area custom-scrollbar">
+        <section className="pos-view-area custom-scrollbar" style={{ paddingTop: '30px' }}>
           {activeTab === 'showtimes' && (
             <div className="view-showtimes">
               <h3 className="section-title">{selectedMovie ? `Suất chiếu: ${selectedMovie.title}` : "Chọn phim bên trái"}</h3>
@@ -753,52 +761,23 @@ const Sales = () => {
                   </div>
                 </div>
                 <div className="d-flex gap-2">
-                  <button className="btn btn-outline-light flex-1 py-2 fw-bold" onClick={() => { setOrderSuccess(null); setPaymentData(null); }}>HỦY BỎ</button>
+                  <button className="btn btn-outline-light flex-1 py-2 fw-bold" onClick={handleCancelPayment}>HỦY BỎ</button>
                   <button className="btn btn-success flex-1 py-2 fw-bold" onClick={handleConfirmTransfer}>ĐÃ THANH TOÁN</button>
                 </div>
               </>
             ) : (
               <>
                 <CheckCircle2 size={48} className="text-success mb-3" />
-                <h4 className="fw-bold text-white">Thanh toán thành công!</h4>
-                <div className="modal-details text-start mt-3 p-3 bg-dark-subtle rounded">
-                  <div className="d-flex justify-content-between mb-1 text-white-50"><span>Mã đơn:</span> <strong className="text-white">{orderSuccess.orderCode}</strong></div>
-                  <div className="d-flex justify-content-between mb-1 text-white-50"><span>Tổng tiền:</span> <strong className="text-white">{orderSuccess.finalAmount?.toLocaleString()}đ</strong></div>
-                  <div className="d-flex justify-content-between text-white-50"><span>Hình thức:</span> <span className="text-white">{orderSuccess.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span></div>
+                <h4 className="fw-bold text-success">Thanh toán thành công!</h4>
+                <div className="modal-details text-start mt-3 p-3 bg-light rounded">
+                  <div className="d-flex justify-content-between mb-1 text-dark"><span>Mã đơn:</span> <strong className="text-dark">{orderSuccess.orderCode}</strong></div>
+                  <div className="d-flex justify-content-between mb-1 text-dark"><span>Tổng tiền:</span> <strong className="text-dark">{orderSuccess.finalAmount?.toLocaleString()}đ</strong></div>
+                  <div className="d-flex justify-content-between text-dark"><span>Hình thức:</span> <span className="text-dark">{orderSuccess.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span></div>
                 </div>
                 <div className="mt-4 text-info small mb-3">Đã in vé và lưu vào thư mục preview.</div>
                 <button className="btn btn-primary w-100 py-2 fw-bold" onClick={handleNewOrder}>ĐƠN MỚI</button>
               </>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Confirm dialog khi navigate trong khi đang quét QR */}
-      {blocker.state === "blocked" && (
-        <div className="pos-overlay">
-          <div className="success-modal" style={{ maxWidth: '400px' }}>
-            <h5 className="fw-bold text-white mb-3">Xác nhận rời trang?</h5>
-            <p className="text-white-50 mb-4">
-              Đang chờ thanh toán chuyển khoản. Nếu rời trang, đơn hàng sẽ bị hủy và voucher sẽ được khôi phục.
-            </p>
-            <div className="d-flex gap-2">
-              <button 
-                className="btn btn-outline-light flex-1 py-2 fw-bold" 
-                onClick={() => blocker.reset?.() || blocker.proceed?.()}
-              >
-                Ở LẠI
-              </button>
-              <button 
-                className="btn btn-danger flex-1 py-2 fw-bold" 
-                onClick={() => {
-                  handleCancelPayment();
-                  blocker.proceed?.();
-                }}
-              >
-                RỜI TRANG
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -843,11 +822,13 @@ const Sales = () => {
         
         .pos-container { 
           display: grid; 
-          grid-template-columns: 280px 1fr 340px; 
-          height: calc(100vh - 64px); 
+          grid-template-columns: 230px 1fr 280px; 
+          height: 100%; 
           background: #0f172a; 
           overflow: hidden; 
           position: relative;
+          margin: 0 !important;
+          padding: 0 !important;
         }
         
         /* Sidebar Left - Movies */
@@ -857,43 +838,38 @@ const Sales = () => {
           flex-direction: column; 
           border-right: 1px solid rgba(255,255,255,0.05); 
           z-index: 10;
+          height: 100%;
         }
         .pos-search { 
-          padding: 16px; 
+          padding: 12px; 
           background: rgba(15, 23, 42, 0.4); 
           border-bottom: 1px solid rgba(255,255,255,0.05); 
         }
         .pos-search-box { 
           display: flex; 
           align-items: center; 
-          gap: 10px; 
+          gap: 8px; 
           background: #0f172a; 
-          padding: 8px 12px; 
-          border-radius: 10px; 
+          padding: 6px 10px; 
+          border-radius: 8px; 
           border: 1px solid rgba(255,255,255,0.1); 
-          transition: all 0.2s;
-        }
-        .pos-search-box:focus-within {
-          border-color: #38bdf8;
-          box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
         }
         .pos-search-box input { 
           background: transparent; 
           border: none; 
           color: white; 
-          font-size: 13px; 
+          font-size: 12px; 
           width: 100%; 
           outline: none; 
         }
         
-        .pos-movie-list { flex: 1; overflow-y: auto; padding: 12px; }
+        .pos-movie-list { flex: 1; overflow-y: auto; padding: 8px; }
         .pos-movie-item { 
-          padding: 12px 14px; 
+          padding: 10px 12px; 
           cursor: pointer; 
-          border-radius: 12px; 
-          margin-bottom: 6px; 
+          border-radius: 10px; 
+          margin-bottom: 4px; 
           border: 1px solid transparent; 
-          transition: all 0.2s; 
           background: rgba(15, 23, 42, 0.2);
         }
         .pos-movie-item:hover { 
@@ -905,8 +881,8 @@ const Sales = () => {
           color: #fff; 
           box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
         }
-        .pos-movie-info .title { font-size: 13.5px; font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
-        .pos-movie-info .meta { font-size: 11px; opacity: 0.7; font-weight: 600; }
+        .pos-movie-info .title { font-size: 12.5px; font-weight: 700; margin-bottom: 2px; line-height: 1.3; }
+        .pos-movie-info .meta { font-size: 10px; opacity: 0.7; font-weight: 600; }
 
         /* Main Content Area */
         .pos-main-content { 
@@ -917,49 +893,96 @@ const Sales = () => {
           background: #0f172a;
         }
         
-        .pos-tabs { 
-          display: flex; 
-          background: #1e293b; 
-          padding: 0 16px; 
-          border-bottom: 1px solid rgba(255,255,255,0.05); 
-          flex-shrink: 0; 
-          gap: 4px;
-        }
-        .pos-tab { 
-          padding: 14px 20px; 
-          background: transparent; 
-          border: none; 
-          color: #94a3b8; 
-          display: flex; 
-          align-items: center; 
-          gap: 10px; 
-          font-weight: 700; 
-          font-size: 13px; 
-          cursor: pointer; 
-          border-bottom: 3px solid transparent; 
-          transition: all 0.2s;
-        }
-        .pos-tab:hover:not(:disabled) { color: #f1f5f9; background: rgba(255,255,255,0.03); }
-        .pos-tab.active { color: #38bdf8; border-bottom-color: #38bdf8; background: rgba(56, 189, 248, 0.05); }
-        .pos-tab:disabled { opacity: 0.4; cursor: not-allowed; }
-        
-        .pos-view-area { flex: 1; overflow-y: auto; padding: 24px; }
-        .section-title { 
-          font-size: 16px; 
-          font-weight: 800; 
-          color: #f1f5f9; 
-          margin-bottom: 20px; 
+        /* Stepper Styling */
+        .pos-stepper {
           display: flex;
           align-items: center;
-          gap: 10px;
+          justify-content: center;
+          background: #1e293b;
+          height: 52px; /* Chiều cao cố định giúp thanh tiến trình gọn gàng */
+          padding: 0 30px;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          flex-shrink: 0;
+          gap: 0;
+        }
+        .step-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          opacity: 0.4;
+          padding: 0 12px;
+          height: 100%; /* Đảm bảo item chiếm hết chiều cao để căn giữa chữ và icon */
+        }
+        .step-item.active { opacity: 1; }
+        .step-item.completed { opacity: 1; }
+        .step-item.disabled { cursor: not-allowed; opacity: 0.2; }
+        
+        .step-circle {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: #0f172a;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #334155;
+          color: #94a3b8;
+          font-weight: 800;
+          transition: all 0.3s ease;
+        }
+        .step-item.active .step-circle {
+          border-color: #38bdf8;
+          background: rgba(56, 189, 248, 0.1);
+          color: #38bdf8;
+          box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+        }
+        .step-item.completed:not(.active) .step-circle {
+          background: #38bdf8;
+          color: #0f172a;
+          border-color: #38bdf8;
         }
         
-        .pos-showtimes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+        .step-text {
+          font-size: 12px;
+          font-weight: 800;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .step-item.active .step-text { color: #38bdf8; }
+        .step-item.completed .step-text { color: #f1f5f9; }
+        
+        .step-line {
+          flex: 0 0 40px;
+          height: 2px;
+          background: #334155;
+          border-radius: 2px;
+        }
+        .step-line.active { background: #38bdf8; }
+
+        .pos-view-area { 
+          flex: 1; 
+          overflow-y: auto; 
+          padding: 0 16px 16px 16px; /* Bỏ padding top */
+        }
+        .section-title { 
+          font-size: 14px; 
+          font-weight: 800; 
+          color: #f1f5f9; 
+          margin: 16px 0; /* Đổi margin để tạo khoảng cách đều */
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .pos-showtimes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
         .st-btn { 
           background: #1e293b; 
           border: 1px solid rgba(255,255,255,0.05); 
-          padding: 16px; 
-          border-radius: 14px; 
+          padding: 12px; 
+          border-radius: 10px; 
           color: white; 
           display: flex; 
           flex-direction: column; 
@@ -967,24 +990,24 @@ const Sales = () => {
           cursor: pointer; 
           transition: all 0.2s; 
         }
-        .st-btn:hover { border-color: #38bdf8; background: #243147; transform: translateY(-3px); }
+        .st-btn:hover { border-color: #38bdf8; background: #243147; transform: translateY(-2px); }
         .st-btn.active { 
           background: linear-gradient(135deg, #38bdf8, #2563eb); 
           color: white; 
           border-color: #38bdf8;
           box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
         }
-        .st-time-range { font-size: 16px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
-        .st-room-name { font-size: 11px; font-weight: 700; text-transform: uppercase; opacity: 0.8; margin-top: 4px; }
+        .st-time-range { font-size: 14px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        .st-room-name { font-size: 10px; font-weight: 700; text-transform: uppercase; opacity: 0.8; margin-top: 2px; }
 
         /* Seat Map Styling */
         .seat-map-outer { 
           width: 100%; 
           overflow: auto; 
-          padding: 40px; 
+          padding: 20px; 
           background: rgba(15, 23, 42, 0.6); 
-          border-radius: 20px; 
-          min-height: 500px;
+          border-radius: 12px; 
+          min-height: 400px;
           border: 1px solid rgba(255,255,255,0.03);
           box-shadow: inset 0 0 40px rgba(0,0,0,0.3);
           display: flex;
@@ -993,15 +1016,15 @@ const Sales = () => {
         }
         .screen-indicator-mini {
           background: linear-gradient(to bottom, rgba(56, 189, 248, 0.1), transparent); 
-          padding: 10px 80px;
-          font-size: 11px;
+          padding: 6px 60px;
+          font-size: 10px;
           font-weight: 800;
-          letter-spacing: 10px;
+          letter-spacing: 8px;
           color: #38bdf8;
           border-radius: 0 0 50% 50%;
-          border-top: 4px solid #38bdf8;
+          border-top: 3px solid #38bdf8;
           box-shadow: 0 -10px 20px rgba(56, 189, 248, 0.15);
-          margin: 0 auto 40px;
+          margin: 0 auto 24px;
           width: fit-content;
           text-align: center;
         }
@@ -1020,26 +1043,26 @@ const Sales = () => {
           cursor: pointer;
         }
         .seat-item:hover:not(.locked) { 
-          transform: scale(1.2); 
+          transform: scale(1.1); 
           z-index: 50; 
-          box-shadow: 0 0 20px rgba(255,255,255,0.2); 
+          box-shadow: 0 0 10px rgba(255,255,255,0.2); 
           border-color: white !important;
         }
-        .seat-number-text { color: #ffffff; font-weight: 900; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+        .seat-number-text { color: #ffffff; font-weight: 900; text-shadow: 0 1px 1px rgba(0,0,0,0.6); }
 
         /* Food Grid Styling */
-        .food-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+        .food-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
         .food-card { 
           background: #1e293b; 
-          border-radius: 16px; 
+          border-radius: 12px; 
           border: 1px solid rgba(255,255,255,0.05); 
           transition: all 0.2s; 
           overflow: hidden;
         }
-        .food-card:hover { border-color: #38bdf8; background: #243147; transform: translateY(-4px); }
-        .food-info { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-        .food-info .name { font-size: 14px; font-weight: 700; color: #f1f5f9; min-height: 40px; line-height: 1.4; }
-        .food-info .price { font-size: 15px; font-weight: 800; color: #38bdf8; }
+        .food-card:hover { border-color: #38bdf8; background: #243147; transform: translateY(-2px); }
+        .food-info { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .food-info .name { font-size: 12.5px; font-weight: 700; color: #f1f5f9; min-height: 36px; line-height: 1.4; }
+        .food-info .price { font-size: 14px; font-weight: 800; color: #38bdf8; }
 
         /* Cart Panel Right */
         .pos-cart-panel { 
@@ -1052,32 +1075,32 @@ const Sales = () => {
           z-index: 10;
         }
         .cart-header { 
-          padding: 18px 24px; 
+          padding: 14px 16px; 
           display: flex; 
           align-items: center; 
-          gap: 12px; 
+          gap: 10px; 
           font-weight: 800; 
           background: rgba(15, 23, 42, 0.4); 
           border-bottom: 1px solid rgba(255,255,255,0.05); 
-          font-size: 15px; 
+          font-size: 14px; 
           flex-shrink: 0; 
         }
-        .cart-content { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .cart-content { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; }
         .cart-section { 
-          padding-bottom: 16px; 
+          padding-bottom: 12px; 
           border-bottom: 1px solid rgba(255,255,255,0.05); 
-          margin-bottom: 16px;
+          margin-bottom: 12px;
         }
-        .cart-movie-title { font-weight: 800; color: #f1f5f9; font-size: 14px; margin-bottom: 4px; text-transform: uppercase; }
-        .cart-showtime-info { font-size: 12px; color: #38bdf8; font-weight: 700; }
+        .cart-movie-title { font-weight: 800; color: #f1f5f9; font-size: 13px; margin-bottom: 2px; text-transform: uppercase; }
+        .cart-showtime-info { font-size: 11px; color: #38bdf8; font-weight: 700; }
         
-        .item-row { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 10px; font-size: 13.5px; }
+        .item-row { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 8px; font-size: 12.5px; }
         .item-name { font-weight: 600; color: #cbd5e1; }
-        .item-qty { font-size: 11px; color: #38bdf8; font-weight: 800; }
+        .item-qty { font-size: 10px; color: #38bdf8; font-weight: 800; }
         .item-price { font-weight: 800; color: #f1f5f9; }
         
         .cart-footer { 
-          padding: 24px; 
+          padding: 16px; 
           background: rgba(15, 23, 42, 0.6); 
           border-top: 1px solid rgba(255,255,255,0.05); 
           flex-shrink: 0; 
@@ -1087,40 +1110,40 @@ const Sales = () => {
           display: flex; 
           align-items: center; 
           justify-content: center; 
-          gap: 8px; 
-          padding: 10px; 
+          gap: 6px; 
+          padding: 8px; 
           background: #0f172a; 
           border: 1px solid rgba(255,255,255,0.1); 
-          border-radius: 10px; 
+          border-radius: 8px; 
           color: #94a3b8; 
-          font-size: 12px; 
+          font-size: 11px; 
           font-weight: 700; 
           cursor: pointer; 
           transition: all 0.2s;
         }
         .method-btn.active { background: #1e293b; color: #38bdf8; border-color: #38bdf8; }
-        .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-        .total-label { font-size: 14px; font-weight: 700; color: #94a3b8; }
-        .total-price { font-size: 26px; font-weight: 900; color: #38bdf8; letter-spacing: -0.5px; }
+        .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .total-label { font-size: 13px; font-weight: 700; color: #94a3b8; }
+        .total-price { font-size: 22px; font-weight: 900; color: #38bdf8; letter-spacing: -0.5px; }
         
         .checkout-btn { 
           width: 100%; 
-          padding: 14px; 
+          padding: 12px; 
           background: linear-gradient(135deg, #10b981, #059669); 
           color: white; 
           border: none; 
-          border-radius: 12px; 
+          border-radius: 10px; 
           font-weight: 800; 
-          font-size: 15px; 
+          font-size: 14px; 
           cursor: pointer; 
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+          box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
           transition: all 0.2s;
         }
         .checkout-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3); }
         .checkout-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
         /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
@@ -1128,15 +1151,15 @@ const Sales = () => {
         .pos-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 3000; }
         .success-modal { 
           background: #1e293b; 
-          padding: 40px; 
-          border-radius: 24px; 
-          width: 400px; 
+          padding: 30px; 
+          border-radius: 20px; 
+          width: 380px; 
           text-align: center; 
           border: 1px solid rgba(255,255,255,0.1); 
           box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
         }
-        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; font-weight: 600; }
-        .box { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #94a3b8; font-weight: 600; }
+        .box { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
       `}</style>
     </div>
   );
