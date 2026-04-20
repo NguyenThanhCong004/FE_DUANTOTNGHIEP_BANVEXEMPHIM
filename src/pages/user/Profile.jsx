@@ -90,7 +90,7 @@ const TX_STATUS = {
 function Avatar({ name, size = 96, avatarUrl }) {
   const initials = String(name || "?").trim().split(/\s+/).filter(Boolean).slice(-2).map(w => w[0]).join("").toUpperCase() || "?";
   const url = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
-  const showImg = url.startsWith("http") || url.startsWith("data:image");
+  const showImg = url.startsWith("http") || url.startsWith("data:image") || url.startsWith("/") || url.startsWith("./") || url.startsWith("../");
   return showImg
     ? <img src={url} alt="" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.12)", boxShadow: "0 0 28px rgba(123,31,162,0.35)", flexShrink: 0 }} />
     : (
@@ -132,20 +132,6 @@ function Field({ label, value, name, type = "text", onChange, disabled, error, p
         disabled={disabled} placeholder={placeholder}
       />
       {error && <p className="pf-field-err">{error}</p>}
-    </div>
-  );
-}
-
-function TextAreaField({ label, value, name, onChange, rows = 2, hint, placeholder }) {
-  return (
-    <div className="pf-field">
-      <label className="pf-label">{label}</label>
-      <textarea
-        className="pf-input" name={name} rows={rows} value={value ?? ""}
-        onChange={onChange} placeholder={placeholder}
-        style={{ resize: "none" }}
-      />
-      {hint && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 4, fontWeight: 600 }}>{hint}</p>}
     </div>
   );
 }
@@ -287,7 +273,7 @@ function TabInfo({ user, setUser, showToast }) {
       const body = {
         fullname: draft.fullname.trim(), email: draft.email.trim(),
         phone: draft.phone.trim().replace(/\s/g, ""), status: user.status ?? 1,
-        birthday: draft.birthday || null, avatar: draft.avatar?.trim() || null,
+        birthday: draft.birthday || null,
       };
       const res = await apiFetch(USERS.BY_ID(user.user_id), { method: "PUT", body: JSON.stringify(body) });
       const json = await res.json().catch(() => null);
@@ -323,10 +309,6 @@ function TabInfo({ user, setUser, showToast }) {
                   <Col xs={12} md={6}><Field label="Số điện thoại" name="phone" value={draft.phone} onChange={handleChange} error={errors.phone} placeholder="0123456789" /></Col>
                   <Col xs={12} md={6}><Field label="Ngày sinh" name="birthday" type="date" value={draft.birthday} onChange={handleChange} /></Col>
                 </Row>
-                <TextAreaField label="Link ảnh đại diện" name="avatar" rows={2} value={draft.avatar}
-                  onChange={handleChange}
-                  hint="Hỗ trợ link URL (https://...) hoặc chuỗi Base64."
-                  placeholder="https://..." />
                 <div className="d-flex gap-2 mt-2">
                   <button className="pf-btn-ghost" onClick={cancelEdit}>Hủy bỏ</button>
                   <button className="pf-btn-primary" onClick={save} disabled={saving}>{saving ? "Đang lưu..." : "Cập nhật ngay"}</button>
@@ -1023,7 +1005,7 @@ export default function UserProfile() {
                 <div className="pf-hs-lbl">Điểm ⭐</div>
               </div>
               <div className="pf-hs">
-                <div className="pf-hs-num" style={{ fontSize: 18 }}>{(user.total_spending / 1000).toFixed(0)}K</div>
+                <div className="pf-hs-num" style={{ fontSize: 18 }}>{fmtVnd(user.total_spending)}</div>
                 <div className="pf-hs-lbl">Tổng chi</div>
               </div>
               <div className="pf-hs">
