@@ -121,6 +121,7 @@ export const FOOD_ORDERS = {
 export const COUNTER_ORDERS = {
   CHECKOUT: `${API_V1}/counter-orders/checkout`,
   CONFIRM_PAID: (orderCode) => `${API_V1}/counter-orders/${orderCode}/confirm-paid`,
+  CANCEL: (orderCode) => `${API_V1}/counter-orders/${orderCode}/cancel`,
 };
 
 export const VOUCHERS = {

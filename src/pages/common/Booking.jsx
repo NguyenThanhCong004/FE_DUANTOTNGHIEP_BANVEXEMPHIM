@@ -300,13 +300,12 @@ const Booking = () => {
     const loadSeatTypes = async () => {
       try {
         console.log("Loading seat types from API...");
-        const response = await apiFetch(SEAT_TYPES.LIST);
-        console.log("Seat types API response:", response);
-        // Xử lý cả trường hợp response là array hoặc có .data
-        const seatTypesData = Array.isArray(response) ? response : (response?.data || []);
-        console.log("Seat types processed:", seatTypesData);
+        const res = await apiFetch(SEAT_TYPES.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const seatTypesData = Array.isArray(list) ? list : [];
+        console.log("Seat types loaded:", seatTypesData);
         if (seatTypesData.length > 0) {
-          console.log("Setting seat types from API:", seatTypesData);
           // Lưu vào biến module-level với coupleSeat
           _seatTypesData = seatTypesData.map(st => ({
             name: st.name,
@@ -316,7 +315,6 @@ const Booking = () => {
           setSeatTypes(seatTypesData);
         } else {
           console.log("No data in API response, using fallback");
-          // Fallback to default seat types
           setSeatTypes([
             { id: 1, name: "Thường", price: 0, color: "#007bff" },
             { id: 2, name: "VIP", price: 0, color: "#ffc107" },
@@ -325,7 +323,6 @@ const Booking = () => {
         }
       } catch (err) {
         console.error("Failed to load seat types:", err);
-        // Fallback to default seat types
         setSeatTypes([
           { id: 1, name: "Thường", price: 0, color: "#007bff" },
           { id: 2, name: "VIP", price: 0, color: "#ffc107" },
@@ -639,13 +636,14 @@ const Booking = () => {
     if (booked || showEnded) {
       return {
         bg: "rgba(40, 167, 69, 0.8)", // Xanh lá - đã bán
-        color: "#000", // Chữ đen
+        color: "#fff", // Chữ trắng cho rõ
         border: "1px solid rgba(40, 167, 69, 0.9)",
         cursor: "not-allowed",
         width: couple ? 72 : 36,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
+        pointerEvents: "none", // Ngăn mọi sự kiện chuột
       };
     }
     
@@ -1030,12 +1028,13 @@ const Booking = () => {
                                       fontWeight: "bold",
                                       borderRadius: `${Math.round(6 * zoomLevel)}px`,
                                       transition: "all 0.2s",
-                                      backgroundColor: isSelected ? vis.bg : seatFill,
-                                      color: placed ? (isSelected ? vis.color : contrastTextColorForHex(seatFill)) : "transparent",
+                                      backgroundColor: (booked || isSelected || peerHeld) ? vis.bg : seatFill,
+                                      color: (booked || isSelected || peerHeld) ? vis.color : contrastTextColorForHex(seatFill),
                                       gridColumn: isCouple ? "span 2" : undefined,
-                                      opacity: placed && !cell.isActive ? 0.85 : 1,
+                                      opacity: (booked || !cell.isActive) ? 0.8 : 1,
                                       border: vis.border,
                                       cursor: vis.cursor,
+                                      pointerEvents: vis.pointerEvents,
                                       transform: isSelected ? `scale(${1.15})` : "none",
                                       boxShadow: isSelected
                                         ? "0 6px 20px rgba(233, 30, 140, 0.55)"

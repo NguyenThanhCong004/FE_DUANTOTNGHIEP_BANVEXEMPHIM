@@ -223,7 +223,7 @@ const EmployeeDashboard = () => {
   );
 
   return (
-    <div className="dashboard-container-full">
+    <div className="pos-container dashboard-container-full">
       <section className="dashboard-main-scroll custom-scrollbar">
         <div className="stats-grid">
           <StatCard 
@@ -278,7 +278,11 @@ const EmployeeDashboard = () => {
                   <div key={order.orderOnlineId} className="order-item" onClick={() => fetchOrderDetail(order.orderCode)}>
                     <div className="order-main">
                       <div className="order-code">{order.orderCode}</div>
-                      <div className="order-time">{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div className="order-time">
+                        {new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                        {" - "}
+                        {new Date(order.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                      </div>
                     </div>
                     <div className="order-meta">
                       <div className="order-method">{order.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</div>
@@ -298,16 +302,16 @@ const EmployeeDashboard = () => {
           
           <div className="side-card">
             <h3>Thông tin ca trực</h3>
-            <div className="info-list">
-              <div className="info-item">
+            <div className="dashboard-info-list">
+              <div className="dashboard-info-item">
                 <span>Ngày làm việc</span>
                 <strong>{new Date().toLocaleDateString('vi-VN')}</strong>
               </div>
-              <div className="info-item">
+              <div className="dashboard-info-item">
                 <span>Rạp làm việc</span>
                 <strong>{stats.cinemaName || staff?.cinemaName || 'N/A'}</strong>
               </div>
-              <div className="info-item">
+              <div className="dashboard-info-item">
                 <span>Vai trò</span>
                 <strong>Nhân viên bán vé</strong>
               </div>
@@ -339,7 +343,20 @@ const EmployeeDashboard = () => {
               <div className="order-summary-box">
                 <div className="summary-row"><span>Mã đơn hàng:</span> <strong>{selectedOrder.orderCode}</strong></div>
                 <div className="summary-row"><span>Thời gian:</span> <span>{selectedOrder.createdAt}</span></div>
-                <div className="summary-row"><span>Thanh toán:</span> <span className="badge-method">{selectedOrder.paymentMethod}</span></div>
+                <div className="summary-row">
+                  <span>Trạng thái:</span> 
+                  <strong className={selectedOrder.status === 1 ? "text-success" : "text-danger"}>
+                    {selectedOrder.status === 1 ? "Thành công" : "Đã hủy"}
+                  </strong>
+                </div>
+                <div className="summary-row">
+                  <span>Thanh toán:</span> 
+                  <span className="badge-method">
+                    {selectedOrder.paymentMethod === 'CASH' ? 'Tiền mặt' : 
+                     selectedOrder.paymentMethod === 'TRANSFER' ? 'Chuyển khoản' : 
+                     selectedOrder.paymentMethod === 'PAYOS' ? 'Ví điện tử' : selectedOrder.paymentMethod}
+                  </span>
+                </div>
                 <div className="summary-row"><span>Khách hàng:</span> <span><UserIcon size={14} /> {selectedOrder.customerName}</span></div>
               </div>
               {selectedOrder.tickets?.length > 0 && (
@@ -466,18 +483,20 @@ const EmployeeDashboard = () => {
           to { transform: translate(-50%, 0); opacity: 1; }
         }
 
-        /* Đồng bộ Header từ trang Bán hàng */
-        :global(.employee-self-header) {
-          background: #1e293b !important;
-          border-bottom: 1px solid rgba(255,255,255,0.05) !important;
-          box-shadow: none !important;
-        }
-
         .dashboard-container-full { background: #0f172a; height: 100%; color: white; display: flex; flex-direction: column; overflow: hidden; }
         .dashboard-main-scroll { flex: 1; overflow-y: auto; padding: 24px; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
+        /* Layout matching Sales page */
+        .pos-container { 
+          display: grid; 
+          grid-template-columns: 1fr; 
+          height: 100vh; 
+          background: #0f172a; 
+          overflow: hidden;
+        }
+        
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .stat-card { background: #1e293b; padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 15px; position: relative; }
         .stat-card.clickable { cursor: pointer; transition: all 0.2s; }
@@ -528,10 +547,10 @@ const EmployeeDashboard = () => {
         .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 0; color: #475569; gap: 15px; text-align: center; }
         
         .side-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
-        .info-list { display: flex; flex-direction: column; gap: 16px; }
-        .info-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .info-item span { color: #94a3b8; font-size: 14px; }
-        .info-item strong { color: #f1f5f9; font-size: 14px; }
+        .dashboard-info-list { display: flex; flex-direction: column; gap: 16px; }
+        .dashboard-info-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .dashboard-info-item span { color: #94a3b8; font-size: 14px; }
+        .dashboard-info-item strong { color: #f1f5f9; font-size: 14px; }
 
         .pos-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 20px; }
         .detail-modal { background: #1e293b; border-radius: 20px; width: 100%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
