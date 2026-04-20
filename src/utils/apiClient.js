@@ -43,14 +43,36 @@ export async function apiFetch(path, init = {}) {
  * @returns {Promise<{ ok: boolean, status: number, data: any, message?: string }>}
  */
 export async function apiJson(path, init = {}) {
-  const res = await apiFetch(path, init);
-  const json = await res.json().catch(() => null);
-  const data = json?.data !== undefined ? json.data : json;
-  return {
-    ok: res.ok,
-    status: res.status,
-    data,
-    message: json?.message,
-    raw: json,
-  };
+  try {
+    const res = await apiFetch(path, init);
+    const text = await res.text(); // Đọc dạng text trước để tránh lỗi JSON.parse
+    let json = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch (e) {
+      console.error("Lỗi parse JSON tại path:", path, "Nội dung nhận được:", text);
+    }
+
+    const data = json?.data !== undefined ? json.data : json;
+    
+    if (!res.ok) {
+        console.warn(`API Error [${res.status}] at ${path}:`, json?.message || "Unknown error");
+    }
+
+    return {
+      ok: res.ok,
+      status: res.status,
+      data,
+      message: json?.message || (res.ok ? "" : "Lỗi hệ thống (BE)"),
+      raw: json,
+    };
+  } catch (err) {
+    console.error("Network Error hoặc BE không phản hồi:", err);
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      message: "Không thể kết nối đến server (Backend). Hãy kiểm tra BE đã chạy chưa?",
+    };
+  }
 }

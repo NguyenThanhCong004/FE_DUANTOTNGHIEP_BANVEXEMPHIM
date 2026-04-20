@@ -19,6 +19,7 @@ const menuSections = [
       { path: "/super-admin/cinemas", icon: "bi-building", label: "Quản lý rạp" },
       { path: "/super-admin/system-staff", icon: "bi-people-fill", label: "Nhân sự toàn hệ thống" },
       { path: "/super-admin/users", icon: "bi-people", label: "Người dùng" },
+      { path: "/super-admin/global-invoices", icon: "bi-receipt-cutoff", label: "Hóa đơn hệ thống" },
     ],
   },
   {

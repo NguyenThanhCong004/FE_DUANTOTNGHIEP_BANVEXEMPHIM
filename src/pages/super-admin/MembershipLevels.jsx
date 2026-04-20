@@ -48,6 +48,7 @@ const MembershipLevelManagement = () => {
           discount_percent: l.discountPercent ?? 0,
           bonus_point: l.bonusPoint ?? 1,
           status: l.status ?? 1,
+          is_default: l.isDefault ?? (l.minSpending === 0),
         }))
       );
     } catch {
@@ -104,7 +105,7 @@ const MembershipLevelManagement = () => {
     <AdminPanelPage
       icon="award"
       title="Hạng thành viên"
-      description="Quản lý mức độ hội viên, chi tiêu tối thiểu và các ưu đãi đặc quyền."
+      description="Quản lý mức độ hội viên. Hạng có chi tiêu 0đ sẽ được coi là hạng mặc định cho mọi khách hàng mới."
       headerRight={
         <button
           type="button"
@@ -170,10 +171,19 @@ const MembershipLevelManagement = () => {
                           <span className="admin-badge admin-badge-primary text-uppercase fw-bold">
                             {level.rank_name}
                           </span>
+                          {level.is_default && (
+                            <span className="badge bg-info-subtle text-info border border-info-subtle px-2 py-1" style={{ fontSize: '0.65rem' }}>
+                              MẶC ĐỊNH
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="text-end fw-bold text-dark">
-                        {level.min_spending.toLocaleString("vi-VN")}đ
+                        {level.is_default ? (
+                          <span className="text-muted italic fw-normal">0đ (Mặc định)</span>
+                        ) : (
+                          `${level.min_spending.toLocaleString("vi-VN")}đ`
+                        )}
                       </td>
                       <td className="text-center">
                         <span className="fw-semibold text-success">{level.discount_percent}%</span>
@@ -199,7 +209,9 @@ const MembershipLevelManagement = () => {
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-primary"
                             onClick={() => navigate("/super-admin/membership-levels/create", { state: { editData: level } })}
-                            title="Sửa hạng"
+                            title={level.is_default ? "Không thể sửa hạng mặc định" : "Sửa hạng"}
+                            disabled={level.is_default}
+                            style={level.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                           >
                             <i className="bi bi-pencil"></i>
                           </button>
@@ -210,7 +222,9 @@ const MembershipLevelManagement = () => {
                               setDeleteError("");
                               setShowDeleteModal(true);
                             }}
-                            title="Xóa hạng"
+                            title={level.is_default ? "Không thể xóa hạng mặc định" : "Xóa hạng"}
+                            disabled={level.is_default}
+                            style={level.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                           >
                             <i className="bi bi-trash"></i>
                           </button>
@@ -314,6 +328,9 @@ const MembershipLevelManagement = () => {
                   setShowModal(false);
                   navigate("/super-admin/membership-levels/create", { state: { editData: selectedItem } });
                 }}
+                disabled={selectedItem.is_default}
+                style={selectedItem.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                title={selectedItem.is_default ? "Không thể sửa hạng mặc định" : "Chỉnh sửa hạng"}
               >
                 <i className="bi bi-pencil me-2"></i>
                 Chỉnh sửa hạng

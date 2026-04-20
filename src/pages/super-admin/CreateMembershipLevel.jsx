@@ -102,7 +102,16 @@ const CreateMembershipLevel = () => {
         });
       } else {
         const json = await res.json().catch(() => null);
-        setServerError(json?.message || 'Lưu hạng hội viên thất bại');
+        const message = json?.message || 'Lưu hạng hội viên thất bại';
+        
+        // Điều hướng lỗi về đúng ô nhập liệu
+        if (message.includes('Chi tiêu tối thiểu')) {
+          setErrors(prev => ({ ...prev, min_spending: message }));
+        } else if (message.includes('Tên hạng')) {
+          setErrors(prev => ({ ...prev, rank_name: message }));
+        } else {
+          setServerError(message);
+        }
       }
     } catch {
       setServerError('Lỗi kết nối máy chủ');
