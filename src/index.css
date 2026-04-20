@@ -1,6 +1,6 @@
-/* Font: design-tokens.css (import trước file này trong main.jsx) */
+/* Font: design-tokens.css (imported before this file in main.jsx) */
 
-/* Reset mặc định để tràn màn hình */
+/* Default reset for full-screen layout */
 * {
   margin: 0;
   padding: 0;
@@ -21,7 +21,7 @@ body {
   font-family: var(--font-ui, system-ui, sans-serif);
 }
 
-/* Ep dung 1 font duy nhat toan bo FE */
+/* Enforce single font across entire FE */
 html,
 body,
 #root,
@@ -46,7 +46,7 @@ th {
   font-family: var(--font-ui, system-ui, sans-serif) !important;
 }
 
-/* Trang quản trị: nền đồng bộ shell admin */
+/* Admin page: sync admin shell background */
 html.admin-panel body {
   background-color: var(--admin-bg-deep, #070b17);
   color: var(--admin-text, #e2e8f0);
@@ -56,13 +56,13 @@ html.admin-panel body {
 #root {
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* Đảm bảo nội dung bắt đầu từ trên cùng */
+  align-items: flex-start; /* Ensure content starts from top */
   justify-content: flex-start;
 }
 
 .w-100 { width: 100% !important; }
 
-/* ── MODAL / FORM ADMIN — chỉ trong admin-panel (không đè user/common) ── */
+/* ── MODAL / FORM ADMIN — only in admin-panel (does not override user/common) ── */
 html.admin-panel .modal-content-custom,
 html.admin-panel .custom-modal-content,
 html.admin-panel .modal-dialog,
