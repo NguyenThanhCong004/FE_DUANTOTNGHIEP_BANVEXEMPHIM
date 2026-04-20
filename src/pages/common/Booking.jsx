@@ -197,6 +197,8 @@ const Booking = () => {
   const [snackMenuError, setSnackMenuError] = useState(null);
   const [snackCart, setSnackCart] = useState({});
   const [peerHeldList, setPeerHeldList] = useState([]);
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1); // Zoom level: 0.5 to 2
 
   // Voucher states
@@ -495,41 +497,75 @@ const Booking = () => {
     return t;
   }, [snackProducts, snackCart]);
 
-  // Voucher calculations
-  const selectedVoucher = useMemo(() => {
-    return userVouchers.find(v => v.userVoucherId === selectedVoucherId);
-  }, [userVouchers, selectedVoucherId]);
+  // Voucher
+  const selectedVoucher = useMemo(() => userVouchers.find(v => v.userVoucherId === selectedVoucherId), [userVouchers, selectedVoucherId]);
 
-  const discountAmount = useMemo(() => {
-    if (!selectedVoucher) return 0;
-    const voucher = selectedVoucher.voucher;
-    if (!voucher) return 0;
-    
-    const subtotal = seatPriceTotal + snackTotal;
-    const minOrder = voucher.minOrderValue || 0;
-    
-    if (subtotal < minOrder) return 0;
-    
-    let discount = 0;
-    if (voucher.discountType === 'PERCENT' || voucher.discountType === '%') {
-      discount = subtotal * (voucher.value / 100);
-    } else {
-      discount = voucher.value;
-    }
-    
-    // Apply max discount limit
-    const maxDiscount = voucher.maxDiscountAmount;
-    if (maxDiscount != null && discount > maxDiscount) {
-      discount = maxDiscount;
-    }
-    
-    // Cannot exceed subtotal
-    if (discount > subtotal) discount = subtotal;
-    
-    return Math.round(discount);
-  }, [selectedVoucher, seatPriceTotal, snackTotal]);
+  const computedSubtotalFallback = seatPriceTotal + snackTotal;
+  const voucherDiscount = quote?.voucherDiscount != null
+    ? Number(quote.voucherDiscount || 0)
+    : 0;
+  const grandTotal = quote?.finalAmount != null
+    ? Number(quote.finalAmount || 0)
+    : (computedSubtotalFallback - voucherDiscount);
 
-  const grandTotal = seatPriceTotal + snackTotal - discountAmount;
+  const quoteLineBySeatId = useMemo(() => {
+    const m = new Map();
+    const lines = Array.isArray(quote?.ticketLines) ? quote.ticketLines : [];
+    for (const l of lines) {
+      const sid = Number(l.seatId);
+      if (Number.isFinite(sid)) m.set(sid, l);
+    }
+    return m;
+  }, [quote]);
+
+  // Quote (pricing) - only when logged in
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setQuote(null);
+      return;
+    }
+    if (!Number.isFinite(showtimeId) || showtimeId <= 0) return;
+    if (showEnded) return;
+    if (!selectedSeatIds.length && !Object.keys(snackCart || {}).length && !selectedVoucherId) {
+      setQuote(null);
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      setQuoteLoading(true);
+      try {
+        const snacks = Object.entries(snackCart)
+          .map(([k, q]) => ({ productId: Number(k), quantity: q }))
+          .filter((x) => Number.isFinite(x.productId) && x.quantity > 0);
+
+        const res = await apiFetch(TICKET_ORDERS.QUOTE, {
+          method: "POST",
+          body: JSON.stringify({
+            showtimeId,
+            seatIds: selectedSeatIds,
+            snacks: snacks.length ? snacks : undefined,
+            userVoucherId: selectedVoucherId || undefined,
+          }),
+        });
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.ok && body?.data) {
+          setQuote(body.data);
+        } else {
+          setQuote(null);
+        }
+      } catch {
+        if (!cancelled) setQuote(null);
+      } finally {
+        if (!cancelled) setQuoteLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [showtimeId, showEnded, selectedSeatIds, snackCart, selectedVoucherId]);
 
   // Load user vouchers when logged in
   useEffect(() => {
@@ -615,9 +651,9 @@ const Booking = () => {
     
     if (isPeerHeld && !isSelected) {
       return {
-        bg: "rgba(255, 193, 7, 0.8)", // Vàng - đang có người chọn
-        color: "#000", // Chữ đen
-        border: "1px solid rgba(255, 193, 7, 0.9)",
+        bg: "#ff9800", // Cam đậm - đang có người chọn
+        color: "#111", // Chữ tối để tương phản nền cam
+        border: "2px solid #ffe082",
         cursor: "not-allowed",
         width: couple ? 72 : 36,
         display: "flex",
@@ -628,9 +664,9 @@ const Booking = () => {
     
     if (isSelected) {
       return {
-        bg: "var(--primary-gradient)",
-        color: "#000", // Chữ đen
-        border: "1px solid rgba(255,255,255,0.2)",
+        bg: "#7b1fa2",
+        color: "#fff",
+        border: "2px solid rgba(233, 30, 140, 0.95)",
         cursor: "pointer",
         width: couple ? 72 : 36,
         display: "flex",
@@ -641,9 +677,9 @@ const Booking = () => {
     
     // Default available state
     return {
-      bg: "rgba(0, 123, 255, 0.8)", // Xanh dương - có sẵn
+      bg: "rgba(13, 110, 253, 0.85)", // Xanh dương - có sẵn
       color: "#000", // Chữ đen
-      border: "1px solid rgba(0, 123, 255, 0.9)",
+      border: "1px solid rgba(13, 110, 253, 1)",
       cursor: "pointer",
       width: couple ? 72 : 36,
       display: "flex",
@@ -839,7 +875,7 @@ const Booking = () => {
                   <span>
                     <span
                       className="d-inline-block rounded me-1 align-middle"
-                      style={{ width: 14, height: 14, background: "rgba(255, 193, 7, 0.8)", border: "1px solid rgba(255, 193, 7, 0.9)" }}
+                      style={{ width: 14, height: 14, background: "#ff9800", border: "2px solid #ffe082" }}
                     />{" "}
                     Đang có người chọn
                   </span>
@@ -994,14 +1030,16 @@ const Booking = () => {
                                       fontWeight: "bold",
                                       borderRadius: `${Math.round(6 * zoomLevel)}px`,
                                       transition: "all 0.2s",
-                                      backgroundColor: seatFill,
-                                      color: placed ? contrastTextColorForHex(seatFill) : "transparent",
+                                      backgroundColor: isSelected ? vis.bg : seatFill,
+                                      color: placed ? (isSelected ? vis.color : contrastTextColorForHex(seatFill)) : "transparent",
                                       gridColumn: isCouple ? "span 2" : undefined,
                                       opacity: placed && !cell.isActive ? 0.85 : 1,
                                       border: vis.border,
                                       cursor: vis.cursor,
                                       transform: isSelected ? `scale(${1.15})` : "none",
-                                      boxShadow: isSelected ? "0 6px 20px rgba(13, 110, 253, 0.6)" : "none"
+                                      boxShadow: isSelected
+                                        ? "0 6px 20px rgba(233, 30, 140, 0.55)"
+                                        : (peerHeld && !isSelected ? "0 0 0 2px rgba(255, 224, 130, 0.6), 0 4px 10px rgba(255, 152, 0, 0.45)" : "none")
                                     }}
                                   >
                                     {cell.label}
@@ -1123,16 +1161,54 @@ const Booking = () => {
                   {selectedSeatIds.map((id) => {
                     const s = seatById.get(id);
                     if (!s) return null;
+                    const ql = quoteLineBySeatId.get(Number(id));
+                    const originalPrice = ql?.originalPrice != null ? Number(ql.originalPrice) : null;
+                    const promoDiscount = ql?.promotionDiscount != null ? Number(ql.promotionDiscount) : 0;
+                    const memberDiscount = ql?.membershipDiscount != null ? Number(ql.membershipDiscount) : 0;
+                    const finalSeatPrice = ql?.finalPrice != null ? Number(ql.finalPrice) : seatPrice(s);
                     return (
-                      <div key={id} className="d-flex justify-content-between small mb-1">
-                        <span style={{ color: '#fff' }}>
-                          {s.row}
-                          {s.number} ({s.seatTypeName || "Ghế"})
-                        </span>
-                        <span className="fw-bold" style={{ color: '#fff' }}>{seatPrice(s).toLocaleString("vi-VN")} đ</span>
+                      <div key={id} className="small mb-2">
+                        <div className="d-flex justify-content-between">
+                          <span style={{ color: '#fff' }}>
+                            {s.row}{s.number} ({s.seatTypeName || "Ghế"})
+                          </span>
+                          <span className="fw-bold" style={{ color: '#fff' }}>
+                            {finalSeatPrice.toLocaleString("vi-VN")} đ
+                          </span>
+                        </div>
+                        {originalPrice != null && originalPrice > finalSeatPrice ? (
+                          <div className="d-flex justify-content-between" style={{ fontSize: 12 }}>
+                            <span style={{ color: "rgba(255,255,255,0.55)" }}>Giá gốc</span>
+                            <span style={{ color: "rgba(255,255,255,0.6)", textDecoration: "line-through" }}>
+                              {originalPrice.toLocaleString("vi-VN")} đ
+                            </span>
+                          </div>
+                        ) : null}
+                        {promoDiscount > 0 ? (
+                          <div className="d-flex justify-content-between text-success" style={{ fontSize: 12 }}>
+                            <span>Giảm khuyến mãi phim</span>
+                            <span>-{promoDiscount.toLocaleString("vi-VN")} đ</span>
+                          </div>
+                        ) : null}
+                        {memberDiscount > 0 ? (
+                          <div className="d-flex justify-content-between text-success" style={{ fontSize: 12 }}>
+                            <span>Giảm hạng thành viên</span>
+                            <span>-{memberDiscount.toLocaleString("vi-VN")} đ</span>
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
+                  {quote?.membershipDiscountPercent > 0 ? (
+                    <div className="small text-success mt-2">
+                      Giảm hạng thành viên ({quote.rankName || "Hội viên"}): -{Number(quote.membershipDiscountPercent || 0)}%
+                    </div>
+                  ) : null}
+                  {quote?.ticketLines?.some(l => Number(l.promotionDiscount || 0) > 0) ? (
+                    <div className="small text-success">
+                      Có áp dụng khuyến mãi phim
+                    </div>
+                  ) : null}
                   {snackTotal > 0 ? (
                     <div className="d-flex justify-content-between small mb-1 mt-2 pt-2 border-top border-white border-opacity-10">
                       <span className="fw-bold" style={{ color: '#fff' }}>BẮP NƯỚC</span>
@@ -1175,13 +1251,13 @@ const Booking = () => {
                         </Link>
                       </div>
                     )}
-                    {selectedVoucher && discountAmount > 0 && (
+                    {selectedVoucher && voucherDiscount > 0 && (
                       <div className="d-flex justify-content-between small mb-1 text-success">
                         <span>Giảm giá ({selectedVoucher.voucher?.code})</span>
-                        <span className="fw-bold">-{discountAmount.toLocaleString("vi-VN")} đ</span>
+                        <span className="fw-bold">-{Number(voucherDiscount).toLocaleString("vi-VN")} đ</span>
                       </div>
                     )}
-                    {selectedVoucher && discountAmount === 0 && (
+                    {selectedVoucher && voucherDiscount === 0 && (
                       <div className="small text-warning">
                         Đơn hàng chưa đạt giá trị tối thiểu {selectedVoucher.voucher?.minOrderValue?.toLocaleString('vi-VN')}đ
                       </div>
@@ -1190,7 +1266,9 @@ const Booking = () => {
 
                   <div className="d-flex justify-content-between align-items-center mt-3 border-top border-white border-opacity-10 pt-3">
                     <span className="small fw-bold" style={{ color: '#fff' }}>TỔNG THANH TOÁN</span>
-                    <h3 className="text-danger fw-black m-0">{grandTotal.toLocaleString("vi-VN")} đ</h3>
+                    <h3 className="text-danger fw-black m-0">
+                      {quoteLoading ? "…" : `${Number(grandTotal || 0).toLocaleString("vi-VN")} đ`}
+                    </h3>
                   </div>
                 </div>
 
