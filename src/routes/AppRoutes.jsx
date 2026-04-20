@@ -60,6 +60,7 @@ const CreateVoucher = lazy(() => import('../pages/super-admin/CreateVoucher'));
 const CreateNews = lazy(() => import('../pages/super-admin/CreateNews'));
 const CreateCinema = lazy(() => import('../pages/super-admin/CreateCinema'));
 const SuperAdminProfile = lazy(() => import('../pages/super-admin/SuperAdminProfile'));
+const GlobalInvoiceManagement = lazy(() => import('../pages/super-admin/InvoiceManagement'));
 
 // --- Lazy Loaded Admin Pages ---
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -133,7 +134,7 @@ const AppRoutes = () => {
         <Route
           path="/admin"
           element={
-            <RoleGuard allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+            <RoleGuard allowedRoles={['ADMIN']}>
               <AdminLayout />
             </RoleGuard>
           }
@@ -196,6 +197,7 @@ const AppRoutes = () => {
           <Route path="vouchers/create" element={<CreateVoucher />} />
           <Route path="news/create" element={<CreateNews />} />
           <Route path="news" element={<NewsAdmin />} />
+          <Route path="global-invoices" element={<GlobalInvoiceManagement />} />
           
           {/* Admin-level (rạp) management - super admin kế thừa UI */}
           <Route path="staff" element={<StaffManagement />} />
