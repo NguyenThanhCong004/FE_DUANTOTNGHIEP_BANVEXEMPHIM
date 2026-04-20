@@ -1,6 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Font: design-tokens.css (imported before this file in main.jsx) */
+
+/* Default reset for full-screen layout */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 html, body, #root {
   height: 100%;
@@ -12,23 +17,65 @@ body {
   min-height: 100vh;
 }
 
-* {
-  box-sizing: border-box;
+/* Enforce single font across entire FE */
+html,
+body,
+#root,
+button,
+input,
+select,
+textarea,
+label,
+p,
+span,
+div,
+a,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+li,
+td,
+th {
+  font-family: var(--font-ui, system-ui, sans-serif) !important;
 }
 
-/* Custom scrollbar for the whole app */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Admin page: sync admin shell background */
+html.admin-panel body {
+  background-color: var(--admin-bg-deep, #070b17);
+  color: var(--admin-text, #e2e8f0);
+  font-family: var(--font-ui, system-ui, sans-serif);
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+#root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* Ensure content starts from top */
+  justify-content: flex-start;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 10px;
+.w-100 { width: 100% !important; }
+
+/* ── MODAL / FORM ADMIN — only in admin-panel (does not override user/common) ── */
+html.admin-panel .modal-content-custom,
+html.admin-panel .custom-modal-content,
+html.admin-panel .modal-dialog,
+html.admin-panel .modal-content,
+html.admin-panel .custom-modal-overlay,
+html.admin-panel .user-management,
+html.admin-panel .movie-management,
+html.admin-panel .employee-management,
+html.admin-panel .cinema-management,
+html.admin-panel .voucher-management,
+html.admin-panel .product-management,
+html.admin-panel .create-cinema,
+html.admin-panel .create-employee,
+html.admin-panel .create-movie,
+html.admin-panel .create-voucher,
+html.admin-panel .create-product {
+  color: #212529 !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {

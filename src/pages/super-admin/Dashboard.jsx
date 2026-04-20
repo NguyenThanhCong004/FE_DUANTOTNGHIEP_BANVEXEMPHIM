@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Chart as ChartJS,
@@ -10,12 +10,12 @@ import {
   Legend,
   ArcElement,
 } from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Bar, Pie, getElementAtEvent } from 'react-chartjs-2';
 import { Spinner, Alert } from 'react-bootstrap';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiJson } from '../../utils/apiClient';
 import { SUPER_ADMIN_DASHBOARD } from '../../constants/apiEndpoints';
-import { getAccessToken, getStoredUser, clearAuthSession } from '../../utils/authStorage';
+import { getAccessToken, clearAuthSession } from '../../utils/authStorage';
 import { decodeJwtPayload } from '../../utils/jwt';
 
 ChartJS.register(
@@ -30,379 +30,193 @@ ChartJS.register(
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
+  const barChartRef = useRef();
   const [summary, setSummary] = useState(null);
   const [revenueData, setRevenueData] = useState([]);
   const [cinemaRankings, setCinemaRankings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rankingLoading, setRankingLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Kiểm tra quyền Super Admin từ localStorage và Token
+  // Trạng thái tháng/năm đang được chọn để xem tỉ trọng
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  // 1. Kiểm tra Token & Role
   useEffect(() => {
     const token = getAccessToken();
     if (!token) {
-      navigate('/login', { state: { message: 'Vui lòng đăng nhập để truy cập Dashboard.', type: 'warning' } });
+      navigate('/login', { state: { message: 'Vui lòng đăng nhập.', type: 'warning' } });
       return;
     }
 
     const payload = decodeJwtPayload(token);
-    const roles = payload?.roles || [];
-    const isSuperAdmin = roles.includes('ROLE_SUPER_ADMIN');
-
-    if (!isSuperAdmin) {
-      setErrorMsg("Bạn không có quyền truy cập vùng Quản trị cấp cao. Vui lòng liên hệ Quản trị viên hệ thống.");
+    const authorities = payload?.authorities || [];
+    if (!authorities.includes('ROLE_SUPER_ADMIN')) {
+      setErrorMsg("Bạn không có quyền truy cập Dashboard Super Admin.");
       setLoading(false);
     }
   }, [navigate]);
 
+  // 2. Fetch dữ liệu tổng quan & biểu đồ năm (Chạy khi đổi năm)
   useEffect(() => {
     let mounted = true;
-    const fetchDashboardData = async () => {
-      // Nếu đã có lỗi quyền ở useEffect trên thì không fetch
+    const fetchMainStats = async () => {
       if (errorMsg) return;
-
       try {
         setLoading(true);
-        setErrorMsg('');
-
-        const [summaryRes, revenueRes, rankingRes] = await Promise.all([
+        const [summaryRes, revenueRes] = await Promise.all([
           apiJson(SUPER_ADMIN_DASHBOARD.SUMMARY),
-          apiJson(SUPER_ADMIN_DASHBOARD.REVENUE_CHART(new Date().getFullYear())),
-          apiJson(SUPER_ADMIN_DASHBOARD.CINEMA_RANKING)
+          apiJson(SUPER_ADMIN_DASHBOARD.REVENUE_CHART(selectedYear))
         ]);
 
         if (!mounted) return;
 
-        // Bắt lỗi Access Denied (401/403) từ Server
-        if (summaryRes.status === 401 || revenueRes.status === 401) {
+        if (summaryRes.status === 401) {
            clearAuthSession();
-           navigate('/login', { state: { message: 'Phiên làm việc hết hạn. Vui lòng đăng nhập lại.', type: 'danger' } });
+           navigate('/login');
            return;
         }
 
-        if (summaryRes.status === 403 || revenueRes.status === 403) {
-           setErrorMsg("Bạn không có quyền thực hiện hành động này. Yêu cầu ROLE_SUPER_ADMIN.");
-           return;
+        if (!summaryRes.ok || !revenueRes.ok) {
+          setErrorMsg(summaryRes.message || revenueRes.message || "Lỗi khi tải dữ liệu thống kê.");
+          return;
         }
 
-        // Bắt lỗi chung
-        if (!summaryRes.ok && !revenueRes.ok) {
-           setErrorMsg("Không thể tải dữ liệu từ máy chủ. " + (summaryRes.message || ""));
-           return;
-        }
-
-        if (summaryRes.ok) setSummary(summaryRes.data);
-        if (revenueRes.ok) setRevenueData(revenueRes.data || []);
-        if (rankingRes.ok) setCinemaRankings(rankingRes.data || []);
+        setSummary(summaryRes.data);
+        setRevenueData(revenueRes.data || []);
 
       } catch (error) {
-        if (mounted) {
-           console.error('Lỗi khi tải Dashboard Super Admin:', error);
-           setErrorMsg("Lỗi kết nối mạng hoặc máy chủ không phản hồi.");
-        }
+        if (mounted) setErrorMsg("Lỗi kết nối máy chủ.");
       } finally {
         if (mounted) setLoading(false);
       }
     };
-
-    fetchDashboardData();
-
+    fetchMainStats();
     return () => { mounted = false; };
-  }, [navigate, errorMsg]);
+  }, [selectedYear, errorMsg, navigate]);
 
-  const chartData = {
+  // 3. Fetch xếp hạng rạp (Chạy khi đổi tháng/năm)
+  useEffect(() => {
+    let mounted = true;
+    const fetchRankings = async () => {
+      try {
+        setRankingLoading(true);
+        // Gọi hàm với tham số cụ thể
+        const res = await apiJson(SUPER_ADMIN_DASHBOARD.CINEMA_RANKING(selectedYear, selectedMonth));
+        if (mounted && res.ok) {
+          setCinemaRankings(res.data || []);
+        }
+      } catch (error) {
+        console.error("Rankings error:", error);
+      } finally {
+        if (mounted) setRankingLoading(false);
+      }
+    };
+    fetchRankings();
+    return () => { mounted = false; };
+  }, [selectedMonth, selectedYear]);
+
+  // Xử lý click vào biểu đồ cột
+  const handleBarClick = (event) => {
+    const { current: chart } = barChartRef;
+    if (!chart) return;
+    const element = getElementAtEvent(chart, event);
+    if (element.length > 0) {
+      setSelectedMonth(element[0].index + 1);
+    }
+  };
+
+  const barData = {
     labels: revenueData.map(item => item.label),
     datasets: [
       {
-        label: 'Doanh thu (VNĐ)',
+        label: 'Doanh thu',
         data: revenueData.map(item => item.totalAmount),
-        backgroundColor: 'rgba(99, 102, 241, 0.8)',
-        borderColor: 'rgb(99, 102, 241)',
-        borderWidth: 2,
-        borderRadius: 6,
-        borderSkipped: false,
-      },
-    ],
+        backgroundColor: revenueData.map((_, i) => (i + 1 === selectedMonth ? '#6366f1' : 'rgba(99, 102, 241, 0.3)')),
+        borderRadius: 4,
+      }
+    ]
   };
 
-  const cinemaChartData = {
-    labels: cinemaRankings.map(item => item.cinemaName),
+  const pieData = {
+    labels: cinemaRankings.map(c => c.cinemaName),
     datasets: [
       {
-        data: cinemaRankings.map(item => item.revenue),
-        backgroundColor: [
-          'rgba(99, 102, 241, 0.8)',
-          'rgba(236, 72, 153, 0.8)',
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(245, 158, 11, 0.8)',
-          'rgba(16, 185, 129, 0.8)',
-          'rgba(139, 92, 246, 0.8)',
-        ],
-        borderColor: '#fff',
+        data: cinemaRankings.map(c => c.revenue),
+        backgroundColor: ['#6366f1', '#ec4899', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444'],
         borderWidth: 2,
-      },
-    ],
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top',
-        labels: { usePointStyle: true, padding: 20, font: { size: 12, weight: '600' } },
-      },
-      tooltip: {
-        backgroundColor: 'rgba(30, 41, 59, 0.9)',
-        padding: 12,
-        titleFont: { size: 13, weight: '600' },
-        bodyFont: { size: 12 },
-        cornerRadius: 8,
-        displayColors: false,
-        callbacks: {
-          label: (context) => {
-            let label = context.label || '';
-            if (label) label += ': ';
-            if (context.parsed !== null) {
-              const value = typeof context.parsed === 'number' ? context.parsed : context.parsed.y;
-              label += new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-            }
-            return label;
-          }
-        }
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: { color: 'rgba(0, 0, 0, 0.05)', drawBorder: false },
-        ticks: {
-          callback: (value) => (value / 1000000).toFixed(1) + 'M',
-          font: { size: 11 },
-          color: '#64748b',
-        },
-      },
-      x: {
-        grid: { display: false, drawBorder: false },
-        ticks: { font: { size: 12, weight: '500' }, color: '#64748b' },
-      },
-    },
-  };
-
-  const pieOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: { usePointStyle: true, padding: 15, font: { size: 11, weight: '500' } },
-      },
-      tooltip: {
-        callbacks: {
-          label: (context) => {
-            const label = context.label || '';
-            const value = context.parsed;
-            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = ((value / total) * 100).toFixed(1) + '%';
-            return `${label}: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)} (${percentage})`;
-          }
-        }
+        borderColor: '#fff'
       }
-    }
+    ]
   };
 
-  const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
-
-  const stats = [
-    { 
-      title: 'Tổng doanh thu', 
-      value: summary ? formatMoney(summary.totalRevenue) : '0 ₫', 
-      subtitle: 'Toàn hệ thống', 
-      icon: 'bi-currency-dollar', 
-      color: '#6366f1', 
-      change: summary ? `${summary.revenueGrowth?.toFixed(1)}%` : '0%', 
-      changeType: summary && summary.revenueGrowth >= 0 ? 'increase' : 'decrease' 
-    },
-    { 
-      title: 'Tổng vé đã bán', 
-      value: summary ? (summary.totalTicketsSold || 0).toLocaleString() : '0', 
-      subtitle: 'vé', 
-      icon: 'bi-ticket-perforated', 
-      color: '#ec4899', 
-      change: '', 
-      changeType: 'increase' 
-    },
-    { 
-      title: 'Khách hàng', 
-      value: summary ? (summary.totalUsers || 0).toLocaleString() : '0', 
-      subtitle: 'người', 
-      icon: 'bi-people', 
-      color: '#3b82f6', 
-      change: '', 
-      changeType: 'increase' 
-    },
-    { 
-      title: 'Tổng rạp', 
-      value: summary ? (summary.totalCinemas || 0).toLocaleString() : '0', 
-      subtitle: 'chi nhánh', 
-      icon: 'bi-building', 
-      color: '#f59e0b', 
-      change: '', 
-      changeType: 'increase' 
-    },
-    { 
-      title: 'Kho phim', 
-      value: summary ? (summary.totalMovies || 0).toLocaleString() : '0', 
-      subtitle: 'bộ phim', 
-      icon: 'bi-film', 
-      color: '#10b981', 
-      change: '', 
-      changeType: 'increase' 
-    }
-  ];
+  const formatVN = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
 
   return (
     <AdminPanelPage
       icon="globe"
-      title="Trung tâm điều hành - Hệ thống Rạp"
-      description="Quản lý và thống kê dữ liệu toàn bộ các chi nhánh."
+      title="Trung tâm điều hành"
+      description="Dữ liệu toàn hệ thống. Nhấn vào biểu đồ doanh thu để lọc theo tháng."
     >
-      {errorMsg ? (
-         <Alert variant="danger" className="mt-3">
-            <Alert.Heading><i className="bi bi-exclamation-octagon-fill me-2"></i>Lỗi Truy Cập</Alert.Heading>
-            <p className="mb-0">{errorMsg}</p>
-         </Alert>
-      ) : loading ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" variant="primary" />
-          <p className="text-muted mt-3">Đang tính toán số liệu toàn hệ thống…</p>
-        </div>
-      ) : (
+      {errorMsg ? <Alert variant="danger">{errorMsg}</Alert> : loading ? <div className="text-center py-5"><Spinner animation="border" /></div> : (
         <>
           <div className="admin-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-            {stats.map((stat, index) => (
-              <div
-                key={index}
-                className="admin-stat-card admin-slide-up"
-                style={{
-                  '--stat-color': stat.color,
-                  '--icon-bg': `${stat.color}15`,
-                  animationDelay: `${index * 0.1}s`,
-                }}
-              >
-                <div className="admin-stat-icon">
-                  <i className={`bi ${stat.icon}`}></i>
-                </div>
-                <div className="admin-stat-value" style={{ fontSize: stat.title === 'Tổng doanh thu' ? '1.25rem' : '1.5rem' }}>
-                  {stat.value}
-                </div>
-                <div className="admin-stat-label">{stat.title} ({stat.subtitle})</div>
-                {stat.change && (
-                  <div className={`admin-stat-change ${stat.changeType}`}>
-                    <i className={`bi bi-arrow-${stat.changeType === 'increase' ? 'up' : 'down'}`}></i>
-                    {stat.change}
-                  </div>
-                )}
-              </div>
-            ))}
+            <StatCard title="Doanh thu" value={formatVN(summary?.totalRevenue)} color="#6366f1" icon="bi-currency-dollar" />
+            <StatCard title="Nhân viên" value={summary?.totalStaff?.toLocaleString()} color="#ec4899" icon="bi-person-badge" />
+            <StatCard title="Khách hàng" value={summary?.totalUsers?.toLocaleString()} color="#3b82f6" icon="bi-people" />
+            <StatCard title="Rạp" value={summary?.totalCinemas} color="#f59e0b" icon="bi-building" />
+            <StatCard title="Tổng phim" value={summary?.totalMovies?.toLocaleString()} color="#10b981" icon="bi-film" />
           </div>
 
           <div className="row mt-4">
-            {/* Biểu đồ doanh thu theo thời gian */}
             <div className="col-lg-8 mb-4">
-              <div className="admin-card admin-slide-up" style={{ animationDelay: '0.4s' }}>
-                <div className="admin-card-header">
-                  <h4 className="mb-0">
-                    <i className="bi bi-bar-chart-line me-2 text-primary"></i>
-                    Biểu đồ doanh thu năm {new Date().getFullYear()}
-                  </h4>
-                </div>
-                <div className="admin-card-body">
-                  <div style={{ height: '350px', position: 'relative' }}>
-                    <Bar data={chartData} options={chartOptions} />
-                  </div>
+              <div className="admin-card">
+                <div className="admin-card-header"><h4>Doanh thu năm {selectedYear}</h4></div>
+                <div className="admin-card-body" style={{ height: '350px' }}>
+                  <Bar ref={barChartRef} data={barData} options={{ 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    onClick: handleBarClick,
+                    plugins: { legend: { display: false } }
+                  }} />
                 </div>
               </div>
             </div>
 
-            {/* Biểu đồ tỉ trọng doanh thu rạp */}
             <div className="col-lg-4 mb-4">
-              <div className="admin-card admin-slide-up" style={{ animationDelay: '0.5s' }}>
-                <div className="admin-card-header">
-                  <h4 className="mb-0">
-                    <i className="bi bi-pie-chart-fill me-2 text-info"></i>
-                    Tỉ trọng doanh thu rạp
-                  </h4>
-                </div>
-                <div className="admin-card-body">
-                  <div style={{ height: '350px', position: 'relative' }}>
-                    <Pie data={cinemaChartData} options={pieOptions} />
-                  </div>
+              <div className="admin-card h-100">
+                <div className="admin-card-header"><h4>Tỉ trọng Tháng {selectedMonth}</h4></div>
+                <div className="admin-card-body position-relative" style={{ height: '350px' }}>
+                  {rankingLoading && <div className="admin-loading-overlay"><Spinner size="sm" /></div>}
+                  {cinemaRankings.length > 0 ? <Pie data={pieData} options={{ responsive: true, maintainAspectRatio: false }} /> : <p className="text-center mt-5">Không có dữ liệu</p>}
                 </div>
               </div>
             </div>
 
-            {/* Bảng xếp hạng rạp chi tiết */}
             <div className="col-12">
-              <div className="admin-card admin-slide-up" style={{ animationDelay: '0.6s' }}>
-                <div className="admin-card-header d-flex justify-content-between align-items-center">
-                  <h4 className="mb-0">
-                    <i className="bi bi-trophy me-2 text-warning"></i>
-                    Xếp hạng doanh thu chi tiết các chi nhánh
-                  </h4>
-                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill">
-                    Tổng cộng: {cinemaRankings.length} rạp
-                  </span>
-                </div>
+              <div className="admin-card">
+                <div className="admin-card-header"><h4>Chi tiết doanh thu chi nhánh - Tháng {selectedMonth}</h4></div>
                 <div className="admin-card-body p-0">
-                  <div className="table-responsive">
-                    <table className="admin-table mb-0">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '80px' }}>Hạng</th>
-                          <th>Tên rạp chi nhánh</th>
-                          <th className="text-center">Số vé đã bán</th>
-                          <th className="text-end">Doanh thu tổng</th>
-                          <th className="text-center">Tỉ lệ (%)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cinemaRankings.length > 0 ? (
-                          cinemaRankings.map((cinema, idx) => {
-                            const total = cinemaRankings.reduce((a, b) => a + b.revenue, 0);
-                            const percent = ((cinema.revenue / total) * 100).toFixed(1);
-                            return (
-                              <tr key={idx}>
-                                <td className="text-center">
-                                  <span className={`admin-badge ${idx === 0 ? 'bg-warning text-dark' : idx === 1 ? 'bg-secondary' : idx === 2 ? 'bg-danger' : 'bg-light text-dark'}`}>
-                                     #{idx + 1}
-                                  </span>
-                                </td>
-                                <td className="fw-bold text-dark">
-                                  {cinema.cinemaName}
-                                </td>
-                                <td className="text-center fw-medium">
-                                  {cinema.count?.toLocaleString()} vé
-                                </td>
-                                <td className="text-end text-primary fw-bold">
-                                  {formatMoney(cinema.revenue)}
-                                </td>
-                                <td className="text-center">
-                                  <div className="d-flex align-items-center gap-2">
-                                    <div className="progress flex-grow-1" style={{ height: '6px' }}>
-                                      <div className="progress-bar bg-primary" style={{ width: `${percent}%` }}></div>
-                                    </div>
-                                    <span className="small fw-bold" style={{ minWidth: '40px' }}>{percent}%</span>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        ) : (
-                          <tr><td colSpan="5" className="text-center py-5 text-muted">Chưa có dữ liệu thống kê từ các rạp</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  <table className="admin-table">
+                    <thead>
+                      <tr><th>Hạng</th><th>Tên rạp</th><th className="text-end">Doanh thu</th><th>Tỉ lệ</th></tr>
+                    </thead>
+                    <tbody>
+                      {cinemaRankings.map((c, i) => {
+                        const total = cinemaRankings.reduce((a, b) => a + b.revenue, 0);
+                        const pct = total > 0 ? ((c.revenue / total) * 100).toFixed(1) : "0.0";
+                        return (
+                          <tr key={i}>
+                            <td>#{i+1}</td>
+                            <td className="fw-bold">{c.cinemaName}</td>
+                            <td className="text-end text-primary">{formatVN(c.revenue)}</td>
+                            <td>{pct}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -412,5 +226,13 @@ const SuperAdminDashboard = () => {
     </AdminPanelPage>
   );
 };
+
+const StatCard = ({ title, value, color, icon }) => (
+  <div className="admin-stat-card" style={{ '--stat-color': color, '--icon-bg': `${color}15` }}>
+    <div className="admin-stat-icon"><i className={`bi ${icon}`}></i></div>
+    <div className="admin-stat-value" style={{ fontSize: '1.2rem' }}>{value || 0}</div>
+    <div className="admin-stat-label">{title}</div>
+  </div>
+);
 
 export default SuperAdminDashboard;
