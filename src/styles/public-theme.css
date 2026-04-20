@@ -16,8 +16,8 @@ html.cinetoon-public {
   --customer-page-top-gap: 0px;
 }
 
+html.cinetoon-public,
 html.cinetoon-public body {
-  font-family: var(--font-ui);
   background: var(--bg-gradient);
   background-attachment: fixed;
   color: #0f172a;
@@ -28,7 +28,6 @@ html.cinetoon-public body {
 }
 
 html.cinetoon-public main {
-  font-family: var(--font-content);
   padding-top: var(--customer-page-top-gap);
 }
 
