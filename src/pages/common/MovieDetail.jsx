@@ -188,9 +188,32 @@ const MovieDetail = () => {
 
   const showtimesForSelectedDate = useMemo(() => {
     if (!selectedDateYmd) return [];
+    const now = new Date();
+    const currentYmd = now.toLocaleDateString('sv-SE'); // YYYY-MM-DD
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    
     return showtimes.filter((s) => {
       const ymd = String(s.date || "").slice(0, 10);
-      return ymd === selectedDateYmd && ymd >= todayYmd && ymd <= maxDateYmd;
+      const time = String(s.time || "").slice(0, 5);
+      
+      // Filter by date range
+      if (ymd !== selectedDateYmd || ymd < todayYmd || ymd > maxDateYmd) {
+        return false;
+      }
+      
+      // For today's showtimes, filter out those that have already ended
+      if (ymd === currentYmd) {
+        // Check if showtime has ended (time has passed)
+        if (time < currentTime) {
+          return false;
+        }
+        // Also check status if available
+        if (s.status === "Đã chiếu") {
+          return false;
+        }
+      }
+      
+      return true;
     });
   }, [showtimes, selectedDateYmd, todayYmd, maxDateYmd]);
 
@@ -711,7 +734,6 @@ const MovieDetail = () => {
                           <div className="md-slots-grid">
                             {showtimesForSelectedDate.map((s) => {
                               const ended = s.status === "Đã chiếu";
-                              const badgeClass = ended ? "ended-badge" : s.status === "Đang chiếu" ? "showing" : "upcoming";
                               return (
                                 <div key={s.id} className={`md-slot-card${ended ? " ended" : ""}`}>
                                   <div className="md-slot-time">{s.time || "—"}</div>
@@ -719,7 +741,8 @@ const MovieDetail = () => {
                                   <div className="md-slot-price">
                                     {s.price != null ? `${s.price.toLocaleString("vi-VN")} đ` : "—"}
                                   </div>
-                                  <span className={`md-slot-badge ${badgeClass}`}>{s.status || "—"}</span>
+                                  {/* Ẩn trạng thái */}
+                                  {/* <span className={`md-slot-badge ${badgeClass}`}>{s.status || "—"}</span> */}
                                   {ended
                                     ? <p className="md-hint-text" style={{ marginTop: "auto" }}>Hết suất</p>
                                     : (
