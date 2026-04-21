@@ -43,31 +43,61 @@ export default function MyShifts() {
 
   const { upcomingShifts, pastShifts } = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    // Lấy ngày local YYYY-MM-DD
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    
+    const currentTimeStr = now.toTimeString().split(' ')[0].substring(0, 5); // HH:mm
     
     const upcoming = [];
     const past = [];
 
     rows.forEach(r => {
-      // Giả sử r.date định dạng YYYY-MM-DD
-      if (r.date >= todayStr) {
-        upcoming.push(r);
+      // Logic xác định trạng thái dựa trên thời gian tuyệt đối (hỗ trợ ca xuyên đêm)
+      const start = r.rawStartTime ? new Date(r.rawStartTime) : null;
+      const end = r.rawEndTime ? new Date(r.rawEndTime) : null;
+      
+      let status = 'UPCOMING';
+      if (start && end) {
+        if (now >= start && now <= end) {
+          status = 'WORKING';
+        } else if (now > end) {
+          status = 'COMPLETED';
+        }
       } else {
-        past.push(r);
+        // Fallback cho dữ liệu cũ nếu không có raw times
+        const isToday = r.date === todayStr;
+        const isPastDate = r.date < todayStr;
+        const isFutureDate = r.date > todayStr;
+        const isWorkingNow = isToday && currentTimeStr >= r.startTime && currentTimeStr <= r.endTime;
+        
+        if (isWorkingNow) status = 'WORKING';
+        else if (isPastDate || (isToday && currentTimeStr > r.endTime)) status = 'COMPLETED';
+      }
+
+      if (status === 'WORKING' || status === 'UPCOMING') {
+        upcoming.push({ ...r, status });
+      } else {
+        past.push({ ...r, status: 'COMPLETED' });
       }
     });
 
-    // Sắp xếp ca tương lai: ca gần nhất lên trước (tăng dần)
-    upcoming.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+    // Sắp xếp ca tương lai: ca đang làm việc lên đầu, sau đó theo thời gian tăng dần
+    upcoming.sort((a, b) => {
+      if (a.status === 'WORKING') return -1;
+      if (b.status === 'WORKING') return 1;
+      return a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime);
+    });
     
-    // Sắp xếp ca quá khứ: ca mới xong nhất lên trước (giảm dần)
     past.sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
 
     return { upcomingShifts: upcoming, pastShifts: past };
   }, [rows]);
 
   const ShiftCard = ({ shift, isPast }) => (
-    <div className={`shift-card ${isPast ? 'past' : ''}`}>
+    <div className={`shift-card ${isPast ? 'past' : ''} ${shift.status === 'WORKING' ? 'working' : ''}`}>
       <div className="shift-date-box">
         <span className="month">{new Date(shift.date).toLocaleDateString('vi-VN', { month: 'short' })}</span>
         <span className="day">{new Date(shift.date).getDate()}</span>
@@ -81,7 +111,11 @@ export default function MyShifts() {
         <div className="shift-role">{shift.role || "Nhân viên"}</div>
       </div>
       <div className="shift-status">
-        {isPast ? (
+        {shift.status === 'WORKING' ? (
+          <span className="status-badge working-now shadow-pulse">
+            <span className="dot" /> Đang làm việc
+          </span>
+        ) : isPast ? (
           <span className="status-badge completed"><CheckCircle2 size={12} /> Hoàn thành</span>
         ) : (
           <span className="status-badge upcoming">Sắp tới</span>

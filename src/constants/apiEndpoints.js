@@ -120,6 +120,7 @@ export const FOOD_ORDERS = {
 /** Đặt vé & bắp nước tại quầy (POS) — JWT nhân viên (STAFF/ADMIN) */
 export const COUNTER_ORDERS = {
   CHECKOUT: `${API_V1}/counter-orders/checkout`,
+  CHECK_STATUS: (orderCode) => `${API_V1}/counter-orders/${orderCode}/status`,
   CONFIRM_PAID: (orderCode) => `${API_V1}/counter-orders/${orderCode}/confirm-paid`,
   CANCEL: (orderCode) => `${API_V1}/counter-orders/${orderCode}/cancel`,
 };

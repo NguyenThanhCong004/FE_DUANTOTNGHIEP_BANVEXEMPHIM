@@ -21,8 +21,35 @@ const emptyCell = (r, c) => ({
   isActive: false,
 });
 
+// Helper cho logic nhãn hàng giống Admin
+const rowHasAnySeat = (grid, r) => {
+  for (let c = 0; c < COLS; c++) {
+    const i = r * COLS + c;
+    const cell = grid[i];
+    if (cell && cell.type !== "Empty" && cell.type !== "OccupiedByDouble") return true;
+  }
+  return false;
+};
+
+const virtualRowLetterIndex = (grid, r) => {
+  let above = 0;
+  for (let r2 = 0; r2 < r; r2++) {
+    if (rowHasAnySeat(grid, r2)) above++;
+  }
+  return above;
+};
+
+const rowLetterForGridRow = (grid, r) => {
+  if (!rowHasAnySeat(grid, r)) return "";
+  const i = virtualRowLetterIndex(grid, r);
+  const SEAT_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  return SEAT_LETTERS[i] ?? "?";
+};
+
 // Xây dựng grid từ danh sách ghế
-function buildSeatGrid(seats) {
+function buildSeatGrid(seats, seatTypesData = []) {
+  if (!seats || seats.length === 0) return [];
+
   const grid = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
@@ -30,9 +57,17 @@ function buildSeatGrid(seats) {
     }
   }
 
+  // Hàm kiểm tra ghế đôi chuẩn admin
+  const isCouple = (typeName) => {
+    if (!typeName) return false;
+    const st = seatTypesData.find(t => String(t.name).trim().toLowerCase() === String(typeName).trim().toLowerCase());
+    if (st && st.coupleSeat !== undefined) return st.coupleSeat === true;
+    return isCoupleTypeName(typeName);
+  };
+
   for (const seat of seats) {
-    const x = seat.x || 0;
-    const y = seat.y || 0;
+    const x = seat.x ?? 0;
+    const y = seat.y ?? 0;
     
     if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
       const idx = y * COLS + x;
@@ -47,7 +82,7 @@ function buildSeatGrid(seats) {
         seatData: seat,
       };
       
-      if (isCoupleTypeName(seatType) && x + 1 < COLS) {
+      if (isCouple(seatType) && x + 1 < COLS) {
         grid[idx + 1] = {
           rowIdx: y,
           colIdx: x + 1,
@@ -58,15 +93,45 @@ function buildSeatGrid(seats) {
       }
     }
   }
+
+  // Tự động tính toán lại nhãn ghế A1, A2... để khớp với hiển thị Admin
+  for (let r = 0; r < ROWS; r++) {
+    const letter = rowLetterForGridRow(grid, r);
+    if (!letter) continue;
+    
+    let num = 0;
+    for (let c = 0; c < COLS; c++) {
+      const idx = r * COLS + c;
+      if (isPlacedSeat(grid[idx])) {
+        num++;
+        // Gán nhãn đầy đủ như A1, A2
+        grid[idx].label = `${letter}${num}`;
+      }
+    }
+  }
+
   return grid;
 }
 
 function getSeatColor(cell, seatTypes = []) {
   if (!isPlacedSeat(cell)) return "transparent";
   if (!cell.isActive) return "#6c757d";
-  const raw = cell.seatData?.seatTypeColor ?? cell.seatData?.seat_type_color;
-  return resolveSeatDisplayColor(cell.type, seatTypes, raw);
+  
+  // Ưu tiên màu gắn trực tiếp trên ghế, sau đó tra theo loại
+  const explicitHex = cell.seatData?.seatTypeColor ?? cell.seatData?.seat_type_color;
+  return resolveSeatDisplayColor(cell.type, seatTypes, explicitHex);
 }
+
+// Helper lấy nhãn ghế đầy đủ (A1, B2...) dựa trên tọa độ và grid hiện tại
+const getFullSeatLabel = (seat, seats, seatTypes) => {
+  if (!seat || !seats.length) return seat?.number || "";
+  // Xây dựng grid tạm để tính toán nhãn hàng theo logic Admin
+  const tempGrid = buildSeatGrid(seats, seatTypes);
+  const x = seat.x ?? 0;
+  const y = seat.y ?? 0;
+  const idx = y * COLS + x;
+  return tempGrid[idx]?.label || seat.number || "";
+};
 
 const Sales = () => {
   const token = getAccessToken();
@@ -90,6 +155,7 @@ const Sales = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [paymentData, setPaymentData] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const [timeLeft, setTimeLeft] = useState(0); // Đếm ngược giây
 
@@ -172,15 +238,48 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
-    const fetchMovies = async () => {
-      try {
-        const res = await fetch(apiUrl(MOVIES.LIST));
-        const json = await res.json();
-        if (json?.data) setMovies(json.data);
-      } catch (err) { console.error("Lỗi lấy phim:", err); }
-    };
-    fetchMovies();
-  }, []);
+    if (cinemaId) {
+      const fetchMoviesShowingToday = async () => {
+        try {
+          const res = await fetch(apiUrl(SHOWTIMES.LIST) + `?cinemaId=${cinemaId}`);
+          const json = await res.json();
+          
+          if (json?.data && json.data.length > 0) {
+            const moviesMap = new Map();
+            json.data.forEach(st => {
+              const mId = st.movieId || st.movie_id || (st.movie && st.movie.id);
+              if (mId && !moviesMap.has(mId)) {
+                moviesMap.set(mId, {
+                  id: mId,
+                  title: st.movieTitle || st.movie_title || (st.movie && st.movie.title) || "Phim không tên",
+                  duration: st.movieDuration || st.movie_duration || (st.movie && st.movie.duration) || 120,
+                });
+              }
+            });
+            
+            const showingMovies = Array.from(moviesMap.values());
+            if (showingMovies.length > 0) {
+              setMovies(showingMovies);
+              return;
+            }
+          }
+          
+          // Nếu không có suất chiếu nào hoặc không lấy được phim từ suất chiếu, lấy danh sách phim mặc định
+          const resFallback = await fetch(apiUrl(MOVIES.LIST));
+          const jsonFallback = await resFallback.json();
+          if (jsonFallback?.data) setMovies(jsonFallback.data);
+          
+        } catch (err) { 
+          console.error("Lỗi lấy danh sách phim:", err); 
+          // Dự phòng lấy tất cả phim nếu có lỗi
+          fetch(apiUrl(MOVIES.LIST))
+            .then(r => r.json())
+            .then(j => { if(j.data) setMovies(j.data); });
+        }
+      };
+      fetchMoviesShowingToday();
+    }
+  }, [cinemaId]);
 
   useEffect(() => {
     if (selectedMovie?.id && cinemaId) {
@@ -339,7 +438,7 @@ const Sales = () => {
             <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 5px;">Ghế / Seats</div>
             ${seats.map(s => `
               <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px;">
-                <span>${s.number} (${s.seatTypeName})</span>
+                <span>${getFullSeatLabel(s, seats, seatTypes)} (${s.seatTypeName || 'Ghế thường'})</span>
                 <span style="font-weight: bold;">${((showtime?.price || 0) + (s.seatTypeSurcharge || 0)).toLocaleString()}đ</span>
               </div>
             `).join("")}
@@ -387,8 +486,13 @@ const Sales = () => {
     } catch (err) { console.error("Lỗi tạo vé preview:", err); }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (!selectedShowtime && selectedSeats.length === 0 && selectedProducts.length === 0) return;
+    setShowConfirmModal(true);
+  };
+
+  const processCheckout = async () => {
+    setShowConfirmModal(false);
     setIsProcessing(true);
     setPaymentData(null);
     try {
@@ -410,7 +514,7 @@ const Sales = () => {
       if (res.ok && json) {
         if (paymentMethod === 'TRANSFER' && json.data?.checkoutUrl) {
           setPaymentData(json.data);
-          setTimeLeft(600); // Bắt đầu đếm ngược 10 phút
+          setTimeLeft(180); 
           setOrderSuccess({ 
             orderCode: "PENDING", 
             finalAmount: totalPrice, 
@@ -432,13 +536,53 @@ const Sales = () => {
           showToast("Thanh toán thành công!", "success");
         }
       } else { 
-        showToast(json?.message || "Thanh toán thất bại hoặc phiên làm việc hết hạn.", "error"); 
+        showToast(json?.message || "Thanh toán thất bại.", "error"); 
       }
     } catch (err) { 
       console.error("Lỗi checkout:", err); 
-      showToast("Đã có lỗi xảy ra trong quá trình thanh toán.", "error"); 
+      showToast("Lỗi hệ thống trong quá trình thanh toán.", "error"); 
     } finally { setIsProcessing(false); }
   };
+
+  // Polling tự động kiểm tra trạng thái thanh toán chuyển khoản
+  useEffect(() => {
+    let pollInterval;
+    if (orderSuccess?.paymentMethod === 'TRANSFER' && orderSuccess?.orderCode === 'PENDING' && paymentData?.orderCode) {
+      pollInterval = setInterval(async () => {
+        try {
+          // Gọi API kiểm tra trạng thái đơn hàng (GET)
+          const res = await fetch(apiUrl(COUNTER_ORDERS.CHECK_STATUS(paymentData.orderCode)), {
+            method: "GET",
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          
+          if (res.ok) {
+            const json = await res.json();
+            // Nếu trạng thái đã là PAID (status 1)
+            if (json.data?.status === 1) {
+              clearInterval(pollInterval);
+              
+              // Đảm bảo orderCode có tiền tố POS- khi là chuyển khoản tại quầy
+              const fullOrderCode = paymentData.orderCode.toString().startsWith("POS-") 
+                ? paymentData.orderCode 
+                : `POS-${paymentData.orderCode}`;
+                
+              // Xử lý thành công tự động
+              generateTicketPreview(
+                { ...orderSuccess, orderCode: fullOrderCode, finalAmount: orderSuccess.finalAmount }, 
+                selectedMovie, selectedShowtime, selectedSeats, selectedProducts
+              );
+              showToast("Thanh toán chuyển khoản thành công!", "success");
+              setOrderSuccess({ ...orderSuccess, orderCode: fullOrderCode, status: 'PAID' });
+            }
+          }
+        } catch (err) {
+          console.error("Lỗi kiểm tra trạng thái thanh toán:", err);
+        }
+      }, 2000); // Kiểm tra mỗi 2 giây
+    }
+    return () => clearInterval(pollInterval);
+  }, [orderSuccess, paymentData, token, selectedMovie, selectedShowtime, selectedSeats, selectedProducts]);
 
   const handleConfirmTransfer = async () => {
     if (orderSuccess && paymentData?.orderCode) {
@@ -468,17 +612,29 @@ const Sales = () => {
     }
   };
 
-  const handleNewOrder = () => {
+  const handleNewOrder = async (keepContext = false) => {
     setOrderSuccess(null);
     setPaymentData(null);
-    setSelectedMovie(null);
-    setSelectedShowtime(null);
     setSelectedSeats([]);
     setSelectedProducts([]);
-    setShowtimes([]);
-    setSeats([]);
-    setSearchText("");
-    setActiveTab('showtimes');
+    
+    if (keepContext && selectedShowtime) {
+      // Làm mới danh sách ghế đã đặt cho suất chiếu hiện tại
+      try {
+        const resST = await fetch(apiUrl(SHOWTIMES.BY_ID(selectedShowtime.id)));
+        const jsonST = await resST.json();
+        if (jsonST?.data?.bookedSeatIds) setBookedSeatIds(jsonST.data.bookedSeatIds);
+      } catch (err) { console.error("Lỗi làm mới ghế:", err); }
+      
+      setActiveTab('seats');
+    } else {
+      setSelectedMovie(null);
+      setSelectedShowtime(null);
+      setShowtimes([]);
+      setSeats([]);
+      setSearchText("");
+      setActiveTab('showtimes');
+    }
   };
 
   const totalPrice = useMemo(() => {
@@ -496,13 +652,21 @@ const Sales = () => {
   const renderSeatMap = () => {
     if (!seats.length) return <div className="p-5 text-white-50 text-center w-100">Đang tải sơ đồ ghế...</div>;
     
-    const seatGrid = buildSeatGrid(seats);
-    const seatSize = 24; // Giảm từ 30 xuống 24
-    const doubleSeatSize = 53; // Tương ứng (24*2 + 5)
-    const gapSize = 4; // Giảm từ 5 xuống 4
-    const fontSize = 8; // Giảm từ 9 xuống 8
+    const seatGrid = buildSeatGrid(seats, seatTypes);
+    const seatSize = 24; 
+    const doubleSeatSize = 53; 
+    const gapSize = 4; 
+    const fontSize = 8; 
     const labelFontSize = 9;
     const rowLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+    // Helper kiểm tra ghế đôi đồng bộ với buildSeatGrid
+    const isDoubleSeat = (typeName) => {
+      if (!typeName) return false;
+      const st = seatTypes.find(t => String(t.name).trim().toLowerCase() === String(typeName).trim().toLowerCase());
+      if (st && st.coupleSeat !== undefined) return st.coupleSeat === true;
+      return isCoupleTypeName(typeName);
+    };
 
     return (
       <div className="view-seats-internal w-100">
@@ -524,7 +688,9 @@ const Sales = () => {
 
               {[...Array(ROWS)].map((_, r) => (
                 <React.Fragment key={`row-${r}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900', color: '#38bdf8' }}>{rowLetters[r]}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900', color: '#38bdf8' }}>
+                    {r + 1}
+                  </div>
                   {[...Array(COLS)].map((_, c) => {
                     const idx = r * COLS + c;
                     const cell = seatGrid[idx];
@@ -538,7 +704,7 @@ const Sales = () => {
                     const id = Number(seat.seatId);
                     const isBooked = bookedSeatIds.includes(id);
                     const isSelected = !!selectedSeats.find(s => s.seatId === id);
-                    const isDouble = isCoupleTypeName(cell.type);
+                    const isDouble = isDoubleSeat(cell.type);
                     
                     let statusClass = "available";
                     if (isBooked) statusClass = "locked";
@@ -694,31 +860,47 @@ const Sales = () => {
                   return acc;
                 }, {})
               ).map(([typeName, groupSeats]) => (
-                <div key={typeName} className="item-row">
-                  <div className="item-details">
-                    <span className="item-name">{typeName}</span>
-                    <span className="item-qty">{groupSeats.map(gs => groupSeats.length > 1 ? gs.number : gs.number).join(", ")}</span>
+                <div key={typeName} className="cart-item-group mb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <span className="item-name" style={{ fontSize: '12px', opacity: 0.8 }}>{typeName}</span>
+                    <span className="item-price" style={{ fontSize: '12px' }}>
+                      {groupSeats.reduce((sum, s) => sum + (selectedShowtime?.price || 0) + (s.seatTypeSurcharge || 0), 0).toLocaleString()}đ
+                    </span>
                   </div>
-                  <span className="item-price">
-                    {groupSeats.reduce((sum, s) => sum + (selectedShowtime?.price || 0) + (s.seatTypeSurcharge || 0), 0).toLocaleString()}đ
-                  </span>
+                  <div className="d-flex flex-wrap gap-1">
+                    {groupSeats.map(gs => (
+                      <div 
+                        key={gs.seatId} 
+                        className="seat-chip"
+                        onClick={() => toggleSeat(gs)}
+                        title="Nhấn để xóa ghế"
+                      >
+                        {getFullSeatLabel(gs, seats, seatTypes)}
+                        <X size={10} className="ms-1 opacity-50" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
           )}
           {selectedProducts.length > 0 && (
             <div className="cart-section mt-3">
-              <div className="section-label">Bắp nước</div>
+              <div className="section-label" style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>Bắp nước</div>
               {selectedProducts.map(p => (
-                <div key={`cart-prod-${p.productId}`} className="item-row food-item">
-                  <div className="item-details">
-                    <span className="item-name">{p.name}</span>
+                <div key={`cart-prod-${p.productId}`} className="item-row food-item mb-2">
+                  <div className="item-details" style={{ flex: 1 }}>
+                    <div className="item-name" style={{ fontSize: '12.5px', marginBottom: '4px' }}>{p.name}</div>
                     <div className="d-flex align-items-center gap-2">
-                      <span className="item-qty">x{p.quantity}</span>
+                      <div className="qty-control-cart d-flex align-items-center">
+                        <button className="qty-btn" onClick={() => updateProductQty(p, -1)}><Minus size={10}/></button>
+                        <span className="qty-val">{p.quantity}</span>
+                        <button className="qty-btn" onClick={() => updateProductQty(p, 1)}><Plus size={10}/></button>
+                      </div>
                       <button className="cart-item-delete" onClick={() => removeProduct(p.productId)} title="Xóa món này"><X size={12}/></button>
                     </div>
                   </div>
-                  <span className="item-price">{(p.price * p.quantity).toLocaleString()}đ</span>
+                  <span className="item-price ms-2">{(p.price * p.quantity).toLocaleString()}đ</span>
                 </div>
               ))}
             </div>
@@ -742,6 +924,64 @@ const Sales = () => {
         </div>
       </aside>
 
+      {showConfirmModal && (
+        <div className="pos-overlay">
+          <div className="success-modal" style={{ width: '450px', textAlign: 'left' }}>
+            <h4 className="fw-bold mb-3 text-white d-flex align-items-center gap-2">
+              <ShoppingCart size={24} className="text-primary" /> Xác nhận đơn hàng
+            </h4>
+            
+            <div className="modal-details p-3 bg-light rounded mb-4" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              <div className="mb-3 border-bottom pb-2">
+                <div className="text-dark small fw-bold text-uppercase opacity-50">Phim & Suất chiếu</div>
+                <div className="text-dark fw-bold">{selectedMovie?.title}</div>
+                <div className="text-primary small fw-bold">{selectedShowtime?.time} · {selectedShowtime?.room_name || selectedShowtime?.roomName}</div>
+              </div>
+
+              {selectedSeats.length > 0 && (
+                <div className="mb-3 border-bottom pb-2">
+                  <div className="text-dark small fw-bold text-uppercase opacity-50">Ghế đã chọn</div>
+                  <div className="text-dark fw-bold">
+                    {selectedSeats.map(s => getFullSeatLabel(s, seats, seatTypes)).join(", ")} 
+                    <span className="ms-2 text-muted small">({selectedSeats.length} ghế)</span>
+                  </div>
+                </div>
+              )}
+
+              {selectedProducts.length > 0 && (
+                <div className="mb-3 border-bottom pb-2">
+                  <div className="text-dark small fw-bold text-uppercase opacity-50">Bắp nước</div>
+                  {selectedProducts.map(p => (
+                    <div key={p.productId} className="d-flex justify-content-between text-dark small">
+                      <span>{p.name} x{p.quantity}</span>
+                      <span>{(p.price * p.quantity).toLocaleString()}đ</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="d-flex justify-content-between align-items-center mt-3 pt-2">
+                <div>
+                  <div className="text-dark small fw-bold text-uppercase opacity-50">Hình thức thanh toán</div>
+                  <div className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                    {paymentMethod === 'CASH' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN QR'}
+                  </div>
+                </div>
+                <div className="text-end">
+                  <div className="text-dark small fw-bold text-uppercase opacity-50">Tổng thanh toán</div>
+                  <div className="text-danger h4 fw-black mb-0">{totalPrice.toLocaleString()}đ</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="d-flex gap-2">
+              <button className="btn btn-outline-light flex-1 py-2 fw-bold" onClick={() => setShowConfirmModal(false)}>QUAY LẠI</button>
+              <button className="btn btn-primary flex-1 py-2 fw-bold" onClick={processCheckout}>XÁC NHẬN ĐƠN</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {orderSuccess && (
         <div className="pos-overlay">
           <div className="success-modal">
@@ -762,7 +1002,6 @@ const Sales = () => {
                 </div>
                 <div className="d-flex gap-2">
                   <button className="btn btn-outline-light flex-1 py-2 fw-bold" onClick={handleCancelPayment}>HỦY BỎ</button>
-                  <button className="btn btn-success flex-1 py-2 fw-bold" onClick={handleConfirmTransfer}>ĐÃ THANH TOÁN</button>
                 </div>
               </>
             ) : (
@@ -775,7 +1014,7 @@ const Sales = () => {
                   <div className="d-flex justify-content-between text-dark"><span>Hình thức:</span> <span className="text-dark">{orderSuccess.paymentMethod === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}</span></div>
                 </div>
                 <div className="mt-4 text-info small mb-3">Đã in vé và lưu vào thư mục preview.</div>
-                <button className="btn btn-primary w-100 py-2 fw-bold" onClick={handleNewOrder}>ĐƠN MỚI</button>
+                <button className="btn btn-primary w-100 py-2 fw-bold" onClick={() => handleNewOrder(true)}>ĐƠN MỚI</button>
               </>
             )}
           </div>
@@ -822,13 +1061,30 @@ const Sales = () => {
         
         .pos-container { 
           display: grid; 
-          grid-template-columns: 230px 1fr 280px; 
-          height: 100%; 
+          grid-template-columns: 300px 1fr 320px; 
+          height: calc(100dvh - 64px); 
           background: #0f172a; 
           overflow: hidden; 
           position: relative;
           margin: 0 !important;
           padding: 0 !important;
+        }
+
+        @media (max-height: 800px) {
+          .pos-container { grid-template-columns: 240px 1fr 280px; }
+          .pos-stepper { height: 44px; padding: 0 15px; }
+          .step-circle { width: 24px; height: 24px; font-size: 10px; }
+          .step-text { font-size: 10px; }
+          .seat-map-outer { padding: 10px; }
+          .screen-indicator-mini { margin-bottom: 12px; padding: 4px 40px; }
+          .cart-header { padding: 10px; font-size: 13px; }
+          .cart-footer { padding: 10px; }
+          .total-price { font-size: 18px; }
+          .checkout-btn { padding: 8px; font-size: 13px; }
+        }
+
+        @media (max-width: 1200px) {
+          .pos-container { grid-template-columns: 180px 1fr 250px; }
         }
         
         /* Sidebar Left - Movies */
@@ -839,6 +1095,7 @@ const Sales = () => {
           border-right: 1px solid rgba(255,255,255,0.05); 
           z-index: 10;
           height: 100%;
+          overflow: hidden;
         }
         .pos-search { 
           padding: 12px; 
@@ -1095,12 +1352,32 @@ const Sales = () => {
         .cart-showtime-info { font-size: 11px; color: #38bdf8; font-weight: 700; }
         
         .item-row { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 8px; font-size: 12.5px; }
+        .item-details { display: flex; flex-direction: column; gap: 2px; }
         .item-name { font-weight: 600; color: #cbd5e1; }
-        .item-qty { font-size: 10px; color: #38bdf8; font-weight: 800; }
+        .item-qty { font-size: 12px; color: #38bdf8; font-weight: 800; }
+        .cart-item-delete {
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          width: 22px;
+          height: 22px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          padding: 0;
+        }
+        .cart-item-delete:hover {
+          background: #ef4444;
+          color: white;
+          transform: scale(1.1);
+        }
         .item-price { font-weight: 800; color: #f1f5f9; }
         
         .cart-footer { 
-          padding: 16px; 
+          padding: 12px 16px; 
           background: rgba(15, 23, 42, 0.6); 
           border-top: 1px solid rgba(255,255,255,0.05); 
           flex-shrink: 0; 
@@ -1111,7 +1388,7 @@ const Sales = () => {
           align-items: center; 
           justify-content: center; 
           gap: 6px; 
-          padding: 8px; 
+          padding: 6px; 
           background: #0f172a; 
           border: 1px solid rgba(255,255,255,0.1); 
           border-radius: 8px; 
@@ -1122,13 +1399,13 @@ const Sales = () => {
           transition: all 0.2s;
         }
         .method-btn.active { background: #1e293b; color: #38bdf8; border-color: #38bdf8; }
-        .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-        .total-label { font-size: 13px; font-weight: 700; color: #94a3b8; }
-        .total-price { font-size: 22px; font-weight: 900; color: #38bdf8; letter-spacing: -0.5px; }
+        .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .total-label { font-size: 12px; font-weight: 700; color: #94a3b8; }
+        .total-price { font-size: 20px; font-weight: 900; color: #38bdf8; letter-spacing: -0.5px; }
         
         .checkout-btn { 
           width: 100%; 
-          padding: 12px; 
+          padding: 10px; 
           background: linear-gradient(135deg, #10b981, #059669); 
           color: white; 
           border: none; 
@@ -1160,6 +1437,56 @@ const Sales = () => {
         }
         .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #94a3b8; font-weight: 600; }
         .box { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+        .seat-chip {
+          display: inline-flex;
+          align-items: center;
+          background: rgba(56, 189, 248, 0.1);
+          color: #38bdf8;
+          border: 1px solid rgba(56, 189, 248, 0.2);
+          padding: 2px 6px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .seat-chip:hover {
+          background: #ef4444;
+          color: white;
+          border-color: #ef4444;
+        }
+
+        .qty-control-cart {
+          display: flex;
+          align-items: center;
+          background: #0f172a;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 6px;
+          overflow: hidden;
+        }
+        .qty-btn {
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          padding: 2px 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+        .qty-btn:hover {
+          background: rgba(255,255,255,0.05);
+          color: white;
+        }
+        .qty-val {
+          font-size: 11px;
+          font-weight: 800;
+          color: #38bdf8;
+          min-width: 20px;
+          text-align: center;
+        }
       `}</style>
     </div>
   );
