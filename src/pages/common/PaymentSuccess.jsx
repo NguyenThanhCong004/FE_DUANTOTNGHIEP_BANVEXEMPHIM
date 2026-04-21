@@ -50,11 +50,6 @@ const PaymentSuccess = () => {
               <h4 className="fw-bold text-dark mt-1 mb-0 text-break">{orderCode}</h4>
             </div>
           ) : null}
-          {code ? (
-            <p className="small text-muted mb-4">
-              Mã trả về: <code>{code}</code>
-            </p>
-          ) : null}
           <div className="d-grid gap-2">
             <Link to="/" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
               VỀ TRANG CHỦ

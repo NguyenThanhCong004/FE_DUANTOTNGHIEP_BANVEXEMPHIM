@@ -37,6 +37,45 @@ const SEAT_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const isPlacedSeat = (cell) =>
   cell && cell.type !== "Empty" && cell.type !== "OccupiedByDouble";
 
+const rowHasAnySeat = (grid, r) => {
+  for (let c = 0; c < COLS; c++) {
+    const i = r * COLS + c;
+    if (isPlacedSeat(grid[i])) return true;
+  }
+  return false;
+};
+
+// Chữ hàng A,B,C…: đếm các hàng phía trên có ít nhất một ghế
+const virtualRowLetterIndex = (grid, r) => {
+  let above = 0;
+  for (let r2 = 0; r2 < r; r2++) {
+    if (rowHasAnySeat(grid, r2)) above++;
+  }
+  return above;
+};
+
+const rowLetterForGridRow = (grid, r) => {
+  const i = virtualRowLetterIndex(grid, r);
+  return SEAT_LETTERS[i] ?? "?";
+};
+
+const recomputeSeatLabels = (grid) => {
+  const out = [...grid];
+  for (let r = 0; r < ROWS; r++) {
+    const letter = rowLetterForGridRow(out, r);
+    let num = 0;
+    for (let c = 0; c < COLS; c++) {
+      const idx = r * COLS + c;
+      const cell = out[idx];
+      if (isPlacedSeat(cell)) {
+        num++;
+        out[idx] = { ...cell, label: `${letter}${num}` };
+      }
+    }
+  }
+  return out;
+};
+
 const emptyCell = (r, c) => ({
   rowIdx: r,
   colIdx: c,
@@ -230,7 +269,28 @@ const Booking = () => {
 
   const seatRows = useMemo(() => buildSeatRows(seats), [seats]);
   
-  const seatGrid = useMemo(() => buildSeatGrid(seats), [seats, seatTypes]);
+  const seatGrid = useMemo(() => recomputeSeatLabels(buildSeatGrid(seats)), [seats, seatTypes]);
+
+  // Tính toán số hàng và cột thực tế có ghế để thu gọn grid
+  const gridBounds = useMemo(() => {
+    let minRow = ROWS, maxRow = 0, minCol = COLS, maxCol = 0;
+    for (let i = 0; i < seatGrid.length; i++) {
+      const cell = seatGrid[i];
+      if (isPlacedSeat(cell)) {
+        if (cell.rowIdx < minRow) minRow = cell.rowIdx;
+        if (cell.rowIdx > maxRow) maxRow = cell.rowIdx;
+        if (cell.colIdx < minCol) minCol = cell.colIdx;
+        if (cell.colIdx > maxCol) maxCol = cell.colIdx;
+      }
+    }
+    // Nếu không có ghế nào, dùng mặc định
+    if (minRow > maxRow) minRow = 0, maxRow = ROWS - 1;
+    if (minCol > maxCol) minCol = 0, maxCol = COLS - 1;
+    return { minRow, maxRow, minCol, maxCol };
+  }, [seatGrid]);
+
+  const actualRows = gridBounds.maxRow - gridBounds.minRow + 1;
+  const actualCols = gridBounds.maxCol - gridBounds.minCol + 1;
 
   // Zoom controls
   const handleZoomIn = () => {
@@ -937,7 +997,7 @@ const Booking = () => {
                   >
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: `${Math.round(40 * zoomLevel)}px repeat(${COLS}, ${seatSize}px)`,
+                        gridTemplateColumns: `${Math.round(40 * zoomLevel)}px repeat(${actualCols}, ${seatSize}px)`,
                         gap: `${gapSize}px`,
                         padding: `${paddingSize}px`,
                         background: 'rgba(0, 0, 0, 0.3)',
@@ -960,8 +1020,9 @@ const Booking = () => {
                         }}>
                           MÀN HÌNH
                         </div>
-                        <div />
-                        {Array.from({ length: COLS }).map((_, c) => (
+                        {/* Ẩn column labels */}
+                        {/* <div />
+                        {Array.from({ length: actualCols }).map((_, c) => (
                           <div key={`col_${c}`} style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -970,19 +1031,16 @@ const Booking = () => {
                             color: 'rgba(255, 255, 255, 0.6)',
                             fontWeight: '500'
                           }}>{c + 1}</div>
-                        ))}
-                        {Array.from({ length: ROWS }).map((_, r) => (
+                        ))} */}
+                        {Array.from({ length: actualRows }).map((_, r) => {
+                          const actualRow = gridBounds.minRow + r;
+                          return (
                           <React.Fragment key={r}>
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: `${labelFontSize}px`,
-                              color: 'rgba(255, 255, 255, 0.6)',
-                              fontWeight: '500'
-                            }}>{r + 1}</div>
-                            {Array.from({ length: COLS }).map((_, c) => {
-                              const idx = r * COLS + c;
+                            {/* Ẩn cột chữ cái bên trái */}
+                            <div />
+                            {Array.from({ length: actualCols }).map((_, c) => {
+                              const actualCol = gridBounds.minCol + c;
+                              const idx = actualRow * COLS + actualCol;
                               const cell = seatGrid[idx] || { type: "Empty", isActive: false, label: "" };
                               
                               // Bỏ qua ô bị chiếm bởi ghế đôi
@@ -1046,33 +1104,22 @@ const Booking = () => {
                                 );
                               }
                               
-                              // Nếu là placeholder (đường đi)
+                              // Nếu là ô trống, render nhưng ẩn đi (visibility: hidden) để giữ cấu trúc grid
                               return (
                                 <div
                                   key={idx}
                                   style={{
                                     width: isCouple ? `${doubleSeatSize}px` : `${seatSize}px`,
                                     height: `${seatSize}px`,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: `${fontSize}px`,
-                                    fontWeight: "bold",
-                                    borderRadius: `${Math.round(6 * zoomLevel)}px`,
-                                    transition: "all 0.2s",
-                                    border: "1px dashed rgba(255,255,255,0.2)",
-                                    background: "transparent",
-                                    cursor: "default",
-                                    color: "transparent",
+                                    visibility: "hidden",
                                     gridColumn: isCouple ? "span 2" : undefined,
                                   }}
-                                >
-                                  {placed ? cell.label : ""}
-                                </div>
+                                />
                               );
                             })}
                           </React.Fragment>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </>
