@@ -104,71 +104,75 @@ export default function EditUser() {
 
       <Card className="border-0 shadow-sm p-4" style={{ borderRadius: 18 }}>
         <Form onSubmit={submit}>
+          <div className="alert alert-info py-2 px-3 small border-0 mb-4 shadow-xs">
+            <i className="bi bi-info-circle-fill me-2"></i>
+            Thông tin cá nhân của khách hàng chỉ được xem ở chế độ đọc. Bạn chỉ có quyền thay đổi trạng thái hoạt động của tài khoản.
+          </div>
+
           <Row className="g-4">
             <Col md={6}>
               <Form.Group>
-                <Form.Label className="small fw-bold text-muted">HỌ VÀ TÊN</Form.Label>
+                <Form.Label className="small fw-bold text-muted text-uppercase">Họ và tên</Form.Label>
                 <Form.Control
                   type="text"
                   value={user.fullname}
-                  onChange={(e) => setUser({ ...user, fullname: e.target.value })}
-                  placeholder="Nhập họ và tên"
-                  required
+                  readOnly
+                  className="bg-light border-0"
                 />
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group>
-                <Form.Label className="small fw-bold text-muted">EMAIL</Form.Label>
+                <Form.Label className="small fw-bold text-muted text-uppercase">Email</Form.Label>
                 <Form.Control
                   type="email"
                   value={user.email}
-                  onChange={(e) => setUser({ ...user, email: e.target.value })}
-                  placeholder="Nhập email"
-                  required
+                  readOnly
+                  className="bg-light border-0"
                 />
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group>
-                <Form.Label className="small fw-bold text-muted">SỐ ĐIỆN THOẠI</Form.Label>
+                <Form.Label className="small fw-bold text-muted text-uppercase">Số điện thoại</Form.Label>
                 <Form.Control
                   type="text"
-                  value={user.phone}
-                  onChange={(e) => setUser({ ...user, phone: e.target.value })}
-                  placeholder="Nhập số điện thoại"
+                  value={user.phone || "—"}
+                  readOnly
+                  className="bg-light border-0"
                 />
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group>
-                <Form.Label className="small fw-bold text-muted">NGÀY SINH</Form.Label>
+                <Form.Label className="small fw-bold text-muted text-uppercase">Ngày sinh</Form.Label>
                 <Form.Control
-                  type="date"
-                  value={user.birthday ? user.birthday.split('T')[0] : ""}
-                  onChange={(e) => setUser({ ...user, birthday: e.target.value })}
+                  type="text"
+                  value={user.birthday ? new Date(user.birthday).toLocaleDateString('vi-VN') : "—"}
+                  readOnly
+                  className="bg-light border-0"
                 />
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group>
-                <Form.Label className="small fw-bold text-muted">ĐIỂM TÍCH LŨY</Form.Label>
+                <Form.Label className="small fw-bold text-muted text-uppercase">Điểm tích lũy</Form.Label>
                 <Form.Control
-                  type="number"
-                  value={user.points}
-                  onChange={(e) => setUser({ ...user, points: Number(e.target.value) })}
-                  min="0"
+                  type="text"
+                  value={`${user.points} điểm`}
+                  readOnly
+                  className="bg-light border-0"
                 />
               </Form.Group>
             </Col>
             <Col md={6}>
-              <Form.Label className="small fw-bold text-muted">TRẠNG THÁI TÀI KHOẢN</Form.Label>
-              <div className="d-flex gap-4 mt-1">
+              <Form.Label className="small fw-bold text-muted text-uppercase">Trạng thái tài khoản</Form.Label>
+              <div className="d-flex gap-4 mt-1 p-2 bg-light rounded shadow-xs" style={{ border: '1px solid #eee' }}>
                 <Form.Check
                   type="radio"
                   id="status-active"
                   name="status"
-                  label="Hoạt động"
+                  label={<span className="fw-semibold text-success">Hoạt động</span>}
                   checked={Number(user.status) === 1}
                   onChange={() => setUser((prev) => ({ ...prev, status: 1 }))}
                 />
@@ -176,7 +180,7 @@ export default function EditUser() {
                   type="radio"
                   id="status-locked"
                   name="status"
-                  label="Khóa"
+                  label={<span className="fw-semibold text-danger">Khóa tài khoản</span>}
                   checked={Number(user.status) === 0}
                   onChange={() => setUser((prev) => ({ ...prev, status: 0 }))}
                 />

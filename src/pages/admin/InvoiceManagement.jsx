@@ -104,6 +104,7 @@ const InvoiceManagement = () => {
             status: mapOrderStatus(o.status),
             createdAt: o.createdAt,
             cinemaName: o.cinemaName,
+            cinemaId: o.cinemaId,
           }))
         );
       } catch {
@@ -118,14 +119,19 @@ const InvoiceManagement = () => {
   }, [effectiveCinemaId]);
 
   const filteredInvoices = useMemo(() => {
+    // Lọc theo rạp trước
+    const myInvoices = effectiveCinemaId 
+      ? invoices.filter(i => i.cinemaId != null && Number(i.cinemaId) === Number(effectiveCinemaId))
+      : invoices;
+
     const q = searchTerm.toLowerCase();
-    return invoices.filter(invoice =>
+    return myInvoices.filter(invoice =>
       String(invoice.displayCode || '').toLowerCase().includes(q) ||
       String(invoice.apiId || '').toLowerCase().includes(q) ||
       String(invoice.customerName || '').toLowerCase().includes(q) ||
       String(invoice.movieTitle || '').toLowerCase().includes(q)
     );
-  }, [invoices, searchTerm]);
+  }, [invoices, searchTerm, effectiveCinemaId]);
 
   // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -139,20 +145,25 @@ const InvoiceManagement = () => {
   }, [searchTerm]);
 
   const invoiceStats = useMemo(() => {
+    // Chỉ lấy đơn hàng thuộc rạp hiện tại nếu có effectiveCinemaId
+    const myInvoices = effectiveCinemaId 
+      ? invoices.filter(i => i.cinemaId != null && Number(i.cinemaId) === Number(effectiveCinemaId))
+      : invoices;
+
     // Chỉ cộng dồn doanh thu nếu trạng thái là 'completed'
-    const totalRev = invoices.reduce((a, i) => {
+    const totalRev = myInvoices.reduce((a, i) => {
       if (i.status === 'completed') {
         return a + (Number(i.total) || 0);
       }
       return a;
     }, 0);
     
-    const pending = invoices.filter((i) => i.status === 'pending').length;
-    const completed = invoices.filter((i) => i.status === 'completed').length;
-    const cancelled = invoices.filter((i) => i.status === 'cancelled').length;
+    const pending = myInvoices.filter((i) => i.status === 'pending').length;
+    const completed = myInvoices.filter((i) => i.status === 'completed').length;
+    const cancelled = myInvoices.filter((i) => i.status === 'cancelled').length;
     
     return { totalRev, pending, completed, cancelled };
-  }, [invoices]);
+  }, [invoices, effectiveCinemaId]);
   const getStatusBadge = (status) => {
     switch (status) {
       case 'completed':

@@ -51,7 +51,7 @@ const AdminDashboard = () => {
 
         // Fetch song song các dữ liệu cần thiết của rạp
         const [ordersRes, stRes, rmRes, sfRes, cRes, prRes] = await Promise.all([
-          apiFetch(ORDERS_ONLINE.LIST),
+          apiFetch(`${ORDERS_ONLINE.LIST}?cinemaId=${cinemaId}`),
           apiFetch(`${SHOWTIMES.LIST}?cinemaId=${cinemaId}`),
           apiFetch(`${ROOMS.LIST}?cinemaId=${cinemaId}`),
           apiFetch(STAFF.LIST),
@@ -67,7 +67,7 @@ const AdminDashboard = () => {
         let ordersToday = 0;
         
         allOrders.forEach(o => {
-          const isOurCinema = o.cinemaId ? Number(o.cinemaId) === Number(cinemaId) : true; 
+          const isOurCinema = o.cinemaId != null && Number(o.cinemaId) === Number(cinemaId); 
           const isSuccess = o.status === 1; 
           const created = o.createdAt ? new Date(o.createdAt) : null;
           const isToday = created && created >= today0 && created <= tonight;

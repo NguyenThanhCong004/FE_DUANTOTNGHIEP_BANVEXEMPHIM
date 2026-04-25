@@ -60,6 +60,39 @@ export default function ShiftManagement() {
   const [dragData, setDragData] = useState(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
 
+  // Auto-scroll logic when dragging
+  useEffect(() => {
+    if (!dragData) return;
+
+    const handleGlobalDragOver = (e) => {
+      const threshold = 120; // Khoảng cách từ mép màn hình để bắt đầu cuộn (px)
+      const scrollSpeed = 20; // Tốc độ cuộn
+      
+      // 1. Cuộn dọc toàn trang
+      if (window.innerHeight - e.clientY < threshold) {
+        window.scrollBy({ top: scrollSpeed, behavior: 'auto' });
+      } else if (e.clientY < threshold) {
+        window.scrollBy({ top: -scrollSpeed, behavior: 'auto' });
+      }
+
+      // 2. Cuộn ngang container bảng (nếu có thanh cuộn)
+      const container = document.querySelector('.table-responsive');
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        if (e.clientY > rect.top && e.clientY < rect.bottom) {
+          if (e.clientX > rect.right - threshold) {
+            container.scrollBy({ left: scrollSpeed, behavior: 'auto' });
+          } else if (e.clientX < rect.left + threshold) {
+            container.scrollBy({ left: -scrollSpeed, behavior: 'auto' });
+          }
+        }
+      }
+    };
+
+    window.addEventListener("dragover", handleGlobalDragOver);
+    return () => window.removeEventListener("dragover", handleGlobalDragOver);
+  }, [dragData]);
+
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const weekRangeStr = useMemo(() => {
     if (weekDays.length < 7) return "";
