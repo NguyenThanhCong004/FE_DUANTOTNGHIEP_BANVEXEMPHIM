@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { Spinner, Badge } from "react-bootstrap";
+import { Spinner } from "react-bootstrap";
 import Layout from "../../components/layout/Layout";
 import EmptyState from "../../components/common/EmptyState";
 import { apiFetch } from "../../utils/apiClient";
 import { MOVIES, CINEMAS, SHOWTIMES, ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { releaseDateToYmd } from "../../utils/movieApiMap";
+
+const STARS = [1, 2, 3, 4, 5];
 
 function formatReleaseLabel(releaseDate) {
   const ymd = releaseDateToYmd(releaseDate);
@@ -66,6 +68,19 @@ function formatDateChipVi(ymd) {
   } catch { return ymd; }
 }
 
+function formatReviewDate(value) {
+  if (!value) return "";
+  try {
+    const d = Array.isArray(value)
+      ? new Date(value[0], value[1] - 1, value[2], value[3] ?? 0, value[4] ?? 0, value[5] ?? 0)
+      : new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
 const MovieDetail = () => {
   const { id: idParam } = useParams();
   const navigate = useNavigate();
@@ -85,6 +100,16 @@ const MovieDetail = () => {
   const [slotsError, setSlotsError] = useState(null);
   const [showtimes, setShowtimes] = useState([]);
   const [selectedDateYmd, setSelectedDateYmd] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [myReviewStatus, setMyReviewStatus] = useState(null);
+  const [myReviewLoading, setMyReviewLoading] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
 
   useEffect(() => {
     if (!Number.isFinite(movieId) || movieId <= 0) {
@@ -101,6 +126,66 @@ const MovieDetail = () => {
         else setMovie(body?.data || null);
       } catch { if (!cancelled) { setError("Không kết nối được máy chủ."); setMovie(null); } }
       finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [movieId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(movieId) || movieId <= 0) return;
+    let cancelled = false;
+    (async () => {
+      setReviewsLoading(true);
+      try {
+        const res = await apiFetch(MOVIES.REVIEWS(movieId));
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        setReviews(res.ok && Array.isArray(body?.data) ? body.data : []);
+      } catch {
+        if (!cancelled) setReviews([]);
+      } finally {
+        if (!cancelled) setReviewsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [movieId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(movieId) || movieId <= 0) {
+      setMyReviewStatus(null);
+      return;
+    }
+    const token = getAccessToken();
+    if (!token) {
+      setMyReviewStatus(null);
+      setReviewRating(0);
+      setReviewComment("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setMyReviewLoading(true);
+      setReviewError("");
+      try {
+        const res = await apiFetch(ME.REVIEW_BY_MOVIE(movieId));
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.status === 401) {
+          setMyReviewStatus(null);
+          return;
+        }
+        if (res.ok && body?.data) {
+          const data = body.data;
+          setMyReviewStatus(data);
+          setReviewRating(Number(data.review?.rating || 0));
+          setReviewComment(data.review?.comment || "");
+        } else {
+          setMyReviewStatus(null);
+        }
+      } catch {
+        if (!cancelled) setMyReviewStatus(null);
+      } finally {
+        if (!cancelled) setMyReviewLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [movieId]);
@@ -145,9 +230,7 @@ const MovieDetail = () => {
         const res = await apiFetch(CINEMAS.LIST);
         const body = await res.json().catch(() => null);
         if (cancelled) return;
-        const list = Array.isArray(body?.data) ? body.data : [];
-        const active = list.filter((c) => c.status === 1 || c.status == null);
-        setCinemas(active.length ? active : list);
+        setCinemas(Array.isArray(body?.data) ? body.data : []);
       } catch { if (!cancelled) setCinemas([]); }
       finally { if (!cancelled) setCinemasLoading(false); }
     })();
@@ -178,7 +261,8 @@ const MovieDetail = () => {
   }, [movieId, selectedCinemaId]);
 
   const todayYmd = useMemo(() => getTodayYmd(), []);
-  const maxDateYmd = useMemo(() => getMaxDateYmd(7), []);
+  // Hiển thị đúng 7 ngày tính từ hôm nay: hôm nay + 6 ngày tiếp theo.
+  const maxDateYmd = useMemo(() => getMaxDateYmd(6), []);
   const availableDates = useMemo(() => extractSortedDates(showtimes, todayYmd, maxDateYmd), [showtimes, todayYmd, maxDateYmd]);
 
   useEffect(() => {
@@ -229,6 +313,63 @@ const MovieDetail = () => {
     if (movie.nation) parts.push(movie.nation);
     return parts.join(" · ");
   }, [movie]);
+
+  const averageRating = useMemo(() => {
+    if (!reviews.length) return 0;
+    const total = reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0);
+    return Math.round((total / reviews.length) * 10) / 10;
+  }, [reviews]);
+
+  const handleSaveReview = async () => {
+    if (!getAccessToken()) {
+      navigate("/login", { state: { from: `/movie/${movieId}` } });
+      return;
+    }
+    if (!reviewRating) {
+      setReviewError("Vui lòng chọn số sao");
+      return;
+    }
+
+    setReviewSaving(true);
+    setReviewError("");
+    setReviewSuccess("");
+    try {
+      const res = await apiFetch(ME.REVIEW_BY_MOVIE(movieId), {
+        method: "PUT",
+        body: JSON.stringify({ rating: reviewRating, comment: reviewComment.trim() }),
+      });
+      const body = await res.json().catch(() => null);
+      if (res.status === 401) {
+        navigate("/login", { state: { from: `/movie/${movieId}` } });
+        return;
+      }
+      if (!res.ok) {
+        setReviewError(body?.message || "Không lưu được đánh giá");
+        return;
+      }
+
+      const saved = body?.data || { movieId, rating: reviewRating, comment: reviewComment.trim() };
+      setMyReviewStatus({ movieId, canReview: true, review: saved });
+      setReviewRating(Number(saved.rating || reviewRating));
+      setReviewComment(saved.comment || "");
+      setReviews((prev) => {
+        const reviewId = saved.reviewId;
+        const byId = reviewId != null ? prev.some((r) => Number(r.reviewId) === Number(reviewId)) : false;
+        if (byId) {
+          return prev.map((r) => Number(r.reviewId) === Number(reviewId) ? saved : r);
+        }
+        const withoutMine = saved.ticketId != null
+          ? prev.filter((r) => Number(r.ticketId) !== Number(saved.ticketId))
+          : prev;
+        return [saved, ...withoutMine];
+      });
+      setReviewSuccess("Đã lưu đánh giá của bạn");
+    } catch {
+      setReviewError("Lỗi kết nối");
+    } finally {
+      setReviewSaving(false);
+    }
+  };
 
   if (!Number.isFinite(movieId) || movieId <= 0) {
     return (
@@ -514,10 +655,6 @@ const MovieDetail = () => {
           font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
           color: rgba(240,240,255,0.4); margin-bottom: 4px;
         }
-        .md-slot-price {
-          font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
-          color: var(--off-white); margin-bottom: 8px;
-        }
 
         .md-slot-badge {
           display: inline-block;
@@ -559,6 +696,178 @@ const MovieDetail = () => {
           display: flex; align-items: center; gap: 10px;
           font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
           color: rgba(240,240,255,0.35);
+        }
+
+        .md-reviews-panel {
+          margin-top: 34px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(212,255,0,0.12);
+          border-radius: 16px;
+          padding: 24px 28px;
+        }
+        .md-reviews-head {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 16px;
+          flex-wrap: wrap;
+          margin-bottom: 18px;
+        }
+        .md-review-score {
+          color: var(--yellow);
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 28px;
+          letter-spacing: 1px;
+          line-height: 1;
+        }
+        .md-my-review {
+          border: 1px solid rgba(212,255,0,0.14);
+          border-radius: 14px;
+          background: rgba(0,0,0,0.18);
+          padding: 16px;
+          margin-bottom: 18px;
+        }
+        .md-my-review-title {
+          color: #fff;
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 800;
+          margin-bottom: 10px;
+        }
+        .md-star-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 12px;
+        }
+        .md-star-btn {
+          border: none;
+          background: transparent;
+          color: rgba(240,240,255,0.2);
+          font-size: 25px;
+          line-height: 1;
+          padding: 0 2px;
+          cursor: pointer;
+          transition: color .15s, transform .15s, text-shadow .15s;
+        }
+        .md-star-btn.active {
+          color: var(--yellow);
+          text-shadow: 0 0 10px rgba(212,255,0,0.45);
+        }
+        .md-star-btn:hover {
+          transform: translateY(-1px);
+        }
+        .md-review-input {
+          width: 100%;
+          min-height: 96px;
+          resize: vertical;
+          border-radius: 12px;
+          border: 1.5px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.05);
+          color: var(--off-white);
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          line-height: 1.6;
+          padding: 12px 14px;
+          outline: none;
+        }
+        .md-review-input:focus {
+          border-color: rgba(212,255,0,0.55);
+          box-shadow: 0 0 16px rgba(212,255,0,0.08);
+        }
+        .md-review-input::placeholder { color: rgba(240,240,255,0.25); }
+        .md-review-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+        .md-review-submit {
+          border: none;
+          border-radius: 10px;
+          background: linear-gradient(135deg, var(--purple), var(--pink));
+          color: #fff;
+          font-family: 'Syne', sans-serif;
+          font-size: 12px;
+          font-weight: 800;
+          padding: 10px 16px;
+          cursor: pointer;
+          transition: box-shadow .2s, transform .2s, opacity .2s;
+        }
+        .md-review-submit:hover:not(:disabled) {
+          box-shadow: 0 0 22px rgba(255,45,120,0.35);
+          transform: translateY(-1px);
+        }
+        .md-review-submit:disabled {
+          cursor: not-allowed;
+          opacity: .55;
+        }
+        .md-review-message {
+          font-family: 'Syne', sans-serif;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .md-review-message.error { color: #ff6b8a; }
+        .md-review-message.success { color: #9fe6b8; }
+        .md-review-locked {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 650;
+          color: rgba(240,240,255,0.48);
+          line-height: 1.7;
+          margin: 0;
+        }
+        .md-review-locked a {
+          color: var(--yellow);
+          font-weight: 800;
+          text-decoration: none;
+        }
+        .md-review-locked a:hover { color: var(--pink); }
+        .md-review-list {
+          display: grid;
+          gap: 12px;
+        }
+        .md-review-item {
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
+          padding: 14px 16px;
+          background: rgba(255,255,255,0.035);
+        }
+        .md-review-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 8px;
+        }
+        .md-review-user {
+          color: #fff;
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 800;
+        }
+        .md-review-date {
+          color: rgba(240,240,255,0.32);
+          font-family: 'Syne', sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+        }
+        .md-review-stars {
+          color: var(--yellow);
+          font-size: 13px;
+          letter-spacing: 2px;
+          margin-bottom: 8px;
+        }
+        .md-review-comment {
+          color: rgba(240,240,255,0.62);
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.7;
+          margin: 0;
         }
       `}</style>
 
@@ -627,13 +936,6 @@ const MovieDetail = () => {
                       <span className="md-info-value">{movie.author}</span>
                     </div>
                   )}
-                  {movie.basePrice != null && (
-                    <div className="md-info-row" style={{ marginBottom: 20 }}>
-                      <span className="md-info-label">Giá gốc vé:</span>
-                      <span className="md-info-value accent">{Number(movie.basePrice).toLocaleString("vi-VN")} đ</span>
-                    </div>
-                  )}
-
                   {movie.description && (
                     <div style={{ marginBottom: 16 }}>
                       <p className="md-section-label">Giới thiệu</p>
@@ -738,9 +1040,6 @@ const MovieDetail = () => {
                                 <div key={s.id} className={`md-slot-card${ended ? " ended" : ""}`}>
                                   <div className="md-slot-time">{s.time || "—"}</div>
                                   <div className="md-slot-room">{s.roomName || "Phòng"}</div>
-                                  <div className="md-slot-price">
-                                    {s.price != null ? `${s.price.toLocaleString("vi-VN")} đ` : "—"}
-                                  </div>
                                   {/* Ẩn trạng thái */}
                                   {/* <span className={`md-slot-badge ${badgeClass}`}>{s.status || "—"}</span> */}
                                   {ended
@@ -760,6 +1059,109 @@ const MovieDetail = () => {
                     )}
                   </div>
                 </div>
+              </div>
+
+              <div className="md-reviews-panel">
+                <div className="md-reviews-head">
+                  <div>
+                    <div className="md-section-label">Bình luận & đánh giá</div>
+                    <h5 className="md-panel-title" style={{ marginBottom: 0 }}>
+                      <i className="fas fa-star" /> Cảm nhận của khách đã mua vé
+                    </h5>
+                  </div>
+                  {reviews.length > 0 && (
+                    <div className="md-review-score">{averageRating}★ / {reviews.length} đánh giá</div>
+                  )}
+                </div>
+
+                <div className="md-my-review">
+                  <div className="md-my-review-title">
+                    {myReviewStatus?.review ? "Đánh giá của bạn" : "Viết đánh giá"}
+                  </div>
+
+                  {!getAccessToken() ? (
+                    <p className="md-review-locked">
+                      <Link to="/login" state={{ from: `/movie/${movieId}` }}>Đăng nhập</Link> bằng tài khoản đã mua vé để bình luận và chấm sao.
+                    </p>
+                  ) : myReviewLoading ? (
+                    <div className="md-loading-inline">
+                      <Spinner size="sm" animation="border" style={{ color: "var(--pink)" }} />
+                      Đang kiểm tra vé đã mua...
+                    </div>
+                  ) : myReviewStatus?.canReview ? (
+                    <>
+                      <div className="md-star-row" onMouseLeave={() => setReviewHover(0)}>
+                        {STARS.map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            className={`md-star-btn${star <= (reviewHover || reviewRating) ? " active" : ""}`}
+                            onMouseEnter={() => setReviewHover(star)}
+                            onClick={() => setReviewRating(star)}
+                            aria-label={`${star} sao`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        className="md-review-input"
+                        value={reviewComment}
+                        maxLength={150}
+                        onChange={(e) => {
+                          setReviewComment(e.target.value);
+                          setReviewError("");
+                          setReviewSuccess("");
+                        }}
+                        placeholder="Chia sẻ cảm nhận của bạn về bộ phim..."
+                      />
+                      <div className="md-review-actions">
+                        <span className={`md-review-message${reviewError ? " error" : reviewSuccess ? " success" : ""}`}>
+                          {reviewError || reviewSuccess || `${reviewComment.length}/150 ký tự`}
+                        </span>
+                        <button
+                          type="button"
+                          className="md-review-submit"
+                          disabled={!reviewRating || reviewSaving}
+                          onClick={handleSaveReview}
+                        >
+                          {reviewSaving ? "Đang lưu..." : myReviewStatus?.review ? "Cập nhật đánh giá" : "Gửi đánh giá"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="md-review-locked">
+                      Chỉ khách đã mua vé và thanh toán thành công cho phim này mới được bình luận, chấm sao.
+                    </p>
+                  )}
+                </div>
+
+                {reviewsLoading ? (
+                  <div className="md-loading-inline">
+                    <Spinner size="sm" animation="border" style={{ color: "var(--pink)" }} />
+                    Đang tải đánh giá...
+                  </div>
+                ) : reviews.length === 0 ? (
+                  <p className="md-hint-text">
+                    Chưa có đánh giá nào cho phim này.
+                  </p>
+                ) : (
+                  <div className="md-review-list">
+                    {reviews.map((r) => (
+                      <div key={r.reviewId} className="md-review-item">
+                        <div className="md-review-top">
+                          <span className="md-review-user">{r.userName || "Khách hàng"}</span>
+                          <span className="md-review-date">{formatReviewDate(r.updatedAt || r.createdAt)}</span>
+                        </div>
+                        <div className="md-review-stars">
+                          {"★".repeat(Number(r.rating || 0))}
+                          {"☆".repeat(Math.max(0, 5 - Number(r.rating || 0)))}
+                        </div>
+                        {r.comment && <p className="md-review-comment">{r.comment}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}

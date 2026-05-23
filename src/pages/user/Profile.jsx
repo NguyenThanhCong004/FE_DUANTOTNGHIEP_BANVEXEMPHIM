@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Layout from "../../components/layout/Layout";
 import CustomerPageShell from "../../components/common/CustomerPageShell";
+import MovieCard from "../../components/common/MovieCard";
 import { Container, Row, Col } from "react-bootstrap";
 import {
   User, Calendar, Mail, Phone, Shield, Star, History,
@@ -8,12 +9,12 @@ import {
   TrendingUp, TrendingDown, Activity, Ticket, Crown,
   ChevronRight, Clock, CheckCircle, XCircle,
 } from "lucide-react";
-import { getAccessToken, getRefreshToken, getStoredUser, setAuthSession, getStoredStaff } from "../../utils/authStorage";
+import { getAccessToken, getRefreshToken, getStoredUser, setAuthSession, getStoredStaff, getAuthSession } from "../../utils/authStorage";
 import { getUserIdFromToken } from "../../utils/jwt";
 import { apiFetch } from "../../utils/apiClient";
 import { USERS, ME, MEMBERSHIP_RANKS } from "../../constants/apiEndpoints";
-import { mapMeTransactionToFe, mapUserVoucherRow } from "../../utils/customerMeApi";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { mapFavoriteRowToFavCard, mapMeTransactionToFe, mapUserVoucherRow } from "../../utils/customerMeApi";
+import { Link, useSearchParams } from "react-router-dom";
 
 /* ─────────────────────────────────────────
    Utils
@@ -62,7 +63,8 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString("vi-VN") : "—";
 const fmtDatetime = (d) => {
   if (!d) return "—";
   const dt = new Date(d);
-  return `${dt.toLocaleDateString("vi-VN")} · ${dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
+  if (Number.isNaN(dt.getTime())) return "—";
+  return `${dt.toLocaleDateString("vi-VN")} ${dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
 };
 
 function formatVoucherDiscount(v) {
@@ -280,7 +282,7 @@ function TabInfo({ user, setUser, showToast }) {
       if (!res.ok || !json?.data) { showToast(json?.message || "Cập nhật thất bại", "error"); return; }
       const n = normalizeUser(json.data);
       if (n) setUser(n);
-      setAuthSession({ accessToken: token, refreshToken: getRefreshToken(), user: json.data, staff: getStoredStaff() });
+      setAuthSession({ accessToken: getAccessToken(), refreshToken: getRefreshToken(), user: json.data, staff: getStoredStaff() });
       setEditing(false);
       showToast("Cập nhật thông tin thành công!");
     } catch { showToast("Không thể kết nối máy chủ", "error"); }
@@ -348,23 +350,6 @@ function TabInfo({ user, setUser, showToast }) {
               <button className="pf-btn-primary" style={{ fontSize: 12, padding: "9px 18px" }} onClick={() => setPwModal(true)}>
                 🔑 Đổi mật khẩu mới
               </button>
-            </div>
-            <div className="pf-security-block">
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Trạng thái tài khoản</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{
-                  width: 8, height: 8, borderRadius: "50%",
-                  background: user.status === 1 ? "#81c784" : "#e57373",
-                  boxShadow: user.status === 1 ? "0 0 8px #81c784" : "0 0 8px #e57373",
-                  display: "inline-block"
-                }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: user.status === 1 ? "#81c784" : "#e57373" }}>
-                  {user.status === 1 ? "Tài khoản đang an toàn" : "Tài khoản bị giới hạn"}
-                </span>
-              </div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", fontWeight: 600, marginTop: 6 }}>
-                {user.status === 1 ? "Tài khoản đã được xác minh email" : "Liên hệ hỗ trợ để mở khóa"}
-              </div>
             </div>
           </div>
         </Col>
@@ -449,6 +434,134 @@ function TabPoints({ user, pointRows, loading }) {
         </div>
       </Col>
     </Row>
+  );
+}
+
+/* ─────────────────────────────────────────
+   Tab: Lịch sử giao dịch
+───────────────────────────────────────── */
+function TabTransactions({ transactions, loading }) {
+  const [filter, setFilter] = useState("all");
+  const [keyword, setKeyword] = useState("");
+  const [openId, setOpenId] = useState(null);
+
+  const filtered = useMemo(() => {
+    const q = keyword.trim().toLowerCase();
+    return transactions.filter((tx) => {
+      const matchFilter = filter === "all" || tx.type === filter || tx.status === filter;
+      const matchKeyword =
+        !q ||
+        String(tx.order_code || "").toLowerCase().includes(q) ||
+        tx.items?.some((item) => String(item.label || "").toLowerCase().includes(q));
+      return matchFilter && matchKeyword;
+    });
+  }, [transactions, filter, keyword]);
+
+  if (loading) return <LoadingSpinner text="Đang tải lịch sử giao dịch..." />;
+
+  if (!transactions.length) {
+    return (
+      <EmptyState icon="🧾" text="Chưa có giao dịch nào">
+        <Link to="/movies" className="pf-btn-primary" style={{ textDecoration: "none" }}>Đặt vé ngay</Link>
+      </EmptyState>
+    );
+  }
+
+  return (
+    <>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
+        {[
+          { key: "all", label: "Tất cả" },
+          { key: "ticket_online", label: "Vé" },
+          { key: "food", label: "Bắp nước" },
+          { key: "completed", label: "Hoàn thành" },
+          { key: "pending", label: "Chờ xử lý" },
+        ].map(({ key, label }) => (
+          <button key={key} type="button" className={`pf-filter-btn${filter === key ? " active" : ""}`} onClick={() => setFilter(key)}>
+            {label}
+          </button>
+        ))}
+        <input
+          className="pf-search-input"
+          placeholder="Tìm mã đơn hoặc món..."
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState icon="🔍" text="Không tìm thấy giao dịch phù hợp" />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {filtered.map((tx) => {
+            const type = TX_TYPE[tx.type] || { label: "Giao dịch", color: "#b39ddb", bg: "rgba(123,31,162,0.14)", icon: "🧾" };
+            const status = TX_STATUS[tx.status] || { label: tx.status || "—", color: "rgba(255,255,255,0.55)", bg: "rgba(255,255,255,0.08)" };
+            const isOpen = openId === tx.id;
+            return (
+              <div key={tx.id} className={`pf-tx-row${isOpen ? " open" : ""}`}>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(isOpen ? null : tx.id)}
+                  style={{
+                    width: "100%",
+                    border: "none",
+                    background: "transparent",
+                    padding: "15px 16px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: type.bg, border: `1px solid ${type.color}44`, color: type.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                    {type.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
+                      <span style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>{type.label}</span>
+                      <span style={{ color: status.color, background: status.bg, border: `1px solid ${status.color}33`, borderRadius: 999, padding: "2px 8px", fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
+                        {status.label}
+                      </span>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {tx.order_code || "Không có mã"} • {fmtDatetime(tx.created_at)}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--yellow)", fontSize: 20, letterSpacing: 1 }}>{fmtVnd(tx.final_amount)}</div>
+                    {tx.points_earned > 0 && <div style={{ color: "#81c784", fontSize: 11, fontWeight: 700 }}>+{tx.points_earned} điểm</div>}
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "14px 16px 16px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                      {(tx.items || []).map((item, idx) => (
+                        <div key={`${tx.id}-${idx}`} style={{ display: "flex", gap: 10, alignItems: "center", color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: 700 }}>
+                          <span style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center" }}>{item.icon || "•"}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
+                            {item.sub && <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 11, fontWeight: 600 }}>{item.sub}</div>}
+                          </div>
+                          <div style={{ color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap" }}>x{item.qty}</div>
+                          <div style={{ color: "var(--yellow)", whiteSpace: "nowrap" }}>{fmtVnd(item.price)}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "grid", gap: 6, color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 700 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tạm tính</span><span>{fmtVnd(tx.original_amount)}</span></div>
+                      {tx.discount_amount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Giảm giá {tx.voucher_code ? `(${tx.voucher_code})` : ""}</span><span>-{fmtVnd(tx.discount_amount)}</span></div>}
+                      <div style={{ display: "flex", justifyContent: "space-between", color: "#fff", borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 8 }}><span>Thanh toán</span><span style={{ color: "var(--yellow)" }}>{fmtVnd(tx.final_amount)}</span></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -664,18 +777,55 @@ function TabRank({ user, ranks, loading }) {
   );
 }
 
+function TabFavorites({ favorites, loading }) {
+  if (loading) return <LoadingSpinner text="Đang tải phim yêu thích..." />;
+
+  return (
+    <div className="pf-card">
+      <div className="pf-card-title">
+        <span>❤️</span> PHIM <span>YÊU THÍCH</span>
+        <Link to="/favorites" className="pf-mini-link ms-auto">Xem đầy đủ</Link>
+      </div>
+
+      {favorites.length === 0 ? (
+        <EmptyState icon="🎬" text="Bạn chưa lưu phim yêu thích nào">
+          <Link to="/movies" className="pf-btn-primary" style={{ textDecoration: "none" }}>
+            Khám phá phim
+          </Link>
+        </EmptyState>
+      ) : (
+        <Row className="g-3">
+          {favorites.slice(0, 8).map((fav) => (
+            <Col key={fav.favorite_id} xs={6} md={4} xl={3}>
+              <div className="pf-fav-card">
+                {fav.review && <div className="pf-review-badge">★ {fav.review.rating}.0</div>}
+                <MovieCard
+                  movie={fav.movie}
+                  isComingSoon={fav.movie?.type === "soon"}
+                  showBuyButton={false}
+                />
+              </div>
+            </Col>
+          ))}
+        </Row>
+      )}
+    </div>
+  );
+}
+
 /* ─────────────────────────────────────────
    MAIN
 ───────────────────────────────────────── */
 const TABS = [
-  { key: "info",         label: "Thông tin" },
+  { key: "info",         label: "Hồ sơ cá nhân" },
   { key: "points",       label: "Điểm thưởng" },
-  { key: "vouchers",     label: "Voucher" },
+  { key: "favorites",    label: "Phim yêu thích" },
+  { key: "vouchers",     label: "Voucher của tôi" },
   { key: "rank",         label: "Hạng thành viên" },
+  { key: "transactions", label: "Lịch sử giao dịch" },
 ];
 
 export default function UserProfile() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [user,        setUser]        = useState(null);
@@ -687,11 +837,13 @@ export default function UserProfile() {
 
   const [transactions, setTransactions] = useState([]);
   const [pointRows,    setPointRows]    = useState([]);
+  const [favorites,    setFavorites]    = useState([]);
   const [vouchers,     setVouchers]     = useState([]);
   const [ranks,        setRanks]        = useState([]);
 
   const [loadingTx,  setLoadingTx]  = useState(false);
   const [loadingPts, setLoadingPts] = useState(false);
+  const [loadingFav, setLoadingFav] = useState(false);
   const [loadingVou, setLoadingVou] = useState(false);
   const [loadingRnk, setLoadingRnk] = useState(false);
 
@@ -701,8 +853,14 @@ export default function UserProfile() {
   };
 
   useEffect(() => {
-    const token = getAccessToken();
+    const authSession = getAuthSession();
+    const token = authSession.accessToken;
     const stored = getStoredUser();
+    if (!authSession.isAuthenticated || !authSession.user) {
+      setUser(null);
+      setInitialLoad(false);
+      return;
+    }
     if (stored) { const n = normalizeUser(stored); if (n) setUser(n); }
     if (!token) { setInitialLoad(false); return; }
     const userId = getUserIdFromToken(token);
@@ -717,10 +875,12 @@ export default function UserProfile() {
           const n = normalizeUser(json.data);
           if (n) {
             setUser(n);
-            setAuthSession({ accessToken: token, refreshToken: getRefreshToken(), user: json.data, staff: getStoredStaff() });
+            setAuthSession({ accessToken: getAccessToken(), refreshToken: getRefreshToken(), user: json.data, staff: getStoredStaff() });
           }
         }
-      } catch { }
+      } catch {
+        // Keep any locally stored user data when profile refresh fails.
+      }
       finally { if (!c) setInitialLoad(false); }
     })();
     return () => { c = true; };
@@ -756,6 +916,14 @@ export default function UserProfile() {
       }).catch(() => {}).finally(() => { if (!c) setLoadingPts(false); });
     }
 
+    if (activeTab === "favorites" && favorites.length === 0) {
+      setLoadingFav(true);
+      apiFetch(ME.FAVORITES).then(r => r.json().catch(() => null)).then(body => {
+        if (c) return;
+        if (body?.data && Array.isArray(body.data)) setFavorites(body.data.map(mapFavoriteRowToFavCard));
+      }).catch(() => {}).finally(() => { if (!c) setLoadingFav(false); });
+    }
+
     if (activeTab === "vouchers" && vouchers.length === 0) {
       setLoadingVou(true);
       apiFetch(ME.VOUCHERS).then(r => r.json().catch(() => null)).then(body => {
@@ -778,7 +946,7 @@ export default function UserProfile() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, user]);
 
-  const token = getAccessToken();
+  const token = getAuthSession().accessToken;
 
   if (!user) {
     if (token && initialLoad) return (
@@ -832,6 +1000,45 @@ export default function UserProfile() {
           padding: 32px 0 80px;
         }
 
+        .pf-header {
+          display: flex;
+          align-items: end;
+          justify-content: space-between;
+          gap: 18px;
+          margin-bottom: 22px;
+        }
+        .pf-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: clamp(36px, 6vw, 58px);
+          letter-spacing: 4px;
+          line-height: 1;
+          color: #fff;
+          margin: 0;
+        }
+        .pf-title span { color: var(--yellow); }
+        .pf-title-bar {
+          width: 80px;
+          height: 3px;
+          border-radius: 2px;
+          background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow));
+          margin-top: 12px;
+        }
+        .pf-count {
+          color: rgba(255,255,255,0.42);
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: .6px;
+          text-transform: uppercase;
+          margin-top: 8px;
+        }
+        .pf-filters {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          min-width: 0;
+          max-width: 100%;
+        }
+
         /* HERO */
         .pf-hero {
           background: var(--card);
@@ -869,7 +1076,7 @@ export default function UserProfile() {
         .pf-hs-lbl { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
 
         /* TABS */
-        .pf-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 4px; margin-bottom: 20px; overflow-x: auto; width: fit-content; max-width: 100%; }
+        .pf-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 4px; overflow-x: auto; width: fit-content; max-width: 100%; }
         .pf-tab { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase; padding: 9px 18px; border-radius: 9px; border: none; background: transparent; color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .pf-tab.active { background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; box-shadow: 0 0 14px rgba(233,30,140,0.3); }
         .pf-tab:hover:not(.active) { color: rgba(255,255,255,0.7); }
@@ -899,6 +1106,8 @@ export default function UserProfile() {
         .pf-btn-ghost:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
         .pf-btn-yellow { background: var(--yellow); border: none; color: #0f102a; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; border-radius: 10px; padding: 11px 24px; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; box-shadow: 0 0 16px rgba(212,226,25,0.2); }
         .pf-btn-yellow:hover { box-shadow: 0 0 28px rgba(212,226,25,0.45); transform: translateY(-1px); }
+        .pf-mini-link { color: rgba(255,255,255,0.55); font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-decoration: none; text-transform: uppercase; }
+        .pf-mini-link:hover { color: var(--yellow); }
 
         /* FILTER BUTTONS */
         .pf-filter-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); color: rgba(255,255,255,0.4); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.3px; border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
@@ -923,6 +1132,8 @@ export default function UserProfile() {
         /* VOUCHER CARD */
         .pf-voucher-card { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 16px; cursor: pointer; transition: border-color 0.2s, transform 0.15s; height: 100%; }
         .pf-voucher-card:hover { border-color: rgba(212,226,25,0.25); transform: translateY(-2px); }
+        .pf-fav-card { position: relative; height: 100%; }
+        .pf-review-badge { position: absolute; top: 8px; right: 8px; z-index: 3; background: rgba(212,226,25,0.92); color: #0f102a; border-radius: 8px; padding: 3px 8px; font-size: 11px; font-weight: 900; box-shadow: 0 0 14px rgba(212,226,25,0.35); }
 
         /* TRANSACTION ROW */
         .pf-tx-row { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; overflow: hidden; transition: border-color 0.2s; }
@@ -964,6 +1175,8 @@ export default function UserProfile() {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 767px) {
+          .pf-header { display: block; }
+          .pf-filters { justify-content: flex-start; margin-top: 18px; }
           .pf-hero { flex-direction: column; align-items: flex-start; }
           .pf-hero-stats { flex-direction: row; }
           .pf-tabs { width: 100%; }
@@ -974,6 +1187,24 @@ export default function UserProfile() {
 
       <div className="pf-page mt-4">
         <Container fluid="xl">
+
+          <div className="pf-header">
+            <div>
+              <h1 className="pf-title">TÀI KHOẢN <span>CỦA TÔI</span></h1>
+              <div className="pf-title-bar" />
+              <div className="pf-count">Hồ sơ, điểm thưởng, voucher và giao dịch</div>
+            </div>
+
+            <div className="pf-filters">
+              <div className="pf-tabs">
+                {TABS.map(({ key, label }) => (
+                  <button key={key} className={`pf-tab${activeTab === key ? " active" : ""}`} onClick={() => setActiveTab(key)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* HERO */}
           <div className="pf-hero">
@@ -1015,15 +1246,6 @@ export default function UserProfile() {
             </div>
           </div>
 
-          {/* TABS */}
-          <div className="pf-tabs">
-            {TABS.map(({ key, label }) => (
-              <button key={key} className={`pf-tab${activeTab === key ? " active" : ""}`} onClick={() => setActiveTab(key)}>
-                {label}
-              </button>
-            ))}
-          </div>
-
           {/* TAB PANELS */}
           {activeTab === "info"         && <TabInfo user={user} setUser={setUser} showToast={showToast} />}
           {activeTab === "transactions" && (
@@ -1033,6 +1255,7 @@ export default function UserProfile() {
             </div>
           )}
           {activeTab === "points"   && <TabPoints user={user} pointRows={pointRows} loading={loadingPts} />}
+          {activeTab === "favorites" && <TabFavorites favorites={favorites} loading={loadingFav} />}
           {activeTab === "vouchers" && (
             <div className="pf-card">
               <div className="pf-card-title"><span>🎫</span> KHO <span>VOUCHER</span></div>
