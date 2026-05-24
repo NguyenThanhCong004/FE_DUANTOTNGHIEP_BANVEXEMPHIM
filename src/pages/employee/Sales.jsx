@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
-import { getAccessToken, getStoredStaff, getActiveShift } from '../../utils/authStorage';
+import { getAccessToken, getStoredStaff } from '../../utils/authStorage';
 import { apiUrl } from '../../utils/apiClient';
 import { MOVIES, SHOWTIMES, CINEMAS, SEATS, COUNTER_ORDERS, SEAT_TYPES } from '../../constants/apiEndpoints';
 import { checkNoSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
@@ -136,7 +136,6 @@ const getFullSeatLabel = (seat, seats, seatTypes) => {
 const Sales = () => {
   const token = getAccessToken();
   const staff = getStoredStaff();
-  const activeShift = getActiveShift();
   const cinemaId = staff?.cinemaId;
   const searchInputRef = useRef(null);
 
@@ -163,10 +162,62 @@ const Sales = () => {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
 
-  const showToast = (message, type = 'info') => {
+  const showToast = useCallback((message, type = 'info') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 4000);
-  };
+  }, []);
+
+  const handleNewOrder = useCallback(async (keepContext = false) => {
+    setOrderSuccess(null);
+    setPaymentData(null);
+    setSelectedSeats([]);
+    setSelectedProducts([]);
+    
+    if (keepContext && selectedShowtime) {
+      // Làm mới danh sách ghế đã đặt cho suất chiếu hiện tại
+      try {
+        const resST = await fetch(apiUrl(SHOWTIMES.BY_ID(selectedShowtime.id)));
+        const jsonST = await resST.json();
+        if (jsonST?.data?.bookedSeatIds) setBookedSeatIds(jsonST.data.bookedSeatIds);
+      } catch (err) { console.error("Lỗi làm mới ghế:", err); }
+      
+      setActiveTab('seats');
+    } else {
+      setSelectedMovie(null);
+      setSelectedShowtime(null);
+      setShowtimes([]);
+      setSeats([]);
+      setSearchText("");
+      setActiveTab('showtimes');
+    }
+  }, [selectedShowtime]);
+
+  // Cảnh báo khi chuyển trang trong khi đang quét mã QR
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (orderSuccess?.paymentMethod === 'TRANSFER' && orderSuccess?.orderCode === 'PENDING') {
+        e.preventDefault();
+        e.returnValue = 'Đang chờ thanh toán chuyển khoản. Nếu rời trang, đơn hàng sẽ bị hủy. Bạn có chắc chắn muốn hủy?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [orderSuccess]);
+
+  const handleCancelPayment = useCallback(async () => {
+    if (orderSuccess?.orderCode && paymentData?.orderCode) {
+      try {
+        await fetch(apiUrl(COUNTER_ORDERS.CANCEL(paymentData.orderCode)), {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+      } catch (err) { console.error("Lỗi hủy đơn hàng:", err); }
+    }
+    handleNewOrder(); // Reset giao diện về trạng thái ban đầu
+    showToast("Đã hủy đơn hàng thành công. Vé và ghế đã được giải phóng.", "warning");
+  }, [handleNewOrder, orderSuccess?.orderCode, paymentData?.orderCode, showToast, token]);
 
   // Countdown timer cho thanh toán QR
   useEffect(() => {
@@ -184,34 +235,7 @@ const Sales = () => {
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [timeLeft, orderSuccess]);
-
-  // Cảnh báo khi chuyển trang trong khi đang quét mã QR
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (orderSuccess?.paymentMethod === 'TRANSFER' && orderSuccess?.orderCode === 'PENDING') {
-        e.preventDefault();
-        e.returnValue = 'Đang chờ thanh toán chuyển khoản. Nếu rời trang, đơn hàng sẽ bị hủy. Bạn có chắc chắn muốn hủy?';
-        return e.returnValue;
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [orderSuccess]);
-
-  const handleCancelPayment = async () => {
-    if (orderSuccess?.orderCode && paymentData?.orderCode) {
-      try {
-        await fetch(apiUrl(COUNTER_ORDERS.CANCEL(paymentData.orderCode)), {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-      } catch (err) { console.error("Lỗi hủy đơn hàng:", err); }
-    }
-    handleNewOrder(); // Reset giao diện về trạng thái ban đầu
-    showToast("Đã hủy đơn hàng thành công. Vé và ghế đã được giải phóng.", "warning");
-  };
+  }, [timeLeft, orderSuccess, handleCancelPayment]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -400,7 +424,7 @@ const Sales = () => {
     setSelectedProducts(selectedProducts.filter(p => p.productId !== productId));
   };
 
-  const generateTicketPreview = async (order, movie, showtime, seats, products) => {
+  const generateTicketPreview = useCallback(async (order, movie, showtime, seats, products) => {
     try {
       const now = new Date().toLocaleString('vi-VN');
       const htmlContent = `
@@ -477,14 +501,18 @@ const Sales = () => {
         </div>
       `;
       const base64Html = btoa(unescape(encodeURIComponent(htmlContent)));
-      await fetch(apiUrl("/api/v1/counter-orders/export-pdf"), {
+      const exportRes = await fetch(apiUrl("/api/v1/counter-orders/export-pdf"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ pdfBase64: base64Html, fileName: `Ticket_${order.orderCode}.html` })
       });
+      if (!exportRes.ok) throw new Error(`Export ticket failed: ${exportRes.status}`);
       showToast("Đã in vé thành công.", "success");
-    } catch (err) { console.error("Lỗi tạo vé preview:", err); }
-  };
+    } catch (err) {
+      console.error("Lỗi tạo vé preview:", err);
+      showToast("In vé thất bại.", "error");
+    }
+  }, [seatTypes, showToast, staff?.cinemaName, staff?.fullName, token]);
 
   const handleCheckout = () => {
     if (!selectedShowtime && selectedSeats.length === 0 && selectedProducts.length === 0) return;
@@ -582,60 +610,7 @@ const Sales = () => {
       }, 2000); // Kiểm tra mỗi 2 giây
     }
     return () => clearInterval(pollInterval);
-  }, [orderSuccess, paymentData, token, selectedMovie, selectedShowtime, selectedSeats, selectedProducts]);
-
-  const handleConfirmTransfer = async () => {
-    if (orderSuccess && paymentData?.orderCode) {
-      try {
-        setIsProcessing(true);
-        const res = await fetch(apiUrl(COUNTER_ORDERS.CONFIRM_PAID(paymentData.orderCode)), {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (res.ok) {
-          generateTicketPreview(
-            { ...orderSuccess, orderCode: paymentData.orderCode }, 
-            selectedMovie, selectedShowtime, selectedSeats, selectedProducts
-          );
-          showToast("Đã xác nhận thanh toán chuyển khoản.", "success");
-          handleNewOrder();
-        } else {
-          const json = await res.json();
-          showToast(json.message || "Xác nhận thất bại.", "error");
-        }
-      } catch (err) {
-        console.error("Lỗi xác nhận thanh toán:", err);
-        showToast("Đã có lỗi xảy ra khi xác nhận thanh toán.", "error");
-      } finally {
-        setIsProcessing(false);
-      }
-    }
-  };
-
-  const handleNewOrder = async (keepContext = false) => {
-    setOrderSuccess(null);
-    setPaymentData(null);
-    setSelectedSeats([]);
-    setSelectedProducts([]);
-    
-    if (keepContext && selectedShowtime) {
-      // Làm mới danh sách ghế đã đặt cho suất chiếu hiện tại
-      try {
-        const resST = await fetch(apiUrl(SHOWTIMES.BY_ID(selectedShowtime.id)));
-        const jsonST = await resST.json();
-        if (jsonST?.data?.bookedSeatIds) setBookedSeatIds(jsonST.data.bookedSeatIds);
-      } catch (err) { console.error("Lỗi làm mới ghế:", err); }
-      
-      setActiveTab('seats');
-    } else {
-      setSelectedMovie(null);
-      setSelectedShowtime(null);
-      setShowtimes([]);
-      setSeats([]);
-      setSearchText("");
-      setActiveTab('showtimes');
-    }
-  };
+  }, [orderSuccess, paymentData, token, selectedMovie, selectedShowtime, selectedSeats, selectedProducts, generateTicketPreview, showToast]);
 
   const totalPrice = useMemo(() => {
     let seatTotal = 0;
@@ -658,7 +633,6 @@ const Sales = () => {
     const gapSize = 4; 
     const fontSize = 8; 
     const labelFontSize = 9;
-    const rowLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
     // Helper kiểm tra ghế đôi đồng bộ với buildSeatGrid
     const isDoubleSeat = (typeName) => {

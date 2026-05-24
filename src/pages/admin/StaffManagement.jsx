@@ -12,6 +12,14 @@ import { getStoredStaff } from '../../utils/authStorage';
 
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
 
+import { codeToStaffStatus, isActiveStatus } from '../../utils/statusFormat';
+
+import { useAdminToast } from '../../components/admin/AdminToast';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+
+import { formatDate } from '../../utils/formatters';
+import AdminPagination from '../../components/admin/AdminPagination';
+
 
 
 const StaffManagement = () => {
@@ -20,7 +28,7 @@ const StaffManagement = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
 
 
@@ -48,7 +56,7 @@ const StaffManagement = () => {
 
   const [error, setError] = useState(null);
 
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const { showToast, ToastComponent } = useAdminToast();
 
   const [showDetailModal, setShowDetailModal] = useState(false);
 
@@ -64,27 +72,10 @@ const StaffManagement = () => {
 
 
 
-  const showToast = (message, type = "success", duration = 3000) => {
-
-    setToast({ show: true, message, type });
-
-    setTimeout(() => setToast({ show: false, message: "", type: "success" }), duration);
-
-  };
 
 
 
-  const formatBirthdayDetail = (d) => {
-
-    if (!d) return '';
-
-    const dt = new Date(d);
-
-    if (Number.isNaN(dt.getTime())) return String(d);
-
-    return `${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}/${dt.getFullYear()}`;
-
-  };
+  const formatBirthdayDetail = (d) => formatDate(d, { day: '2-digit', month: '2-digit', year: 'numeric', fallback: '' });
 
 
 
@@ -186,7 +177,7 @@ const StaffManagement = () => {
 
     const staff = staffToToggle;
 
-    const isLocking = staff.status === 'Hoạt động';
+    const isLocking = isActiveStatus(staff.status);
 
     const actionText = isLocking ? 'khóa' : 'mở khóa';
 
@@ -233,10 +224,6 @@ const StaffManagement = () => {
         cinemaId: s.cinemaId
 
       };
-
-
-
-      console.log("📡 Gửi yêu cầu cập nhật trạng thái:", updatedData);
 
 
 
@@ -288,7 +275,7 @@ const StaffManagement = () => {
 
         const json = await res.json().catch(() => null);
 
-        setToggleError(json?.message || `Thao tác ${actionText} thất bại. Vui lòng kiểm tra lại dữ liệu.`);
+        setToggleError(apiMessage(json, `Thao tác ${actionText} thất bại. Vui lòng kiểm tra lại dữ liệu.`));
 
       }
 
@@ -296,7 +283,7 @@ const StaffManagement = () => {
 
       console.error("❌ Lỗi Toggle Status:", err);
 
-      setToggleError("Không thể kết nối tới server");
+      setToggleError(MESSAGES.networkError);
 
     }
 
@@ -382,7 +369,7 @@ const StaffManagement = () => {
 
     if (location.state?.message) {
 
-      showToast(location.state.message, location.state.type || "success", 4000);
+      showToast(location.state.message, location.state.type || "success");
 
       window.history.replaceState({}, document.title);
 
@@ -408,7 +395,7 @@ const StaffManagement = () => {
 
       role: s.role ?? "",
 
-      status: s.status === 0 ? "Khóa" : "Hoạt động",
+      status: codeToStaffStatus(s.status),
 
       image: s.avatar ?? "https://via.placeholder.com/40",
 
@@ -486,7 +473,7 @@ const StaffManagement = () => {
 
                 value={searchTerm}
 
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
 
                 aria-label="Tìm nhân viên"
 
@@ -546,7 +533,7 @@ const StaffManagement = () => {
 
                 <tr>
 
-                  <th>ID</th>
+                  <th style={{ width: 56 }}>STT</th>
 
                   <th>Nhân viên</th>
 
@@ -620,11 +607,11 @@ const StaffManagement = () => {
 
                 ) : (
 
-                  currentItems.map((staff) => (
+                  currentItems.map((staff, index) => (
 
                     <tr key={staff.id}>
 
-                      <td className="fw-bold">#{staff.id}</td>
+                      <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
 
                       <td>
 
@@ -678,7 +665,7 @@ const StaffManagement = () => {
 
                           className={
 
-                            staff.status === 'Hoạt động'
+                            isActiveStatus(staff.status)
 
                               ? 'admin-badge admin-badge-success'
 
@@ -732,15 +719,15 @@ const StaffManagement = () => {
 
                             type="button"
 
-                            className={`admin-table-action-btn ${staff.status === 'Hoạt động' ? 'admin-table-action-btn--danger' : 'admin-table-action-btn--success'}`}
+                            className={`admin-table-action-btn ${isActiveStatus(staff.status) ? 'admin-table-action-btn--danger' : 'admin-table-action-btn--success'}`}
 
-                            title={staff.status === 'Hoạt động' ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                            title={isActiveStatus(staff.status) ? "Khóa tài khoản" : "Mở khóa tài khoản"}
 
                             onClick={() => openToggleModal(staff)}
 
                           >
 
-                            <i className={`bi ${staff.status === 'Hoạt động' ? 'bi-lock-fill' : 'bi-unlock-fill'}`}></i>
+                            <i className={`bi ${isActiveStatus(staff.status) ? 'bi-lock-fill' : 'bi-unlock-fill'}`}></i>
 
                           </button>
 
@@ -766,101 +753,18 @@ const StaffManagement = () => {
 
 
 
-      {totalPages > 1 && (
-
-        <div className="admin-pagination-wrap">
-
-          <div className="admin-pagination">
-
-            <button
-
-              type="button"
-
-              className="admin-pagination-btn"
-
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-
-              disabled={currentPage === 1}
-
-              aria-label="Trang trước"
-
-            >
-
-              <i className="bi bi-chevron-left"></i>
-
-            </button>
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredStaff.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="nhân viên"
+      />
 
 
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-
-              <button
-
-                key={page}
-
-                type="button"
-
-                className={`admin-pagination-btn ${currentPage === page ? 'active' : ''}`}
-
-                onClick={() => setCurrentPage(page)}
-
-              >
-
-                {page}
-
-              </button>
-
-            ))}
-
-
-
-            <button
-
-              type="button"
-
-              className="admin-pagination-btn"
-
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-
-              disabled={currentPage === totalPages}
-
-              aria-label="Trang sau"
-
-            >
-
-              <i className="bi bi-chevron-right"></i>
-
-            </button>
-
-          </div>
-
-        </div>
-
-      )}
-
-
-
-      {toast.show && (
-
-        <div
-
-          className={`position-fixed bottom-0 start-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-
-          style={{ minWidth: "300px" }}
-
-        >
-
-          <i
-
-            className={`bi bi-${toast.type === "success" ? "check-circle-fill" : "exclamation-triangle-fill"} fs-5`}
-
-          />
-
-          <div className="fw-bold">{toast.message}</div>
-
-        </div>
-
-      )}
+      <ToastComponent />
 
 
 
@@ -876,7 +780,7 @@ const StaffManagement = () => {
 
                 <i className="bi bi-exclamation-triangle me-2"></i>
 
-                {staffToToggle.status === "Hoạt động" ? "Xác nhận khóa tài khoản" : "Xác nhận mở khóa tài khoản"}
+                {isActiveStatus(staffToToggle.status) ? "Xác nhận khóa tài khoản" : "Xác nhận mở khóa tài khoản"}
 
               </h3>
 
@@ -892,7 +796,7 @@ const StaffManagement = () => {
 
               <p className="mb-3">
 
-                Bạn có chắc chắn muốn {staffToToggle.status === "Hoạt động" ? "khóa" : "mở khóa"} tài khoản này?
+                Bạn có chắc chắn muốn {isActiveStatus(staffToToggle.status) ? "khóa" : "mở khóa"} tài khoản này?
 
               </p>
 
@@ -902,7 +806,7 @@ const StaffManagement = () => {
 
               </div>
 
-              {staffToToggle.status === "Hoạt động" && (
+              {isActiveStatus(staffToToggle.status) && (
 
                 <p className="text-muted small mb-0">
 
@@ -940,13 +844,13 @@ const StaffManagement = () => {
 
                 type="button"
 
-                className={`admin-btn ${staffToToggle.status === "Hoạt động" ? "admin-btn-danger" : "admin-btn-primary"}`}
+                className={`admin-btn ${isActiveStatus(staffToToggle.status) ? "admin-btn-danger" : "admin-btn-primary"}`}
 
                 onClick={handleToggleStatus}
 
               >
 
-                {staffToToggle.status === "Hoạt động" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                {isActiveStatus(staffToToggle.status) ? "Khóa tài khoản" : "Mở khóa tài khoản"}
 
               </button>
 
@@ -1006,9 +910,9 @@ const StaffManagement = () => {
 
                 <p className="text-muted small mb-2">Ngày sinh: {formatBirthdayDetail(detailStaff.birthday) || '—'}</p>
 
-                <Badge bg={detailStaff.status === 0 ? 'danger' : 'success'} className="rounded-pill px-3 py-2">
+                <Badge bg={isActiveStatus(detailStaff.status) ? 'success' : 'danger'} className="rounded-pill px-3 py-2">
 
-                  {detailStaff.status === 0 ? 'Khóa' : 'Hoạt động'}
+                  {codeToStaffStatus(detailStaff.status)}
 
                 </Badge>
 

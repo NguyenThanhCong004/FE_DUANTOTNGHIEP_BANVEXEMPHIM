@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getAccessToken, getStoredStaff, getActiveShift, setActiveShift } from "../../utils/authStorage";
-import { apiUrl } from "../../utils/apiClient";
+import { getAuthSession, getActiveShift, setActiveShift } from "../../utils/authStorage";
+import { apiJson } from "../../utils/apiClient";
 import { SHIFTS } from "../../constants/apiEndpoints";
 
 function normalizeStaffRole(staff) {
@@ -18,8 +18,8 @@ function normalizeStaffRole(staff) {
  * STAFF không trong ca làm việc chỉ được xem trang ca-lam.
  */
 export default function StaffFloorGuard({ children }) {
-  const token = getAccessToken();
-  const staff = getStoredStaff();
+  const authSession = getAuthSession();
+  const staff = authSession.staff;
   const role = normalizeStaffRole(staff);
   const location = useLocation();
   const [loading, setLoading] = useState(true);
@@ -27,19 +27,16 @@ export default function StaffFloorGuard({ children }) {
 
   useEffect(() => {
     const checkActiveShift = async () => {
-      if (!token || role !== "STAFF") {
+      if (!authSession.isAuthenticated || role !== "STAFF") {
         setLoading(false);
         return;
       }
 
       try {
-        const res = await fetch(apiUrl(SHIFTS.ACTIVE), {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        const json = await res.json();
-        if (json?.data) {
-          setActiveShift(json.data);
-          setCurrentActiveShift(json.data);
+        const result = await apiJson(SHIFTS.ACTIVE);
+        if (result.ok && result.data) {
+          setActiveShift(result.data);
+          setCurrentActiveShift(result.data);
         } else {
           setActiveShift(null);
           setCurrentActiveShift(null);
@@ -52,10 +49,10 @@ export default function StaffFloorGuard({ children }) {
     };
 
     checkActiveShift();
-  }, [token, role, location.pathname]);
+  }, [authSession.isAuthenticated, role, location.pathname]);
 
-  if (!token || !staff || !role) {
-    return <Navigate to="/login" replace />;
+  if (!authSession.isAuthenticated || !staff || !role) {
+    return <Navigate to="/staff/login" replace />;
   }
 
   if (role === "ADMIN") {

@@ -3,13 +3,15 @@ import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch } from "../../utils/apiClient";
 import { ORDERS_ONLINE } from "../../constants/apiEndpoints";
 import { Spinner, Badge } from "react-bootstrap";
+import { formatDateTime, formatVnd } from "../../utils/formatters";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const GlobalInvoiceManagement = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -103,7 +105,7 @@ const GlobalInvoiceManagement = () => {
     }
   };
 
-  const formatMoney = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+  const formatMoney = (val) => formatVnd(val, { compact: true });
 
   const filteredOrders = orders.filter(o => 
     (o.orderCode || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -158,6 +160,7 @@ const GlobalInvoiceManagement = () => {
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 56 }}>STT</th>
                     <th>Mã đơn</th>
                     <th>Thời gian</th>
                     <th>Chi nhánh</th>
@@ -168,11 +171,12 @@ const GlobalInvoiceManagement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentItems.map((order) => (
+                  {currentItems.map((order, index) => (
                     <tr key={order.id}>
+                      <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                       <td className="fw-bold text-primary">{order.orderCode}</td>
                       <td className="small">
-                        {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : 'N/A'}
+                        {formatDateTime(order.createdAt, { fallback: "N/A" })}
                       </td>
                       <td>
                         <span className="badge bg-light text-dark border">{order.cinemaName}</span>
@@ -204,25 +208,14 @@ const GlobalInvoiceManagement = () => {
               </table>
             </div>
 
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <span className="text-muted small">
-                Hiển thị {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, filteredOrders.length)} của {filteredOrders.length} hóa đơn
-              </span>
-              <nav>
-                <ul className="admin-pagination">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <li key={i + 1}>
-                      <button 
-                        className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                        onClick={() => setCurrentPage(i + 1)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredOrders.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              itemLabel="hóa đơn"
+            />
           </>
         )}
       </div>
@@ -243,7 +236,7 @@ const GlobalInvoiceManagement = () => {
               <div className="text-center mb-4">
                 <h2 className="fw-bold mb-1" style={{ color: '#6366f1' }}>CINEMAX</h2>
                 <h4 className="fw-bold text-dark">HÓA ĐƠN THANH TOÁN</h4>
-                <p className="text-muted small">Mã hóa đơn: {selectedOrder.orderCode} | Ngày: {new Date(selectedOrder.createdAt).toLocaleString('vi-VN')}</p>
+                <p className="text-muted small">Mã hóa đơn: {selectedOrder.orderCode} | Ngày: {formatDateTime(selectedOrder.createdAt, { fallback: "N/A" })}</p>
                 <hr style={{ borderTop: '2px dashed #eee' }} />
               </div>
               <div className="row g-4 mb-4">
@@ -251,7 +244,7 @@ const GlobalInvoiceManagement = () => {
                   <div className="p-3 bg-light rounded-4">
                     <h6 className="text-uppercase small text-muted fw-bold mb-3">Thông tin giao dịch</h6>
                     <p className="mb-1"><strong>Mã đơn:</strong> {selectedOrder.orderCode}</p>
-                    <p className="mb-1"><strong>Thời gian:</strong> {new Date(selectedOrder.createdAt).toLocaleString('vi-VN')}</p>
+                    <p className="mb-1"><strong>Thời gian:</strong> {formatDateTime(selectedOrder.createdAt, { fallback: "N/A" })}</p>
                     <p className="mb-1"><strong>Rạp:</strong> {selectedOrder.cinemaName}</p>
                     <p className="mb-0"><strong>Nhân viên:</strong> {selectedOrder.staffName}</p>
                   </div>
@@ -283,7 +276,7 @@ const GlobalInvoiceManagement = () => {
                         {selectedOrder.tickets.map((t, i) => (
                           <tr key={i}>
                             <td className="fw-medium">{t.movieTitle}</td>
-                            <td className="small">{t.showtime ? new Date(t.showtime).toLocaleString('vi-VN') : 'N/A'}</td>
+                            <td className="small">{formatDateTime(t.showtime, { fallback: "N/A" })}</td>
                             <td><span className="badge bg-secondary">{t.seatNumber}</span></td>
                             <td className="text-end">{formatMoney(t.price)}</td>
                           </tr>

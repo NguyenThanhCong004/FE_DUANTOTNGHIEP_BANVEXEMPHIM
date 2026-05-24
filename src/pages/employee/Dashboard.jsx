@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Banknote, Ticket, Utensils, Clock, TrendingUp, Calendar as CalendarIcon, ChevronRight, X, User as UserIcon, Search, CreditCard, Banknote as CashIcon, Printer, CheckCircle2 } from 'lucide-react';
 import { getAccessToken, getStoredStaff } from '../../utils/authStorage';
 import { apiUrl } from '../../utils/apiClient';
@@ -17,7 +17,6 @@ const EmployeeDashboard = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [productBreakdown, setProductBreakdown] = useState(null);
   const [revenueBreakdown, setRevenueBreakdown] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [isReprinting, setIsReprinting] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   
@@ -112,11 +111,12 @@ const EmployeeDashboard = () => {
         </div>
       `;
       const base64Html = btoa(unescape(encodeURIComponent(htmlContent)));
-      await fetch(apiUrl("/api/v1/counter-orders/export-pdf"), {
+      const exportRes = await fetch(apiUrl("/api/v1/counter-orders/export-pdf"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ pdfBase64: base64Html, fileName: `Reprint_Ticket_${order.orderCode}.html` })
       });
+      if (!exportRes.ok) throw new Error(`Reprint ticket failed: ${exportRes.status}`);
       showToast("Đã in lại vé thành công. Vui lòng kiểm tra thư mục preview.", "success");
     } catch (err) { 
       console.error("Lỗi in lại vé:", err); 
@@ -126,7 +126,7 @@ const EmployeeDashboard = () => {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const today = new Date().toISOString().split('T')[0]; // Lấy ngày YYYY-MM-DD
       const headers = { 'Authorization': `Bearer ${token}` };
@@ -141,16 +141,14 @@ const EmployeeDashboard = () => {
       if (jsonOrders?.data) setRecentOrders(jsonOrders.data);
     } catch (err) {
       console.error("Lỗi lấy dữ liệu dashboard:", err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, [fetchData]);
 
   const fetchOrderDetail = async (orderCode) => {
     if (!orderCode) return;
@@ -208,10 +206,10 @@ const EmployeeDashboard = () => {
     );
   }, [recentOrders, searchQuery]);
 
-  const StatCard = ({ title, value, icon: Icon, color, subValue, onClick, clickable }) => (
+  const StatCard = ({ title, value, icon, color, subValue, onClick, clickable }) => (
     <div className={`stat-card ${clickable ? 'clickable' : ''}`} onClick={onClick}>
       <div className={`icon-box ${color}`}>
-        <Icon size={24} />
+        {React.createElement(icon, { size: 24 })}
       </div>
       <div className="stat-info">
         <div className="stat-label">{title}</div>

@@ -10,6 +10,10 @@ import AdminPanelPage from "../../components/admin/AdminPanelPage";
 
 import { useNavigate } from "react-router-dom";
 
+import { isActiveStatus } from "../../utils/statusFormat";
+import { formatVnd } from "../../utils/formatters";
+import AdminPagination from "../../components/admin/AdminPagination";
+
 
 
 const UserManagement = () => {
@@ -24,7 +28,7 @@ const UserManagement = () => {
 
   const [showModal, setShowModal] = useState(false);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
 
 
@@ -84,21 +88,23 @@ const UserManagement = () => {
 
     const q = searchTerm.trim().toLowerCase();
 
-    if (!q) return allUsers;
+    const filtered = q
+      ? allUsers.filter((user) => {
 
-    return allUsers.filter((user) => {
+          const fullname = String(user.fullname ?? "").toLowerCase();
 
-      const fullname = String(user.fullname ?? "").toLowerCase();
+          const username = String(user.username ?? "").toLowerCase();
 
-      const username = String(user.username ?? "").toLowerCase();
+          const email = String(user.email ?? "").toLowerCase();
 
-      const email = String(user.email ?? "").toLowerCase();
+          const phone = String(user.phone ?? "");
 
-      const phone = String(user.phone ?? "");
+          return fullname.includes(q) || username.includes(q) || email.includes(q) || phone.includes(q);
 
-      return fullname.includes(q) || username.includes(q) || email.includes(q) || phone.includes(q);
+        })
+      : allUsers;
 
-    });
+    return [...filtered].sort((a, b) => (Number(b.userId ?? b.id) || 0) - (Number(a.userId ?? a.id) || 0));
 
   }, [allUsers, searchTerm]);
 
@@ -188,6 +194,8 @@ const UserManagement = () => {
 
                 <tr>
 
+                  <th style={{ width: 56 }}>STT</th>
+
                   <th>Khách hàng</th>
 
                   <th>Hạng</th>
@@ -206,21 +214,23 @@ const UserManagement = () => {
 
                 {loading ? (
 
-                  <tr><td colSpan={5} className="text-center py-5">Đang tải dữ liệu...</td></tr>
+                  <tr><td colSpan={6} className="text-center py-5">Đang tải dữ liệu...</td></tr>
 
                 ) : currentItems.length === 0 ? (
 
-                  <tr><td colSpan={5} className="text-center py-5">Không có dữ liệu người dùng.</td></tr>
+                  <tr><td colSpan={6} className="text-center py-5">Không có dữ liệu người dùng.</td></tr>
 
                 ) : (
 
-                  currentItems.map((user) => {
+                  currentItems.map((user, index) => {
 
-                    const isActive = user.status === 1 || user.status === "Active";
+                    const isActive = isActiveStatus(user.status);
 
                     return (
 
                       <tr key={user.userId ?? user.id}>
+
+                        <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
 
                         <td>
 
@@ -330,35 +340,14 @@ const UserManagement = () => {
 
 
 
-          {totalPages > 1 && (
-
-            <div className="admin-pagination-wrap mt-4">
-
-              <div className="admin-pagination">
-
-                {Array.from({ length: totalPages }, (_, i) => (
-
-                  <button
-
-                    key={i + 1}
-
-                    className={`admin-pagination-btn ${currentPage === i + 1 ? "active" : ""}`}
-
-                    onClick={() => setCurrentPage(i + 1)}
-
-                  >
-
-                    {i + 1}
-
-                  </button>
-
-                ))}
-
-              </div>
-
-            </div>
-
-          )}
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredUsers.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="khách hàng"
+          />
 
         </div>
 
@@ -404,9 +393,9 @@ const UserManagement = () => {
 
                     <div className="position-absolute bottom-0 end-0">
 
-                      <span className={`admin-badge ${selectedItem.status === 1 || selectedItem.status === "Active" ? "admin-badge-success" : "admin-badge-danger"} border-2 border-white`}>
+                      <span className={`admin-badge ${isActiveStatus(selectedItem.status) ? "admin-badge-success" : "admin-badge-danger"} border-2 border-white`}>
 
-                        {selectedItem.status === 1 || selectedItem.status === "Active" ? "Active" : "Locked"}
+                        {isActiveStatus(selectedItem.status) ? "Hoạt động" : "Đã khóa"}
 
                       </span>
 
@@ -498,7 +487,7 @@ const UserManagement = () => {
 
                       <div className="h4 mb-0 fw-bold text-success">
 
-                        {new Intl.NumberFormat('vi-VN').format(selectedItem.totalSpending || 0)} ₫
+                        {formatVnd(selectedItem.totalSpending)}
 
                       </div>
 

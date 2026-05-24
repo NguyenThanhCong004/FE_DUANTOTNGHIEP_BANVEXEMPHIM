@@ -32,7 +32,6 @@ const Register = lazy(() => import('../pages/auth/Register'));
 const ForgetPassword = lazy(() => import('../pages/auth/ForgetPassword'));
 
 // --- Lazy Loaded User Pages ---
-const TransactionHistory = lazy(() => import('../pages/user/TransactionHistory'));
 const Profile = lazy(() => import('../pages/user/Profile'));
 
 // --- Lazy Loaded Super Admin Pages ---
@@ -93,7 +92,7 @@ const AppRoutes = () => {
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/staff/login" element={<Navigate to="/login" replace />} />
+        <Route path="/staff/login" element={<Login mode="staff" />} />
         
         {/* Employee Floor Route */}
         <Route
@@ -121,11 +120,12 @@ const AppRoutes = () => {
         <Route path="/payment/cancel" element={<PaymentCancel />} />
         <Route path="/movies" element={<Movies />} />
         <Route path="/voucher" element={<Vouchers />} />
-        <Route path="/movieFavorite" element={<MovieFavorite />} />
+        <Route path="/favorites" element={<MovieFavorite />} />
+        <Route path="/movieFavorite" element={<Navigate to="/favorites" replace />} />
         <Route path="/forgetPassword" element={<ForgetPassword />} />
         <Route path="/foodorder" element={<Foodorder />} />
-        <Route path="/transactionHistory" element={<TransactionHistory />} />
-        <Route path="/transactions" element={<TransactionHistory />} />
+        <Route path="/transactionHistory" element={<Navigate to="/profile?tab=transactions" replace />} />
+        <Route path="/transactions" element={<Navigate to="/profile?tab=transactions" replace />} />
         <Route path="/events" element={<Events />} />
         <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/profile" element={<Profile />} />

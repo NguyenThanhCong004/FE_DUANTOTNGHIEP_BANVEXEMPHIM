@@ -17,6 +17,7 @@ import { apiJson } from '../../utils/apiClient';
 import { SUPER_ADMIN_DASHBOARD } from '../../constants/apiEndpoints';
 import { getAccessToken, clearAuthSession } from '../../utils/authStorage';
 import { decodeJwtPayload } from '../../utils/jwt';
+import { formatNumber, formatVnd } from '../../utils/formatters';
 
 ChartJS.register(
   CategoryScale,
@@ -40,13 +41,13 @@ const SuperAdminDashboard = () => {
 
   // Trạng thái tháng/năm đang được chọn để xem tỉ trọng
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear] = useState(new Date().getFullYear());
 
   // 1. Kiểm tra Token & Role
   useEffect(() => {
     const token = getAccessToken();
     if (!token) {
-      navigate('/login', { state: { message: 'Vui lòng đăng nhập.', type: 'warning' } });
+      navigate('/staff/login', { state: { message: 'Vui lòng đăng nhập.', type: 'warning' } });
       return;
     }
 
@@ -74,7 +75,7 @@ const SuperAdminDashboard = () => {
 
         if (summaryRes.status === 401) {
            clearAuthSession();
-           navigate('/login');
+           navigate('/staff/login');
            return;
         }
 
@@ -86,7 +87,7 @@ const SuperAdminDashboard = () => {
         setSummary(summaryRes.data);
         setRevenueData(revenueRes.data || []);
 
-      } catch (error) {
+      } catch {
         if (mounted) setErrorMsg("Lỗi kết nối máy chủ.");
       } finally {
         if (mounted) setLoading(false);
@@ -107,8 +108,8 @@ const SuperAdminDashboard = () => {
         if (mounted && res.ok) {
           setCinemaRankings(res.data || []);
         }
-      } catch (error) {
-        console.error("Rankings error:", error);
+      } catch (err) {
+        console.error("Rankings error:", err);
       } finally {
         if (mounted) setRankingLoading(false);
       }
@@ -151,7 +152,7 @@ const SuperAdminDashboard = () => {
     ]
   };
 
-  const formatVN = (v) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v || 0);
+  const formatVN = (v) => formatVnd(v, { compact: true });
 
   return (
     <AdminPanelPage
@@ -163,10 +164,10 @@ const SuperAdminDashboard = () => {
         <>
           <div className="admin-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
             <StatCard title="Doanh thu" value={formatVN(summary?.totalRevenue)} color="#6366f1" icon="bi-currency-dollar" />
-            <StatCard title="Nhân viên" value={summary?.totalStaff?.toLocaleString()} color="#ec4899" icon="bi-person-badge" />
-            <StatCard title="Khách hàng" value={summary?.totalUsers?.toLocaleString()} color="#3b82f6" icon="bi-people" />
+            <StatCard title="Nhân viên" value={formatNumber(summary?.totalStaff)} color="#ec4899" icon="bi-person-badge" />
+            <StatCard title="Khách hàng" value={formatNumber(summary?.totalUsers)} color="#3b82f6" icon="bi-people" />
             <StatCard title="Rạp" value={summary?.totalCinemas} color="#f59e0b" icon="bi-building" />
-            <StatCard title="Tổng phim" value={summary?.totalMovies?.toLocaleString()} color="#10b981" icon="bi-film" />
+            <StatCard title="Tổng phim" value={formatNumber(summary?.totalMovies)} color="#10b981" icon="bi-film" />
           </div>
 
           <div className="row mt-4">

@@ -4,15 +4,9 @@ import { Form, Button, Row, Col, Card, Alert } from "react-bootstrap";
 import { apiFetch } from "../../utils/apiClient";
 import { STAFF, CINEMAS } from "../../constants/apiEndpoints";
 import { useAdminToast } from "../../components/admin/AdminToast";
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../utils/mediaFiles";
+import { codeToStaffStatus, staffStatusToCode } from "../../utils/statusFormat";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 
 const initialForm = {
   name: "",
@@ -71,14 +65,14 @@ const CreateSystemStaff = () => {
         const found = json?.data ?? json;
         if (!mounted) return;
         if (!res.ok || !found) {
-          setErrors({ form: json?.message || "Không tải được dữ liệu nhân sự" });
+          setErrors({ form: apiMessage(json, "Không tải được dữ liệu nhân sự") });
           setLoading(false);
           return;
         }
         const birth = found.birthday
           ? (typeof found.birthday === "string" ? found.birthday.slice(0, 10) : "")
           : "";
-        const statusLabel = found.status === 0 ? "Khóa" : "Hoạt động";
+        const statusLabel = codeToStaffStatus(found.status);
         const next = {
           name: found.fullname ?? "",
           username: found.username ?? "",
@@ -99,13 +93,13 @@ const CreateSystemStaff = () => {
           email: String(next.email || "").trim(),
           phone: String(next.phone || "").trim(),
           birthday: next.birthDate || "",
-          status: next.status === "Hoạt động" ? 1 : 0,
+          status: staffStatusToCode(next.status),
           avatar: next.imagePreview || "",
           cinemaId: next.cinemaId || null,
           role: next.role === "ADMIN" ? "ADMIN" : "STAFF",
         };
       } catch {
-        if (mounted) setErrors({ form: "Lỗi tải dữ liệu nhân sự" });
+        if (mounted) setErrors({ form: MESSAGES.loadFailed });
       } finally {
         if (mounted) setLoading(false);
       }
@@ -214,7 +208,7 @@ const CreateSystemStaff = () => {
         email: staff.email.trim(),
         phone: staff.phone.trim(),
         birthday: staff.birthDate,
-        status: staff.status === "Hoạt động" ? 1 : 0,
+        status: staffStatusToCode(staff.status),
         avatar: avatarUrl,
         cinemaId: staff.cinemaId ? parseInt(staff.cinemaId) : null,
         role: staff.role === "ADMIN" ? "ADMIN" : "STAFF",
@@ -234,7 +228,7 @@ const CreateSystemStaff = () => {
           data.role === original.role;
         if (isUnchanged) {
           setSubmitting(false);
-          showToast("Không có thay đổi để cập nhật.", "warning");
+          showToast(MESSAGES.noChanges, "warning");
           return;
         }
       }
@@ -246,7 +240,7 @@ const CreateSystemStaff = () => {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        const message = json?.message || "Lưu nhân sự thất bại";
+        const message = apiMessage(json, "Lưu nhân sự thất bại");
         if (message.includes("Email đã tồn tại")) {
           setErrors({ email: message });
         } else if (message.includes("Username đã tồn tại") || message.includes("Tên đăng nhập đã tồn tại")) {
@@ -261,13 +255,13 @@ const CreateSystemStaff = () => {
       navigate(backPath, {
         state: {
           message: editId
-            ? "Cập nhật nhân sự thành công."
-            : "Đã tạo nhân sự. Mật khẩu tạm đã được gửi tới email đã nhập.",
+            ? "Cập nhật nhân sự thành công"
+            : "Đã tạo nhân sự. Mật khẩu tạm đã được gửi tới email đã nhập",
           type: "success",
         },
       });
     } catch {
-      setErrors({ form: "Không thể kết nối tới server" });
+      setErrors({ form: MESSAGES.networkError });
     } finally {
       setSubmitting(false);
     }
@@ -377,12 +371,12 @@ const CreateSystemStaff = () => {
                   type="file"
                   id="sysStaffImageUpload"
                   className="d-none"
-                  accept="image/*"
+                  accept={IMAGE_FILE_ACCEPT}
                   onChange={handleImageChange}
                   disabled={submitting}
                 />
                 <p className="text-muted small text-center px-4" style={{ marginBottom: 0 }}>
-                  Nên chọn ảnh vuông, dung lượng dưới 2MB.
+                  Nên chọn ảnh vuông để hiển thị đẹp hơn.
                 </p>
                 {errors.avatar ? (
                   <div className="text-danger small fw-bold mt-2 text-center">{errors.avatar}</div>

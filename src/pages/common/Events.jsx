@@ -2,24 +2,69 @@ import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../../components/layout/Layout";
 import { Link } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
+import { ArrowRight, CalendarDays, Newspaper, Search } from "lucide-react";
 import EventCard from "../../components/common/EventCard";
 import EmptyState from "../../components/common/EmptyState";
 import { apiFetch } from "../../utils/apiClient";
 import { NEWS } from "../../constants/apiEndpoints";
 
+function toDate(value) {
+  if (!value) return null;
+  if (Array.isArray(value) && value.length >= 3) {
+    const d = new Date(value[0], value[1] - 1, value[2], value[3] ?? 0, value[4] ?? 0, value[5] ?? 0);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatDate(value) {
+  const d = toDate(value);
+  if (!d) return null;
+  return d.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function plainText(html) {
+  const raw = String(html || "");
+  if (!raw.trim()) return "";
+
+  if (typeof DOMParser !== "undefined") {
+    const doc = new DOMParser().parseFromString(raw, "text/html");
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
+  return raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function makeExcerpt(content, max = 150) {
+  const text = plainText(content);
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).trim()}...`;
+}
+
 function mapNewsToEvent(n) {
   const id = n.id ?? n.newsId;
   const created = n.createdAt;
-  let startDate = created;
-  if (Array.isArray(created) && created.length >= 3) {
-    startDate = new Date(created[0], created[1] - 1, created[2]).toISOString();
-  }
+  const createdDate = toDate(created);
+  const content = n.content ?? n.description ?? "";
   return {
     id,
     title: n.title ?? "Tin tức",
     posterUrl: n.image || n.imageUrl,
     imageUrl: n.image,
-    startDate,
+    startDate: createdDate?.toISOString() ?? created,
+    dateLabel: formatDate(created),
+    excerpt: makeExcerpt(content),
+    content,
+    sortTime: createdDate?.getTime() ?? 0,
   };
 }
 
@@ -55,136 +100,156 @@ const Events = () => {
     return () => { c = true; };
   }, []);
 
-  const events = useMemo(() => raw, [raw]);
+  const events = useMemo(
+    () => [...raw].sort((a, b) => (b.sortTime || 0) - (a.sortTime || 0) || Number(b.id || 0) - Number(a.id || 0)),
+    [raw]
+  );
 
   const filtered = useMemo(() => {
     const q = keyword.trim().toLowerCase();
     if (!q) return events;
-    return events.filter((e) => String(e.title ?? "").toLowerCase().includes(q));
+    return events.filter((e) => {
+      const haystack = `${e.title ?? ""} ${e.excerpt ?? ""}`.toLowerCase();
+      return haystack.includes(q);
+    });
   }, [events, keyword]);
+
+  const featured = filtered[0] ?? null;
+  const remaining = featured ? filtered.slice(1) : filtered;
 
   return (
     <Layout>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
-
         .ev-page {
-          --navy:      #0d0d2b;
-          --purple:    #8b00ff;
-          --pink:      #ff2d78;
-          --yellow:    #d4ff00;
-          --off-white: #f0f0ff;
-        }
-
-        .ev-page {
+          --ev-bg: #0f102a;
+          --ev-panel: rgba(20, 22, 50, 0.86);
+          --ev-panel-strong: rgba(255, 255, 255, 0.08);
+          --ev-border: rgba(255, 255, 255, 0.11);
+          --ev-text: #ffffff;
+          --ev-muted: rgba(255, 255, 255, 0.62);
+          --ev-dim: rgba(255, 255, 255, 0.42);
+          --ev-purple: #7b1fa2;
+          --ev-pink: #e91e8c;
+          --ev-yellow: #d4e219;
           min-height: 100vh;
-          background: var(--navy);
-          padding: 80px 0 60px;
+          background:
+            radial-gradient(ellipse 65% 50% at 15% 20%, rgba(123,31,162,0.18) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 40% at 85% 80%, rgba(233,30,140,0.13) 0%, transparent 60%),
+            var(--ev-bg);
+          padding: 36px 0 72px;
+          color: var(--ev-text);
         }
 
-        /* ── HEADER ── */
+        .ev-hero {
+          border-bottom: 1px solid rgba(255,255,255,0.07);
+          padding-bottom: 30px;
+          margin-bottom: 30px;
+        }
+
         .ev-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
           gap: 24px;
-          margin-bottom: 40px;
-          flex-wrap: wrap;
+          align-items: end;
         }
 
-        .ev-title-block {}
+        .ev-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--ev-yellow);
+          font-size: 12px;
+          font-weight: 800;
+          text-transform: uppercase;
+          margin-bottom: 12px;
+        }
 
         .ev-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(32px, 5vw, 48px);
-          letter-spacing: 4px;
-          color: var(--off-white);
-          margin: 0 0 10px;
-          line-height: 1;
+          font-family: var(--font-brand);
+          font-size: clamp(34px, 5vw, 56px);
+          color: #fff;
+          line-height: 1.02;
+          margin: 0 0 12px;
         }
-        .ev-title span { color: var(--yellow); }
+        .ev-title span { color: var(--ev-yellow); }
 
         .ev-strip {
           height: 3px;
-          width: 70px;
-          background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow));
-          border-radius: 2px;
-          margin-bottom: 10px;
+          width: 58px;
+          background: linear-gradient(90deg, var(--ev-purple), var(--ev-pink), var(--ev-yellow));
+          border-radius: 999px;
+          margin-bottom: 14px;
         }
 
         .ev-subtitle {
-          font-family: 'Syne', sans-serif;
-          font-size: 13px;
+          max-width: 680px;
+          font-size: 14px;
           font-weight: 600;
-          color: rgba(240,240,255,0.35);
+          line-height: 1.65;
+          color: var(--ev-muted);
           margin: 0;
         }
 
-        /* ── SEARCH BAR ── */
         .ev-search-card {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(212,255,0,0.12);
+          background: var(--ev-panel);
+          border: 1px solid var(--ev-border);
           border-radius: 14px;
-          padding: 16px 20px;
-          backdrop-filter: blur(20px);
+          padding: 14px;
           display: flex;
           align-items: center;
-          gap: 16px;
-          min-width: 320px;
+          gap: 12px;
+          box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
         }
 
         .ev-search-wrap {
           display: flex;
-          align-items: stretch;
+          align-items: center;
           flex: 1;
-          border: 1.5px solid rgba(255,255,255,0.1);
+          min-width: 0;
+          border: 1px solid rgba(255,255,255,0.11);
           border-radius: 10px;
           overflow: hidden;
-          transition: border-color .3s, box-shadow .3s;
+          background: rgba(255,255,255,0.055);
+          transition: border-color .2s, box-shadow .2s;
         }
         .ev-search-wrap:focus-within {
-          border-color: var(--yellow);
-          box-shadow: 0 0 16px rgba(212,255,0,0.1);
+          border-color: var(--ev-yellow);
+          box-shadow: 0 0 0 4px rgba(212,226,25,0.12);
         }
 
         .ev-search-icon {
-          background: rgba(255,255,255,0.05);
-          border-right: 1px solid rgba(255,255,255,0.08);
-          padding: 0 14px;
           display: flex;
           align-items: center;
-          color: rgba(240,240,255,0.3);
-          font-size: 13px;
+          justify-content: center;
+          width: 42px;
+          color: var(--ev-dim);
+          flex-shrink: 0;
         }
 
         .ev-search-input {
           flex: 1;
-          background: rgba(255,255,255,0.04);
+          min-width: 0;
+          background: transparent;
           border: none;
           outline: none;
-          color: var(--off-white);
-          font-family: 'Syne', sans-serif;
+          color: #fff;
           font-size: 13px;
           font-weight: 600;
-          padding: 10px 14px;
+          padding: 11px 12px 11px 0;
         }
-        .ev-search-input::placeholder { color: rgba(240,240,255,0.25); }
-        .ev-search-input:focus { background: rgba(212,255,0,0.02); }
+        .ev-search-input::placeholder { color: rgba(255,255,255,0.38); }
 
         .ev-count {
-          font-family: 'Syne', sans-serif;
           font-size: 12px;
-          font-weight: 700;
-          color: rgba(240,240,255,0.25);
+          font-weight: 800;
+          color: var(--ev-dim);
           white-space: nowrap;
-          letter-spacing: 0.5px;
         }
         .ev-count strong {
-          color: var(--yellow);
+          color: var(--ev-yellow);
           font-size: 14px;
         }
 
-        /* ── LOADING ── */
         .ev-loading {
           display: flex;
           flex-direction: column;
@@ -193,82 +258,293 @@ const Events = () => {
           gap: 12px;
         }
         .ev-loading p {
-          font-family: 'Syne', sans-serif;
           font-size: 13px;
           font-weight: 600;
-          color: rgba(240,240,255,0.35);
+          color: var(--ev-muted);
           margin: 0;
         }
 
-        /* ── ERROR ── */
         .ev-error {
-          font-family: 'Syne', sans-serif;
           font-size: 13px;
           font-weight: 700;
-          color: var(--pink);
-          padding: 14px 18px;
-          background: rgba(255,45,120,0.08);
-          border: 1px solid rgba(255,45,120,0.2);
-          border-radius: 10px;
-          margin-bottom: 24px;
+          color: #ff7aa7;
+          padding: 14px 16px;
+          background: rgba(233,30,140,0.09);
+          border: 1px solid rgba(233,30,140,0.24);
+          border-radius: 12px;
         }
 
-        /* ── GRID ── */
+        .ev-feature {
+          display: grid;
+          grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+          min-height: 350px;
+          overflow: hidden;
+          text-decoration: none;
+          color: inherit;
+          background: var(--ev-panel);
+          border: 1px solid var(--ev-border);
+          border-radius: 16px;
+          box-shadow: 0 18px 55px rgba(0, 0, 0, 0.25);
+          transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+        }
+        .ev-feature:hover {
+          color: inherit;
+          transform: translateY(-3px);
+          border-color: rgba(212,226,25,0.35);
+          box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+        }
+
+        .ev-feature-media {
+          position: relative;
+          min-height: 300px;
+          background: linear-gradient(135deg, rgba(123,31,162,.38), rgba(233,30,140,.28));
+        }
+        .ev-feature-media img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .ev-feature-empty,
+        .event-post-empty {
+          width: 100%;
+          height: 100%;
+          min-height: 220px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: rgba(255,255,255,0.7);
+          background:
+            linear-gradient(135deg, rgba(123,31,162,.36), rgba(233,30,140,.22)),
+            rgba(255,255,255,0.05);
+        }
+
+        .ev-feature-body {
+          padding: clamp(24px, 4vw, 38px);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+
+        .ev-meta,
+        .event-post-meta {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--ev-yellow);
+          font-size: 12px;
+          font-weight: 800;
+          margin-bottom: 14px;
+        }
+
+        .ev-feature-title {
+          font-size: clamp(26px, 4vw, 40px);
+          font-weight: 900;
+          line-height: 1.16;
+          margin: 0 0 14px;
+          color: #fff;
+        }
+
+        .ev-feature-excerpt {
+          color: var(--ev-muted);
+          font-size: 14px;
+          font-weight: 500;
+          line-height: 1.75;
+          margin: 0 0 24px;
+        }
+
+        .ev-readmore,
+        .event-post-action {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 800;
+          width: fit-content;
+          padding: 10px 14px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, var(--ev-purple), var(--ev-pink));
+        }
+
+        .ev-section-head {
+          display: flex;
+          align-items: end;
+          justify-content: space-between;
+          gap: 18px;
+          margin: 30px 0 18px;
+        }
+
+        .ev-section-title {
+          font-family: var(--font-brand);
+          color: #fff;
+          font-size: clamp(24px, 3vw, 34px);
+          line-height: 1;
+          margin: 0;
+        }
+
+        .ev-section-note {
+          color: var(--ev-dim);
+          font-size: 13px;
+          font-weight: 700;
+          margin: 0;
+        }
+
         .ev-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 20px;
         }
-        @media (max-width: 991px) { .ev-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 639px) { .ev-grid { grid-template-columns: repeat(2, 1fr); } }
 
-        /* ── BACK TO TOP ── */
+        .event-post-card {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          overflow: hidden;
+          text-decoration: none;
+          color: inherit;
+          background: rgba(20,22,50,0.82);
+          border: 1px solid var(--ev-border);
+          border-radius: 14px;
+          transition: transform .2s ease, border-color .2s ease, background .2s ease;
+        }
+        .event-post-card:hover {
+          color: inherit;
+          transform: translateY(-3px);
+          border-color: rgba(212,226,25,0.32);
+          background: rgba(255,255,255,0.07);
+        }
+
+        .event-post-media {
+          aspect-ratio: 16 / 9;
+          overflow: hidden;
+          background: rgba(255,255,255,0.06);
+        }
+        .event-post-media img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform .28s ease;
+        }
+        .event-post-card:hover .event-post-media img {
+          transform: scale(1.035);
+        }
+
+        .event-post-body {
+          padding: 18px;
+          display: flex;
+          flex: 1;
+          flex-direction: column;
+        }
+
+        .event-post-title {
+          color: #fff;
+          font-size: 17px;
+          font-weight: 900;
+          line-height: 1.32;
+          margin: 0 0 10px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .event-post-excerpt {
+          color: var(--ev-muted);
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.65;
+          margin: 0 0 18px;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .event-post-action {
+          margin-top: auto;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.1);
+          padding: 9px 12px;
+        }
+
         .ev-empty-btn {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 11px 28px;
+          padding: 10px 22px;
           border: none;
           border-radius: 10px;
-          background: linear-gradient(135deg, var(--purple), var(--pink));
+          background: linear-gradient(135deg, var(--ev-purple), var(--ev-pink));
           color: #fff;
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 16px;
-          letter-spacing: 2px;
+          font-size: 13px;
+          font-weight: 800;
           text-decoration: none;
-          transition: box-shadow .25s, transform .25s;
-          box-shadow: 0 0 20px rgba(255,45,120,0.3);
+          transition: transform .2s ease, box-shadow .2s ease;
         }
         .ev-empty-btn:hover {
-          box-shadow: 0 0 36px rgba(255,45,120,0.55);
+          box-shadow: 0 16px 34px rgba(233,30,140,0.22);
           transform: translateY(-1px);
           color: #fff;
         }
 
+        @media (max-width: 991.98px) {
+          .ev-header,
+          .ev-feature {
+            grid-template-columns: 1fr;
+          }
+          .ev-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
         @media (max-width: 767px) {
-          .ev-header { flex-direction: column; align-items: flex-start; }
-          .ev-search-card { min-width: 100%; width: 100%; }
+          .ev-page { padding-top: 26px; }
+          .ev-feature-media { min-height: 220px; }
+          .ev-section-head {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+        }
+
+        @media (max-width: 575.98px) {
+          .ev-grid {
+            grid-template-columns: 1fr;
+          }
+          .ev-search-card {
+            align-items: stretch;
+            flex-direction: column;
+          }
+          .ev-count {
+            align-self: flex-end;
+          }
         }
       `}</style>
 
       <div className="ev-page">
-        <div className="container">
-
-          {/* Header */}
+        <section className="ev-hero">
+          <div className="container">
           <div className="ev-header">
             <div className="ev-title-block">
-              <h2 className="ev-title">Danh Sách <span>Sự Kiện</span></h2>
+                <div className="ev-eyebrow">
+                  <Newspaper size={16} />
+                  Tin tức & sự kiện
+                </div>
+                <h1 className="ev-title">Bài viết <span>mới nhất</span></h1>
               <div className="ev-strip" />
-              <p className="ev-subtitle">Nội dung lấy từ tin tức (News) trên hệ thống.</p>
+                <p className="ev-subtitle">
+                  Cập nhật thông báo, ưu đãi và các hoạt động đang diễn ra tại rạp.
+                </p>
             </div>
 
             <div className="ev-search-card">
               <div className="ev-search-wrap">
-                <span className="ev-search-icon"><i className="fas fa-search" /></span>
+                  <span className="ev-search-icon"><Search size={17} /></span>
                 <input
                   type="text"
                   className="ev-search-input"
-                  placeholder="Tìm sự kiện..."
+                    placeholder="Tìm theo tiêu đề hoặc nội dung..."
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                 />
@@ -278,34 +554,70 @@ const Events = () => {
               </div>
             </div>
           </div>
+          </div>
+        </section>
 
-          {/* Loading */}
+        <div className="container">
+
           {loading && (
             <div className="ev-loading">
-              <Spinner animation="border" style={{ color: "var(--pink)" }} />
-              <p>Đang tải sự kiện / tin tức…</p>
+              <Spinner animation="border" style={{ color: "var(--ev-pink)" }} />
+              <p>Đang tải tin tức...</p>
             </div>
           )}
 
-          {/* Error */}
           {!loading && loadError && (
             <div className="ev-error">{loadError}</div>
           )}
 
-          {/* Grid */}
-          {!loading && filtered.length > 0 && (
-            <div className="ev-grid">
-              {filtered.map((e) => (
-                <EventCard key={e.id} event={e} />
-              ))}
-            </div>
+          {!loading && !loadError && featured && (
+            <>
+              <Link to={`/events/${featured.id}`} className="ev-feature">
+                <div className="ev-feature-media">
+                  {featured.imageUrl || featured.posterUrl ? (
+                    <img src={featured.imageUrl || featured.posterUrl} alt={featured.title} />
+                  ) : (
+                    <div className="ev-feature-empty">
+                      <Newspaper size={42} />
+                    </div>
+                  )}
+                </div>
+                <div className="ev-feature-body">
+                  {featured.dateLabel && (
+                    <div className="ev-meta">
+                      <CalendarDays size={16} />
+                      {featured.dateLabel}
+                    </div>
+                  )}
+                  <h2 className="ev-feature-title">{featured.title}</h2>
+                  {featured.excerpt && <p className="ev-feature-excerpt">{featured.excerpt}</p>}
+                  <span className="ev-readmore">
+                    Đọc bài viết
+                    <ArrowRight size={16} />
+                  </span>
+                </div>
+              </Link>
+
+              {remaining.length > 0 && (
+                <>
+                  <div className="ev-section-head">
+                    <h2 className="ev-section-title">Các bài viết khác</h2>
+                    <p className="ev-section-note">{remaining.length} bài</p>
+                  </div>
+                  <div className="ev-grid">
+                    {remaining.map((e) => (
+                      <EventCard key={e.id} event={e} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
           )}
 
-          {/* Empty */}
           {!loading && !loadError && filtered.length === 0 && (
             <EmptyState
               title="Chưa có tin / sự kiện"
-              subtitle="Thêm tin tức (status công khai) trong quản trị."
+              subtitle="Hiện chưa có bài viết công khai."
               action={
                 <Link to="/movies" className="ev-empty-btn">
                   Khám phá phim

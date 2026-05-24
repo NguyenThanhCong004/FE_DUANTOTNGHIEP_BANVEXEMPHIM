@@ -4,6 +4,7 @@ import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 const CreateProductType = () => {
   const navigate = useNavigate();
@@ -79,20 +80,19 @@ const CreateProductType = () => {
       });
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const serverMessage = json?.message || '';
-        const isNoChange = serverMessage.includes('Không có thay đổi');
+        const message = apiMessage(json, tid ? 'Cập nhật loại sản phẩm thành công' : 'Thêm loại sản phẩm thành công');
         navigate('/super-admin/product-types', {
           state: {
-            message: serverMessage || (tid ? 'Cập nhật loại sản phẩm thành công' : 'Thêm loại sản phẩm thành công'),
-            type: isNoChange ? 'warning' : 'success',
+            message,
+            type: resultToastType(message),
           },
         });
       } else {
         const json = await res.json().catch(() => null);
-        setServerError(json?.message || 'Lưu loại sản phẩm thất bại');
+        setServerError(apiMessage(json, 'Lưu loại sản phẩm thất bại'));
       }
     } catch {
-      setServerError('Lỗi kết nối máy chủ');
+      setServerError(MESSAGES.networkError);
     } finally {
       setSubmitting(false);
     }

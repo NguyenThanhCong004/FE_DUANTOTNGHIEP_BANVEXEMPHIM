@@ -5,6 +5,7 @@ import EmptyState from "../../components/common/EmptyState";
 import { Spinner } from "react-bootstrap";
 import { apiFetch } from "../../utils/apiClient";
 import { NEWS } from "../../constants/apiEndpoints";
+import sanitizeHtml from "../../utils/sanitizeHtml";
 
 const EventDetail = () => {
   const { id } = useParams();
@@ -288,7 +289,7 @@ const EventDetail = () => {
                 {(item.content || item.description) && (
                   <div 
                     className="ed-body ql-editor"
-                    dangerouslySetInnerHTML={{ __html: item.content || item.description }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.content || item.description) }}
                   />
                 )}
               </div>

@@ -4,6 +4,10 @@ import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { apiFetch } from '../../utils/apiClient';
 import { MOVIES } from '../../constants/apiEndpoints';
 import { useAdminToast } from '../../components/admin/AdminToast';
+import { codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+import { formatDate, formatVnd } from '../../utils/formatters';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 const PLACEHOLDER_POSTER = 'https://placehold.co/120x180?text=Poster';
 
@@ -18,7 +22,7 @@ const MovieManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [movieToDelete, setMovieToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState("");
-  const itemsPerPage = 8;
+  const itemsPerPage = 5;
 
   const [allMovies, setAllMovies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +34,7 @@ const MovieManagement = () => {
       // Xóa state để tránh hiện lại khi F5
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
   useEffect(() => {
     let mounted = true;
@@ -49,7 +53,7 @@ const MovieManagement = () => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            let statusStr = m.status === 1 ? 'Active' : (m.status === 2 ? 'Upcoming' : 'Inactive');
+            let statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
             
             // CHỈ tự động chuyển từ Sắp chiếu -> Đang chiếu nếu đã đến ngày
             // Nếu là Ngưng chiếu (Inactive) thì giữ nguyên
@@ -102,8 +106,6 @@ const MovieManagement = () => {
   const currentItems = filteredMovies.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredMovies.length / itemsPerPage);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
   const handleDeleteMovie = async (movie) => {
     try {
       const res = await apiFetch(MOVIES.DELETE(movie.id), {
@@ -111,7 +113,7 @@ const MovieManagement = () => {
       });
       
       if (res.ok) {
-        showToast('Xóa phim thành công!');
+        showToast('Xóa phim thành công');
         // Refresh danh sách
         const refreshRes = await apiFetch(MOVIES.LIST);
         const json = await refreshRes.json().catch(() => null);
@@ -124,7 +126,7 @@ const MovieManagement = () => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            let statusStr = m.status === 1 ? 'Active' : (m.status === 2 ? 'Upcoming' : 'Inactive');
+            let statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
             
             // CHỈ tự động chuyển từ Sắp chiếu -> Đang chiếu nếu đã đến ngày
             // Nếu là Ngưng chiếu (Inactive) thì giữ nguyên
@@ -156,11 +158,11 @@ const MovieManagement = () => {
         setDeleteError("");
       } else {
         const errJson = await res.json().catch(() => null);
-        setDeleteError(errJson?.message || "Xóa phim thất bại");
+        setDeleteError(apiMessage(errJson, "Xóa phim thất bại"));
       }
     } catch (error) {
       console.error("Error deleting movie:", error);
-      setDeleteError("Không thể kết nối đến máy chủ");
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
@@ -244,6 +246,7 @@ const MovieManagement = () => {
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 56 }}>STT</th>
                     <th>Phim</th>
                     <th className="text-center">Thời lượng</th>
                     <th>Quốc gia</th>
@@ -254,8 +257,9 @@ const MovieManagement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentItems.map((movie) => (
+                  {currentItems.map((movie, index) => (
                     <tr key={movie.id}>
+                      <td className="fw-semibold text-muted align-middle">{indexOfFirstItem + index + 1}</td>
                       <td>
                         <div className="d-flex align-items-center gap-3">
                           <img 
@@ -277,9 +281,9 @@ const MovieManagement = () => {
                       </td>
                       <td className="text-center">{movie.duration} phút</td>
                       <td>{movie.nation}</td>
-                      <td>{new Date(movie.release_date).toLocaleDateString('vi-VN')}</td>
+                      <td>{formatDate(movie.release_date)}</td>
                       <td className="text-end fw-bold text-success">
-                        {movie.base_price.toLocaleString('vi-VN')}đ
+                        {formatVnd(movie.base_price)}
                       </td>
                       <td className="text-center">
                         <span className={`admin-badge ${
@@ -326,26 +330,14 @@ const MovieManagement = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <span className="text-muted small">
-                Tổng cộng: {filteredMovies.length} phim
-              </span>
-              <nav>
-                <ul className="admin-pagination">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <li key={i + 1}>
-                      <button 
-                        className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                        onClick={() => paginate(i + 1)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredMovies.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              itemLabel="phim"
+            />
           </>
         )}
       </div>
@@ -385,7 +377,7 @@ const MovieManagement = () => {
                       <p className="mb-2"><strong className="text-muted">Quốc gia:</strong> {selectedItem.nation}</p>
                     </div>
                     <div className="col-6">
-                      <p className="mb-2"><strong className="text-muted">Ngày chiếu:</strong> {new Date(selectedItem.release_date).toLocaleDateString('vi-VN')}</p>
+                      <p className="mb-2"><strong className="text-muted">Ngày chiếu:</strong> {formatDate(selectedItem.release_date)}</p>
                       <p className="mb-2"><strong className="text-muted">Thể loại:</strong> {selectedItem.genre}</p>
                       <p className="mb-2">
                         <strong className="text-muted">Trạng thái:</strong>
@@ -401,7 +393,7 @@ const MovieManagement = () => {
                       </p>
                     </div>
                     <div className="col-12">
-                      <p className="mb-2"><strong className="text-muted">Giá vé cơ bản:</strong> <span className="text-success fw-bold">{selectedItem.base_price.toLocaleString('vi-VN')}đ</span></p>
+                      <p className="mb-2"><strong className="text-muted">Giá vé cơ bản:</strong> <span className="text-success fw-bold">{formatVnd(selectedItem.base_price)}</span></p>
                       <p className="mb-2"><strong className="text-muted">Mô tả:</strong> {selectedItem.description}</p>
                       <p className="mb-1"><strong className="text-muted">Nội dung chi tiết:</strong></p>
                       <p>{selectedItem.describe}</p>

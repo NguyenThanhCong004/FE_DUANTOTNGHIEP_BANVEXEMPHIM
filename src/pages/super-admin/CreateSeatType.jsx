@@ -5,13 +5,13 @@ import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import AdminFormListBack from "../../components/admin/AdminFormListBack";
 import { apiFetch } from "../../utils/apiClient";
 import { SEAT_TYPES } from "../../constants/apiEndpoints";
-import { useAdminToast } from "../../components/admin/AdminToast";
 import {
   SEAT_COLOR_PALETTE,
   hexColorForSeatTypeName,
   isCoupleTypeName,
   normalizeHex,
 } from "../../utils/seatTypeColors";
+import { apiMessage, MESSAGES, resultToastType } from "../../utils/uiMessages";
 
 const initialForm = () => ({
   name: "",
@@ -162,20 +162,19 @@ const CreateSeatType = () => {
       });
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const serverMessage = json?.message || "";
-        const isNoChange = serverMessage.includes("Không có thay đổi");
+        const message = apiMessage(json, tid ? "Cập nhật loại ghế thành công" : "Thêm loại ghế thành công");
         navigate("/super-admin/seat-types", {
           state: {
-            message: serverMessage || (tid ? "Cập nhật loại ghế thành công" : "Thêm loại ghế thành công"),
-            type: isNoChange ? "warning" : "success",
+            message,
+            type: resultToastType(message),
           },
         });
       } else {
         const json = await res.json().catch(() => null);
-        setServerError(json?.message || "Lưu loại ghế thất bại");
+        setServerError(apiMessage(json, "Lưu loại ghế thất bại"));
       }
     } catch {
-      setServerError("Lỗi kết nối máy chủ");
+      setServerError(MESSAGES.networkError);
     } finally {
       setSubmitting(false);
     }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { STRONG_PASSWORD_REGEX, PASSWORD_RULE_MESSAGE } from "../../utils/passwordValidation";
 import Layout from "../../components/layout/Layout";
 import CustomerPageShell from "../../components/common/CustomerPageShell";
 import MovieCard from "../../components/common/MovieCard";
@@ -14,29 +15,35 @@ import { getUserIdFromToken } from "../../utils/jwt";
 import { apiFetch } from "../../utils/apiClient";
 import { USERS, ME, MEMBERSHIP_RANKS } from "../../constants/apiEndpoints";
 import { mapFavoriteRowToFavCard, mapMeTransactionToFe, mapUserVoucherRow } from "../../utils/customerMeApi";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import { formatDate, formatDateTime, formatNumber, formatVnd as fmtVnd, toDateInputValue } from "../../utils/formatters";
 import { Link, useSearchParams } from "react-router-dom";
 
 /* ─────────────────────────────────────────
    Utils
 ───────────────────────────────────────── */
-function toDateInputValue(birthday) {
-  if (birthday == null || birthday === "") return "";
-  if (typeof birthday === "string") return birthday.slice(0, 10);
-  if (Array.isArray(birthday) && birthday.length >= 3) {
-    const [y, m, d] = birthday;
-    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
-  return "";
-}
-
 function normalizeUser(raw) {
   if (!raw) return null;
   if (raw.user_id != null) {
-    return { ...raw, points: Number(raw.points ?? 0), total_spending: Number(raw.total_spending ?? 0) };
-  }
-  if (raw.userId != null) {
     return {
-      user_id: raw.userId,
+      ...raw,
+      user_id: raw.user_id,
+      username: raw.username ?? "",
+      fullname: raw.fullname ?? "",
+      email: raw.email ?? "",
+      phone: raw.phone ?? "",
+      birthday: toDateInputValue(raw.birthday),
+      avatar: raw.avatar ?? "",
+      points: Number(raw.points ?? 0),
+      total_spending: Number(raw.total_spending ?? raw.totalSpending ?? 0),
+      rank_name: raw.rank_name ?? raw.rankName ?? null,
+    };
+  }
+  const resolvedId = raw.userId ?? raw.id;
+  if (resolvedId != null) {
+    return {
+      user_id: resolvedId,
       username: raw.username ?? "",
       fullname: raw.fullname ?? "",
       email: raw.email ?? "",
@@ -52,20 +59,15 @@ function normalizeUser(raw) {
   return null;
 }
 
+function resolveUserId(user) {
+  return user?.user_id ?? user?.userId ?? user?.id ?? getUserIdFromToken(getAccessToken());
+}
+
 const fmtBirthday = (d) => {
-  if (!d) return "—";
-  const dt = new Date(typeof d === "string" ? d.slice(0, 10) : d);
-  if (isNaN(dt)) return "—";
-  return `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}/${dt.getFullYear()}`;
+  return formatDate(d, { day: "2-digit", month: "2-digit", year: "numeric" });
 };
-const fmtVnd = (n) => Number(n ?? 0).toLocaleString("vi-VN") + "đ";
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString("vi-VN") : "—";
-const fmtDatetime = (d) => {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (Number.isNaN(dt.getTime())) return "—";
-  return `${dt.toLocaleDateString("vi-VN")} ${dt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
-};
+const fmtDate = formatDate;
+const fmtDatetime = (d) => formatDateTime(d, { hour: "2-digit", minute: "2-digit" });
 
 function formatVoucherDiscount(v) {
   if (!v) return "";
@@ -92,7 +94,7 @@ const TX_STATUS = {
 function Avatar({ name, size = 96, avatarUrl }) {
   const initials = String(name || "?").trim().split(/\s+/).filter(Boolean).slice(-2).map(w => w[0]).join("").toUpperCase() || "?";
   const url = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
-  const showImg = url.startsWith("http") || url.startsWith("data:image") || url.startsWith("/") || url.startsWith("./") || url.startsWith("../");
+  const showImg = isDisplayableImageSrc(url);
   return showImg
     ? <img src={url} alt="" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.12)", boxShadow: "0 0 28px rgba(123,31,162,0.35)", flexShrink: 0 }} />
     : (
@@ -170,7 +172,8 @@ function PasswordModal({ user, onClose, showToast }) {
   const validate = () => {
     const e = {};
     if (!pwData.current) e.current = "Nhập mật khẩu hiện tại";
-    if (!pwData.newPw || pwData.newPw.length < 6) e.newPw = "Mật khẩu mới tối thiểu 6 ký tự";
+    if (!pwData.newPw) e.newPw = "Nhập mật khẩu mới";
+    else if (!STRONG_PASSWORD_REGEX.test(pwData.newPw)) e.newPw = PASSWORD_RULE_MESSAGE;
     if (pwData.newPw !== pwData.confirm) e.confirm = "Mật khẩu xác nhận không khớp";
     return e;
   };
@@ -178,18 +181,19 @@ function PasswordModal({ user, onClose, showToast }) {
     const e = validate();
     if (Object.keys(e).length) { setPwErrors(e); return; }
     const token = getAccessToken();
-    if (!token || !user?.user_id) { showToast("Bạn cần đăng nhập", "error"); return; }
+    const userId = resolveUserId(user);
+    if (!token || !userId) { showToast("Bạn cần đăng nhập", "error"); return; }
     setLoading(true);
     try {
-      const res = await apiFetch(USERS.PASSWORD(user.user_id), {
+      const res = await apiFetch(USERS.PASSWORD(userId), {
         method: "PUT",
         body: JSON.stringify({ currentPassword: pwData.current, newPassword: pwData.newPw }),
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok) { showToast(json?.message || "Đổi mật khẩu thất bại", "error"); return; }
-      showToast("Đổi mật khẩu thành công!");
+      if (!res.ok) { showToast(apiMessage(json, "Đổi mật khẩu thất bại"), "error"); return; }
+      showToast("Đổi mật khẩu thành công");
       onClose();
-    } catch { showToast("Không thể kết nối máy chủ", "error"); }
+    } catch { showToast(MESSAGES.networkError, "error"); }
     finally { setLoading(false); }
   };
 
@@ -269,7 +273,8 @@ function TabInfo({ user, setUser, showToast }) {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
     const token = getAccessToken();
-    if (!token || !user.user_id) { showToast("Bạn cần đăng nhập", "error"); return; }
+    const userId = resolveUserId(user);
+    if (!token || !userId) { showToast("Bạn cần đăng nhập", "error"); return; }
     setSaving(true);
     try {
       const body = {
@@ -277,15 +282,15 @@ function TabInfo({ user, setUser, showToast }) {
         phone: draft.phone.trim().replace(/\s/g, ""), status: user.status ?? 1,
         birthday: draft.birthday || null,
       };
-      const res = await apiFetch(USERS.BY_ID(user.user_id), { method: "PUT", body: JSON.stringify(body) });
+      const res = await apiFetch(USERS.BY_ID(userId), { method: "PUT", body: JSON.stringify(body) });
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.data) { showToast(json?.message || "Cập nhật thất bại", "error"); return; }
+      if (!res.ok || !json?.data) { showToast(apiMessage(json, "Cập nhật thất bại"), "error"); return; }
       const n = normalizeUser(json.data);
       if (n) setUser(n);
       setAuthSession({ accessToken: getAccessToken(), refreshToken: getRefreshToken(), user: json.data, staff: getStoredStaff() });
       setEditing(false);
-      showToast("Cập nhật thông tin thành công!");
-    } catch { showToast("Không thể kết nối máy chủ", "error"); }
+      showToast("Cập nhật thông tin thành công");
+    } catch { showToast(MESSAGES.networkError, "error"); }
     finally { setSaving(false); }
   };
 
@@ -323,7 +328,6 @@ function TabInfo({ user, setUser, showToast }) {
                   { icon: "✉️", label: "Email",             value: user.email },
                   { icon: "📱", label: "Số điện thoại",    value: user.phone },
                   { icon: "🎂", label: "Ngày sinh",         value: fmtBirthday(user.birthday) },
-                  { icon: "🔑", label: "Tên đăng nhập",     value: "@" + user.username },
                   { icon: "🏆", label: "Hạng thành viên",   value: user.rank_name || "Mới" },
                 ].map(({ icon, label, value }) => (
                   <div key={label} className="pf-info-row">
@@ -386,7 +390,7 @@ function TabPoints({ user, pointRows, loading }) {
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{ev.date}</div>
                   </div>
                   <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1, color: ev.delta > 0 ? "#81c784" : "#e57373" }}>
-                    {ev.delta > 0 ? "+" : ""}{Number(ev.delta).toLocaleString()}
+                    {ev.delta > 0 ? "+" : ""}{formatNumber(ev.delta)}
                     <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: 1, textTransform: "uppercase", textAlign: "right" }}>điểm</div>
                   </div>
                 </div>
@@ -401,7 +405,7 @@ function TabPoints({ user, pointRows, loading }) {
           <div className="pf-card-title"><span>⭐</span> ĐIỂM <span>TÍCH LŨY</span></div>
           <div style={{ textAlign: "center", padding: "20px 0 24px" }}>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 64, letterSpacing: 3, color: "var(--yellow)", lineHeight: 1 }}>
-              {(user?.points ?? 0).toLocaleString()}
+              {formatNumber(user?.points ?? 0)}
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: 1, textTransform: "uppercase", marginTop: 4 }}>
               điểm hiện có
@@ -410,8 +414,8 @@ function TabPoints({ user, pointRows, loading }) {
 
           <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
             {[
-              { label: "Đã nhận", value: `+${totalEarned.toLocaleString()}`, color: "#81c784" },
-              { label: "Đã dùng", value: totalSpent.toLocaleString(),        color: "#e57373" },
+              { label: "Đã nhận", value: `+${formatNumber(totalEarned)}`, color: "#81c784" },
+              { label: "Đã dùng", value: formatNumber(totalSpent),        color: "#e57373" },
             ].map(({ label, value, color }) => (
               <div key={label} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: 12, textAlign: "center" }}>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: 1, color }}>{value}</div>
@@ -906,9 +910,7 @@ export default function UserProfile() {
         if (body?.data && Array.isArray(body.data)) {
           setPointRows(body.data.map(r => ({
             id: r.pointHistoryId,
-            date: r.date ? new Date(Array.isArray(r.date)
-              ? `${r.date[0]}-${String(r.date[1]).padStart(2,"0")}-${String(r.date[2]).padStart(2,"0")}`
-              : r.date).toLocaleDateString("vi-VN") : "—",
+            date: formatDate(r.date),
             label: r.description || "—",
             delta: Number(r.points ?? 0),
           })));
@@ -1232,7 +1234,7 @@ export default function UserProfile() {
 
             <div className="pf-hero-stats">
               <div className="pf-hs">
-                <div className="pf-hs-num">{user.points.toLocaleString()}</div>
+                <div className="pf-hs-num">{formatNumber(user.points)}</div>
                 <div className="pf-hs-lbl">Điểm ⭐</div>
               </div>
               <div className="pf-hs">

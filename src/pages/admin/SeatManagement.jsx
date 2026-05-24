@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { Alert, Badge, Button, Card, Form } from "react-bootstrap";
+import { Badge, Button, Card, Form } from "react-bootstrap";
 
 import { Lock, LockOpen, Save } from "lucide-react";
 
@@ -12,9 +12,13 @@ import { ROOMS, SEATS, SEAT_TYPES } from "../../constants/apiEndpoints";
 
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 
+import { useAdminToast } from "../../components/admin/AdminToast";
+
 import { getStoredStaff } from "../../utils/authStorage";
 
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
+
+import { isActiveStatus } from "../../utils/statusFormat";
 
 import {
   contrastTextColorForHex,
@@ -534,9 +538,9 @@ export default function SeatManagement() {
 
   const [isLocked, setIsLocked] = useState(false);
 
-  const [saving, setSaving] = useState(false);
+  const { showToast, ToastComponent } = useAdminToast();
 
-  const [saveFeedback, setSaveFeedback] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const [seatTypeNames, setSeatTypeNames] = useState([]);
 
@@ -823,7 +827,7 @@ export default function SeatManagement() {
 
         const arr = Array.isArray(list) ? list : [];
 
-        setRooms(arr.map((r) => ({ id: r.id, name: r.name })));
+        setRooms(arr.filter((r) => isActiveStatus(r.status)).map((r) => ({ id: r.id, name: r.name })));
 
       } catch {
 
@@ -1110,8 +1114,6 @@ export default function SeatManagement() {
 
 
     const nextTypeVal = nextApplicableSeatType(cell.type, seatTypeNames, next, rowIdx, colIdx);
-    
-    console.log("ContextMenu:", { current: cell.type, next: nextTypeVal, seatTypeNames, _seatTypesData });
 
     if (isCoupleSeatByType(nextTypeVal)) {
 
@@ -1151,13 +1153,11 @@ export default function SeatManagement() {
 
     }
 
-    setSaveFeedback(null);
-
     const layoutCheck = validateCoupleAfterSinglesLayout(seats);
 
     if (!layoutCheck.ok) {
 
-      setSaveFeedback({ type: "danger", text: layoutCheck.message });
+      showToast(layoutCheck.message, "danger");
 
       return;
 
@@ -1221,7 +1221,7 @@ export default function SeatManagement() {
 
       if (!res.ok) {
 
-        setSaveFeedback({ type: "danger", text: json?.message || "Lưu sơ đồ ghế thất bại" });
+        showToast(json?.message || "Lưu sơ đồ ghế thất bại", "danger");
 
         return;
 
@@ -1249,13 +1249,11 @@ export default function SeatManagement() {
 
       setSeats(buildGridFromSeats(seatList));
 
-      setSaveFeedback({ type: "success", text: json?.message || `Đã lưu ${items.length} ghế lên máy chủ.` });
-
-      setTimeout(() => setSaveFeedback(null), 5000);
+      showToast(json?.message || `Đã lưu ${items.length} ghế lên máy chủ.`);
 
     } catch {
 
-      setSaveFeedback({ type: "danger", text: "Không thể kết nối server" });
+      showToast("Không thể kết nối server", "danger");
 
     } finally {
 
@@ -1407,15 +1405,7 @@ export default function SeatManagement() {
 
       <div className="seat-management-page-wrap">
 
-      {saveFeedback ? (
-
-        <Alert variant={saveFeedback.type} className="mb-3 shadow-sm" dismissible onClose={() => setSaveFeedback(null)}>
-
-          {saveFeedback.text}
-
-        </Alert>
-
-      ) : null}
+      <ToastComponent />
 
       <style>{`
 

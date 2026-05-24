@@ -7,6 +7,7 @@ import { apiFetch } from "../../utils/apiClient";
 import { ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { mapMeTransactionToFe } from "../../utils/customerMeApi";
+import { formatDate, formatNumber, formatTime, formatVnd } from "../../utils/formatters";
 
 const TYPE_CONFIG = {
   ticket_online: { label: "Vé Online",  color: "#7b1fa2", bg: "rgba(123,31,162,0.12)", icon: "🎫" },
@@ -20,9 +21,9 @@ const STATUS_CONFIG = {
   pending:   { label: "Chờ xử lý",  color: "#d4e219", bg: "rgba(212,226,25,0.12)" },
 };
 
-const fmt     = (n) => Math.abs(n).toLocaleString("vi-VN") + "đ";
-const fmtDate = (d) => new Date(d).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-const fmtTime = (d) => new Date(d).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+const fmt = (n) => formatVnd(Math.abs(Number(n) || 0));
+const fmtDate = (d) => formatDate(d, { day: "2-digit", month: "2-digit", year: "numeric" });
+const fmtTime = (d) => formatTime(d);
 
 /* ══ Detail Modal ══ */
 function DetailModal({ tx, onClose }) {
@@ -58,7 +59,7 @@ function DetailModal({ tx, onClose }) {
               <div className="th-mi-price">
                 {tx.type === "points"
                   ? <span style={{ color: item.price > 0 ? "#81c784" : "#e57373" }}>
-                      {item.price > 0 ? "+" : ""}{item.price.toLocaleString()} pts
+                      {item.price > 0 ? "+" : ""}{formatNumber(item.price)} pts
                     </span>
                   : fmt(item.price * item.qty)
                 }
@@ -601,7 +602,7 @@ export default function TransactionHistory() {
                       <div className="th-row-amount">
                         <span className="th-amount-val" style={{ color: amountColor }}>
                           {isPoints
-                            ? `${tx.final_amount > 0 ? "+" : ""}${tx.final_amount.toLocaleString()} pts`
+                            ? `${tx.final_amount > 0 ? "+" : ""}${formatNumber(tx.final_amount)} pts`
                             : fmt(tx.final_amount)
                           }
                         </span>
@@ -630,7 +631,7 @@ export default function TransactionHistory() {
                             <div className="th-di-price">
                               {isPoints
                                 ? <span style={{ color: item.price > 0 ? "#81c784" : "#e57373" }}>
-                                    {item.price > 0 ? "+" : ""}{item.price.toLocaleString()} pts
+                                    {item.price > 0 ? "+" : ""}{formatNumber(item.price)} pts
                                   </span>
                                 : fmt(item.price)
                               }

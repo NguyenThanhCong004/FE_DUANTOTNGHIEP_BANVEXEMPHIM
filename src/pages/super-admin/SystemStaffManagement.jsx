@@ -7,6 +7,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import { useAdminToast } from '../../components/admin/AdminToast';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 
 
@@ -15,6 +17,10 @@ import { apiJson } from '../../utils/apiClient';
 
 
 import { STAFF, CINEMAS } from '../../constants/apiEndpoints';
+
+import { codeToStaffStatus, isActiveStatus } from '../../utils/statusFormat';
+
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
 
 
 
@@ -66,11 +72,11 @@ const SystemStaffManagement = () => {
 
 
 
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const { showToast, ToastComponent } = useAdminToast();
 
 
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
 
 
@@ -118,7 +124,7 @@ const SystemStaffManagement = () => {
 
 
 
-      setToast({ show: true, message: location.state.message, type: location.state.type || 'success' });
+      showToast(location.state.message, location.state.type || 'success');
 
 
 
@@ -126,11 +132,6 @@ const SystemStaffManagement = () => {
 
 
 
-      const t = setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
-
-
-
-      return () => clearTimeout(t);
 
 
 
@@ -218,7 +219,7 @@ const SystemStaffManagement = () => {
 
 
 
-            status: s.status === 1 ? "Active" : "Inactive",
+            status: codeToStaffStatus(s.status),
 
 
 
@@ -409,11 +410,7 @@ const SystemStaffManagement = () => {
 
 
 
-        setToast({ show: true, message: 'Xóa nhân sự thành công', type: 'success' });
-
-
-
-        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+        showToast('Xóa nhân sự thành công');
 
 
 
@@ -421,7 +418,7 @@ const SystemStaffManagement = () => {
 
 
 
-        setDeleteError(res.message || 'Xóa thất bại');
+        setDeleteError(apiMessage(res, MESSAGES.deleteFailed));
 
 
 
@@ -433,7 +430,7 @@ const SystemStaffManagement = () => {
 
 
 
-      setDeleteError('Lỗi kết nối máy chủ');
+      setDeleteError(MESSAGES.networkError);
 
 
 
@@ -773,11 +770,11 @@ const SystemStaffManagement = () => {
 
 
 
-                        <span className={`admin-badge ${emp.status === 'Active' ? 'admin-badge-success' : 'admin-badge-danger'}`}>
+                        <span className={`admin-badge ${isActiveStatus(emp.status) ? 'admin-badge-success' : 'admin-badge-danger'}`}>
 
 
 
-                          {emp.status === 'Active' ? 'Hoạt động' : 'Khóa'}
+                          {codeToStaffStatus(emp.status)}
 
 
 
@@ -869,63 +866,14 @@ const SystemStaffManagement = () => {
 
 
 
-            {totalPages > 1 && (
-
-
-
-              <div className="d-flex justify-content-center mt-4">
-
-
-
-                <nav>
-
-
-
-                  <ul className="admin-pagination">
-
-
-
-                    {Array.from({ length: totalPages }, (_, i) => (
-
-
-
-                      <li key={i + 1}>
-
-
-
-                        <button className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`} onClick={() => setCurrentPage(i + 1)}>
-
-
-
-                          {i + 1}
-
-
-
-                        </button>
-
-
-
-                      </li>
-
-
-
-                    ))}
-
-
-
-                  </ul>
-
-
-
-                </nav>
-
-
-
-              </div>
-
-
-
-            )}
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={sortedEmployees.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              itemLabel="nhân viên"
+            />
 
 
 
@@ -1173,39 +1121,7 @@ const SystemStaffManagement = () => {
 
 
 
-      {toast.show && (
-
-
-
-        <div
-
-
-
-          className={`position-fixed bottom-0 start-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-
-
-
-          style={{ minWidth: '300px' }}
-
-
-
-        >
-
-
-
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-
-
-
-          <div className="fw-bold">{toast.message}</div>
-
-
-
-        </div>
-
-
-
-      )}
+      <ToastComponent />
 
 
 

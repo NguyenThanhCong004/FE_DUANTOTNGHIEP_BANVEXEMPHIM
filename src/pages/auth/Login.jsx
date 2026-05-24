@@ -5,9 +5,10 @@ import { clearAuthSession, setAuthSession, setActiveShift } from '../../utils/au
 import { apiUrl } from '../../utils/apiClient';
 import { AUTH, SHIFTS } from '../../constants/apiEndpoints';
 
-const Login = () => {
+const Login = ({ mode = "user" }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const isStaffLogin = mode === "staff";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +32,7 @@ const Login = () => {
   const handleLogin = async () => {
     setError("");
     try {
-      const res = await fetch(apiUrl(AUTH.LOGIN), {
+      const res = await fetch(apiUrl(isStaffLogin ? AUTH.STAFF_LOGIN : AUTH.LOGIN), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -51,13 +52,18 @@ const Login = () => {
 
       const roleUpper = (data?.staff?.role ?? "").toString().toUpperCase().replace(/^ROLE_/, "");
 
-      if (data.staff) {
-        // Lưu thông tin phiên đăng nhập cơ bản
+      if (isStaffLogin) {
+        if (!data.staff) {
+          setError("Không nhận được thông tin nhân viên.");
+          clearAuthSession();
+          return;
+        }
+        clearAuthSession();
         setAuthSession({
           accessToken: data.token,
           refreshToken: data.refreshToken,
-          user: data.user || null,
-          staff: data.staff || null,
+          user: null,
+          staff: data.staff,
         });
 
         if (roleUpper === "ADMIN") {
@@ -93,6 +99,12 @@ const Login = () => {
           console.error("Lỗi kiểm tra ca làm:", err);
           navigate("/staff/ca-lam");
         }
+        return;
+      }
+
+      if (data.staff) {
+        setError("Tài khoản nhân viên vui lòng đăng nhập ở trang dành cho staff.");
+        clearAuthSession();
         return;
       }
 
@@ -333,18 +345,18 @@ const Login = () => {
       <div className="auth-page-wrapper">
         <div className="auth-card">
           <div className="auth-strip" />
-          <h2 className="auth-title">Đăng Nhập</h2>
-          <p className="auth-subtitle">Chào mừng trở lại</p>
+          <h2 className="auth-title">{isStaffLogin ? "Đăng Nhập Staff" : "Đăng Nhập"}</h2>
+          <p className="auth-subtitle">{isStaffLogin ? "Khu vực nhân viên" : "Chào mừng trở lại"}</p>
 
           <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
             <div className="auth-field">
-              <label className="auth-label">Tên đăng nhập / Email</label>
+              <label className="auth-label">{isStaffLogin ? "Username / Email nhân viên" : "Tên đăng nhập / Email"}</label>
               <div className="auth-input-group">
                 <span className="auth-input-icon"><i className="fas fa-user" /></span>
                 <input
                   type="text"
                   className="auth-input"
-                  placeholder="Nhập username hoặc email"
+                  placeholder={isStaffLogin ? "Nhập username hoặc email staff" : "Nhập username hoặc email"}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
@@ -374,7 +386,7 @@ const Login = () => {
               </div>
             </div>
 
-            <Link to="/forgetPassword" className="auth-forgot">Quên mật khẩu?</Link>
+            {!isStaffLogin && <Link to="/forgetPassword" className="auth-forgot">Quên mật khẩu?</Link>}
 
             {error && <div className="auth-error">{error}</div>}
 
@@ -388,8 +400,17 @@ const Login = () => {
           </form>
 
           <div className="auth-footer">
-            Chưa có tài khoản?{" "}
-            <Link to="/register">Đăng ký ngay</Link>
+            {isStaffLogin ? (
+              <>
+                Khách hàng? <Link to="/login">Đăng nhập khách hàng</Link>
+              </>
+            ) : (
+              <>
+                Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
+                <br />
+                Nhân viên? <Link to="/staff/login">Đăng nhập staff</Link>
+              </>
+            )}
           </div>
         </div>
       </div>

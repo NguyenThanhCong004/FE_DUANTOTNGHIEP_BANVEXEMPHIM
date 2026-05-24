@@ -5,12 +5,17 @@ import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { VOUCHERS } from '../../constants/apiEndpoints';
 import { useAdminToast } from '../../components/admin/AdminToast';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
+import { formatNumber, formatVnd } from '../../utils/formatters';
+
+const MAX_POINT_VOUCHER = 10000000;
+const MAX_MONEY_VALUE = 1000000000;
 
 const CreateVoucher = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
-  const { showToast, ToastComponent } = useAdminToast();
+  const { ToastComponent } = useAdminToast();
 
   const [formData, setFormData] = useState({
     code: '',
@@ -86,21 +91,27 @@ const CreateVoucher = () => {
       newErrors.value = 'Phần trăm giảm giá không được để trống';
     } else {
       const val = parseFloat(formData.value);
-      if (val <= 0 || val > 100) {
+      if (!Number.isFinite(val) || val <= 0 || val > 100) {
         newErrors.value = 'Giá trị phải từ 1% đến 100%';
       }
     }
 
     if (!formData.minOrderValue) {
       newErrors.minOrderValue = 'Giá trị đơn hàng tối thiểu không được để trống';
-    } else if (parseFloat(formData.minOrderValue) < 0) {
-      newErrors.minOrderValue = 'Giá trị không được âm';
+    } else {
+      const minOrder = Number(formData.minOrderValue);
+      if (!Number.isFinite(minOrder) || minOrder < 0 || minOrder > MAX_MONEY_VALUE) {
+        newErrors.minOrderValue = `Giá trị phải từ 0 đến ${formatVnd(MAX_MONEY_VALUE)}`;
+      }
     }
 
     if (!formData.maxDiscountAmount) {
       newErrors.maxDiscountAmount = 'Số tiền giảm tối đa không được để trống';
-    } else if (parseFloat(formData.maxDiscountAmount) < 0) {
-      newErrors.maxDiscountAmount = 'Giá trị không được âm';
+    } else {
+      const maxDiscount = Number(formData.maxDiscountAmount);
+      if (!Number.isFinite(maxDiscount) || maxDiscount < 0 || maxDiscount > MAX_MONEY_VALUE) {
+        newErrors.maxDiscountAmount = `Giá trị phải từ 0 đến ${formatVnd(MAX_MONEY_VALUE)}`;
+      }
     }
     
     if (!formData.startDate) {
@@ -135,8 +146,14 @@ const CreateVoucher = () => {
 
     if (!formData.pointVoucher) {
       newErrors.pointVoucher = 'Điểm đổi voucher không được để trống';
-    } else if (parseInt(formData.pointVoucher) < 0) {
-      newErrors.pointVoucher = 'Điểm không được âm';
+    } else {
+      const pointText = String(formData.pointVoucher).trim();
+      const pointNumber = Number(pointText);
+      if (!/^\d+$/.test(pointText) || !Number.isSafeInteger(pointNumber)) {
+        newErrors.pointVoucher = 'Điểm đổi voucher phải là số nguyên';
+      } else if (pointNumber > MAX_POINT_VOUCHER) {
+        newErrors.pointVoucher = `Điểm đổi voucher tối đa là ${formatNumber(MAX_POINT_VOUCHER)}`;
+      }
     }
 
     setErrors(newErrors);
@@ -181,7 +198,7 @@ const CreateVoucher = () => {
       maxDiscountAmount: parseFloat(formData.maxDiscountAmount),
       startDate: formData.startDate,
       endDate: formData.endDate,
-      pointVoucher: parseInt(formData.pointVoucher, 10),
+      pointVoucher: Number(formData.pointVoucher),
       status: statusMap[formData.status],
     };
 
@@ -194,8 +211,8 @@ const CreateVoucher = () => {
       });
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const message = json?.message || (vid ? 'Cập nhật voucher thành công!' : 'Thêm voucher mới thành công!');
-        const messageType = message === 'Không có thay đổi để cập nhật' ? 'warning' : 'success';
+        const message = apiMessage(json, vid ? 'Cập nhật voucher thành công' : 'Thêm voucher mới thành công');
+        const messageType = resultToastType(message);
 
         navigate('/super-admin/vouchers', {
           state: {
@@ -205,11 +222,11 @@ const CreateVoucher = () => {
         });
       } else {
         const json = await res.json().catch(() => null);
-        const errorMessage = json?.message || 'Lưu voucher thất bại';
+        const errorMessage = apiMessage(json, 'Lưu voucher thất bại');
         setServerError(errorMessage);
       }
     } catch {
-      setServerError('Lỗi kết nối máy chủ');
+      setServerError(MESSAGES.networkError);
     } finally {
       setSubmitting(false);
     }
@@ -256,6 +273,7 @@ const CreateVoucher = () => {
                 <input 
                   type="number" name="value" className={`admin-search-input w-100 ${errors.value ? 'border-danger' : ''}`}
                   placeholder="Ví dụ: 10 (%)"
+                  min="1" max="100" step="0.01"
                   value={formData.value} onChange={handleChange}
                 />
                 {errors.value && <small className="text-danger fw-medium">{errors.value}</small>}
@@ -265,7 +283,7 @@ const CreateVoucher = () => {
                 <label className="admin-form-label">Đơn hàng tối thiểu (VNĐ) <span className="text-danger">*</span></label>
                 <input 
                   type="number" name="minOrderValue" className={`admin-search-input w-100 ${errors.minOrderValue ? 'border-danger' : ''}`}
-                  placeholder="Ví dụ: 100000" value={formData.minOrderValue} onChange={handleChange}
+                  placeholder="Ví dụ: 100000" min="0" max={MAX_MONEY_VALUE} step="1000" value={formData.minOrderValue} onChange={handleChange}
                 />
                 {errors.minOrderValue && <small className="text-danger fw-medium">{errors.minOrderValue}</small>}
               </div>
@@ -274,7 +292,7 @@ const CreateVoucher = () => {
                 <label className="admin-form-label">Số tiền giảm tối đa (VNĐ) <span className="text-danger">*</span></label>
                 <input 
                   type="number" name="maxDiscountAmount" className={`admin-search-input w-100 ${errors.maxDiscountAmount ? 'border-danger' : ''}`}
-                  placeholder="Ví dụ: 50000" value={formData.maxDiscountAmount} onChange={handleChange}
+                  placeholder="Ví dụ: 50000" min="0" max={MAX_MONEY_VALUE} step="1000" value={formData.maxDiscountAmount} onChange={handleChange}
                 />
                 {errors.maxDiscountAmount && <small className="text-danger fw-medium">{errors.maxDiscountAmount}</small>}
               </div>
@@ -295,7 +313,7 @@ const CreateVoucher = () => {
                 <label className="admin-form-label">Điểm đổi voucher <span className="text-danger">*</span></label>
                 <input 
                   type="number" name="pointVoucher" className={`admin-search-input w-100 ${errors.pointVoucher ? 'border-danger' : ''}`}
-                  placeholder="Số điểm tích lũy cần để đổi..." value={formData.pointVoucher} onChange={handleChange}
+                  placeholder="Số điểm tích lũy cần để đổi..." min="0" max={MAX_POINT_VOUCHER} step="1" value={formData.pointVoucher} onChange={handleChange}
                 />
                 {errors.pointVoucher && <small className="text-danger fw-medium">{errors.pointVoucher}</small>}
               </div>

@@ -6,14 +6,27 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { vi } from 'date-fns/locale/vi';
 import { apiUrl } from '../../utils/apiClient';
 import { AUTH } from '../../constants/apiEndpoints';
+import { toDateInputValue } from '../../utils/formatters';
+import { STRONG_PASSWORD_REGEX, PASSWORD_RULE_MESSAGE } from '../../utils/passwordValidation';
 
 function formatLocalDate(date) {
-  if (!date) return null;
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return toDateInputValue(date) || null;
 }
+
+const BirthdayInput = React.forwardRef(({ value, onClick, onChange, placeholder, className }, ref) => (
+  <input
+    ref={ref}
+    type="text"
+    className={className}
+    value={value || ""}
+    placeholder={placeholder || "Chọn ngày sinh"}
+    onClick={onClick}
+    onChange={onChange}
+    readOnly
+    autoComplete="off"
+  />
+));
+BirthdayInput.displayName = "BirthdayInput";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -43,8 +56,8 @@ const Register = () => {
 
     if (!password || !password.trim()) {
       errors.password = "Mật khẩu không được để trống";
-    } else if (password.length < 6) {
-      errors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+    } else if (!STRONG_PASSWORD_REGEX.test(password)) {
+      errors.password = PASSWORD_RULE_MESSAGE;
     }
 
     if (!fullname || !fullname.trim()) {
@@ -102,8 +115,9 @@ const Register = () => {
           setFieldErrors({ username: "Tên đăng nhập đã tồn tại" });
         } else if (message.includes("Mật khẩu không được để trống")) {
           setFieldErrors({ password: "Mật khẩu không được để trống" });
-        } else if (message.includes("Mật khẩu phải có ít nhất 6 ký tự")) {
-          setFieldErrors({ password: "Mật khẩu phải có ít nhất 6 ký tự" });
+        } else if (message.includes("Mật khẩu phải có ít nhất")
+            || message.includes("Mật khẩu phải chứa")) {
+          setFieldErrors({ password: PASSWORD_RULE_MESSAGE });
         } else if (message.includes("Họ tên không được để trống")) {
           setFieldErrors({ fullname: "Họ tên không được để trống" });
         } else if (message.includes("Email không được để trống")) {
@@ -234,6 +248,9 @@ const Register = () => {
           border-radius: 10px;
           overflow: hidden;
           transition: border-color .3s, box-shadow .3s;
+          min-height: 48px;
+          height: 48px;
+          box-sizing: border-box;
         }
 
         .auth-input-group:focus-within {
@@ -248,9 +265,11 @@ const Register = () => {
         .auth-input-icon {
           background: rgba(255,255,255,0.05);
           border-right: 1px solid rgba(255,255,255,0.08);
-          padding: 0 14px;
+          width: 46px;
+          padding: 0;
           display: flex;
           align-items: center;
+          justify-content: center;
           color: rgba(240,240,255,0.35);
           flex-shrink: 0;
           font-size: 14px;
@@ -265,7 +284,9 @@ const Register = () => {
           font-family: 'Syne', sans-serif;
           font-size: 14px;
           padding: 11px 14px;
+          height: 100%;
           min-width: 0;
+          box-sizing: border-box;
           transition: background .3s;
         }
 
@@ -283,12 +304,14 @@ const Register = () => {
           border-left: 1px solid rgba(255,255,255,0.08);
           color: rgba(240,240,255,0.4);
           min-width: 44px;
+          height: 100%;
           cursor: pointer;
         }
         .auth-eye-btn:hover { color: var(--yellow); }
 
         .auth-field {
           margin-bottom: 20px;
+          min-width: 0;
         }
 
         .auth-field-error {
@@ -304,6 +327,7 @@ const Register = () => {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 20px;
+          align-items: start;
         }
 
         @media (max-width: 560px) {
@@ -365,10 +389,16 @@ const Register = () => {
         }
 
         /* DatePicker overrides */
-        .auth-datepicker-wrapper { flex: 1; }
-        .auth-datepicker-wrapper .react-datepicker-wrapper { width: 100%; }
+        .auth-datepicker-wrapper { flex: 1; height: 100%; min-width: 0; }
+        .auth-datepicker-wrapper .react-datepicker-wrapper,
+        .auth-datepicker-wrapper .react-datepicker__input-container {
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
         .auth-datepicker-input {
           width: 100%;
+          height: 100%;
           background: rgba(255,255,255,0.05) !important;
           border: none !important;
           outline: none !important;
@@ -378,6 +408,8 @@ const Register = () => {
           padding: 11px 14px !important;
           box-shadow: none !important;
           border-radius: 0 !important;
+          box-sizing: border-box !important;
+          cursor: pointer;
         }
         .auth-datepicker-input::placeholder { color: rgba(240,240,255,0.25) !important; }
         .react-datepicker { background-color: #0d0d2b !important; border: 1px solid rgba(212,255,0,0.2) !important; border-radius: 12px !important; overflow: hidden; font-family: 'Syne', sans-serif !important; }
@@ -502,6 +534,8 @@ const Register = () => {
                       dateFormat="dd/MM/yyyy"
                       placeholderText="Chọn ngày sinh"
                       className="auth-datepicker-input"
+                      customInput={<BirthdayInput />}
+                      autoComplete="off"
                       maxDate={new Date()}
                       showYearDropdown
                       scrollableYearDropdown

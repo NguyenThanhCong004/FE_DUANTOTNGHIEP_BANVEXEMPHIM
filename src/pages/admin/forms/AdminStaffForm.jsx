@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { STRONG_PASSWORD_REGEX, PASSWORD_RULE_MESSAGE } from "../../../utils/passwordValidation";
 
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -16,23 +17,9 @@ import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCin
 
 import { useAdminToast } from "../../../components/admin/AdminToast";
 
-
-
-function fileToDataUrl(file) {
-
-  return new Promise((resolve, reject) => {
-
-    const r = new FileReader();
-
-    r.onload = () => resolve(r.result);
-
-    r.onerror = reject;
-
-    r.readAsDataURL(file);
-
-  });
-
-}
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../../utils/mediaFiles";
+import { codeToStaffStatus, staffStatusToCode } from "../../../utils/statusFormat";
+import { apiMessage, MESSAGES } from "../../../utils/uiMessages";
 
 
 
@@ -126,13 +113,9 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
 
     if (!autoPasswordByEmail && !isEdit && !staff.password?.trim()) {
-
       tempErrors.password = "Mật khẩu không được để trống khi tạo mới";
-
-    } else if (staff.password?.trim() && staff.password.length < 6) {
-
-      tempErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
-
+    } else if (staff.password?.trim() && !STRONG_PASSWORD_REGEX.test(staff.password.trim())) {
+      tempErrors.password = PASSWORD_RULE_MESSAGE;
     }
 
 
@@ -209,7 +192,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
       const isUnchanged = JSON.stringify(staff) === JSON.stringify(initialStaff);
 
-      if (isUnchanged) tempErrors.form = "Bạn chưa thay đổi thông tin nào!";
+      if (isUnchanged) tempErrors.form = MESSAGES.noChanges;
 
     }
 
@@ -329,7 +312,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
         email: staff.email.trim(),
         phone: staff.phone.trim(),
         birthday: staff.birthDate,
-        status: staff.status === "Hoạt động" ? 1 : 0,
+        status: staffStatusToCode(staff.status),
         avatar: avatarUrl,
         cinemaId: effectiveCinemaId ?? staff.cinemaId ?? null,
         /** 
@@ -374,7 +357,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
         // Xử lý lỗi trùng từ BE thành validation error
 
-        const message = json?.message || "Lưu nhân viên thất bại";
+        const message = apiMessage(json, "Lưu nhân viên thất bại");
 
         if (message.includes("Email đã tồn tại")) {
 
@@ -404,9 +387,9 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
       const successMessage = autoPasswordByEmail && !isEdit 
 
-        ? "Đã tạo nhân viên. Mật khẩu tạm đã được gửi tới email đã nhập."
+        ? "Đã tạo nhân viên. Mật khẩu tạm đã được gửi tới email đã nhập"
 
-        : (isEdit ? "Cập nhật nhân viên thành công!" : "Tạo nhân viên thành công!");
+        : (isEdit ? "Cập nhật nhân viên thành công" : "Tạo nhân viên thành công");
 
       
 
@@ -424,7 +407,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
     } catch {
 
-      setErrors({ form: "Không thể kết nối tới server" });
+      setErrors({ form: MESSAGES.networkError });
 
     }
 
@@ -464,7 +447,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
         if (!res.ok || !found) {
 
-          setErrors({ form: json?.message || "Không tải được dữ liệu nhân viên" });
+          setErrors({ form: apiMessage(json, "Không tải được dữ liệu nhân viên") });
 
           setLoading(false);
 
@@ -478,7 +461,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
           : "";
 
-        const statusLabel = found.status === 0 ? "Khóa" : "Hoạt động";
+        const statusLabel = codeToStaffStatus(found.status);
 
         const next = {
 
@@ -512,7 +495,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
       } catch {
 
-        if (mounted) setErrors({ form: "Lỗi tải dữ liệu nhân viên" });
+        if (mounted) setErrors({ form: MESSAGES.loadFailed });
 
       } finally {
 
@@ -742,7 +725,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
                   className="d-none"
 
-                  accept="image/*"
+                  accept={IMAGE_FILE_ACCEPT}
 
                   onChange={handleImageChange}
 
@@ -750,7 +733,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
                 <p className="text-muted small text-center px-4" style={{ marginBottom: 0 }}>
 
-                  Nên chọn ảnh vuông, dung lượng dưới 2MB.
+                  Nên chọn ảnh vuông để hiển thị đẹp hơn.
 
                 </p>
 

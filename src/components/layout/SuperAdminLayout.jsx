@@ -15,7 +15,7 @@ export default function SuperAdminLayout({ children }) {
 
   const handleLogout = () => {
     clearAuthSession();
-    navigate("/login");
+    navigate("/staff/login");
   };
 
   return (

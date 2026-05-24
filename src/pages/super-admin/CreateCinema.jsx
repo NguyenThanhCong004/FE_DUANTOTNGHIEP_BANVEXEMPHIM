@@ -2,8 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
+import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
 import { apiFetch } from '../../utils/apiClient';
 import { CINEMAS } from '../../constants/apiEndpoints';
+import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 // --- Custom Searchable Select Component ---
 const SearchableSelect = ({ label, options, value, onChange, placeholder, disabled, error }) => {
@@ -88,6 +91,7 @@ const CreateCinema = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { refreshCinemas, setSelectedCinemaId } = useSuperAdminCinema();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -105,12 +109,6 @@ const CreateCinema = () => {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const showToast = (message, type = 'success', duration = 3000) => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), duration);
-  };
 
   // 1. Tải danh sách Tỉnh/Thành phố
   useEffect(() => {
@@ -167,7 +165,7 @@ const CreateCinema = () => {
         setFormData(prev => ({
           ...prev,
           name: editData.name || '',
-          status: editData.status === 'Active' || editData.status === 1 ? 'Active' : 'Inactive',
+          status: codeToAdminStatus(editData.status, { allowUpcoming: true }),
           province: provinceName,
           district: districtName,
           ward: wardName,
@@ -216,7 +214,7 @@ const CreateCinema = () => {
     const body = {
       name: formData.name.trim(),
       address: fullAddress,
-      status: formData.status === 'Active' ? 1 : 0,
+      status: adminStatusToCode(formData.status, { allowUpcoming: true }),
     };
     let payload = body;
 
@@ -224,7 +222,7 @@ const CreateCinema = () => {
       const originalBody = {
         name: String(editData.name || '').trim(),
         address: String(editData.address || '').trim(),
-        status: editData.status === 'Active' || editData.status === 1 ? 1 : 0,
+        status: adminStatusToCode(editData.status, { allowUpcoming: true }),
       };
 
       const isUnchanged =
@@ -256,8 +254,14 @@ const CreateCinema = () => {
       });
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const message = json?.message || (editData?.id ? 'Câp nhât râp thành công!' : 'Luu râp thành công!');
-        const messageType = json?.message === 'Không có thay dôi dê câp nhât' ? 'warning' : 'success';
+        const message = apiMessage(json, editData?.id ? 'Cập nhật rạp thành công' : 'Lưu rạp thành công');
+        const messageType = resultToastType(message);
+        const savedCinemaId = json?.data?.cinemaId ?? json?.data?.id ?? editData?.id ?? null;
+
+        await refreshCinemas();
+        if (!editData?.id && savedCinemaId != null) {
+          setSelectedCinemaId(savedCinemaId);
+        }
         
         navigate('/super-admin/cinemas', {
           state: {
@@ -267,13 +271,13 @@ const CreateCinema = () => {
         });
       } else {
         const json = await res.json().catch(() => null);
-        setServerError(json?.message || 'Luu thât bai');
+        setServerError(apiMessage(json, 'Lưu rạp thất bại'));
       }
     } catch (err) {
       if (err?.name === 'AbortError') {
         setServerError('Máy chủ phản hồi chậm (quá 4 giây). Vui lòng thử lại.');
       } else {
-        setServerError('Lỗi kết nối máy chủ');
+        setServerError(MESSAGES.networkError);
       }
     } finally {
       clearTimeout(timeoutId);
@@ -387,15 +391,6 @@ const CreateCinema = () => {
         </div>
       </div>
       </div>
-      {toast.show && (
-        <div
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
       {submitting && (
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center align-items-center"

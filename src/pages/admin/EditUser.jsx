@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button, Card, Col, Form, Row } from "react-bootstrap";
 import { apiFetch } from "../../utils/apiClient";
 import { USERS } from "../../constants/apiEndpoints";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 
 export default function EditUser() {
   const { id } = useParams();
@@ -26,7 +27,7 @@ export default function EditUser() {
         if (!mounted) return;
         if (!res.ok || !found) {
           setUser(null);
-          setErr(json?.message || "Không tải được người dùng");
+          setErr(apiMessage(json, "Không tải được người dùng"));
           return;
         }
         setUser({
@@ -44,7 +45,7 @@ export default function EditUser() {
       } catch {
         if (mounted) {
           setUser(null);
-          setErr("Lỗi kết nối");
+          setErr(MESSAGES.networkError);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -84,12 +85,12 @@ export default function EditUser() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setErr(json?.message || "Cập nhật thất bại");
+        setErr(apiMessage(json, "Cập nhật thất bại"));
         return;
       }
       navigate(`${prefix}/users`);
     } catch {
-      setErr("Không thể kết nối server");
+      setErr(MESSAGES.networkError);
     }
   };
 

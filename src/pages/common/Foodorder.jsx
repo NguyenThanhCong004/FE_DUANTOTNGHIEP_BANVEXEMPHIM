@@ -5,17 +5,10 @@ import { Container, Row, Col, Spinner, Form, Alert } from "react-bootstrap";
 import { apiFetch } from "../../utils/apiClient";
 import { CINEMAS, FOOD_ORDERS } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
+import { formatVnd } from "../../utils/formatters";
 
-const fmt = (n) => (Number(n) || 0).toLocaleString("vi-VN") + "đ";
-
-const isProductImageSrc = (value) => {
-  const src = String(value || "").trim();
-  return src.startsWith("http")
-    || src.startsWith("data:image")
-    || src.startsWith("/")
-    || src.startsWith("./")
-    || src.startsWith("../");
-};
+const fmt = formatVnd;
 
 function normalizeProduct(o) {
   const id = o.productId ?? o.product_id;
@@ -26,12 +19,13 @@ function normalizeProduct(o) {
     price: Number(o.price ?? 0) || 0,
     categoryName: o.categoryName ?? o.category_name ?? "Khác",
     image: typeof o.image === "string" ? o.image.trim() : "",
+    isActive: o.isActive !== false,
   };
 }
 
 function ProductCard({ product, qty, onAdd, onRemove }) {
   const img =
-    product.image && isProductImageSrc(product.image) ? (
+    product.image && isDisplayableImageSrc(product.image) ? (
       <img
         src={product.image}
         alt=""
@@ -128,7 +122,7 @@ export function FoodOrderContent({ embedded = false }) {
       const body = await res.json().catch(() => null);
       if (!res.ok) { setMenuError(body?.message || "Không tải được menu"); setProducts([]); return; }
       const onSale = Array.isArray(body?.data?.onSale) ? body.data.onSale : [];
-      setProducts(onSale.map(normalizeProduct).filter((p) => p.productId != null));
+      setProducts(onSale.map(normalizeProduct).filter((p) => p.productId != null && p.isActive));
     } catch {
       setMenuError("Không kết nối được máy chủ");
       setProducts([]);

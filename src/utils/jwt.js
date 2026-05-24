@@ -24,3 +24,16 @@ export function getUserIdFromToken(token) {
   return payload?.userId ?? null;
 }
 
+export function getJwtExpirationMs(token) {
+  const payload = decodeJwtPayload(token);
+  const exp = payload?.exp;
+  return typeof exp === "number" ? exp * 1000 : null;
+}
+
+export function isJwtExpired(token, skewMs = 0) {
+  if (!token) return true;
+  const expMs = getJwtExpirationMs(token);
+  if (!expMs) return true;
+  return expMs <= Date.now() + skewMs;
+}
+

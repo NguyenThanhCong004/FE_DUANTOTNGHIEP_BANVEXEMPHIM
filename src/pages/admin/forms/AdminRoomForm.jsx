@@ -6,6 +6,8 @@ import { getStoredStaff } from "../../../utils/authStorage";
 import { apiFetch } from "../../../utils/apiClient";
 import { ROOMS } from "../../../constants/apiEndpoints";
 import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCinema";
+import { isActiveStatus } from "../../../utils/statusFormat";
+import { apiMessage, MESSAGES } from "../../../utils/uiMessages";
 
 export default function AdminRoomForm({ mode = "add" }) {
   const navigate = useNavigate();
@@ -39,16 +41,16 @@ export default function AdminRoomForm({ mode = "add" }) {
         const data = json?.data ?? json;
         if (!mounted) return;
         if (!res.ok || !data) {
-          setErrors({ name: json?.message || "Không tải được phòng" });
+          setErrors({ name: apiMessage(json, "Không tải được phòng") });
           return;
         }
-        const statusLabel = data.status === 1 || data.status === "active" ? "Hoạt động" : "Bảo trì";
+        const statusLabel = isActiveStatus(data.status) ? "Hoạt động" : "Bảo trì";
         setRoom({
           name: data.name ?? "",
           status: statusLabel,
         });
       } catch {
-        if (mounted) setErrors({ name: "Lỗi tải phòng" });
+        if (mounted) setErrors({ name: MESSAGES.loadFailed });
       } finally {
         if (mounted) setLoading(false);
       }
@@ -81,7 +83,7 @@ export default function AdminRoomForm({ mode = "add" }) {
       return;
     }
 
-    const statusInt = room.status === "Hoạt động" ? 1 : 0;
+    const statusInt = isActiveStatus(room.status) ? 1 : 0;
     const body = {
       name: room.name.trim(),
       status: statusInt,
@@ -95,7 +97,7 @@ export default function AdminRoomForm({ mode = "add" }) {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setErrors({ name: json?.message || "Lưu phòng thất bại" });
+        setErrors({ name: apiMessage(json, "Lưu phòng thất bại") });
         return;
       }
       const saved = json?.data ?? json;
@@ -111,7 +113,7 @@ export default function AdminRoomForm({ mode = "add" }) {
         },
       });
     } catch {
-      setErrors({ name: "Không thể kết nối server" });
+      setErrors({ name: MESSAGES.networkError });
     }
   };
 

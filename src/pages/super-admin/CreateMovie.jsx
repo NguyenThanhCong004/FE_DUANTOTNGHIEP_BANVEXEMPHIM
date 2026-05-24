@@ -5,15 +5,9 @@ import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { MOVIES, GENRES } from '../../constants/apiEndpoints';
 import { useAdminToast } from '../../components/admin/AdminToast';
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from '../../utils/mediaFiles';
+import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 const FAMOUS_NATIONS = [
   { value: 'Việt Nam', label: 'Việt Nam' },
@@ -105,7 +99,7 @@ const CreateMovie = () => {
           release_date: rd,
           age_limit: m.ageLimit != null ? String(m.ageLimit) : "",
           base_price: m.basePrice != null ? String(m.basePrice) : "",
-          status: m.status === 1 ? "Active" : (m.status === 2 ? "Upcoming" : "Inactive"),
+          status: codeToAdminStatus(m.status, { allowUpcoming: true }),
           poster: null,
           banner: null,
         });
@@ -138,7 +132,7 @@ const CreateMovie = () => {
         setFormData(prev => ({ ...prev, status: 'Active' }));
       }
     }
-  }, [formData.release_date]);
+  }, [formData.release_date, formData.status]);
 
   const validateForm = () => {
     let newErrors = {};
@@ -151,7 +145,11 @@ const CreateMovie = () => {
     } else if (parseInt(formData.duration, 10) <= 0) {
       newErrors.duration = 'Thời lượng phải là số dương';
     }
-    if (!formData.genre_id) newErrors.genre_id = 'Vui lòng chọn thể loại';
+    if (!formData.genre_id) {
+      newErrors.genre_id = genreOptions.length === 0
+        ? 'Chưa có thể loại phim. Hệ thống sẽ tạo thể loại mặc định sau khi chạy lại Docker.'
+        : 'Vui lòng chọn thể loại';
+    }
     
     if (!formData.release_date) {
       newErrors.release_date = 'Ngày khởi chiếu không được để trống';
@@ -236,7 +234,7 @@ const CreateMovie = () => {
         ageLimit: Number(formData.age_limit),
         releaseDate: formData.release_date,
         poster: posterBase64,
-        status: formData.status === "Active" ? 1 : (formData.status === "Upcoming" ? 2 : 0),
+        status: adminStatusToCode(formData.status, { allowUpcoming: true }),
         basePrice: Number(formData.base_price),
         author: formData.author?.trim() || null,
         nation: formData.nation?.trim() || null,
@@ -265,7 +263,7 @@ const CreateMovie = () => {
         if (body.banner !== originalData.banner) payload.banner = body.banner;
 
         if (Object.keys(payload).length === 0) {
-          showToast("Không có thay đổi để cập nhật", 'warning');
+          showToast(MESSAGES.noChanges, 'warning');
           setSubmitting(false);
           return;
         }
@@ -294,8 +292,8 @@ const CreateMovie = () => {
 
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const message = json?.message || (editData ? 'Cập nhật phim thành công!' : 'Thêm phim mới thành công!');
-        const messageType = message === 'Không có thay đổi để cập nhật' ? 'warning' : 'success';
+        const message = apiMessage(json, editData ? 'Cập nhật phim thành công' : 'Thêm phim mới thành công');
+        const messageType = resultToastType(message);
         
         navigate("/super-admin/movies", { 
           state: { 
@@ -305,11 +303,11 @@ const CreateMovie = () => {
         });
       } else {
         const json = await res.json().catch(() => null);
-        const errorMessage = json?.message || "Lưu phim thất bại";
+        const errorMessage = apiMessage(json, "Lưu phim thất bại");
         showToast(errorMessage, 'danger');
       }
-    } catch (error) {
-      showToast("Lỗi kết nối máy chủ", 'danger');
+    } catch {
+      showToast(MESSAGES.networkError, 'danger');
     } finally {
       setSubmitting(false);
     }
@@ -352,7 +350,7 @@ const CreateMovie = () => {
                         </div>
                       )}
                     </div>
-                    <input type="file" ref={posterInputRef} hidden accept="image/*" name="poster" onChange={handleFileChange} />
+                    <input type="file" ref={posterInputRef} hidden accept={IMAGE_FILE_ACCEPT} name="poster" onChange={handleFileChange} />
                     {errors.poster && <div className="text-danger small fw-bold">{errors.poster}</div>}
                   </div>
                   <div className="col-md-8 text-center">
@@ -371,7 +369,7 @@ const CreateMovie = () => {
                         </div>
                       )}
                     </div>
-                    <input type="file" ref={bannerInputRef} hidden accept="image/*" name="banner" onChange={handleFileChange} />
+                    <input type="file" ref={bannerInputRef} hidden accept={IMAGE_FILE_ACCEPT} name="banner" onChange={handleFileChange} />
                     <p className="text-muted small mb-0 mt-2">Tỉ lệ 16:9 giúp banner hiển thị tốt nhất trên màn hình lớn.</p>
                   </div>
                 </div>

@@ -2,34 +2,32 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "react-bootstrap";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import { useAdminToast } from "../../components/admin/AdminToast";
 import { apiFetch } from "../../utils/apiClient";
 import { SEAT_TYPES } from "../../constants/apiEndpoints";
 import { hexColorForSeatTypeName, normalizeHex } from "../../utils/seatTypeColors";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import { formatVnd } from "../../utils/formatters";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const SeatTypeManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
+  const { showToast, ToastComponent } = useAdminToast();
   const [seatTypes, setSeatTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [typeToDelete, setTypeToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState("");
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
   useEffect(() => {
     if (location.state?.message) {
-      setToast({
-        show: true,
-        message: location.state.message,
-        type: location.state.type || "success",
-      });
+      showToast(location.state.message, location.state.type || "success");
       window.history.replaceState({}, document.title);
-      const timer = setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
-      return () => clearTimeout(timer);
     }
   }, [location.state]);
 
@@ -63,7 +61,9 @@ const SeatTypeManagement = () => {
     };
   }, []);
 
-  const filteredTypes = seatTypes.filter((type) => type.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredTypes = seatTypes
+    .filter((type) => type.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -79,7 +79,7 @@ const SeatTypeManagement = () => {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
-        setDeleteError(errorData?.message || "Xóa loại ghế thất bại");
+        setDeleteError(apiMessage(errorData, "Xóa loại ghế thất bại"));
         return;
       }
 
@@ -106,11 +106,10 @@ const SeatTypeManagement = () => {
       setShowDeleteModal(false);
       setTypeToDelete(null);
       setDeleteError("");
-      setToast({ show: true, message: "Xóa loại ghế thành công", type: "success" });
-      setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
+      showToast("Xóa loại ghế thành công");
     } catch (error) {
       console.error("Delete error:", error);
-      setDeleteError("Không thể kết nối đến máy chủ");
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
@@ -229,7 +228,7 @@ const SeatTypeManagement = () => {
                         )}
                       </td>
                       <td className="text-end fw-semibold align-middle">
-                        {Number(type.surcharge).toLocaleString("vi-VN")} đ
+                        {formatVnd(type.surcharge)}
                       </td>
                       <td className="text-center align-middle">
                         <div className="d-flex flex-wrap gap-1 justify-content-center">
@@ -259,22 +258,14 @@ const SeatTypeManagement = () => {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="admin-pagination-wrap mt-3">
-              <div className="admin-pagination">
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i + 1}
-                    type="button"
-                    className={`admin-pagination-btn ${currentPage === i + 1 ? "active" : ""}`}
-                    onClick={() => setCurrentPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredTypes.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="loại ghế"
+          />
         </div>
       </div>
       {showDeleteModal && typeToDelete && (
@@ -297,7 +288,7 @@ const SeatTypeManagement = () => {
                 </div>
                 <div className="small mt-1">
                   <strong>Dạng:</strong> {typeToDelete.coupleSeat ? "Ghế đôi" : "Ghế đơn"} ·{" "}
-                  <strong>Phụ thu:</strong> {Number(typeToDelete.surcharge).toLocaleString("vi-VN")} đ
+                  <strong>Phụ thu:</strong> {formatVnd(typeToDelete.surcharge)}
                 </div>
               </div>
               {deleteError && (
@@ -318,15 +309,7 @@ const SeatTypeManagement = () => {
           </div>
         </div>
       )}
-      {toast.show && (
-        <div
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: "300px" }}
-        >
-          <i className={`bi bi-${toast.type === "success" ? "check-circle-fill" : "exclamation-triangle-fill"} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 };

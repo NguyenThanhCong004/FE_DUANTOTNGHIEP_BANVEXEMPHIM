@@ -4,6 +4,8 @@ import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch } from "../../utils/apiClient";
 import { GENRES } from "../../constants/apiEndpoints";
 import { useAdminToast } from "../../components/admin/AdminToast";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const MovieTypeManagement = () => {
   const navigate = useNavigate();
@@ -14,7 +16,7 @@ const MovieTypeManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState("");
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const [genres, setGenres] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ const MovieTypeManagement = () => {
       );
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
   useEffect(() => {
     let mounted = true;
@@ -56,9 +58,9 @@ const MovieTypeManagement = () => {
     };
   }, []);
 
-  const filteredGenres = genres.filter((genre) =>
-    String(genre.name || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredGenres = genres
+    .filter((genre) => String(genre.name || "").toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -90,10 +92,10 @@ const MovieTypeManagement = () => {
       } else {
         // Xử lý error từ BE
         const json = await res.json().catch(() => null);
-        setDeleteError(json?.message || "Xóa thể loại thất bại");
+        setDeleteError(apiMessage(json, "Xóa thể loại thất bại"));
       }
-    } catch (error) {
-      setDeleteError("Không thể kết nối tới server");
+    } catch {
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
@@ -207,22 +209,14 @@ const MovieTypeManagement = () => {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="admin-pagination-wrap mt-3">
-              <div className="admin-pagination">
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i + 1}
-                    type="button"
-                    className={`admin-pagination-btn ${currentPage === i + 1 ? "active" : ""}`}
-                    onClick={() => setCurrentPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredGenres.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="thể loại"
+          />
         </div>
       </div>
 

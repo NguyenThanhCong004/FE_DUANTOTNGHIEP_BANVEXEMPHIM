@@ -12,10 +12,10 @@ import {
   ORDERS_ONLINE,
   CINEMAS,
 } from "../../constants/apiEndpoints";
+import { formatNumber } from "../../utils/formatters";
 
 function formatMoney(v) {
-  if (v == null || Number.isNaN(Number(v))) return "0";
-  return Number(v).toLocaleString("vi-VN");
+  return formatNumber(v, "0");
 }
 
 const AdminDashboard = () => {

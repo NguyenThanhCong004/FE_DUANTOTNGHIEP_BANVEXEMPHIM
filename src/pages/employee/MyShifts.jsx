@@ -19,7 +19,7 @@ export default function MyShifts() {
       const json = await res.json().catch(() => null);
       if (res.status === 401) {
         clearAuthSession();
-        navigate("/login", { replace: true });
+        navigate("/staff/login", { replace: true });
         return;
       }
       if (!res.ok) {
@@ -70,7 +70,6 @@ export default function MyShifts() {
         // Fallback cho dữ liệu cũ nếu không có raw times
         const isToday = r.date === todayStr;
         const isPastDate = r.date < todayStr;
-        const isFutureDate = r.date > todayStr;
         const isWorkingNow = isToday && currentTimeStr >= r.startTime && currentTimeStr <= r.endTime;
         
         if (isWorkingNow) status = 'WORKING';

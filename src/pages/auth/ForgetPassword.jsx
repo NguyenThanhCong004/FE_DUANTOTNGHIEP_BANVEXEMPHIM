@@ -4,6 +4,7 @@ import Layout from "../../components/layout/Layout";
 import CustomerPageShell from "../../components/common/CustomerPageShell";
 import { apiJson } from "../../utils/apiClient";
 import { AUTH } from "../../constants/apiEndpoints";
+import { STRONG_PASSWORD_REGEX, PASSWORD_RULE_MESSAGE } from "../../utils/passwordValidation";
 
 /* ── helpers ── */
 const maskEmail = (email) => {
@@ -267,13 +268,13 @@ function Step3({ resetSessionToken, onDone, busy, onBusy }) {
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState("");
 
-  const rule1 = pw.length >= 8 && pw.length <= 30;
-  const rule2 = /[a-zA-Z]/.test(pw) && /[0-9\W]/.test(pw);
+  const rule1 = pw.length >= 8;
+  const rule2 = /[a-z]/.test(pw) && /[A-Z]/.test(pw) && /[^A-Za-z0-9]/.test(pw);
   const rule3 = pw && pw === pw2;
 
   const validate = () => {
     const e = {};
-    if (!rule1 || !rule2) e.pw = "Mật khẩu chưa đáp ứng yêu cầu";
+    if (!rule1 || !rule2) e.pw = PASSWORD_RULE_MESSAGE;
     if (!rule3) e.pw2 = "Hai lần nhập mật khẩu không giống nhau";
     return e;
   };
@@ -346,9 +347,9 @@ function Step3({ resetSessionToken, onDone, busy, onBusy }) {
       {apiError && <p className="fp-error">{apiError}</p>}
 
       <div className="fp-rules">
-        <RuleRow pass={rule1} text="Mật khẩu bao gồm 8-30 số, chữ cái hoặc ký tự" />
-        <RuleRow pass={rule2} text="Tối thiểu gồm 2 loại ký tự" />
-        <RuleRow pass={rule3} text="Đảm bảo hai lần nhập mật khẩu giống nhau" />
+        <RuleRow pass={rule1} text="Ít nhất 8 ký tự" />
+        <RuleRow pass={rule2} text="Có chữ thường, chữ hoa và ký tự đặc biệt" />
+        <RuleRow pass={rule3} text="Hai lần nhập mật khẩu giống nhau" />
       </div>
 
       <button
