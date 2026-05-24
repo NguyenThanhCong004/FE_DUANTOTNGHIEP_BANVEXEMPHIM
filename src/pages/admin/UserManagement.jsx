@@ -3,11 +3,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { Modal, Button, Badge, Row, Col, Spinner } from 'react-bootstrap';
 import { apiFetch } from '../../utils/apiClient';
 import { USERS } from '../../constants/apiEndpoints';
+import { formatDate } from '../../utils/formatters';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
@@ -50,12 +52,7 @@ const UserManagement = () => {
     setDetailUser(null);
   };
 
-  const formatBirthday = (d) => {
-    if (!d) return '';
-    const dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return String(d);
-    return `${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}/${dt.getFullYear()}`;
-  };
+  const formatBirthday = (d) => formatDate(d, { day: '2-digit', month: '2-digit', year: 'numeric', fallback: '' });
 
   useEffect(() => {
     let mounted = true;
@@ -91,13 +88,15 @@ const UserManagement = () => {
 
   const filteredUsers = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => {
-      const name = String(u.fullname ?? u.username ?? '').toLowerCase();
-      const phone = String(u.phone ?? '');
-      const idStr = String(u.userId ?? '');
-      return name.includes(q) || phone.includes(q) || idStr.includes(q);
-    });
+    const filtered = q
+      ? users.filter((u) => {
+          const name = String(u.fullname ?? u.username ?? '').toLowerCase();
+          const phone = String(u.phone ?? '');
+          const idStr = String(u.userId ?? '');
+          return name.includes(q) || phone.includes(q) || idStr.includes(q);
+        })
+      : users;
+    return [...filtered].sort((a, b) => (Number(b.userId) || 0) - (Number(a.userId) || 0));
   }, [searchTerm, users]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -155,7 +154,7 @@ const UserManagement = () => {
             <table className="admin-table mb-0">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th style={{ width: 56 }}>STT</th>
                   <th>Khách hàng</th>
                   <th>Liên hệ</th>
                   <th>Ngày sinh</th>
@@ -186,9 +185,9 @@ const UserManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : currentItems.map((user) => (
+                ) : currentItems.map((user, index) => (
                   <tr key={user.userId}>
-                    <td className="fw-bold">#{user.userId}</td>
+                    <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
                       <div className="d-flex align-items-center gap-3">
                         <div className="admin-table-icon-tile">
@@ -252,44 +251,14 @@ const UserManagement = () => {
         </div>
       </div>
 
-      {totalPages > 1 && (
-        <div className="admin-pagination-bar">
-          <span className="admin-pagination-meta">
-            Hiển thị {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredUsers.length)} / {filteredUsers.length}{' '}
-            khách hàng
-          </span>
-          <div className="admin-pagination">
-            <button
-              type="button"
-              className="admin-pagination-btn"
-              onClick={() => setCurrentPage((p) => p - 1)}
-              disabled={currentPage === 1}
-              aria-label="Trang trước"
-            >
-              <i className="bi bi-chevron-left"></i>
-            </button>
-            {[...Array(totalPages)].map((_, index) => (
-              <button
-                key={index}
-                type="button"
-                className={`admin-pagination-btn ${currentPage === index + 1 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(index + 1)}
-              >
-                {index + 1}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="admin-pagination-btn"
-              onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={currentPage === totalPages}
-              aria-label="Trang sau"
-            >
-              <i className="bi bi-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      )}
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredUsers.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="khách hàng"
+      />
 
       <Modal show={showDetailModal} onHide={closeUserDetail} centered size="lg">
         <Modal.Header closeButton className="border-0 pb-0">

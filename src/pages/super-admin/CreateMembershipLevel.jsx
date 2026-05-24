@@ -4,6 +4,7 @@ import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { MEMBERSHIP_RANKS } from '../../constants/apiEndpoints';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 const CreateMembershipLevel = () => {
   const navigate = useNavigate();
@@ -92,17 +93,16 @@ const CreateMembershipLevel = () => {
       });
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const serverMessage = json?.message || '';
-        const isNoChange = serverMessage.includes('Không có thay đổi');
+        const message = apiMessage(json, rid ? 'Cập nhật hạng hội viên thành công' : 'Thêm hạng hội viên thành công');
         navigate('/super-admin/membership-levels', {
           state: {
-            message: serverMessage || (rid ? 'Cập nhật hạng hội viên thành công' : 'Thêm hạng hội viên thành công'),
-            type: isNoChange ? 'warning' : 'success',
+            message,
+            type: resultToastType(message),
           },
         });
       } else {
         const json = await res.json().catch(() => null);
-        const message = json?.message || 'Lưu hạng hội viên thất bại';
+        const message = apiMessage(json, 'Lưu hạng hội viên thất bại');
         
         // Điều hướng lỗi về đúng ô nhập liệu
         if (message.includes('Chi tiêu tối thiểu')) {
@@ -114,7 +114,7 @@ const CreateMembershipLevel = () => {
         }
       }
     } catch {
-      setServerError('Lỗi kết nối máy chủ');
+      setServerError(MESSAGES.networkError);
     } finally {
       setSubmitting(false);
     }

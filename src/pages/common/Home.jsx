@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import HeroSlider from "../../components/common/HeroSlider";
 import SectionHeader from "../../components/common/SectionHeader";
@@ -253,9 +254,9 @@ const Home = () => {
               <div className="home-section-title">
                 Phim <span>Đang Chiếu</span>
               </div>
-              <a href="/movies" className="home-section-link">
+              <Link to="/movies" className="home-section-link">
                 Xem tất cả →
-              </a>
+              </Link>
             </div>
 
             {nowShowing.length === 0 ? (
@@ -286,9 +287,9 @@ const Home = () => {
               <div className="home-section-title">
                 Phim <span>Sắp Chiếu</span>
               </div>
-              <a href="/movies" className="home-section-link">
+              <Link to="/movies" className="home-section-link">
                 Xem lịch →
-              </a>
+              </Link>
             </div>
             <div className="row g-4">
               {comingSoon.map((movie) => (

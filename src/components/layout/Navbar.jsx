@@ -5,18 +5,13 @@ import {
   LogOut,
   LayoutDashboard,
   Film,
-  Popcorn,
-  Ticket,
-  History,
-  Award,
   Menu,
   X,
   ChevronDown,
   User,
-  Heart,
   Search,
 } from "lucide-react";
-import { clearAuthSession, getAccessToken, getStoredStaff, getStoredUser } from "../../utils/authStorage";
+import { AUTH_SESSION_CHANGED, clearAuthSession, getAuthSession } from "../../utils/authStorage";
 
 const NAV_LINKS = [
   { to: "/",          label: "Trang chủ",        end: true },
@@ -47,12 +42,12 @@ export default function CinemaNavbar() {
   const location   = useLocation();
   const navigate   = useNavigate();
   const dropdownRef = useRef(null);
+  const [authSession, setAuthSessionState] = useState(() => getAuthSession());
 
-  const token  = getAccessToken();
-  const staff  = getStoredStaff();
-  const user   = getStoredUser();
+  const staff  = authSession.staff;
+  const user   = authSession.user;
 
-  const isLoggedIn     = Boolean(token);
+  const isLoggedIn     = authSession.isAuthenticated;
   const isStaffSession = Boolean(staff);
   const displayName    = staff?.fullname || user?.fullname || user?.username || "Tài khoản";
 
@@ -68,13 +63,46 @@ export default function CinemaNavbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  /* keep auth UI in sync with token expiry, login/logout and other tabs */
+  useEffect(() => {
+    const syncAuth = () => setAuthSessionState(getAuthSession());
+    const onVisibility = () => {
+      if (!document.hidden) syncAuth();
+    };
+
+    window.addEventListener(AUTH_SESSION_CHANGED, syncAuth);
+    window.addEventListener("storage", syncAuth);
+    window.addEventListener("focus", syncAuth);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener(AUTH_SESSION_CHANGED, syncAuth);
+      window.removeEventListener("storage", syncAuth);
+      window.removeEventListener("focus", syncAuth);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authSession.isAuthenticated || !authSession.sessionExpiresAt) return undefined;
+
+    const delay = Math.max(0, Math.min(authSession.sessionExpiresAt - Date.now() + 1000, 2147483647));
+    const timerId = window.setTimeout(() => {
+      setAuthSessionState(getAuthSession());
+    }, delay);
+
+    return () => window.clearTimeout(timerId);
+  }, [authSession.isAuthenticated, authSession.sessionExpiresAt]);
+
   /* close menus on route change */
-  const prevPath = useRef(location.pathname);
-  if (location.pathname !== prevPath.current) {
-    prevPath.current = location.pathname;
-    setMobileMenuOpen(false);
-    setDropdownOpen(false);
-  }
+  useEffect(() => {
+    setAuthSessionState(getAuthSession());
+    const frame = requestAnimationFrame(() => {
+      setMobileMenuOpen(false);
+      setDropdownOpen(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.pathname]);
 
   /* close dropdown on outside click */
   useEffect(() => {
@@ -638,24 +666,8 @@ export default function CinemaNavbar() {
                         </>
                       ) : (
                         <>
-                          <div className="cn-dropdown-label">Tài khoản</div>
                           <Link to="/profile?tab=info"           className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
                             <User    size={15} style={{ color: "rgba(240,240,255,.5)", flexShrink: 0 }} /> Hồ sơ cá nhân
-                          </Link>
-                          <Link to="/profile?tab=points" className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                            <History size={15} style={{ color: "rgba(240,240,255,.5)", flexShrink: 0 }} /> Điểm thưởng
-                          </Link>
-                          <Link to="/foodorder"         className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                            <Popcorn size={15} style={{ color: "#fbbf24", flexShrink: 0 }} /> Đặt bắp nước
-                          </Link>
-                          <Link to="/profile?tab=vouchers"        className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                            <Ticket  size={15} style={{ color: "#34d399", flexShrink: 0 }} /> Voucher của tôi
-                          </Link>
-                          <Link to="/profile?tab=rank"  className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                            <Award   size={15} style={{ color: "#fbbf24", flexShrink: 0 }} /> Hạng thành viên
-                          </Link>
-                          <Link to="/transactionHistory" className="cn-dropdown-item" onClick={() => setDropdownOpen(false)}>
-                            <History size={15} style={{ color: "rgba(240,240,255,.5)", flexShrink: 0 }} /> Lịch sử giao dịch
                           </Link>
                           <div className="cn-dropdown-divider" />
                         </>
@@ -730,8 +742,6 @@ export default function CinemaNavbar() {
 
             {isLoggedIn ? (
               <>
-                <div className="cn-mobile-label">Tài khoản: {displayName}</div>
-
                 {isStaffSession && staffPortal ? (
                   <Link
                     to={staffPortal}
@@ -744,21 +754,6 @@ export default function CinemaNavbar() {
                   <>
                     <Link to="/profile?tab=info"   className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
                       <User    size={18} style={{ color: "rgba(240,240,255,.5)" }} /> Hồ sơ cá nhân
-                    </Link>
-                    <Link to="/profile?tab=points" className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
-                      <History size={18} style={{ color: "rgba(240,240,255,.5)" }} /> Điểm thưởng
-                    </Link>
-                    <Link to="/foodorder"          className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
-                      <Popcorn size={18} style={{ color: "#fbbf24" }} /> Đặt bắp nước
-                    </Link>
-                    <Link to="/profile?tab=vouchers"         className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
-                      <Ticket  size={18} style={{ color: "#34d399" }} /> Voucher của tôi
-                    </Link>
-                    <Link to="/profile?tab=rank"   className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
-                      <Award   size={18} style={{ color: "#fbbf24" }} /> Hạng thành viên
-                    </Link>
-                    <Link to="/transactionHistory" className="cn-mobile-action" onClick={() => setMobileMenuOpen(false)}>
-                      <History size={18} style={{ color: "rgba(240,240,255,.5)" }} /> Lịch sử giao dịch
                     </Link>
                   </>
                 )}

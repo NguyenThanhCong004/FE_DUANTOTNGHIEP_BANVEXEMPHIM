@@ -8,6 +8,8 @@ import { SHIFTS, STAFF } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
 import { useAdminToast } from "../../components/admin/AdminToast";
+import useRealtimeSync from "../../utils/useRealtimeSync";
+import { isActiveStatus } from "../../utils/statusFormat";
 
 const DAY_NAMES = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 const SHIFT_TYPES = [
@@ -41,6 +43,11 @@ const getWeekDays = (startDate) => {
 const toIso = (d) => {
   if (!d || isNaN(d.getTime())) return "";
   return d.toISOString().slice(0, 10);
+};
+
+const formatSyncTime = (date) => {
+  if (!date) return "";
+  return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 };
 
 export default function ShiftManagement() {
@@ -103,17 +110,9 @@ export default function ShiftManagement() {
     if (!effectiveCinemaId) return;
     setLoading(true);
     try {
-      console.log("🔄 Bắt đầu tải dữ liệu ca làm việc...");
-      console.log("🏢 Cinema ID:", effectiveCinemaId);
-      console.log("📅 Tuần:", weekRangeStr);
-      
       const qStaff = `?cinemaId=${effectiveCinemaId}`;
       const qShifts = `?cinemaId=${effectiveCinemaId}&startDate=${toIso(weekDays[0])}&endDate=${toIso(weekDays[6])}`;
-      
-      console.log("📡 API calls:");
-      console.log("  Staff:", `${STAFF.LIST}${qStaff}`);
-      console.log("  Shifts:", `${SHIFTS.LIST}${qShifts}`);
-      
+
       const [staffRes, shiftRes] = await Promise.all([
         apiFetch(`${STAFF.LIST}${qStaff}`),
         apiFetch(`${SHIFTS.LIST}${qShifts}`),
@@ -121,24 +120,7 @@ export default function ShiftManagement() {
       
       const staffJson = await staffRes.json();
       const shiftJson = await shiftRes.json();
-      
-      console.log("📊 Staff response:", staffJson);
-      console.log("📊 Shifts response:", shiftJson);
-      
-      // Log chi tiết data từ backend
-      if (shiftJson?.data?.[0]) {
-        const firstShift = shiftJson.data[0];
-        console.log("🔍 First shift from backend:");
-        console.log("  - id:", firstShift.id);
-        console.log("  - staffName:", firstShift.staffName);
-        console.log("  - role:", firstShift.role);
-        console.log("  - shiftType:", firstShift.shiftType);
-        console.log("  - date:", firstShift.date);
-        console.log("  - startTime:", firstShift.startTime);
-        console.log("  - endTime:", firstShift.endTime);
-        console.log("  - All keys:", Object.keys(firstShift));
-      }
-      
+
       // staff data structure from API: staffId, fullname, role, etc.
       setStaffList(Array.isArray(staffJson?.data) ? staffJson.data : []);
       
@@ -154,17 +136,15 @@ export default function ShiftManagement() {
         staffName: s.staffName || "Không tên",
         dirty: false
       }));
-      
-      console.log("📝 Processed shifts:", loadedShifts);
+
       setShifts(loadedShifts);
       setPendingDeleteIds([]);
-      console.log("✅ Tải dữ liệu hoàn tất");
     } catch (err) {
       console.error("❌ Lỗi tải dữ liệu ca làm:", err);
     } finally {
       setLoading(false);
     }
-  }, [effectiveCinemaId, weekStart, weekDays]);
+  }, [effectiveCinemaId, weekDays]);
 
   useEffect(() => {
     loadData();
@@ -174,9 +154,7 @@ export default function ShiftManagement() {
     // Filter out Admin and Super Admin, AND only active staff
     return staffList
       .filter(s => {
-        // Chỉ hiện nhân viên hoạt động (status === 1)
-        const isActive = s.status === 1 || s.status === 'Hoạt động';
-        if (!isActive) return false;
+        if (!isActiveStatus(s.status)) return false;
 
         const role = (s.role || "").toLowerCase();
         return !role.includes("admin") && !role.includes("super");
@@ -236,14 +214,8 @@ export default function ShiftManagement() {
     if (!effectiveCinemaId) return;
     setSaving(true);
     try {
-      console.log("🔍 Bắt đầu lưu ca làm việc...");
-      console.log("📅 Tuần hiện tại:", weekRangeStr);
-      console.log("🔄 Pending deletes:", pendingDeleteIds);
-      console.log("📝 Shifts to save:", shifts.filter(s => !s.serverId || s.dirty).length);
-      
       // Xóa các ca đã đánh dấu xóa
       for (const id of pendingDeleteIds) {
-        console.log("🗑️ Xóa ca ID:", id);
         await apiFetch(SHIFTS.BY_ID(id), { method: "DELETE" });
       }
       
@@ -259,18 +231,14 @@ export default function ShiftManagement() {
             role: s.role,
             cinemaId: Number(effectiveCinemaId)
           };
-          
-          console.log("💾 Lưu ca:", { staffId: s.staffId, date: s.date, shiftType: s.shiftType, role: s.role });
-          
+
           if (s.serverId) {
-            console.log("✏️ Cập nhật ca tồn tại:", s.serverId);
             await apiFetch(`${SHIFTS.BY_ID(s.serverId)}/individual`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body)
             });
           } else {
-            console.log("➕ Tạo ca mới");
             await apiFetch(`${SHIFTS.LIST}/individual`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -279,14 +247,12 @@ export default function ShiftManagement() {
           }
         }
       }
-      
-      console.log("✅ Lưu thành công, bắt đầu tải lại dữ liệu...");
+
       showToast("Đã lưu lịch làm việc thành công!", "success");
-      
+
       // Tải lại dữ liệu để hiển thị các ca đã lưu
       await loadData();
-      console.log("🔄 Tải lại dữ liệu hoàn tất");
-      
+      notifySync("shifts:saved");
     } catch (err) {
       console.error("❌ Lỗi khi lưu lịch làm việc:", err);
       showToast("Lỗi khi lưu lịch làm việc: " + (err.message || "Vui lòng thử lại."), "danger");
@@ -298,26 +264,32 @@ export default function ShiftManagement() {
   const navigateWeek = (weeks) => {
     const next = new Date(weekStart);
     next.setDate(weekStart.getDate() + (weeks * 7));
-    console.log("🗓️ Chuyển tuần:", weeks, "tuần");
-    console.log("📅 Từ:", weekRangeStr);
     setWeekStart(next);
     // loadData sẽ được gọi tự động qua useEffect vì weekStart thay đổi
-  };
-
-  const goToCurrentWeek = () => {
-    console.log("🗓️ Quay về tuần hiện tại");
-    setWeekStart(getWeekStart(new Date()));
   };
 
   const handleDateChange = (e) => {
     const selectedDate = e.target.value;
     if (selectedDate) {
-      console.log("🗓️ Chọn ngày mới:", selectedDate);
       setWeekStart(getWeekStart(new Date(selectedDate)));
     }
   };
 
   const hasChanges = pendingDeleteIds.length > 0 || shifts.some(s => !s.serverId || s.dirty);
+  const { lastSyncedAt, syncing: realtimeSyncing, notifySync } = useRealtimeSync({
+    enabled: Boolean(effectiveCinemaId),
+    intervalMs: 10000,
+    hasPendingChanges: hasChanges || saving || Boolean(dragData),
+    onSync: loadData,
+    channelName: `java6-shifts-${effectiveCinemaId || "none"}`,
+  });
+  const syncLabel = hasChanges
+    ? "Tạm dừng real-time"
+    : realtimeSyncing
+      ? "Đang đồng bộ"
+      : lastSyncedAt
+        ? `Đồng bộ ${formatSyncTime(lastSyncedAt)}`
+        : "Real-time sẵn sàng";
 
   if (!effectiveCinemaId) {
     return (
@@ -335,9 +307,12 @@ export default function ShiftManagement() {
       icon="calendar-check"
       title="Quản lý Ca làm việc"
       description={
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
           <span>Phân bổ nhân sự trực quan bằng cách kéo thả.</span>
           {hasChanges && <Badge bg="warning" text="dark" className="admin-fade-in">Có thay đổi chưa lưu</Badge>}
+          <span className={`admin-realtime-pill ${hasChanges ? "is-paused" : realtimeSyncing ? "is-syncing" : ""}`}>
+            {syncLabel}
+          </span>
         </div>
       }
       headerRight={

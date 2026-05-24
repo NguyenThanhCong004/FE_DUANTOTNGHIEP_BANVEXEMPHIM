@@ -6,7 +6,8 @@ import { apiFetch } from "../../utils/apiClient";
 import { ROOMS, MOVIES, SHOWTIMES } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
-
+import useRealtimeSync from "../../utils/useRealtimeSync";
+import { isActiveStatus } from "../../utils/statusFormat";
 import { useAdminToast } from "../../components/admin/AdminToast";
 
 const SLOT_INTERVAL = 5; 
@@ -80,6 +81,11 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const formatSyncTime = (date) => {
+  if (!date) return "";
+  return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+};
+
 const calculateEndTime = (startTime, durationMinutes) => {
   if (!startTime) return "";
   let totalMins = toBusinessMinutes(startTime) + (durationMinutes || 120);
@@ -111,14 +117,13 @@ export default function ShowtimeManagement() {
   const { showToast, ToastComponent } = useAdminToast();
 
   const [state, setState] = useState({ rooms: [], movies: [], events: [] });
-  const [dataLoading, setDataLoading] = useState(false);
   const [globalDate, setGlobalDate] = useState(toIso(new Date()));
   const [roomDates, setRoomDates] = useState({});
   const [movieSearchTerm, setMovieSearchTerm] = useState("");
   const [dragData, setDragData] = useState(null);
-  const [deleteZone, setDeleteZone] = useState(false); 
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [dragOverCell, setDragOverCell] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [weeklySurcharge, setWeeklySurcharge] = useState({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 });
@@ -159,9 +164,58 @@ export default function ShowtimeManagement() {
 
   const movieMap = useMemo(() => state.movies.reduce((acc, m) => ({ ...acc, [m.id]: m }), {}), [state.movies]);
 
+  const previewEvents = useMemo(() => {
+    if (!dragOverCell || !dragData || dragData.type !== "movie") return null;
+    const { roomId, time } = dragOverCell;
+    const bDate = roomDates[roomId] || globalDate;
+    if (isPastShowtime(bDate, time)) return null;
+    const movieId = dragData.movieId;
+    if (!movieId) return null;
+    const movie = movieMap[movieId];
+    const duration = movie?.durationMin || 120;
+    let startMins = toBusinessMinutes(time);
+    if (dragData.slotOffset) startMins -= dragData.slotOffset * SLOT_INTERVAL;
+    if (startMins < 7 * 60) startMins = 7 * 60;
+    const existingRoomEvents = state.events
+      .filter(ev => ev.roomId === roomId && ev.businessDate === bDate)
+      .sort((a, b) => toBusinessMinutes(a.startTime) - toBusinessMinutes(b.startTime));
+    const prevEvent = existingRoomEvents.filter(ev => toBusinessMinutes(ev.startTime) <= startMins).slice(-1)[0];
+    if (prevEvent) {
+      const prevEnd = toBusinessMinutes(prevEvent.startTime) + (movieMap[prevEvent.movieId]?.durationMin || 120);
+      if (startMins < prevEnd + CLEANUP_TIME) startMins = prevEnd + CLEANUP_TIME;
+    }
+    if (startMins + duration > 25 * 60) return null;
+    const dropTimeStr = fromBusinessMinutes(startMins);
+    const previewId = "preview";
+    const list = existingRoomEvents.map(ev => ({ ...ev }));
+    list.push({ id: previewId, serverId: null, movieId, roomId, businessDate: bDate, startTime: dropTimeStr, surcharge: weeklySurcharge[new Date(bDate).getDay()] || 0, dirty: false, soldTicketsCount: 0, isPreview: true });
+    list.sort((a, b) => {
+      const diff = toBusinessMinutes(a.startTime) - toBusinessMinutes(b.startTime);
+      if (diff !== 0) return diff;
+      return a.id === previewId ? -1 : b.id === previewId ? 1 : 0;
+    });
+    let changed = true, iterations = 0;
+    while (changed && iterations < 50) {
+      changed = false;
+      for (let i = 0; i < list.length - 1; i++) {
+        const cur = list[i], nxt = list[i + 1];
+        const curEnd = toBusinessMinutes(cur.startTime) + (movieMap[cur.movieId]?.durationMin || 120);
+        const minNext = curEnd + CLEANUP_TIME;
+        if (toBusinessMinutes(nxt.startTime) < minNext) {
+          if (nxt.soldTicketsCount > 0) return null;
+          nxt.startTime = fromBusinessMinutes(minNext);
+          changed = true;
+        }
+      }
+      iterations++;
+    }
+    const last = list[list.length - 1];
+    if (last && toBusinessMinutes(last.startTime) + (movieMap[last.movieId]?.durationMin || 120) > 25 * 60) return null;
+    return { roomId, bDate, events: list };
+  }, [dragOverCell, dragData, state.events, movieMap, roomDates, globalDate, weeklySurcharge]);
+
   const loadShowtimeData = useCallback(async () => {
     if (!effectiveCinemaId) return;
-    setDataLoading(true);
     try {
       const q = "?cinemaId=" + effectiveCinemaId;
       const [rRes, mRes, sRes] = await Promise.all([
@@ -169,7 +223,7 @@ export default function ShowtimeManagement() {
         apiFetch(MOVIES.LIST).then(res => res.json()),
         apiFetch(SHOWTIMES.LIST + q).then(res => res.json()),
       ]);
-      const rooms = (rRes?.data || []).map(r => ({ id: r.id, name: r.name }));
+      const rooms = (rRes?.data || []).filter(r => isActiveStatus(r.status)).map(r => ({ id: r.id, name: r.name }));
       const movies = (mRes?.data || []).map(m => ({ id: m.id, title: m.title, durationMin: m.duration || 120, basePrice: m.basePrice || 60000 }));
       const events = (sRes?.data || []).map(s => ({
         id: s.id, serverId: s.id, movieId: s.movie_id || s.movieId, roomId: s.room_id || s.roomId,
@@ -177,26 +231,39 @@ export default function ShowtimeManagement() {
         soldTicketsCount: s.sold_tickets_count || 0, dirty: false
       }));
 
-      // Tự động trích xuất phụ thu theo thứ từ dữ liệu suất chiếu hiện có (nếu chưa có trong state)
-      const extractedSurcharges = { ...weeklySurcharge };
-      events.forEach(ev => {
-        const day = new Date(ev.businessDate).getDay();
-        // Nếu ngày này trong state đang là 0 và suất chiếu có phụ thu > 0, cập nhật state
-        if (extractedSurcharges[day] === 0 && ev.surcharge > 0) {
-          extractedSurcharges[day] = ev.surcharge;
-        }
+      setWeeklySurcharge(prev => {
+        const extractedSurcharges = { ...prev };
+        events.forEach(ev => {
+          const day = new Date(ev.businessDate).getDay();
+          if (extractedSurcharges[day] === 0 && ev.surcharge > 0) {
+            extractedSurcharges[day] = ev.surcharge;
+          }
+        });
+        return extractedSurcharges;
       });
-      setWeeklySurcharge(extractedSurcharges);
 
       setState({ rooms, movies, events });
       setPendingDeleteIds([]);
-      const initialRoomDates = {};
-      rooms.forEach(r => { initialRoomDates[r.id] = globalDate; });
-      setRoomDates(initialRoomDates);
-    } catch (e) { console.error(e); } finally { setDataLoading(false); }
+      setRoomDates(prev => {
+        const nextRoomDates = {};
+        rooms.forEach(r => {
+          nextRoomDates[r.id] = prev[r.id] || globalDate;
+        });
+        return nextRoomDates;
+      });
+    } catch (err) { console.error(err); }
   }, [effectiveCinemaId, globalDate]);
 
   useEffect(() => { loadShowtimeData(); }, [loadShowtimeData]);
+
+  const hasUnsaved = pendingDeleteIds.length > 0 || state.events.some(e => !e.serverId || e.dirty);
+  const { lastSyncedAt, syncing: realtimeSyncing, notifySync } = useRealtimeSync({
+    enabled: Boolean(effectiveCinemaId),
+    intervalMs: 10000,
+    hasPendingChanges: hasUnsaved || saving || Boolean(dragData),
+    onSync: loadShowtimeData,
+    channelName: `java6-showtimes-${effectiveCinemaId || "none"}`,
+  });
 
   const handleSaveShowtimes = async () => {
     if (!effectiveCinemaId || saving) return;
@@ -211,8 +278,9 @@ export default function ShowtimeManagement() {
         else await apiFetch(SHOWTIMES.LIST, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
       await loadShowtimeData();
+      notifySync("showtimes:saved");
       showToast("Đã lưu lịch chiếu thành công!", "success");
-    } catch (e) { showToast("Lỗi khi lưu dữ liệu.", "danger"); } finally { setSaving(false); }
+    } catch { showToast("Lỗi khi lưu dữ liệu.", "danger"); } finally { setSaving(false); }
   };
 
   const handleDragStart = (e, type, data) => {
@@ -242,6 +310,21 @@ export default function ShowtimeManagement() {
 
     const movie = movieMap[movieId];
     const duration = movie?.durationMin || 120;
+
+    // Khi thả phim mới: snap về prevEnd + 15 nếu drop quá gần phim trước
+    if (dragData.type === "movie") {
+      const prevEvent = state.events
+        .filter(ev => ev.roomId === roomId && ev.businessDate === bDate)
+        .sort((a, b) => toBusinessMinutes(a.startTime) - toBusinessMinutes(b.startTime))
+        .filter(ev => toBusinessMinutes(ev.startTime) <= startMins)
+        .slice(-1)[0];
+      if (prevEvent) {
+        const prevEnd = toBusinessMinutes(prevEvent.startTime) + (movieMap[prevEvent.movieId]?.durationMin || 120);
+        if (startMins < prevEnd + CLEANUP_TIME) {
+          startMins = prevEnd + CLEANUP_TIME;
+        }
+      }
+    }
 
     if (startMins + duration > 25 * 60) { showToast("Quá giờ hoạt động!", "warning"); return; }
 
@@ -340,14 +423,23 @@ export default function ShowtimeManagement() {
     setDragData(null);
   };
 
-  const hasUnsaved = pendingDeleteIds.length > 0 || state.events.some(e => !e.serverId || e.dirty);
-
   return (
-    <div className="admin-page p-3 admin-fade-in" style={{ backgroundColor: "#f4f6f9", minHeight: "100vh" }}>
-      <div className="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+    <div className="admin-page showtime-schedule-page admin-fade-in">
+      <div className="d-flex justify-content-between align-items-center mb-3 bg-white p-3 rounded shadow-sm border">
         <div>
           <h2 className="h4 mb-0 fw-bold text-primary"><i className="bi bi-calendar3 me-2"></i>Quản lý Suất chiếu (7h - 1h sáng)</h2>
-          <p className="text-muted small mb-0">Ca đêm (00:00 - 01:00) tính vào ngày kinh doanh hôm trước.</p>
+          <div className="d-flex align-items-center gap-2 flex-wrap mt-1">
+            <p className="text-muted small mb-0">Ca đêm (00:00 - 01:00) tính vào ngày kinh doanh hôm trước.</p>
+            <span className={`admin-realtime-pill ${hasUnsaved ? "is-paused" : realtimeSyncing ? "is-syncing" : ""}`}>
+              {hasUnsaved
+                ? "Tạm dừng real-time"
+                : realtimeSyncing
+                  ? "Đang đồng bộ"
+                  : lastSyncedAt
+                    ? `Đồng bộ ${formatSyncTime(lastSyncedAt)}`
+                    : "Real-time sẵn sàng"}
+            </span>
+          </div>
         </div>
         <div className="d-flex gap-2">
           <Button variant={hasUnsaved ? "primary" : "outline-primary"} size="sm" disabled={saving || !hasUnsaved} onClick={handleSaveShowtimes}>
@@ -410,7 +502,7 @@ export default function ShowtimeManagement() {
         <Card.Body className="p-2">
           <div className="d-flex gap-3 overflow-auto pb-2 px-2">
             {state.movies.filter(m => m.title.toLowerCase().includes(movieSearchTerm.toLowerCase())).map(m => (
-              <div key={m.id} draggable onDragStart={e => handleDragStart(e, "movie", { movieId: m.id })} className="p-2 border rounded text-center bg-white shadow-xs" style={{ minWidth: "150px", cursor: "grab" }}>
+              <div key={m.id} draggable onDragStart={e => handleDragStart(e, "movie", { movieId: m.id })} onDragEnd={() => { setDragOverCell(null); setDragData(null); }} className="p-2 border rounded text-center bg-white shadow-xs" style={{ minWidth: "150px", cursor: "grab" }}>
                 <div className="fw-bold small text-truncate mb-1">{m.title}</div>
                 <Badge bg="info" className="text-dark fw-normal" style={{ fontSize: "0.65rem" }}>{m.durationMin} phút</Badge>
               </div>
@@ -438,38 +530,54 @@ export default function ShowtimeManagement() {
                   <div className="p-2 d-flex flex-column"><span className="fw-bold text-dark">{room.name}</span><span className="text-muted" style={{ fontSize: "0.7rem" }}>{formatDate(roomDates[room.id] || globalDate)}</span></div>
                 </td>
                 {TIME_SLOTS.map(time => {
-                  const ev = state.events.find(e => e.roomId === room.id && e.businessDate === (roomDates[room.id] || globalDate) && e.startTime === time);
+                  const bDate = roomDates[room.id] || globalDate;
+                  const isPreviewActive = dragData?.type === "movie" && previewEvents?.roomId === room.id && previewEvents?.bDate === bDate;
+                  const ev = isPreviewActive
+                    ? previewEvents.events.find(e => e.startTime === time)
+                    : state.events.find(e => e.roomId === room.id && e.businessDate === bDate && e.startTime === time);
                   const movie = ev ? movieMap[ev.movieId] : null;
                   const duration = movie?.durationMin || 120;
-                  const isPast = ev ? isPastShowtime(ev.businessDate, ev.startTime) : false;
-                  
+                  const isPreviewEv = ev?.isPreview;
+                  const isPushedEv = isPreviewActive && ev && !isPreviewEv;
+                  const isPast = ev && !isPreviewEv ? isPastShowtime(ev.businessDate, ev.startTime) : false;
+
                   return (
-                    <td key={time} className="p-0 position-relative" onDragOver={e => e.preventDefault()} onDrop={() => onDropCell(room.id, time)} style={{ height: "95px" }}>
+                    <td
+                      key={time}
+                      className="p-0 position-relative"
+                      onDragOver={e => e.preventDefault()}
+                      onDragEnter={() => dragData?.type === "movie" && setDragOverCell({ roomId: room.id, time })}
+                      onDrop={() => { setDragOverCell(null); onDropCell(room.id, time); }}
+                      style={{ height: "95px" }}
+                    >
                       {ev && (
-                        <div 
-                          draggable={!isPast}
-                          onDragStart={e => !isPast && handleDragStart(e, "event", { eventId: ev.id })} 
-                          onClick={() => { setDetailEvent(ev); setShowDetailModal(true); }} 
-                          className={"position-absolute rounded-2 p-2 shadow-sm overflow-hidden " + 
-                            (isPast ? "bg-secondary bg-opacity-25 border-secondary text-muted" : 
+                        <div
+                          draggable={!isPast && !isPreviewEv}
+                          onDragStart={e => !isPast && !isPreviewEv && handleDragStart(e, "event", { eventId: ev.id })}
+                          onDragEnd={() => { setDragOverCell(null); setDragData(null); }}
+                          onClick={() => { if (!isPreviewEv) { setDetailEvent(ev); setShowDetailModal(true); } }}
+                          className={"position-absolute rounded-2 p-2 shadow-sm overflow-hidden " +
+                            (isPreviewEv ? "bg-success text-white" :
+                             isPushedEv ? "bg-warning" :
+                             isPast ? "bg-secondary bg-opacity-25 border-secondary text-muted" :
                              (ev.dirty || !ev.serverId ? "bg-warning" : "bg-primary text-white"))
-                          } 
-                          style={{ 
-                            top: "6px", left: "2px", height: "83px", zIndex: 5, 
-                            cursor: isPast ? "default" : "pointer", 
-                            width: ((duration / SLOT_INTERVAL) * SLOT_WIDTH - 4) + "px", 
+                          }
+                          style={{
+                            top: "6px", left: "2px", height: "83px", zIndex: 5,
+                            cursor: isPreviewEv ? "default" : isPast ? "default" : "pointer",
+                            width: ((duration / SLOT_INTERVAL) * SLOT_WIDTH - 4) + "px",
                             borderWidth: "2px",
-                            opacity: isPast ? 0.7 : 1,
-                            borderStyle: "solid"
+                            opacity: isPreviewEv ? 0.75 : isPast ? 0.7 : 1,
+                            borderStyle: isPreviewEv ? "dashed" : "solid",
+                            pointerEvents: isPreviewEv ? "none" : "auto"
                           }}
                         >
                           <div className="fw-bold text-truncate mb-1" style={{ fontSize: "0.75rem" }}>
                             {movie?.title || "Đang tải..."}
-                            {isPast && <span className="ms-1 small opacity-75">(Đã chiếu)</span>}
+                            {isPast && !isPreviewEv && <span className="ms-1 small opacity-75">(Đã chiếu)</span>}
                           </div>
 
-                          {/* Nút X xóa suất chiếu */}
-                          {!isPast && ev.soldTicketsCount === 0 && (
+                          {!isPast && !isPreviewEv && ev.soldTicketsCount === 0 && (
                             <button
                               type="button"
                               className="btn-close btn-close-white position-absolute"

@@ -4,15 +4,9 @@ import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { PRODUCTS, PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from '../../utils/mediaFiles';
+import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 const CreateProduct = () => {
   const navigate = useNavigate();
@@ -77,7 +71,7 @@ const CreateProduct = () => {
           name: p.name || '',
           description: p.description || '',
           price: p.price != null ? String(p.price) : '',
-          status: p.status === 1 ? 'Active' : 'Inactive',
+          status: codeToAdminStatus(p.status, { allowUpcoming: false }),
           category_id: p.categoryId != null ? String(p.categoryId) : '',
           image: null,
         });
@@ -152,7 +146,7 @@ const CreateProduct = () => {
         description: formData.description || '',
         price: parseFloat(formData.price),
         image: imageStr,
-        status: formData.status === 'Active' ? 1 : 0,
+        status: adminStatusToCode(formData.status, { allowUpcoming: false }),
         categoryId: Number(formData.category_id),
       };
 
@@ -165,20 +159,19 @@ const CreateProduct = () => {
 
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const serverMessage = json?.message || '';
-        const isNoChange = serverMessage.includes('Không có thay đổi');
+        const serverMessage = apiMessage(json, pid ? 'Cập nhật sản phẩm thành công' : 'Thêm sản phẩm thành công');
         navigate('/super-admin/catalog-products', {
           state: {
-            message: serverMessage || (pid ? 'Cập nhật sản phẩm thành công' : 'Thêm sản phẩm thành công'),
-            type: isNoChange ? 'warning' : 'success',
+            message: serverMessage,
+            type: resultToastType(serverMessage),
           },
         });
       } else {
         const json = await res.json().catch(() => null);
-        setServerError(json?.message || 'Lưu sản phẩm thất bại');
+        setServerError(apiMessage(json, 'Lưu sản phẩm thất bại'));
       }
     } catch {
-      setServerError('Lỗi kết nối máy chủ');
+      setServerError(MESSAGES.networkError);
     } finally {
       setSubmitting(false);
     }
@@ -214,7 +207,7 @@ const CreateProduct = () => {
                     </div>
                   )}
                 </div>
-                <input type="file" ref={imageInputRef} hidden accept="image/*" onChange={handleFileChange} />
+                <input type="file" ref={imageInputRef} hidden accept={IMAGE_FILE_ACCEPT} onChange={handleFileChange} />
                 {errors.image && <div className="text-danger small fw-bold">{errors.image}</div>}
               </div>
             </div>

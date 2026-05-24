@@ -6,9 +6,10 @@ import { getStoredUser, getAccessToken } from '../../utils/authStorage';
 import { getUserIdFromToken } from '../../utils/jwt';
 import { apiFetch, apiUrl } from '../../utils/apiClient';
 import { VOUCHERS as VOUCHERS_API, ME, USERS } from '../../constants/apiEndpoints';
+import { formatDate, formatNumber, formatVnd } from '../../utils/formatters';
 
-const fmt     = (n) => n.toLocaleString("vi-VN") + "đ";
-const fmtDate = (d) => new Date(d).toLocaleDateString("vi-VN");
+const fmt = formatVnd;
+const fmtDate = formatDate;
 
 function normalizeCatalogVoucher(v) {
   const end = v.endDate ? new Date(`${String(v.endDate).slice(0, 10)}T23:59:59`) : null;
@@ -281,7 +282,7 @@ export default function VoucherExchange() {
               <div className="points-badge">
                 <div>
                   <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.6)", textTransform:"uppercase", letterSpacing:1.5, marginBottom:2 }}>Điểm của bạn</div>
-                  <div className="pts-num">{userPoints.toLocaleString()}</div>
+                  <div className="pts-num">{formatNumber(userPoints)}</div>
                   <div className="pts-label">điểm tích lũy</div>
                 </div>
                 <div style={{ fontSize:32 }}>⭐</div>
@@ -364,7 +365,7 @@ export default function VoucherExchange() {
                         <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                           {isFree
                             ? <span style={{ fontSize:12, fontWeight:700, color:"#81c784" }}>🎁 Miễn phí</span>
-                            : <span className={`point-cost${!enough?" not-enough":""}`}>⭐ {v.point_voucher.toLocaleString()} điểm</span>
+                            : <span className={`point-cost${!enough?" not-enough":""}`}>⭐ {formatNumber(v.point_voucher)} điểm</span>
                           }
                           {isRedeemed ? (
                             <button className="btn-redeemed" onClick={(e) => e.stopPropagation()}>✓ Đã đổi</button>
@@ -380,7 +381,7 @@ export default function VoucherExchange() {
                         </div>
                         {!isFree && !isExpired && !isRedeemed && !enough && (
                           <div style={{ marginTop:10, fontSize:11, color:"rgba(233,30,140,0.7)", fontWeight:600 }}>
-                            ⚠ Cần thêm {(v.point_voucher - userPoints).toLocaleString()} điểm
+                            ⚠ Cần thêm {formatNumber(v.point_voucher - userPoints)} điểm
                           </div>
                         )}
                       </div>
@@ -417,7 +418,7 @@ export default function VoucherExchange() {
               <div>🛒 Đơn tối thiểu: <span className="c-white">{fmt(selected.min_order_value)}</span></div>
               <div>📅 Hết hạn: <span className="c-white">{fmtDate(selected.end_date)}</span></div>
               {selected.point_voucher > 0 && (
-                <div>⭐ Chi phí: <span className="c-yellow">{selected.point_voucher.toLocaleString()} điểm</span></div>
+                <div>⭐ Chi phí: <span className="c-yellow">{formatNumber(selected.point_voucher)} điểm</span></div>
               )}
             </div>
 
@@ -425,7 +426,7 @@ export default function VoucherExchange() {
               <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(212,226,25,0.06)", borderRadius:10, border:"1px solid rgba(212,226,25,0.2)", fontSize:13, fontWeight:600 }}>
                 Số điểm sau khi đổi:{" "}
                 <span className="c-yellow" style={{ fontFamily:"'Bebas Neue'", fontSize:18, letterSpacing:1 }}>
-                  {(userPoints - selected.point_voucher).toLocaleString()} điểm
+                  {formatNumber(userPoints - selected.point_voucher)} điểm
                 </span>
               </div>
             )}

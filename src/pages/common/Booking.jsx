@@ -12,6 +12,8 @@ import {
   resolveSeatTypeColor,
   contrastTextColorForHex,
 } from "../../utils/seatTypeColors";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
+import { formatVnd } from "../../utils/formatters";
 
 const HOLDER_STORAGE_KEY = "booking_seat_holder_id";
 
@@ -83,8 +85,6 @@ const emptyCell = (r, c) => ({
   label: "",
   isActive: false,
 });
-
-const isEmptyCell = (cell) => cell?.type === "Empty";
 
 // Xây dựng grid từ danh sách ghế
 function buildSeatGrid(seats) {
@@ -194,28 +194,16 @@ function normalizeSeat(s) {
   };
 }
 
-function buildSeatRows(seats) {
-  const byRow = new Map();
-  for (const s of seats) {
-    const r = s.row || "?";
-    if (!byRow.has(r)) byRow.set(r, []);
-    byRow.get(r).push(s);
-  }
-  const rowKeys = [...byRow.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  return rowKeys.map((row) => ({
-    row,
-    seats: byRow.get(row).sort((a, b) => (a.x || 0) - (b.x || 0) || a.number.localeCompare(b.number, undefined, { numeric: true })),
-  }));
-}
-
 function normalizeSnackProduct(o) {
   const id = o.productId ?? o.product_id;
   return {
     productId: id != null ? Number(id) : null,
     name: o.name ?? "—",
+    description: typeof o.description === "string" ? o.description.trim() : "",
     price: Number(o.price ?? 0) || 0,
     categoryName: o.categoryName ?? o.category_name ?? "",
-    image: typeof o.image === "string" ? o.image : "",
+    image: typeof o.image === "string" ? o.image.trim() : "",
+    isActive: o.isActive !== false,
   };
 }
 
@@ -232,6 +220,7 @@ const Booking = () => {
   const [selectedSeatIds, setSelectedSeatIds] = useState([]);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
+  const [seatSelectionError, setSeatSelectionError] = useState(null);
   const [snackProducts, setSnackProducts] = useState([]);
   const [snackMenuError, setSnackMenuError] = useState(null);
   const [snackCart, setSnackCart] = useState({});
@@ -256,7 +245,6 @@ const Booking = () => {
   }, [showtime]);
 
   const baseTicketPrice = showtime?.price ?? 0;
-  const vatRate = showtime?.vatRate ?? 10; // Default 10% VAT
   const showEnded = showtime?.status === "Đã chiếu";
 
   const seatById = useMemo(() => {
@@ -267,9 +255,7 @@ const Booking = () => {
     return m;
   }, [seats]);
 
-  const seatRows = useMemo(() => buildSeatRows(seats), [seats]);
-  
-  const seatGrid = useMemo(() => recomputeSeatLabels(buildSeatGrid(seats)), [seats, seatTypes]);
+  const seatGrid = useMemo(() => recomputeSeatLabels(buildSeatGrid(seats)), [seats]);
 
   // Tính toán số hàng và cột thực tế có ghế để thu gọn grid
   const gridBounds = useMemo(() => {
@@ -311,7 +297,6 @@ const Booking = () => {
   const gapSize = Math.round(4 * zoomLevel);
   const paddingSize = Math.round(20 * zoomLevel);
   const fontSize = Math.round(10 * zoomLevel);
-  const labelFontSize = Math.round(11 * zoomLevel);
 
   const peerHeldSet = useMemo(() => {
     const s = new Set();
@@ -359,22 +344,18 @@ const Booking = () => {
   useEffect(() => {
     const loadSeatTypes = async () => {
       try {
-        console.log("Loading seat types from API...");
         const res = await apiFetch(SEAT_TYPES.LIST);
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const seatTypesData = Array.isArray(list) ? list : [];
-        console.log("Seat types loaded:", seatTypesData);
         if (seatTypesData.length > 0) {
           // Lưu vào biến module-level với coupleSeat
           _seatTypesData = seatTypesData.map(st => ({
             name: st.name,
             coupleSeat: st.coupleSeat ?? st.couple_seat ?? isCoupleTypeName(st.name)
           }));
-          console.log("_seatTypesData loaded:", _seatTypesData);
           setSeatTypes(seatTypesData);
         } else {
-          console.log("No data in API response, using fallback");
           setSeatTypes([
             { id: 1, name: "Thường", price: 0, color: "#007bff" },
             { id: 2, name: "VIP", price: 0, color: "#ffc107" },
@@ -443,7 +424,7 @@ const Booking = () => {
           const mBody = await mRes.json().catch(() => null);
           if (mRes.ok && mBody?.data) {
             const onSale = Array.isArray(mBody.data.onSale) ? mBody.data.onSale : [];
-            setSnackProducts(onSale.map(normalizeSnackProduct).filter((p) => p.productId != null));
+            setSnackProducts(onSale.map(normalizeSnackProduct).filter((p) => p.productId != null && p.isActive));
           } else {
             setSnackMenuError(mBody?.message || "Không tải được menu bắp nước");
           }
@@ -533,9 +514,10 @@ const Booking = () => {
     const blocked = new Set([...bookedSet, ...peerHeldSet, ...nextSelected]);
     const check = checkNoSingleSeatOrphanInRows(seats, blocked);
     if (!check.ok) {
-      setPayError(check.message);
+      setSeatSelectionError(check.message);
       return;
     }
+    setSeatSelectionError(null);
     setPayError(null);
     setSelectedSeatIds(nextSelected);
   };
@@ -554,6 +536,20 @@ const Booking = () => {
     return t;
   }, [snackProducts, snackCart]);
 
+  const selectedSnackLines = useMemo(() => (
+    snackProducts
+      .map((p) => {
+        const quantity = Number(snackCart[p.productId] || 0);
+        if (quantity <= 0) return null;
+        return {
+          ...p,
+          quantity,
+          lineTotal: p.price * quantity,
+        };
+      })
+      .filter(Boolean)
+  ), [snackProducts, snackCart]);
+
   // Voucher
   const selectedVoucher = useMemo(() => userVouchers.find(v => v.userVoucherId === selectedVoucherId), [userVouchers, selectedVoucherId]);
 
@@ -564,6 +560,13 @@ const Booking = () => {
   const grandTotal = quote?.finalAmount != null
     ? Number(quote.finalAmount || 0)
     : (computedSubtotalFallback - voucherDiscount);
+  const ticketSummaryTotal = quote?.ticketTotal != null
+    ? Number(quote.ticketTotal || 0)
+    : seatPriceTotal;
+  const snackSummaryTotal = quote?.snackTotal != null
+    ? Number(quote.snackTotal || 0)
+    : snackTotal;
+  const summarySubtotal = ticketSummaryTotal + snackSummaryTotal;
 
   const quoteLineBySeatId = useMemo(() => {
     const m = new Map();
@@ -722,9 +725,9 @@ const Booking = () => {
     
     if (isSelected) {
       return {
-        bg: "#7b1fa2",
-        color: "#fff",
-        border: "2px solid rgba(233, 30, 140, 0.95)",
+        bg: "rgba(203, 213, 225, 0.92)",
+        color: "#111827",
+        border: "1px solid rgba(226, 232, 240, 0.95)",
         cursor: "pointer",
         width: couple ? 72 : 36,
         display: "flex",
@@ -746,10 +749,49 @@ const Booking = () => {
     };
   };
 
-  const selectedLabels = selectedSeatIds.map((id) => {
-    const s = seatById.get(id);
-    return s ? `${s.row}${s.number}` : id;
-  });
+  const selectedSeatSummaries = selectedSeatIds
+    .map((id) => {
+      const seat = seatById.get(id);
+      if (!seat) return null;
+      const quoteLine = quoteLineBySeatId.get(Number(id));
+      const originalPrice = quoteLine?.originalPrice != null ? Number(quoteLine.originalPrice) : null;
+      const promotionDiscount = quoteLine?.promotionDiscount != null ? Number(quoteLine.promotionDiscount) : 0;
+      const membershipDiscount = quoteLine?.membershipDiscount != null ? Number(quoteLine.membershipDiscount) : 0;
+      const finalPrice = quoteLine?.finalPrice != null ? Number(quoteLine.finalPrice) : seatPrice(seat);
+      return {
+        id,
+        label: `${seat.row}${seat.number}`,
+        typeName: seat.seatTypeName || "Ghế",
+        originalPrice,
+        promotionDiscount,
+        membershipDiscount,
+        finalPrice,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.label).localeCompare(String(b.label), "vi-VN", { numeric: true, sensitivity: "base" }));
+
+  const selectedSeatTypeGroups = Array.from(
+    selectedSeatSummaries.reduce((groups, seat) => {
+      const key = seat.typeName || "Ghế";
+      const current = groups.get(key) || { typeName: key, count: 0, total: 0 };
+      current.count += 1;
+      current.total += seat.finalPrice;
+      groups.set(key, current);
+      return groups;
+    }, new Map()).values()
+  );
+
+  const seatOriginalTotal = selectedSeatSummaries.reduce((sum, seat) => {
+    const beforeDiscount = seat.originalPrice != null
+      ? seat.originalPrice
+      : seat.finalPrice + seat.promotionDiscount + seat.membershipDiscount;
+    return sum + beforeDiscount;
+  }, 0);
+  const moviePromotionTotal = selectedSeatSummaries.reduce((sum, seat) => sum + seat.promotionDiscount, 0);
+  const membershipDiscountTotal = selectedSeatSummaries.reduce((sum, seat) => sum + seat.membershipDiscount, 0);
+  const hasTicketPromotion = moviePromotionTotal > 0;
+  const hasMembershipDiscount = membershipDiscountTotal > 0;
 
   const movieLink = showtime?.movieId ? `/movie/${showtime.movieId}` : "/movies";
 
@@ -931,6 +973,10 @@ const Booking = () => {
                     Đã bán
                   </span>
                   <span>
+                    <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(203, 213, 225, 0.92)", border: "1px solid rgba(226, 232, 240, 0.95)" }} />{" "}
+                    Đã chọn
+                  </span>
+                  <span>
                     <span
                       className="d-inline-block rounded me-1 align-middle"
                       style={{ width: 14, height: 14, background: "#ff9800", border: "2px solid #ffe082" }}
@@ -990,27 +1036,30 @@ const Booking = () => {
                       padding: '10px',
                       background: 'rgba(0, 0, 0, 0.2)',
                       borderRadius: '8px',
-                      display: 'flex',
-                      justifyContent: 'center'
+                      border: '1px solid rgba(255,255,255,0.08)'
                     }}
                     onWheel={handleWheel}
                   >
                       <div style={{
                         display: 'grid',
                         gridTemplateColumns: `${Math.round(40 * zoomLevel)}px repeat(${actualCols}, ${seatSize}px)`,
+                        gridTemplateRows: `${Math.round(60 * zoomLevel)}px repeat(${actualRows}, ${seatSize}px)`,
                         gap: `${gapSize}px`,
                         padding: `${paddingSize}px`,
                         background: 'rgba(0, 0, 0, 0.3)',
                         borderRadius: '12px',
                         position: 'relative',
-                        minWidth: 'fit-content'
+                        width: 'max-content',
+                        minWidth: 'fit-content',
+                        margin: '0 auto',
+                        alignItems: 'center',
+                        justifyItems: 'center'
                       }}>
                         <div style={{
                           gridColumn: '1 / -1',
                           height: `${Math.round(60 * zoomLevel)}px`,
                           background: 'linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(255,255,255,0.05))',
                           borderRadius: '100% 100% 0 0',
-                          marginBottom: `${gapSize * 5}px`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1034,10 +1083,23 @@ const Booking = () => {
                         ))} */}
                         {Array.from({ length: actualRows }).map((_, r) => {
                           const actualRow = gridBounds.minRow + r;
+                          const rowLabel = rowHasAnySeat(seatGrid, actualRow) ? rowLetterForGridRow(seatGrid, actualRow) : "";
                           return (
                           <React.Fragment key={r}>
-                            {/* Ẩn cột chữ cái bên trái */}
-                            <div />
+                            <div
+                              style={{
+                                width: `${Math.round(28 * zoomLevel)}px`,
+                                height: `${seatSize}px`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "rgba(255,255,255,0.64)",
+                                fontSize: `${Math.round(11 * zoomLevel)}px`,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {rowLabel}
+                            </div>
                             {Array.from({ length: actualCols }).map((_, c) => {
                               const actualCol = gridBounds.minCol + c;
                               const idx = actualRow * COLS + actualCol;
@@ -1046,7 +1108,6 @@ const Booking = () => {
                               // Bỏ qua ô bị chiếm bởi ghế đôi
                               if (cell.type === "OccupiedByDouble") return null;
                               const placed = isPlacedSeat(cell);
-                              const showActive = placed && cell.isActive;
                               
                               // Kiểm tra xem có phải ghế đôi không
                               const isCouple = isCoupleSeatByType(cell.type);
@@ -1093,9 +1154,8 @@ const Booking = () => {
                                       border: vis.border,
                                       cursor: vis.cursor,
                                       pointerEvents: vis.pointerEvents,
-                                      transform: isSelected ? `scale(${1.15})` : "none",
                                       boxShadow: isSelected
-                                        ? "0 6px 20px rgba(233, 30, 140, 0.55)"
+                                        ? "none"
                                         : (peerHeld && !isSelected ? "0 0 0 2px rgba(255, 224, 130, 0.6), 0 4px 10px rgba(255, 152, 0, 0.45)" : "none")
                                     }}
                                   >
@@ -1122,6 +1182,12 @@ const Booking = () => {
                         })}
                       </div>
                     </div>
+                    {seatSelectionError ? (
+                      <div className="alert alert-warning border-0 small mt-3 mb-0 d-flex align-items-start gap-2">
+                        <i className="fas fa-exclamation-triangle mt-1" />
+                        <span>{seatSelectionError}</span>
+                      </div>
+                    ) : null}
                   </>
                 )}
               </div>
@@ -1144,15 +1210,68 @@ const Booking = () => {
                   <div className="d-flex flex-column gap-2" style={{ maxHeight: 320, overflowY: "auto" }}>
                     {snackProducts.map((p) => {
                       const q = snackCart[p.productId] || 0;
+                      const imageSrc = isDisplayableImageSrc(p.image) ? p.image : "";
                       return (
                         <div
                           key={p.productId}
-                          className="d-flex align-items-center gap-2 p-2 rounded-3"
+                          className="d-flex align-items-center gap-3 p-2 rounded-3"
                           style={{ background: "rgba(0,0,0,0.2)" }}
                         >
+                          <div
+                            className="flex-shrink-0 overflow-hidden"
+                            style={{
+                              width: 58,
+                              height: 58,
+                              borderRadius: 12,
+                              background: "rgba(255,255,255,0.08)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              position: "relative",
+                            }}
+                          >
+                            {imageSrc ? (
+                              <img
+                                src={imageSrc}
+                                alt={p.name}
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  const fallback = e.currentTarget.nextElementSibling;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : null}
+                            <div
+                              style={{
+                                display: imageSrc ? "none" : "flex",
+                                width: "100%",
+                                height: "100%",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "rgba(255,255,255,0.58)",
+                                fontSize: 22,
+                              }}
+                            >
+                              <i className="fas fa-utensils" />
+                            </div>
+                          </div>
                           <div className="flex-grow-1 min-width-0">
                             <div className="fw-bold small text-truncate" style={{ color: '#fff' }}>{p.name}</div>
-                            <div className="text-danger fw-bold small">{p.price.toLocaleString("vi-VN")} đ</div>
+                            <div
+                              className="small"
+                              title={p.description || "Chưa có mô tả"}
+                              style={{
+                                color: "rgba(255,255,255,0.62)",
+                                lineHeight: 1.35,
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {p.description || "Chưa có mô tả"}
+                            </div>
+                            <div className="text-danger fw-bold small">{formatVnd(p.price)}</div>
                           </div>
                           <div className="d-flex align-items-center gap-1">
                             <button
@@ -1180,142 +1299,221 @@ const Booking = () => {
 
             <div className="col-lg-4">
               <div
-                className="card p-4 border-0 shadow-lg rounded-5 sticky-top"
-                style={{ top: 100, backdropFilter: "blur(20px)", background: 'rgba(20, 22, 50, 0.9)', border: '1px solid rgba(255,255,255,0.1)' }}
+                className="card p-4 border-0 shadow-lg rounded-4 sticky-top"
+                style={{
+                  top: 100,
+                  backdropFilter: "blur(20px)",
+                  background: "linear-gradient(180deg, rgba(22,24,44,0.96), rgba(13,15,28,0.96))",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                }}
               >
-                <h4 className="fw-black mb-4 text-uppercase tracking-tighter border-bottom border-white border-opacity-10 pb-3" style={{ color: '#fff' }}>
-                  Hóa đơn
-                </h4>
-
-                <div className="p-3 rounded-4 mb-4" style={{ background: 'rgba(0,0,0,0.25)' }}>
-                  <div className="d-flex justify-content-between mb-2">
-                    <span className="small fw-bold" style={{ color: '#fff' }}>PHIM</span>
-                    <span className="fw-bold text-end small" style={{ color: '#fff' }}>{showtime.movieTitle}</span>
-                  </div>
-                  <div className="d-flex justify-content-between mb-2 small">
-                    <span className="small fw-bold" style={{ color: '#fff' }}>SUẤT</span>
-                    <span className="text-end" style={{ color: '#fff' }}>
-                      {showtime.date} {showtime.time}
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between mb-2 border-top border-white border-opacity-5 pt-2">
-                    <span className="small fw-bold" style={{ color: '#fff' }}>GHẾ ({selectedSeatIds.length})</span>
-                    <div className="text-end">
-                      <div className="fw-bold small" style={{ color: '#fff' }}>{selectedLabels.length ? selectedLabels.join(", ") : "—"}</div>
+                <div className="d-flex align-items-start justify-content-between gap-3 mb-4">
+                  <div>
+                    <div className="small text-uppercase fw-bold mb-1" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: 0 }}>
+                      Hóa đơn
                     </div>
+                    <h4 className="fw-black m-0" style={{ color: "#fff" }}>
+                      Tóm tắt đặt vé
+                    </h4>
                   </div>
-                  {selectedSeatIds.map((id) => {
-                    const s = seatById.get(id);
-                    if (!s) return null;
-                    const ql = quoteLineBySeatId.get(Number(id));
-                    const originalPrice = ql?.originalPrice != null ? Number(ql.originalPrice) : null;
-                    const promoDiscount = ql?.promotionDiscount != null ? Number(ql.promotionDiscount) : 0;
-                    const memberDiscount = ql?.membershipDiscount != null ? Number(ql.membershipDiscount) : 0;
-                    const finalSeatPrice = ql?.finalPrice != null ? Number(ql.finalPrice) : seatPrice(s);
-                    return (
-                      <div key={id} className="small mb-2">
-                        <div className="d-flex justify-content-between">
-                          <span style={{ color: '#fff' }}>
-                            {s.row}{s.number} ({s.seatTypeName || "Ghế"})
-                          </span>
-                          <span className="fw-bold" style={{ color: '#fff' }}>
-                            {finalSeatPrice.toLocaleString("vi-VN")} đ
-                          </span>
+                  <span
+                    className="badge rounded-pill px-3 py-2"
+                    style={{ background: "rgba(255,193,7,0.16)", color: "#ffd166", border: "1px solid rgba(255,193,7,0.28)" }}
+                  >
+                    {selectedSeatIds.length} ghế
+                  </span>
+                </div>
+
+                <div className="d-flex flex-column gap-3 mb-4">
+                  <section className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                    <div className="small fw-bold text-uppercase mb-1" style={{ color: "rgba(255,255,255,0.58)", letterSpacing: 0 }}>
+                      Phim
+                    </div>
+                    <div className="fw-bold lh-sm" style={{ color: "#fff" }}>
+                      {showtime.movieTitle}
+                    </div>
+                    <div className="row g-2 mt-3">
+                      <div className="col-6">
+                        <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Ngày</div>
+                        <div className="fw-bold small" style={{ color: "#fff" }}>{showtime.date}</div>
+                      </div>
+                      <div className="col-6">
+                        <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Giờ</div>
+                        <div className="fw-bold small" style={{ color: "#fff" }}>{showtime.time}</div>
+                      </div>
+                      <div className="col-6">
+                        <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Phòng</div>
+                        <div className="fw-bold small text-truncate" style={{ color: "#fff" }}>{showtime.roomName || "—"}</div>
+                      </div>
+                      <div className="col-6">
+                        <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Rạp</div>
+                        <div className="fw-bold small text-truncate" style={{ color: "#fff" }}>{showtime.cinemaName || "—"}</div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                    <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
+                      <div className="fw-bold" style={{ color: "#fff" }}>
+                        Ghế đã chọn
+                      </div>
+                      <span className="small fw-bold" style={{ color: selectedSeatIds.length ? "#9fe6b8" : "rgba(255,255,255,0.5)" }}>
+                        {selectedSeatIds.length ? `${selectedSeatIds.length} vé` : "Chưa chọn"}
+                      </span>
+                    </div>
+
+                    {selectedSeatSummaries.length ? (
+                      <div>
+                        <div className="d-flex flex-wrap gap-2">
+                          {selectedSeatSummaries.map((seat) => (
+                            <span
+                              key={seat.id}
+                              className="badge rounded-pill px-3 py-2"
+                              title={`${seat.typeName} - ${formatVnd(seat.finalPrice)}`}
+                              style={{
+                                background: "rgba(13,110,253,0.16)",
+                                color: "#d8e9ff",
+                                border: "1px solid rgba(13,110,253,0.22)",
+                              }}
+                            >
+                              {seat.label}
+                            </span>
+                          ))}
                         </div>
-                        {originalPrice != null && originalPrice > finalSeatPrice ? (
-                          <div className="d-flex justify-content-between" style={{ fontSize: 12 }}>
-                            <span style={{ color: "rgba(255,255,255,0.55)" }}>Giá gốc</span>
-                            <span style={{ color: "rgba(255,255,255,0.6)", textDecoration: "line-through" }}>
-                              {originalPrice.toLocaleString("vi-VN")} đ
+                        <div className="d-flex flex-column gap-1 mt-3">
+                          {selectedSeatTypeGroups.map((group) => (
+                            <div key={group.typeName} className="d-flex justify-content-between small">
+                              <span style={{ color: "rgba(255,255,255,0.72)" }}>
+                                {group.typeName} x{group.count}
+                              </span>
+                              <span className="fw-bold" style={{ color: "#fff" }}>
+                                {formatVnd(group.total)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="small rounded-3 p-3 text-center" style={{ color: "rgba(255,255,255,0.58)", background: "rgba(0,0,0,0.22)" }}>
+                        Chọn ghế trên sơ đồ để xem giá vé.
+                      </div>
+                    )}
+
+                    {selectedSeatSummaries.length ? (
+                      <div className="mt-3 pt-3 border-top border-white border-opacity-10">
+                        <div className="d-flex justify-content-between small mb-2" style={{ color: "rgba(255,255,255,0.68)" }}>
+                          <span>Giá ghế</span>
+                          <span className="fw-bold">{formatVnd(seatOriginalTotal || ticketSummaryTotal)}</span>
+                        </div>
+                        {hasTicketPromotion ? (
+                          <div className="d-flex justify-content-between small mb-2" style={{ color: "#8ee6a8" }}>
+                            <span>Khuyến mãi phim</span>
+                            <span className="fw-bold">-{formatVnd(moviePromotionTotal)}</span>
+                          </div>
+                        ) : null}
+                        {hasMembershipDiscount ? (
+                          <div className="d-flex justify-content-between small mb-2" style={{ color: "#8ee6a8" }}>
+                            <span>{quote?.rankName || "Ưu đãi thành viên"}</span>
+                            <span className="fw-bold">-{formatVnd(membershipDiscountTotal)}</span>
+                          </div>
+                        ) : null}
+                        <div className="d-flex justify-content-between align-items-center pt-2 border-top border-white border-opacity-10">
+                          <span className="small fw-bold" style={{ color: "#fff" }}>Tổng ghế</span>
+                          <span className="fw-black" style={{ color: "#fff" }}>{formatVnd(ticketSummaryTotal)}</span>
+                        </div>
+                      </div>
+                    ) : null}
+                  </section>
+
+                  {selectedSnackLines.length ? (
+                    <section className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <div className="fw-bold" style={{ color: "#fff" }}>Bắp nước</div>
+                        <div className="fw-bold small" style={{ color: "#fff" }}>{formatVnd(snackSummaryTotal)}</div>
+                      </div>
+                      <div className="d-flex flex-column gap-2">
+                        {selectedSnackLines.map((item) => (
+                          <div key={item.productId} className="d-flex justify-content-between gap-2 small">
+                            <span className="text-truncate" style={{ color: "rgba(255,255,255,0.78)" }}>
+                              {item.name} x{item.quantity}
+                            </span>
+                            <span className="fw-bold flex-shrink-0" style={{ color: "#fff" }}>
+                              {formatVnd(item.lineTotal)}
                             </span>
                           </div>
-                        ) : null}
-                        {promoDiscount > 0 ? (
-                          <div className="d-flex justify-content-between text-success" style={{ fontSize: 12 }}>
-                            <span>Giảm khuyến mãi phim</span>
-                            <span>-{promoDiscount.toLocaleString("vi-VN")} đ</span>
-                          </div>
-                        ) : null}
-                        {memberDiscount > 0 ? (
-                          <div className="d-flex justify-content-between text-success" style={{ fontSize: 12 }}>
-                            <span>Giảm hạng thành viên</span>
-                            <span>-{memberDiscount.toLocaleString("vi-VN")} đ</span>
-                          </div>
-                        ) : null}
+                        ))}
                       </div>
-                    );
-                  })}
-                  {quote?.membershipDiscountPercent > 0 ? (
-                    <div className="small text-success mt-2">
-                      Giảm hạng thành viên ({quote.rankName || "Hội viên"}): -{Number(quote.membershipDiscountPercent || 0)}%
-                    </div>
-                  ) : null}
-                  {quote?.ticketLines?.some(l => Number(l.promotionDiscount || 0) > 0) ? (
-                    <div className="small text-success">
-                      Có áp dụng khuyến mãi phim
-                    </div>
-                  ) : null}
-                  {snackTotal > 0 ? (
-                    <div className="d-flex justify-content-between small mb-1 mt-2 pt-2 border-top border-white border-opacity-10">
-                      <span className="fw-bold" style={{ color: '#fff' }}>BẮP NƯỚC</span>
-                      <span className="fw-bold" style={{ color: '#fff' }}>{snackTotal.toLocaleString("vi-VN")} đ</span>
-                    </div>
+                    </section>
                   ) : null}
 
-                  {/* Voucher Selection */}
-                  <div className="mt-3 pt-2 border-top border-white border-opacity-10">
-                    <div className="small fw-bold mb-2" style={{ color: '#fff' }}>
-                      <i className="fas fa-ticket-alt me-1 text-success" /> MÃ GIẢM GIÁ
+                  <section className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                    <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+                      <div className="fw-bold" style={{ color: "#fff" }}>
+                        <i className="fas fa-ticket-alt me-2 text-success" /> Voucher
+                      </div>
+                      {selectedVoucher && voucherDiscount > 0 ? (
+                        <span className="small fw-bold" style={{ color: "#9fe6b8" }}>
+                          -{formatVnd(voucherDiscount)}
+                        </span>
+                      ) : null}
                     </div>
                     {getAccessToken() ? (
                       voucherLoading ? (
-                        <div className="small text-muted">Đang tải voucher...</div>
+                        <div className="small" style={{ color: "rgba(255,255,255,0.55)" }}>Đang tải voucher...</div>
                       ) : userVouchers.length === 0 ? (
-                        <div className="small text-muted">Bạn chưa có voucher nào</div>
+                        <div className="small" style={{ color: "rgba(255,255,255,0.55)" }}>Bạn chưa có voucher khả dụng</div>
                       ) : (
                         <select
-                          className="form-select form-select-sm mb-2"
+                          className="form-select form-select-sm"
                           value={selectedVoucherId || ""}
                           onChange={(e) => setSelectedVoucherId(e.target.value ? Number(e.target.value) : null)}
-                          style={{ fontSize: '0.85rem' }}
+                          style={{ fontSize: "0.85rem" }}
                         >
-                          <option value="">-- Chọn voucher --</option>
+                          <option value="">Không dùng voucher</option>
                           {userVouchers.map((v) => (
                             <option key={v.userVoucherId} value={v.userVoucherId}>
-                              {v.voucher?.code} — {v.voucher?.discountType === 'PERCENT' || v.voucher?.discountType === '%' 
-                                ? `Giảm ${v.voucher?.value}%` 
-                                : `Giảm ${v.voucher?.value?.toLocaleString('vi-VN')}đ`}
-                              {v.voucher?.minOrderValue > 0 && ` (Đơn tối thiểu ${v.voucher.minOrderValue.toLocaleString('vi-VN')}đ)`}
+                              {v.voucher?.code || "Voucher"} - {v.voucher?.discountType === "PERCENT" || v.voucher?.discountType === "%"
+                                ? `Giảm ${v.voucher?.value}%`
+                                : `Giảm ${formatVnd(v.voucher?.value)}`}
+                              {v.voucher?.minOrderValue > 0 && `, đơn từ ${formatVnd(v.voucher.minOrderValue)}`}
                             </option>
                           ))}
                         </select>
                       )
                     ) : (
-                      <div className="small text-muted">
-                        <Link to="/login" state={{ from: `/booking/${showtimeId}` }} style={{ color: '#fff' }}>
-                          Đăng nhập để sử dụng voucher
+                      <div className="small">
+                        <Link to="/login" state={{ from: `/booking/${showtimeId}` }} style={{ color: "#ffd166" }}>
+                          Đăng nhập để dùng voucher
                         </Link>
                       </div>
                     )}
-                    {selectedVoucher && voucherDiscount > 0 && (
-                      <div className="d-flex justify-content-between small mb-1 text-success">
-                        <span>Giảm giá ({selectedVoucher.voucher?.code})</span>
-                        <span className="fw-bold">-{Number(voucherDiscount).toLocaleString("vi-VN")} đ</span>
+                    {selectedVoucher && voucherDiscount === 0 ? (
+                      <div className="small mt-2" style={{ color: "#ffd166" }}>
+                        Voucher cần đơn từ {formatVnd(selectedVoucher.voucher?.minOrderValue)}
                       </div>
-                    )}
-                    {selectedVoucher && voucherDiscount === 0 && (
-                      <div className="small text-warning">
-                        Đơn hàng chưa đạt giá trị tối thiểu {selectedVoucher.voucher?.minOrderValue?.toLocaleString('vi-VN')}đ
-                      </div>
-                    )}
-                  </div>
+                    ) : null}
+                  </section>
 
-                  <div className="d-flex justify-content-between align-items-center mt-3 border-top border-white border-opacity-10 pt-3">
-                    <span className="small fw-bold" style={{ color: '#fff' }}>TỔNG THANH TOÁN</span>
-                    <h3 className="text-danger fw-black m-0">
-                      {quoteLoading ? "…" : `${Number(grandTotal || 0).toLocaleString("vi-VN")} đ`}
-                    </h3>
-                  </div>
+                  <section className="p-3 rounded-4" style={{ background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="d-flex justify-content-between small mb-2" style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <span>Tạm tính sau giảm ghế</span>
+                      <span className="fw-bold">{formatVnd(summarySubtotal)}</span>
+                    </div>
+                    {voucherDiscount > 0 ? (
+                      <div className="d-flex justify-content-between small mb-2" style={{ color: "#8ee6a8" }}>
+                        <span>Giảm voucher</span>
+                        <span className="fw-bold">-{formatVnd(voucherDiscount)}</span>
+                      </div>
+                    ) : null}
+                    <div className="d-flex justify-content-between align-items-end gap-3 pt-3 border-top border-white border-opacity-10">
+                      <span className="small fw-bold text-uppercase" style={{ color: "rgba(255,255,255,0.72)", letterSpacing: 0 }}>
+                        Cần thanh toán
+                      </span>
+                      <h3 className="fw-black m-0 text-end" style={{ color: "#ff4d6d" }}>
+                        {quoteLoading ? "Đang tính..." : formatVnd(grandTotal)}
+                      </h3>
+                    </div>
+                  </section>
                 </div>
 
                 {payError ? <div className="alert alert-warning small py-2 mb-3 border-0">{payError}</div> : null}
@@ -1328,16 +1526,20 @@ const Booking = () => {
                   {paying ? (
                     <>
                       <Spinner animation="border" size="sm" className="me-2" />
-                      ĐANG TẠO LINK…
+                      Đang tạo link...
                     </>
+                  ) : showEnded ? (
+                    "Suất chiếu đã kết thúc"
+                  ) : selectedSeatIds.length === 0 ? (
+                    "Chọn ghế để tiếp tục"
                   ) : (
                     <>
-                      THANH TOÁN PAYOS <i className="fas fa-magic ms-2" />
+                      Thanh toán PayOS <i className="fas fa-qrcode ms-2" />
                     </>
                   )}
                 </button>
                 <p className="small text-white-50 text-center mt-2 mb-0">
-                  Đăng nhập khách hàng. Vé + bắp nước (nếu có) cùng một giao dịch PayOS; webhook kích hoạt vé &amp; đơn đồ ăn.
+                  Vé và bắp nước được thanh toán chung trong một giao dịch.
                 </p>
               </div>
             </div>

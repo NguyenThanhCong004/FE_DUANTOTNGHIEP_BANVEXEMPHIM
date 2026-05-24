@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -8,8 +8,22 @@ import { USERS } from "../../constants/apiEndpoints";
 
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
+import { isActiveStatus } from "../../utils/statusFormat";
+import { apiMessage, MESSAGES, resultToastType } from "../../utils/uiMessages";
+import { formatVnd } from "../../utils/formatters";
 
 
+
+const buildUserForm = (editUser) => ({
+  userId: editUser?.userId || editUser?.id || "",
+  fullname: editUser?.fullname || "",
+  email: editUser?.email || "",
+  phone: editUser?.phone || "",
+  status: isActiveStatus(editUser?.status) ? 1 : 0,
+  username: editUser?.username || "",
+  rankName: editUser?.rankName || "Hạng đồng",
+  totalSpending: editUser?.totalSpending || 0,
+});
 
 export default function EditUser() {
 
@@ -23,61 +37,13 @@ export default function EditUser() {
 
   
 
-  const [formData, setFormData] = useState({
-
-    userId: "",
-
-    fullname: "",
-
-    email: "",
-
-    phone: "",
-
-    status: 1,
-
-    username: "",
-
-    rankName: "",
-
-    totalSpending: 0,
-
-  });
+  const [formData, setFormData] = useState(() => buildUserForm(editUser));
 
 
 
   const [submitting, setSubmitting] = useState(false);
 
   const [serverError, setServerError] = useState("");
-
-
-
-  useEffect(() => {
-
-    if (editUser) {
-
-      setFormData({
-
-        userId: editUser.userId || editUser.id || "",
-
-        fullname: editUser.fullname || "",
-
-        email: editUser.email || "",
-
-        phone: editUser.phone || "",
-
-        status: editUser.status === 0 || editUser.status === "Inactive" ? 0 : 1,
-
-        username: editUser.username || "",
-
-        rankName: editUser.rankName || "Hạng đồng",
-
-        totalSpending: editUser.totalSpending || 0,
-
-      });
-
-    }
-
-  }, [editUser]);
 
 
 
@@ -94,12 +60,12 @@ export default function EditUser() {
     try {
 
       // Kiểm tra xem có thay đổi status không
-      const originalStatus = editUser.status;
+      const originalStatus = isActiveStatus(editUser.status) ? 1 : 0;
       const newStatus = Number(formData.status);
       
       if (originalStatus === newStatus) {
         setSubmitting(false);
-        showToast("Không có thay đổi để cập nhật", "warning");
+        showToast(MESSAGES.noChanges, "warning");
         return;
       }
 
@@ -124,7 +90,7 @@ export default function EditUser() {
       const json = await res.json().catch(() => null);
       if (!res.ok) {
 
-        const errorMessage = json?.message || "Cập nhật người dùng thất bại";
+        const errorMessage = apiMessage(json, "Cập nhật người dùng thất bại");
         setServerError(errorMessage);
         showToast(errorMessage, "danger");
         setSubmitting(false);
@@ -134,8 +100,8 @@ export default function EditUser() {
       }
 
       // Kiểm tra thông báo từ BE
-      const message = json?.message || "Cập nhật trạng thái người dùng thành công! Hạng thành viên đã được tự động kiểm tra.";
-      const messageType = message === "Không có thay đổi để cập nhật" ? "warning" : "success";
+      const message = apiMessage(json, "Cập nhật trạng thái người dùng thành công. Hạng thành viên đã được tự động kiểm tra");
+      const messageType = resultToastType(message);
       
       showToast(message, messageType);
       
@@ -147,7 +113,7 @@ export default function EditUser() {
 
     } catch {
 
-      const errorMessage = "Không thể kết nối tới server";
+      const errorMessage = MESSAGES.networkError;
       setServerError(errorMessage);
       showToast(errorMessage, "danger");
       setSubmitting(false);
@@ -236,7 +202,12 @@ export default function EditUser() {
 
         <div className="admin-card-body p-4">
 
-          
+          {serverError && (
+            <div className="alert alert-danger border-0 py-2 small mb-4">
+              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              {serverError}
+            </div>
+          )}
 
 
           <form onSubmit={handleSubmit}>
@@ -285,7 +256,7 @@ export default function EditUser() {
 
                   <i className="bi bi-cash-stack admin-search-icon" style={{ left: '15px' }}></i>
 
-                  <input type="text" className="admin-search-input w-100 fw-bold text-success" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.totalSpending)} disabled />
+                  <input type="text" className="admin-search-input w-100 fw-bold text-success" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formatVnd(formData.totalSpending, { compact: true })} disabled />
 
                 </div>
 

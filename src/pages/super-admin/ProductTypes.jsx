@@ -1,33 +1,30 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import { useAdminToast } from "../../components/admin/AdminToast";
 import { apiFetch } from "../../utils/apiClient";
 import { PRODUCT_CATEGORIES } from "../../constants/apiEndpoints";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const ProductTypeManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const { showToast, ToastComponent } = useAdminToast();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [typeToDelete, setTypeToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState('');
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const [productTypes, setProductTypes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (location.state?.message) {
-      setToast({
-        show: true,
-        message: location.state.message,
-        type: location.state.type || "success",
-      });
+      showToast(location.state.message, location.state.type || "success");
       window.history.replaceState({}, document.title);
-      const timer = setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
-      return () => clearTimeout(timer);
     }
   }, [location.state]);
 
@@ -53,9 +50,9 @@ const ProductTypeManagement = () => {
     };
   }, []);
 
-  const filteredTypes = productTypes.filter((type) =>
-    type.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTypes = productTypes
+    .filter((type) => type.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -78,18 +75,15 @@ const ProductTypeManagement = () => {
         setShowDeleteModal(false);
         setTypeToDelete(null);
         setDeleteError('');
-        setToast({ show: true, message: `Đã xóa loại sản phẩm "${type.name}" thành công!`, type: "success" });
-        setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3000);
+        showToast(`Đã xóa loại sản phẩm "${type.name}" thành công`);
       } else {
         // Xử lý error từ BE
         const json = await res.json().catch(() => null);
-        setDeleteError(json?.message || "Xóa loại sản phẩm thất bại");
-        setToast({ show: false, message: "", type: "success" });
+        setDeleteError(apiMessage(json, "Xóa loại sản phẩm thất bại"));
       }
     } catch (error) {
       console.error("Error deleting product type:", error);
-      setDeleteError("Không thể kết nối tới server");
-      setToast({ show: false, message: "", type: "success" });
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
@@ -193,22 +187,14 @@ const ProductTypeManagement = () => {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="admin-pagination-wrap mt-3">
-              <div className="admin-pagination">
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i + 1}
-                    type="button"
-                    className={`admin-pagination-btn ${currentPage === i + 1 ? "active" : ""}`}
-                    onClick={() => setCurrentPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredTypes.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="loại sản phẩm"
+          />
         </div>
       </div>
 
@@ -262,15 +248,7 @@ const ProductTypeManagement = () => {
           </div>
         </div>
       )}
-      {toast.show && (
-        <div
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: "300px" }}
-        >
-          <i className={`bi bi-${toast.type === "success" ? "check-circle-fill" : "exclamation-triangle-fill"} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 };

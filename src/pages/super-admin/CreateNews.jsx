@@ -5,15 +5,10 @@ import AdminFormListBack from "../../components/admin/AdminFormListBack";
 import { apiFetch } from "../../utils/apiClient";
 import { NEWS } from "../../constants/apiEndpoints";
 import { useAdminToast } from "../../components/admin/AdminToast";
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+import sanitizeHtml from "../../utils/sanitizeHtml";
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../utils/mediaFiles";
+import { adminStatusToCode, codeToAdminStatus } from "../../utils/statusFormat";
+import { apiMessage, MESSAGES, resultToastType } from "../../utils/uiMessages";
 
 function isRichTextEmpty(html) {
   if (html == null || !String(html).trim()) return true;
@@ -36,7 +31,7 @@ const CreateNews = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
-  const { showToast, ToastComponent } = useAdminToast();
+  const { ToastComponent } = useAdminToast();
   const imageInputRef = useRef(null);
   const quillMountRef = useRef(null);
   const quillRef = useRef(null);
@@ -60,8 +55,8 @@ const CreateNews = () => {
     if (editData) {
       setFormData({
         title: editData.title || "",
-        content: editData.content || "",
-        status: editData.status === 1 || editData.status === "Active" ? "Active" : "Inactive",
+        content: sanitizeHtml(editData.content || ""),
+        status: codeToAdminStatus(editData.status, { allowUpcoming: false }),
         image: null,
       });
       if (editData.image) setPreviewImage(editData.image);
@@ -109,7 +104,7 @@ const CreateNews = () => {
 
         quillRef.current = quillInstance;
 
-        const initialHtml = editData?.content ?? "";
+        const initialHtml = sanitizeHtml(editData?.content ?? "");
         if (initialHtml) {
           try {
             quillInstance.setContents(quillInstance.clipboard.convert({ html: initialHtml }), "silent");
@@ -125,9 +120,10 @@ const CreateNews = () => {
           } catch {
             html = quillInstance.root.innerHTML;
           }
-          if (html === lastPushedHtmlRef.current) return;
-          lastPushedHtmlRef.current = html;
-          setFormData((prev) => ({ ...prev, content: html }));
+          const safeHtml = sanitizeHtml(html);
+          if (safeHtml === lastPushedHtmlRef.current) return;
+          lastPushedHtmlRef.current = safeHtml;
+          setFormData((prev) => ({ ...prev, content: safeHtml }));
           setErrors((prev) => (prev.content ? { ...prev, content: "" } : prev));
         };
 
@@ -156,12 +152,12 @@ const CreateNews = () => {
       lastPushedHtmlRef.current = "";
       host.innerHTML = "";
     };
-  }, [editData?.id]);
+  }, [editData?.id, editData?.content]);
 
   const validateForm = () => {
     const newErrors = {};
     if (!formData.title.trim()) newErrors.title = "Tiêu đề không được để trống";
-    if (isRichTextEmpty(formData.content)) {
+    if (isRichTextEmpty(sanitizeHtml(formData.content))) {
       newErrors.content = "Nội dung bài viết không được để trống";
     }
     if (!editData?.id && !formData.image) {
@@ -206,11 +202,12 @@ const CreateNews = () => {
         imageStr = await fileToDataUrl(formData.image);
       }
 
+      const safeContent = sanitizeHtml(formData.content).trim();
       const body = {
         title: formData.title.trim(),
-        content: formData.content.trim(),
+        content: safeContent,
         image: imageStr,
-        status: formData.status === "Active" ? 1 : 0,
+        status: adminStatusToCode(formData.status, { allowUpcoming: false }),
       };
 
       const nid = editData?.id;
@@ -222,8 +219,8 @@ const CreateNews = () => {
 
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const message = json?.message || (nid ? "Cập nhật bài viết thành công!" : "Đăng tin mới thành công!");
-        const messageType = message === "Không có thay đổi để cập nhật" ? "warning" : "success";
+        const message = apiMessage(json, nid ? "Cập nhật bài viết thành công" : "Đăng tin mới thành công");
+        const messageType = resultToastType(message);
 
         navigate("/super-admin/news", {
           state: {
@@ -233,10 +230,10 @@ const CreateNews = () => {
         });
       } else {
         const json = await res.json().catch(() => null);
-        setServerError(json?.message || "Lưu tin tức thất bại");
+        setServerError(apiMessage(json, "Lưu tin tức thất bại"));
       }
     } catch {
-      setServerError("Lỗi kết nối máy chủ");
+      setServerError(MESSAGES.networkError);
     } finally {
       setSubmitting(false);
     }
@@ -285,7 +282,7 @@ const CreateNews = () => {
                     </div>
                   )}
                 </div>
-                <input type="file" ref={imageInputRef} hidden accept="image/*" onChange={handleFileChange} />
+                <input type="file" ref={imageInputRef} hidden accept={IMAGE_FILE_ACCEPT} onChange={handleFileChange} />
                 {errors.image && <div className="text-danger small fw-bold">{errors.image}</div>}
               </div>
             </div>

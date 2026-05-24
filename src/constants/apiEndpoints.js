@@ -6,6 +6,7 @@ export const API_V1 = "/api/v1";
 
 export const AUTH = {
   LOGIN: `${API_V1}/auth/login`,
+  STAFF_LOGIN: `${API_V1}/auth/staff-login`,
   REGISTER: `${API_V1}/auth/register`,
   REFRESH: `${API_V1}/auth/refresh`,
   FORGOT_PASSWORD: `${API_V1}/auth/forgot-password`,
@@ -54,6 +55,7 @@ export const MOVIES = {
   LIST: `${API_V1}/movies`,
   BY_ID: (id) => `${API_V1}/movies/${id}`,
   DELETE: (id) => `${API_V1}/movies/${id}`,
+  REVIEWS: (id) => `${API_V1}/movies/${id}/reviews`,
   /** GET — danh sách URL ảnh banner (phim đang chiếu, ưu tiên doanh thu vé) */
   HOME_BANNERS: `${API_V1}/movies/home-banners`,
 };
@@ -108,12 +110,14 @@ export const PAYOS = {
 export const TICKET_ORDERS = {
   QUOTE: `${API_V1}/ticket-orders/quote`,
   CHECKOUT: `${API_V1}/ticket-orders/checkout`,
+  CONFIRM_PAYOS: `${API_V1}/ticket-orders/confirm-payos`,
   CANCEL_PENDING: `${API_V1}/ticket-orders/cancel-pending`,
 };
 
 /** Đặt bắp nước riêng — JWT khách, PayOS */
 export const FOOD_ORDERS = {
   CHECKOUT: `${API_V1}/food-orders/checkout`,
+  CONFIRM_PAYOS: `${API_V1}/food-orders/confirm-payos`,
   CANCEL_PENDING: `${API_V1}/food-orders/cancel-pending`,
 };
 
@@ -175,6 +179,7 @@ export const ME = {
   TRANSACTIONS: `${API_V1}/me/transactions`,
   FAVORITES: `${API_V1}/me/favorites`,
   FAVORITE_BY_MOVIE: (movieId) => `${API_V1}/me/favorites/${movieId}`,
+  REVIEW_BY_MOVIE: (movieId) => `${API_V1}/me/movie-reviews/${movieId}`,
   VOUCHERS: `${API_V1}/me/vouchers`,
   REDEEM_VOUCHER: `${API_V1}/me/vouchers/redeem`,
   POINTS_HISTORY: `${API_V1}/me/points-history`,

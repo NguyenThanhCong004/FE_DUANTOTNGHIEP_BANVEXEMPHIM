@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { useCallback, useEffect, useState } from 'react';
+import { normalizeToastType } from '../../utils/uiMessages';
 
 /**
  * Component Toast thông báo chung cho admin pages
@@ -18,6 +20,7 @@ const AdminToast = ({
   onClose 
 }) => {
   const [visible, setVisible] = useState(show);
+  const normalizedType = normalizeToastType(type);
 
   useEffect(() => {
     setVisible(show);
@@ -36,7 +39,7 @@ const AdminToast = ({
   if (!visible || !message) return null;
 
   const getIcon = () => {
-    switch (type) {
+    switch (normalizedType) {
       case 'success':
         return 'bi-check-circle-fill';
       case 'warning':
@@ -52,7 +55,7 @@ const AdminToast = ({
 
   return (
     <div
-      className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${type} border-0 shadow-lg d-flex align-items-center gap-2`}
+      className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${normalizedType} border-0 shadow-lg d-flex align-items-center gap-2`}
       style={{ minWidth: '300px', maxWidth: '500px' }}
     >
       <i className={`bi ${getIcon()} fs-5`}></i>
@@ -81,7 +84,7 @@ export const useAdminToast = () => {
     key: 0 // Thêm key dê force re-render/re-show nêu cùng message
   });
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     // Reset truóc khi hiên dê dâm bảo toast luôn trigger logic hiên
     setToast(prev => ({
       ...prev,
@@ -93,17 +96,17 @@ export const useAdminToast = () => {
       setToast({
         show: true,
         message,
-        type,
+        type: normalizeToastType(type),
         key: Date.now()
       });
     }, 10);
-  };
+  }, []);
 
-  const hideToast = () => {
+  const hideToast = useCallback(() => {
     setToast(prev => ({ ...prev, show: false }));
-  };
+  }, []);
 
-  const ToastComponent = () => (
+  const ToastComponent = useCallback(() => (
     <AdminToast
       key={toast.key}
       message={toast.message}
@@ -111,7 +114,7 @@ export const useAdminToast = () => {
       show={toast.show}
       onClose={hideToast}
     />
-  );
+  ), [hideToast, toast.key, toast.message, toast.show, toast.type]);
 
   return { showToast, hideToast, ToastComponent, toast };
 };

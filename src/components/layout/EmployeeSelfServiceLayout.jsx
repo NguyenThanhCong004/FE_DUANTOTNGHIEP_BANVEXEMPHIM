@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Outlet, useNavigate, NavLink } from "react-router-dom";
 import { LogOut, Calendar, LayoutDashboard, ShoppingCart, Clock, MapPin, ChevronDown, User } from "lucide-react";
 import { clearAuthSession, getStoredStaff, getActiveShift } from "../../utils/authStorage";
+import { formatDate, formatTime } from "../../utils/formatters";
 import "../../styles/admin-shell.css";
 
 export default function EmployeeSelfServiceLayout() {
@@ -21,15 +22,7 @@ export default function EmployeeSelfServiceLayout() {
 
   const logout = () => {
     clearAuthSession();
-    navigate("/login", { replace: true });
-  };
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  };
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    navigate("/staff/login", { replace: true });
   };
 
   return (
@@ -54,8 +47,8 @@ export default function EmployeeSelfServiceLayout() {
             <div className="info-item">
               <Clock size={16} className="text-warning" />
               <div className="time-display">
-                <span className="clock-time">{formatTime(currentTime)}</span>
-                <span className="clock-date">{formatDate(currentTime)}</span>
+                <span className="clock-time">{formatTime(currentTime, { second: '2-digit' })}</span>
+                <span className="clock-date">{formatDate(currentTime, { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
               </div>
             </div>
           </div>

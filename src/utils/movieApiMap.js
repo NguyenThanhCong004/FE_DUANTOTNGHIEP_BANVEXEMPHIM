@@ -1,24 +1,14 @@
+import { formatDate, toDateInputValue } from "./formatters";
+
 /** Chuẩn hóa releaseDate từ BE (LocalDate → string hoặc mảng). */
 export function releaseDateToYmd(releaseDate) {
-  if (releaseDate == null) return null;
-  if (typeof releaseDate === "string") return releaseDate.slice(0, 10);
-  if (Array.isArray(releaseDate) && releaseDate.length >= 3) {
-    const [y, m, d] = releaseDate;
-    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
-  return null;
+  return toDateInputValue(releaseDate) || null;
 }
 
 /** Dữ liệu cho MovieCard */
 export function mapMovieForCard(m) {
   const ymd = releaseDateToYmd(m.releaseDate);
-  const releaseLabel = ymd
-    ? new Date(ymd + "T12:00:00").toLocaleDateString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : "";
+  const releaseLabel = ymd ? formatDate(ymd, { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
   // Phân loại dựa vào status: 1=Đang chiếu, 2=Sắp chiếu
   const type = m.status === 2 ? "soon" : "now";
   return {

@@ -5,23 +5,16 @@ import { apiFetch } from '../../utils/apiClient';
 import { ORDERS_ONLINE } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
+import { formatDateTime, formatVnd } from '../../utils/formatters';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 function formatMoneyInvoice(v) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
-  return `${Number(v).toLocaleString('vi-VN')} đ`;
+  return formatVnd(v);
 }
 
 function formatDtInvoice(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  return d.toLocaleString('vi-VN');
-}
-
-function orderStatusLabel(s) {
-  if (s === 0) return 'Chờ thanh toán';
-  if (s === 2) return 'Đã hủy';
-  return 'Hoàn thành';
+  return formatDateTime(iso);
 }
 
 const InvoiceManagement = () => {
@@ -29,7 +22,7 @@ const InvoiceManagement = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOrder, setDetailOrder] = useState(null);
@@ -44,12 +37,12 @@ const InvoiceManagement = () => {
       const res = await apiFetch(ORDERS_ONLINE.BY_ID(orderId));
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setDetailErr(json?.message || 'Không tải được đơn');
+        setDetailErr(apiMessage(json, 'Không tải được đơn'));
         return;
       }
       setDetailOrder(json?.data ?? json);
     } catch {
-      setDetailErr('Không thể kết nối server');
+      setDetailErr(MESSAGES.networkError);
     } finally {
       setDetailLoading(false);
     }
@@ -76,14 +69,7 @@ const InvoiceManagement = () => {
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
 
-        const formatShowtime = (iso) => {
-          if (!iso) return '— —';
-          const d = new Date(iso);
-          if (Number.isNaN(d.getTime())) return '— —';
-          const date = d.toLocaleDateString('vi-VN');
-          const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          return `${date} ${time}`;
-        };
+        const formatShowtime = (iso) => formatDateTime(iso);
 
         const mapOrderStatus = (s) => {
           if (s === 0) return 'pending';
@@ -125,12 +111,14 @@ const InvoiceManagement = () => {
       : invoices;
 
     const q = searchTerm.toLowerCase();
-    return myInvoices.filter(invoice =>
-      String(invoice.displayCode || '').toLowerCase().includes(q) ||
-      String(invoice.apiId || '').toLowerCase().includes(q) ||
-      String(invoice.customerName || '').toLowerCase().includes(q) ||
-      String(invoice.movieTitle || '').toLowerCase().includes(q)
-    );
+    return myInvoices
+      .filter(invoice =>
+        String(invoice.displayCode || '').toLowerCase().includes(q) ||
+        String(invoice.apiId || '').toLowerCase().includes(q) ||
+        String(invoice.customerName || '').toLowerCase().includes(q) ||
+        String(invoice.movieTitle || '').toLowerCase().includes(q)
+      )
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [invoices, searchTerm, effectiveCinemaId]);
 
   // Pagination Logic
@@ -180,7 +168,7 @@ const InvoiceManagement = () => {
   const statItems = [
     {
       label: 'Tổng doanh thu',
-      value: `${invoiceStats.totalRev.toLocaleString('vi-VN')}đ`,
+      value: formatVnd(invoiceStats.totalRev),
       icon: 'bi-currency-exchange',
       color: '#10b981',
     },
@@ -263,6 +251,7 @@ const InvoiceManagement = () => {
             <table className="admin-table mb-0">
               <thead>
                 <tr>
+                  <th style={{ width: 56 }}>STT</th>
                   <th>Mã hóa đơn</th>
                   <th>Khách hàng</th>
                   <th>Phim</th>
@@ -275,7 +264,7 @@ const InvoiceManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-4">
+                    <td colSpan={8} className="text-center py-4">
                       <div className="spinner-border text-primary me-2" role="status">
                         <span className="visually-hidden">Loading...</span>
                       </div>
@@ -284,7 +273,7 @@ const InvoiceManagement = () => {
                   </tr>
                 ) : currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="admin-empty">
                         <div className="admin-empty-icon">
                           <i className="bi bi-receipt"></i>
@@ -294,8 +283,9 @@ const InvoiceManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : currentItems.map((invoice) => (
+                ) : currentItems.map((invoice, index) => (
                   <tr key={invoice.apiId}>
+                    <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td className="fw-bold">{invoice.displayCode}</td>
                     <td>
                       <div className="fw-semibold text-dark">{invoice.customerName}</div>
@@ -314,7 +304,7 @@ const InvoiceManagement = () => {
                     </td>
                     <td>
                       <span className="fw-bold" style={{ color: 'var(--admin-success)' }}>
-                        {invoice.total.toLocaleString()}đ
+                        {formatVnd(invoice.total)}
                       </span>
                     </td>
                     <td>{getStatusBadge(invoice.status)}</td>
@@ -338,44 +328,14 @@ const InvoiceManagement = () => {
         </div>
       </div>
 
-      {totalPages > 1 && (
-        <div className="admin-pagination-bar">
-          <span className="admin-pagination-meta">
-            Hiển thị {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredInvoices.length)} / {filteredInvoices.length}{' '}
-            hóa đơn
-          </span>
-          <div className="admin-pagination">
-            <button
-              type="button"
-              className="admin-pagination-btn"
-              onClick={() => setCurrentPage((p) => p - 1)}
-              disabled={currentPage === 1}
-              aria-label="Trang trước"
-            >
-              <i className="bi bi-chevron-left"></i>
-            </button>
-            {[...Array(totalPages)].map((_, index) => (
-              <button
-                key={index}
-                type="button"
-                className={`admin-pagination-btn ${currentPage === index + 1 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(index + 1)}
-              >
-                {index + 1}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="admin-pagination-btn"
-              onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={currentPage === totalPages}
-              aria-label="Trang sau"
-            >
-              <i className="bi bi-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      )}
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredInvoices.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="hóa đơn"
+      />
 
       <Modal show={showDetailModal} onHide={closeOrderDetail} centered size="lg">
         <Modal.Header closeButton className="border-0 pb-0">

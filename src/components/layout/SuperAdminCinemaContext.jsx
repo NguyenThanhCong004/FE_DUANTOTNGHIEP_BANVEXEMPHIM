@@ -15,29 +15,29 @@ export function SuperAdminCinemaProvider({ children }) {
 
   const [cinemas, setCinemas] = useState([]);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const res = await apiJson(CINEMAS.LIST);
-        if (!mounted || !res.ok) return;
-        
-        const list = res.data || [];
-        const normalized = (Array.isArray(list) ? list : []).map((c) => ({
-          id: c.cinemaId ?? c.id,
-          name: c.name ?? "",
-          address: c.address ?? "",
-        }));
-        setCinemas(normalized);
-      } catch (error) {
-        console.error("Error fetching cinemas:", error);
-        if (mounted) setCinemas([]);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+  const refreshCinemas = useCallback(async () => {
+    try {
+      const res = await apiJson(CINEMAS.LIST);
+      if (!res.ok) return [];
+
+      const list = res.data || [];
+      const normalized = (Array.isArray(list) ? list : []).map((c) => ({
+        id: c.cinemaId ?? c.id,
+        name: c.name ?? "",
+        address: c.address ?? "",
+      }));
+      setCinemas(normalized);
+      return normalized;
+    } catch (error) {
+      console.error("Error fetching cinemas:", error);
+      setCinemas([]);
+      return [];
+    }
   }, []);
+
+  useEffect(() => {
+    refreshCinemas();
+  }, [refreshCinemas]);
 
   const setSelectedCinemaId = useCallback((id) => {
     const normalized = id ? parseInt(id, 10) : null;
@@ -59,8 +59,9 @@ export function SuperAdminCinemaProvider({ children }) {
       selectedCinemaId,
       setSelectedCinemaId,
       selectedCinemaName,
+      refreshCinemas,
     }),
-    [cinemas, selectedCinemaId, setSelectedCinemaId, selectedCinemaName]
+    [cinemas, selectedCinemaId, setSelectedCinemaId, selectedCinemaName, refreshCinemas]
   );
 
   return <SuperAdminCinemaContext.Provider value={value}>{children}</SuperAdminCinemaContext.Provider>;

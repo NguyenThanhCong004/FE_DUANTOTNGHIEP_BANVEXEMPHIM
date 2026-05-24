@@ -2,11 +2,14 @@
  * Gọi API BE thống nhất — gắn Bearer token khi có.
  * BE: ApiResponse { status, message, data }
  */
-import { getAccessToken, getRefreshToken, setAuthSession, clearAuthSession } from "./authStorage";
+import { getAccessToken, getRefreshToken, getStoredStaff, setAuthSession, clearAuthSession } from "./authStorage";
 import { AUTH } from "../constants/apiEndpoints";
+import { isJwtExpired } from "./jwt";
+import { MESSAGES } from "./uiMessages";
 
-const DEFAULT_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const envApiBase = import.meta.env.VITE_API_BASE_URL;
+const DEFAULT_BASE = envApiBase === undefined ? "http://localhost:18080" : envApiBase;
+const FETCH_INTERCEPTOR_FLAG = "__cinemaxApiFetchInterceptorInstalled";
 
 export function getApiBaseUrl() {
   return String(DEFAULT_BASE).replace(/\/$/, "");
@@ -19,25 +22,155 @@ export function apiUrl(path) {
   return `${base}${p}`;
 }
 
+function buildApiUrl(path) {
+  const base = getApiBaseUrl();
+  return path.startsWith("http") ? path : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+function isInternalApiUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const apiBase = new URL(getApiBaseUrl(), window.location.origin);
+    return parsed.origin === apiBase.origin && parsed.pathname.startsWith("/api/");
+  } catch {
+    return false;
+  }
+}
+
+function isAuthUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.pathname.startsWith("/api/v1/auth/");
+  } catch {
+    return false;
+  }
+}
+
+function getFetchInputUrl(input) {
+  if (typeof input === "string" || input instanceof URL) return String(input);
+  return input?.url || "";
+}
+
+function mergeFetchHeaders(input, init, token) {
+  const requestHeaders = input instanceof Request ? input.headers : undefined;
+  const headers = new Headers(init?.headers || requestHeaders || {});
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return headers;
+}
+
+function buildRequestHeaders(init, token) {
+  const headers = new Headers(init.headers || {});
+  if (!headers.has("Content-Type") && init.body && typeof init.body === "string") {
+    headers.set("Content-Type", "application/json; charset=utf-8");
+  }
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return headers;
+}
+
+async function refreshTokenOnce() {
+  if (!isRefreshing) {
+    isRefreshing = true;
+    try {
+      const newToken = await refreshTokens();
+      onTokenRefreshed(newToken);
+      return newToken;
+    } catch (err) {
+      onTokenRefreshed(null);
+      throw err;
+    } finally {
+      isRefreshing = false;
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    subscribeTokenRefresh((newToken) => {
+      if (newToken) resolve(newToken);
+      else reject(new Error("Refresh token không hợp lệ"));
+    });
+  });
+}
+
+async function getFreshAccessToken() {
+  const token = getAccessToken();
+  if (!token) return null;
+  if (!isJwtExpired(token, 30000)) return token;
+  if (!getRefreshToken()) return token;
+
+  try {
+    return await refreshTokenOnce();
+  } catch {
+    clearAuthSession();
+    return null;
+  }
+}
+
+export function installApiFetchInterceptor() {
+  if (typeof window === "undefined" || window[FETCH_INTERCEPTOR_FLAG]) return;
+
+  const nativeFetch = window.fetch.bind(window);
+  window[FETCH_INTERCEPTOR_FLAG] = true;
+
+  window.fetch = async (input, init = {}) => {
+    const url = getFetchInputUrl(input);
+    if (!isInternalApiUrl(url) || isAuthUrl(url)) {
+      return nativeFetch(input, init);
+    }
+
+    const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : {}));
+    const hasExplicitAuth = headers.has("Authorization");
+    let token = null;
+
+    if (!hasExplicitAuth) {
+      token = await getFreshAccessToken();
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+    }
+
+    let res = await nativeFetch(input, { ...init, headers });
+
+    if (res.status === 401 && getRefreshToken()) {
+      try {
+        token = await refreshTokenOnce();
+        res = await nativeFetch(input, {
+          ...init,
+          headers: mergeFetchHeaders(input, init, token),
+        });
+      } catch {
+        const wasStaffSession = Boolean(getStoredStaff());
+        clearAuthSession();
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/staff/login") {
+          window.location.href = wasStaffSession ? "/staff/login" : "/login";
+        }
+      }
+    }
+
+    return res;
+  };
+}
+
 /**
  * @param {string} path - ví dụ "/api/v1/users" (có hoặc không có base)
  * @param {RequestInit} [init]
  */
 export async function apiFetch(path, init = {}) {
-  const base = getApiBaseUrl();
-  const url = path.startsWith("http") ? path : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+  const url = buildApiUrl(path);
+  const hasExplicitAuth = new Headers(init.headers || {}).has("Authorization");
+  const requestWithToken = (token) => fetch(url, { ...init, headers: buildRequestHeaders(init, token) });
 
-  const headers = new Headers(init.headers || {});
-  if (!headers.has("Content-Type") && init.body && typeof init.body === "string") {
-    headers.set("Content-Type", "application/json; charset=utf-8");
+  let token = hasExplicitAuth ? null : await getFreshAccessToken();
+  let res = await requestWithToken(token);
+
+  if (res.status === 401 && !hasExplicitAuth && getRefreshToken()) {
+    try {
+      token = await refreshTokenOnce();
+      res = await requestWithToken(token);
+    } catch {
+      clearAuthSession();
+    }
   }
 
-  const token = getAccessToken();
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  return fetch(url, { ...init, headers });
+  return res;
 }
 
 // Flag để tránh loop infinite khi refresh
@@ -82,6 +215,9 @@ async function refreshTokens() {
   }
 
   const json = await res.json();
+  if (!json?.data) {
+    throw new Error("Phản hồi refresh token không hợp lệ");
+  }
   const { token, refreshToken: newRefreshToken, user, staff } = json.data;
   
   // Lưu token mới
@@ -105,12 +241,10 @@ export async function apiJson(path, init = {}) {
     let json = null;
     try {
       json = text ? JSON.parse(text) : null;
-    } catch (e) {
+    } catch {
       console.error("Lỗi parse JSON tại path:", path, "Nội dung nhận được:", text);
     }
 
-    const data = json?.data !== undefined ? json.data : json;
-    
     // Nếu access token hết hạn (401), thử refresh
     if (res.status === 401 && getRefreshToken()) {
       if (!isRefreshing) {
@@ -125,14 +259,15 @@ export async function apiJson(path, init = {}) {
           const newText = await res.text();
           try {
             json = newText ? JSON.parse(newText) : null;
-          } catch (e) {
+          } catch {
             console.error("Lỗi parse JSON sau refresh:", path, newText);
           }
-        } catch (refreshError) {
+        } catch {
           isRefreshing = false;
+          const wasStaffSession = Boolean(getStoredStaff());
           clearAuthSession();
           // Redirect về trang đăng nhập
-          window.location.href = "/login";
+          window.location.href = wasStaffSession ? "/staff/login" : "/login";
           return {
             ok: false,
             status: 401,
@@ -150,7 +285,7 @@ export async function apiJson(path, init = {}) {
         const newText = await res.text();
         try {
           json = newText ? JSON.parse(newText) : null;
-        } catch (e) {
+        } catch {
           console.error("Lỗi parse JSON sau refresh queue:", path, newText);
         }
       }
@@ -174,7 +309,7 @@ export async function apiJson(path, init = {}) {
       ok: false,
       status: 0,
       data: null,
-      message: "Không thể kết nối đến server (Backend). Hãy kiểm tra BE đã chạy chưa?",
+      message: MESSAGES.networkError,
     };
   }
 }

@@ -3,20 +3,66 @@ import { useLocation } from "react-router-dom";
 import { Badge, Button, Form, Spinner, Table, Row, Col, Pagination } from "react-bootstrap";
 import { ArrowDownLeft, ArrowUpRight, Search } from "lucide-react";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import { useAdminToast } from "../../components/admin/AdminToast";
 import { apiFetch } from "../../utils/apiClient";
 import { CINEMAS } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import { formatVnd } from "../../utils/formatters";
 
 function formatMoney(v) {
-  if (v == null || Number.isNaN(Number(v))) return "—";
-  return `${Number(v).toLocaleString("vi-VN")} đ`;
+  return formatVnd(v);
 }
 
 function isComboCategory(name) {
   return String(name || "")
     .toLowerCase()
     .includes("combo");
+}
+
+function ProductThumb({ product }) {
+  const imageSrc = isDisplayableImageSrc(product?.image) ? String(product.image).trim() : "";
+  return (
+    <div
+      className="flex-shrink-0 overflow-hidden rounded-3"
+      style={{
+        width: 46,
+        height: 46,
+        background: "#f1f5f9",
+        border: "1px solid #e2e8f0",
+        position: "relative",
+      }}
+    >
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt={product?.name || "Sản phẩm"}
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+            const fallback = e.currentTarget.nextElementSibling;
+            if (fallback) fallback.style.display = "flex";
+          }}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : null}
+      <div
+        style={{
+          display: imageSrc ? "none" : "flex",
+          width: "100%",
+          height: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#94a3b8",
+          fontSize: 18,
+        }}
+      >
+        <i className="bi bi-image" />
+      </div>
+    </div>
+  );
 }
 
 /** Sản phẩm mới (id lớn hơn) lên trên — đồng bộ với API đã sort theo productId DESC */
@@ -33,15 +79,13 @@ export default function ProductManagement() {
   const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
   const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : staffSession?.cinemaId ?? null;
 
+  const { showToast, ToastComponent } = useAdminToast();
   const [onSale, setOnSale] = useState([]);
   const [notOnSale, setNotOnSale] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [searchA, setSearchA] = useState("");
   const [searchB, setSearchB] = useState("");
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
 
   // Pagination states
   const [pageA, setPageA] = useState(1);
@@ -83,20 +127,6 @@ export default function ProductManagement() {
     loadMenu();
   }, [loadMenu]);
 
-  const showToast = (message, type = "success", duration = 3000) => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: "", type: "success" }), duration);
-  };
-
-  const openToggleConfirm = (product, selling) => {
-    setPendingAction({ product, selling });
-    setShowConfirmModal(true);
-  };
-
-  const closeToggleConfirm = () => {
-    setShowConfirmModal(false);
-    setPendingAction(null);
-  };
 
   const toggleSelling = async (productId, selling) => {
     if (effectiveCinemaId == null) return;
@@ -108,7 +138,7 @@ export default function ProductManagement() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        showToast(json?.message || "Cập nhật thất bại", "danger");
+        showToast(apiMessage(json, "Cập nhật thất bại"), "danger");
         return;
       }
 
@@ -125,10 +155,9 @@ export default function ProductManagement() {
         showToast(selling ? "Đã cập nhật: Còn hàng" : "Đã cập nhật: Hết hàng", "success");
       }
     } catch {
-      showToast("Không thể kết nối server", "danger");
+      showToast(MESSAGES.networkError, "danger");
     } finally {
       setBusyId(null);
-      closeToggleConfirm();
     }
   };
 
@@ -141,7 +170,7 @@ export default function ProductManagement() {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
-        showToast(json?.message || "Gỡ thất bại", "danger");
+        showToast(apiMessage(json, "Gỡ thất bại"), "danger");
         return;
       }
 
@@ -150,7 +179,7 @@ export default function ProductManagement() {
       setNotOnSale(prev => [{ ...item, isActive: false }, ...prev]);
       showToast(`Đã gỡ "${item?.name}" khỏi menu rạp.`, "warning");
     } catch {
-      showToast("Lỗi kết nối", "danger");
+      showToast(MESSAGES.networkError, "danger");
     } finally {
       setBusyId(null);
     }
@@ -198,6 +227,7 @@ export default function ProductManagement() {
         <Table hover className="align-middle mb-0" style={{ fontSize: "0.875rem" }}>
           <thead className="table-light">
             <tr>
+              <th className="border-0" style={{ width: 56 }}>STT</th>
               <th className="border-0">Sản phẩm</th>
               <th className="text-end border-0">Giá</th>
               <th className="text-center border-0" style={{ width: "100px" }}>Trạng thái</th>
@@ -207,37 +237,49 @@ export default function ProductManagement() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-center text-muted py-5">
+                <td colSpan={5} className="text-center text-muted py-5">
                   <i className="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
                   Không có mục nào
                 </td>
               </tr>
             ) : (
-              rows.map((r) => {
+              rows.map((r, idx) => {
                 const combo = isComboCategory(r.categoryName);
                 const id = r.productId;
-                // isActive từ API/state (CinemaProduct.is_active)
-                const inStock = r.isActive !== false; 
+                const inStock = r.isActive !== false;
 
                 return (
                   <tr key={`${mode}-${id}`}>
+                    <td className="fw-semibold text-muted">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                     <td>
-                      <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "150px" }}>{r.name}</div>
-                      <Badge pill bg={combo ? "warning" : "info"} text="dark" style={{ fontSize: "0.6rem" }}>
-                        {combo ? "Combo" : r.categoryName || "Khác"}
-                      </Badge>
+                      <div className="d-flex align-items-center gap-2">
+                        <ProductThumb product={r} />
+                        <div className="min-width-0">
+                          <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "150px" }}>{r.name}</div>
+                          <Badge pill bg={combo ? "warning" : "info"} text="dark" style={{ fontSize: "0.6rem" }}>
+                            {combo ? "Combo" : r.categoryName || "Khác"}
+                          </Badge>
+                        </div>
+                      </div>
                     </td>
                     <td className="text-end fw-semibold text-primary">{formatMoney(r.price)}</td>
                     <td className="text-center">
                       {mode === "on" ? (
-                        <Form.Check 
-                          type="switch"
-                          id={`stock-switch-${id}`}
-                          checked={inStock}
-                          disabled={busyId === id}
-                          onChange={(e) => toggleSelling(id, e.target.checked)}
-                          title={inStock ? "Đang còn hàng" : "Đã hết hàng"}
-                        />
+                        <div className="d-flex flex-column align-items-center gap-1">
+                          <Form.Check
+                            type="switch"
+                            id={`stock-switch-${id}`}
+                            checked={inStock}
+                            disabled={busyId === id}
+                            onChange={(e) => toggleSelling(id, e.target.checked)}
+                            title={inStock ? "Đang còn hàng" : "Đã hết hàng"}
+                          />
+                          {!inStock && (
+                            <Badge bg="danger" style={{ fontSize: '0.6rem' }}>Ngừng bán</Badge>
+                          )}
+                        </div>
+                      ) : r.isActive === false ? (
+                        <Badge bg="danger" style={{ fontSize: '0.6rem' }}>Ngừng bán</Badge>
                       ) : (
                         <span className="text-muted small">—</span>
                       )}
@@ -261,12 +303,12 @@ export default function ProductManagement() {
                           <Button
                             variant="light"
                             size="sm"
-                            className="text-success border shadow-sm"
+                            className={r.isActive === false ? "text-warning border shadow-sm" : "text-success border shadow-sm"}
                             disabled={busyId === id}
                             onClick={() => toggleSelling(id, true)}
-                            title="Thêm vào rạp"
+                            title={r.isActive === false ? "Bật lại & đưa vào menu" : "Thêm vào rạp"}
                           >
-                            {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
+                            {busyId === id ? <Spinner animation="border" size="sm" /> : <i className={r.isActive === false ? "bi bi-arrow-counterclockwise" : "bi bi-plus-circle"} />}
                           </Button>
                         )}
                       </div>
@@ -427,51 +469,7 @@ export default function ProductManagement() {
         </Row>
       )}
 
-      {showConfirmModal && pendingAction && (
-        <div className="admin-modal-overlay" role="presentation" onClick={closeToggleConfirm}>
-          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header">
-              <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
-                {pendingAction.selling ? "Xác nhận bật bán sản phẩm" : "Xác nhận gỡ sản phẩm khỏi danh sách bán"}
-              </h3>
-              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeToggleConfirm}>
-                ×
-              </button>
-            </div>
-            <div className="admin-modal-body">
-              <p className="mb-3">
-                Bạn có chắc chắn muốn {pendingAction.selling ? "bật bán" : "gỡ khỏi danh sách bán"} sản phẩm này?
-              </p>
-              <div className="alert alert-warning">
-                <strong>Sản phẩm:</strong> {pendingAction.product.name}
-              </div>
-            </div>
-            <div className="admin-modal-footer">
-              <button type="button" className="admin-btn admin-btn-outline" onClick={closeToggleConfirm}>
-                Hủy
-              </button>
-              <button
-                type="button"
-                className={`admin-btn ${pendingAction.selling ? "admin-btn-primary" : "admin-btn-danger"}`}
-                onClick={() => toggleSelling(pendingAction.product.productId, pendingAction.selling)}
-              >
-                {pendingAction.selling ? "Bật bán" : "Gỡ khỏi bán"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast.show && (
-        <div
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: "300px" }}
-        >
-          <i className={`bi bi-${toast.type === "success" ? "check-circle-fill" : "exclamation-triangle-fill"} fs-5`} />
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 }

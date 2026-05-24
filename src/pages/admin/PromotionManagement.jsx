@@ -1,13 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Modal, Button, Badge, Spinner, Row, Col } from 'react-bootstrap';
+import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiFetch } from '../../utils/apiClient';
 import { PROMOTIONS } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 const PromotionManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
@@ -22,10 +26,10 @@ const PromotionManagement = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPromo, setSelectedPromo] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
+  const { showToast, ToastComponent } = useAdminToast();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [promoToDelete, setPromoToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState('');
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const loadPromotions = useCallback(async () => {
     setLoading(true);
@@ -93,8 +97,7 @@ const PromotionManagement = () => {
         setShowDeleteModal(false);
         setPromoToDelete(null);
         setDeleteError('');
-        setToast({ show: true, message: 'Xóa khuyến mãi thành công', type: 'success' });
-        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+        showToast('Xóa khuyến mãi thành công');
       } else {
         const json = await res.json().catch(() => null);
         setDeleteError(json?.message || "Xóa thất bại");
@@ -104,9 +107,14 @@ const PromotionManagement = () => {
     }
   };
 
-  const filteredPromotions = promotions.filter(p =>
-    String(p.title || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPromotions = promotions
+    .filter(p => String(p.title || '').toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredPromotions.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredPromotions.length / itemsPerPage);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
@@ -173,7 +181,7 @@ const PromotionManagement = () => {
             <table className="admin-table mb-0">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th style={{ width: 56 }}>STT</th>
                   <th>Khuyến mãi</th>
                   <th>Giảm giá</th>
                   <th>Thời gian</th>
@@ -209,9 +217,9 @@ const PromotionManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : filteredPromotions.map((promo) => (
+                ) : currentItems.map((promo, index) => (
                   <tr key={promo.id}>
-                    <td className="fw-bold">#{promo.id}</td>
+                    <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
                       <div className="d-flex align-items-center gap-3">
                         <div className="admin-table-icon-tile"><i className="bi bi-percent"></i></div>
@@ -273,6 +281,15 @@ const PromotionManagement = () => {
           </div>
         </div>
       </div>
+
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredPromotions.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="khuyến mãi"
+      />
 
       {/* View Promotion Modal */}
       <Modal show={showViewModal} onHide={() => setShowViewModal(false)} centered size="lg">
@@ -381,15 +398,7 @@ const PromotionManagement = () => {
           </div>
         </div>
       )}
-      {toast.show && (
-        <div
-          className={`position-fixed bottom-0 start-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </div>
   );
 };

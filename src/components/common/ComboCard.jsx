@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatVnd } from '../../utils/formatters';
 
 const ComboCard = ({ combo, qty = 0, onAdd, onRemove }) => {
   const discount = combo.originalPrice
@@ -198,9 +199,9 @@ const ComboCard = ({ combo, qty = 0, onAdd, onRemove }) => {
         <p className="combo-desc">{combo.desc}</p>
 
         <div className="combo-price-row">
-          <span className="combo-price">{combo.price.toLocaleString('vi-VN')}đ</span>
+          <span className="combo-price">{formatVnd(combo.price)}</span>
           {combo.originalPrice && (
-            <span className="combo-original">{combo.originalPrice.toLocaleString('vi-VN')}đ</span>
+            <span className="combo-original">{formatVnd(combo.originalPrice)}</span>
           )}
         </div>
 

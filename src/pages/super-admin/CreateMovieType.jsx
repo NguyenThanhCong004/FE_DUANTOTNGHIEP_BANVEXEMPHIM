@@ -5,6 +5,7 @@ import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch, apiJson } from '../../utils/apiClient';
 import { GENRES } from '../../constants/apiEndpoints';
 import { useAdminToast } from '../../components/admin/AdminToast';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 const CreateMovieType = () => {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ const CreateMovieType = () => {
     const gid = editData?.id || editData?.genreId;
 
     if (gid && editData.name === trimmedName) {
-      showToast("Không có thay đổi để cập nhật", 'warning');
+      showToast(MESSAGES.noChanges, 'warning');
       return;
     }
 
@@ -87,18 +88,18 @@ const CreateMovieType = () => {
       
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const message = json?.message || (gid ? 'Cập nhật thể loại thành công' : 'Thêm thể loại thành công');
-        const type = message === "Không có thay đổi để cập nhật" ? "warning" : "success";
+        const message = apiMessage(json, gid ? 'Cập nhật thể loại thành công' : 'Thêm thể loại thành công');
+        const type = resultToastType(message);
 
         navigate('/super-admin/movie-types', {
           state: { message, type },
         });
       } else {
         const json = await res.json().catch(() => null);
-        showToast(json?.message || 'Lưu thể loại thất bại', 'danger');
+        showToast(apiMessage(json, 'Lưu thể loại thất bại'), 'danger');
       }
     } catch {
-      showToast('Lỗi kết nối máy chủ', 'danger');
+      showToast(MESSAGES.networkError, 'danger');
     } finally {
       setSubmitting(false);
     }

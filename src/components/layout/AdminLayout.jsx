@@ -84,7 +84,7 @@ export default function AdminLayout() {
 
   const handleLogout = () => {
     clearAuthSession();
-    navigate("/login");
+    navigate("/staff/login");
   };
 
   const renderNavSection = (section) => {

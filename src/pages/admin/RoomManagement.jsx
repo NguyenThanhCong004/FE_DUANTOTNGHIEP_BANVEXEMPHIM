@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiFetch } from '../../utils/apiClient';
 import { ROOMS } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
+import { isActiveStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 const RoomManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const [roomsFromStore, setRoomsFromStore] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showToast, ToastComponent } = useAdminToast();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState('');
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
@@ -36,7 +42,7 @@ const RoomManagement = () => {
           arr.map((r) => ({
             id: r.id ?? r.roomId,
             name: r.name ?? '',
-            status: r.status === 1 || r.status === 'active' ? 1 : r.status,
+            status: isActiveStatus(r.status) ? 1 : 0,
           }))
         );
       } catch {
@@ -50,26 +56,30 @@ const RoomManagement = () => {
     };
   }, [effectiveCinemaId]);
 
-  const filteredRooms = roomsFromStore.filter(r =>
-    String(r.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRooms = roomsFromStore
+    .filter(r => String(r.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredRooms.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
 
   const handleDelete = async (roomId) => {
     try {
       const res = await apiFetch(ROOMS.BY_ID(roomId), { method: 'DELETE' });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setDeleteError(json?.message || 'Xóa thất bại');
+        setDeleteError(apiMessage(json, 'Xóa phòng chiếu thất bại'));
         return;
       }
       setRoomsFromStore((prev) => prev.filter((r) => String(r.id) !== String(roomId)));
       setShowDeleteModal(false);
       setRoomToDelete(null);
       setDeleteError('');
-      setToast({ show: true, message: 'Xóa phòng chiếu thành công', type: 'success' });
-      setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+      showToast('Xóa phòng chiếu thành công');
     } catch {
-      setDeleteError('Không thể kết nối server');
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
@@ -120,7 +130,7 @@ const RoomManagement = () => {
             <table className="admin-table mb-0">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th style={{ width: 56 }}>STT</th>
                   <th>Tên phòng</th>
                   <th>Trạng thái</th>
                   <th className="text-center">Thao tác</th>
@@ -152,9 +162,9 @@ const RoomManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : filteredRooms.map((room) => (
+                ) : currentItems.map((room, index) => (
                   <tr key={room.id}>
-                    <td className="fw-bold">#{room.id}</td>
+                    <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
                       <div className="d-flex align-items-center gap-3">
                         <div className="admin-table-icon-tile">
@@ -169,12 +179,12 @@ const RoomManagement = () => {
                     <td>
                       <span
                         className={
-                          room.status === 1
+                          isActiveStatus(room.status)
                             ? 'admin-badge admin-badge-success'
                             : 'admin-badge admin-badge-danger'
                         }
                       >
-                        {room.status === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                        {isActiveStatus(room.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
                       </span>
                     </td>
                     <td>
@@ -215,6 +225,14 @@ const RoomManagement = () => {
           </div>
         </div>
       </div>
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredRooms.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="phòng chiếu"
+      />
       {showDeleteModal && roomToDelete && (
         <div className="admin-modal-overlay" role="presentation" onClick={() => setShowDeleteModal(false)}>
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
@@ -245,15 +263,7 @@ const RoomManagement = () => {
           </div>
         </div>
       )}
-      {toast.show && (
-        <div
-          className={`position-fixed bottom-0 start-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </div>
   );
 };

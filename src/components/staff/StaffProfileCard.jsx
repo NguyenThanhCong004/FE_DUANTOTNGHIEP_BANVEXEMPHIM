@@ -10,30 +10,14 @@ import {
 } from "../../utils/authStorage";
 import { apiFetch } from "../../utils/apiClient";
 import { STAFF } from "../../constants/apiEndpoints";
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../utils/mediaFiles";
+import { apiMessage, MESSAGES, normalizeToastType } from "../../utils/uiMessages";
+import { toDateInputValue } from "../../utils/formatters";
 
 const GMAIL_RE = /^[a-z0-9._%+-]+@gmail\.com$/i;
 const PHONE_RE = /^[0-9]{10}$/;
 const DEFAULT_AVATAR_PLACEHOLDER =
   "https://placehold.co/120x120/1e293b/94a3b8?text=Avatar";
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result || ""));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-
-function toDateInputValue(birthday) {
-  if (birthday == null || birthday === "") return "";
-  if (typeof birthday === "string") return birthday.slice(0, 10);
-  if (Array.isArray(birthday) && birthday.length >= 3) {
-    const [y, m, d] = birthday;
-    return `${String(y)}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
-  return "";
-}
 
 function normalizeRole(role) {
   if (role == null) return "—";
@@ -88,7 +72,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const [avatarPreview, setAvatarPreview] = useState("");
 
   const showToast = useCallback((msg, type = "success") => {
-    setToast({ msg, type });
+    setToast({ msg, type: normalizeToastType(type) });
     setTimeout(() => setToast(null), 2800);
   }, []);
 
@@ -102,7 +86,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       const res = await apiFetch(STAFF.BY_ID(staffId));
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.data) {
-        showToast(json?.message || "Không tải được hồ sơ", "error");
+        showToast(apiMessage(json, "Không tải được hồ sơ"), "danger");
         setModel(null);
         return;
       }
@@ -110,7 +94,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       setModel(d);
       mergeStaffSession(d);
     } catch {
-      showToast("Không kết nối được máy chủ", "error");
+      showToast(MESSAGES.networkError, "danger");
       setModel(null);
     } finally {
       setLoading(false);
@@ -205,7 +189,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.data) {
-        showToast(json?.message || "Cập nhật thất bại", "error");
+        showToast(apiMessage(json, "Cập nhật thất bại"), "danger");
         return;
       }
       setModel(json.data);
@@ -215,7 +199,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       setAvatarPreview("");
       showToast("Đã lưu hồ sơ");
     } catch {
-      showToast("Không kết nối được máy chủ", "error");
+      showToast(MESSAGES.networkError, "danger");
     } finally {
       setSaving(false);
     }
@@ -254,13 +238,13 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        showToast(json?.message || "Đổi mật khẩu thất bại", "error");
+        showToast(apiMessage(json, "Đổi mật khẩu thất bại"), "danger");
         return;
       }
       setPw({ current: "", newPw: "", confirm: "" });
       showToast("Đã đổi mật khẩu");
     } catch {
-      showToast("Không kết nối được máy chủ", "error");
+      showToast(MESSAGES.networkError, "danger");
     } finally {
       setPwSaving(false);
     }
@@ -292,7 +276,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
     <div className={`staff-profile-wrap${light ? " staff-profile-wrap--light" : ""}`}>
       {toast && (
         <div
-          className={`alert ${toast.type === "error" ? "alert-danger" : "alert-success"} py-2 px-3 mb-3`}
+          className={`alert alert-${toast.type} py-2 px-3 mb-3`}
           role="status"
         >
           {toast.msg}
@@ -353,7 +337,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
                         <Form.Label className="small text-secondary mb-1">Đổi ảnh đại diện</Form.Label>
                         <Form.Control
                           type="file"
-                          accept="image/*"
+                          accept={IMAGE_FILE_ACCEPT}
                           size="sm"
                           className={inputDark || undefined}
                           onChange={(ev) => {

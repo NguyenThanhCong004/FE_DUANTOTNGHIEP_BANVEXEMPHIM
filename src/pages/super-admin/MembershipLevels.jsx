@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import { useAdminToast } from "../../components/admin/AdminToast";
 import { apiFetch } from "../../utils/apiClient";
 import { MEMBERSHIP_RANKS } from "../../constants/apiEndpoints";
+import { isActiveStatus } from "../../utils/statusFormat";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import { formatVnd } from "../../utils/formatters";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const MembershipLevelManagement = () => {
   const navigate = useNavigate();
@@ -14,16 +19,11 @@ const MembershipLevelManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState("");
-  const itemsPerPage = 8;
+  const itemsPerPage = 5;
 
+  const { showToast, ToastComponent } = useAdminToast();
   const [levels, setLevels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
 
   useEffect(() => {
     if (location.state?.message) {
@@ -62,16 +62,18 @@ const MembershipLevelManagement = () => {
     fetchLevels();
   }, []);
 
-  const filteredLevels = levels.filter((level) =>
-    String(level.rank_name || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLevels = levels
+    .filter((level) => String(level.rank_name || "").toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => {
+      if (a.is_default) return 1;
+      if (b.is_default) return -1;
+      return (Number(b.id) || 0) - (Number(a.id) || 0);
+    });
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredLevels.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredLevels.length / itemsPerPage);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const handleDelete = async (id) => {
     try {
@@ -80,18 +82,18 @@ const MembershipLevelManagement = () => {
       });
       
       if (res.ok) {
-        showToast('Xóa hạng thành công!');
+        showToast('Xóa hạng thành công');
         await fetchLevels();
         setShowDeleteModal(false);
         setItemToDelete(null);
         setDeleteError("");
       } else {
         const json = await res.json().catch(() => null);
-        setDeleteError(json?.message || "Xóa hạng thất bại");
+        setDeleteError(apiMessage(json, "Xóa hạng thất bại"));
       }
     } catch (error) {
       console.error("Error deleting membership rank:", error);
-      setDeleteError("Không thể kết nối đến máy chủ");
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
@@ -182,7 +184,7 @@ const MembershipLevelManagement = () => {
                         {level.is_default ? (
                           <span className="text-muted italic fw-normal">0đ (Mặc định)</span>
                         ) : (
-                          `${level.min_spending.toLocaleString("vi-VN")}đ`
+                          formatVnd(level.min_spending)
                         )}
                       </td>
                       <td className="text-center">
@@ -190,8 +192,8 @@ const MembershipLevelManagement = () => {
                       </td>
                       <td className="text-center fw-medium">x{level.bonus_point}</td>
                       <td className="text-center">
-                        <span className={`admin-badge ${level.status === 1 ? 'admin-badge-success' : 'admin-badge-warning'}`}>
-                          {level.status === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                        <span className={`admin-badge ${isActiveStatus(level.status) ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                          {isActiveStatus(level.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
                         </span>
                       </td>
                       <td className="text-center">
@@ -236,26 +238,14 @@ const MembershipLevelManagement = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <span className="text-muted small">
-                Tổng cộng: {filteredLevels.length} hạng
-              </span>
-              <nav>
-                <ul className="admin-pagination">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <li key={i + 1}>
-                      <button 
-                        className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                        onClick={() => paginate(i + 1)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredLevels.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              itemLabel="hạng"
+            />
           </>
         )}
       </div>
@@ -283,7 +273,7 @@ const MembershipLevelManagement = () => {
                 <div className="col-sm-6">
                   <div className="p-3 border rounded-4 bg-light">
                     <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Chi tiêu tối thiểu</small>
-                    <div className="fs-5 fw-bold text-dark">{selectedItem.min_spending.toLocaleString("vi-VN")}đ</div>
+                    <div className="fs-5 fw-bold text-dark">{formatVnd(selectedItem.min_spending)}</div>
                   </div>
                 </div>
                 <div className="col-sm-6">
@@ -302,8 +292,8 @@ const MembershipLevelManagement = () => {
                   <div className="p-3 border rounded-4 bg-light">
                     <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Trạng thái</small>
                     <div>
-                      <span className={`admin-badge ${selectedItem.status === 1 ? 'admin-badge-success' : 'admin-badge-warning'}`}>
-                        {selectedItem.status === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                      <span className={`admin-badge ${isActiveStatus(selectedItem.status) ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                        {isActiveStatus(selectedItem.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
                       </span>
                     </div>
                   </div>
@@ -357,7 +347,7 @@ const MembershipLevelManagement = () => {
               <p className="mb-3">Bạn có chắc chắn muốn xóa hạng thành viên này?</p>
               <div className="alert alert-warning">
                 <strong>Tên hạng:</strong> {itemToDelete.rank_name.toUpperCase()}<br/>
-                <strong>Chi tiêu tối thiểu:</strong> {itemToDelete.min_spending.toLocaleString("vi-VN")}đ
+                <strong>Chi tiêu tối thiểu:</strong> {formatVnd(itemToDelete.min_spending)}
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
@@ -391,16 +381,7 @@ const MembershipLevelManagement = () => {
         </div>
       )}
 
-      {/* Toast thông báo */}
-      {toast.show && (
-        <div 
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 };

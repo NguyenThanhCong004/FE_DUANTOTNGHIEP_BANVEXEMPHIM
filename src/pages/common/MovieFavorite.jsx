@@ -42,6 +42,8 @@ export default function Favorites() {
   const [reviewModal, setReviewModal] = useState(null);
   const [draftRating, setDraftRating] = useState(0);
   const [draftComment, setDraftComment] = useState('');
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const [removeConfirm, setRemoveConfirm] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -61,7 +63,7 @@ export default function Favorites() {
         const body = await res.json().catch(() => null);
         if (c) return;
         if (res.status === 401) {
-          navigate('/login', { state: { from: '/movieFavorite' } });
+          navigate('/login', { state: { from: '/favorites' } });
           return;
         }
         if (!res.ok) {
@@ -97,7 +99,7 @@ export default function Favorites() {
     try {
       const res = await apiFetch(ME.FAVORITE_BY_MOVIE(mid), { method: 'DELETE' });
       if (res.status === 401) {
-        navigate('/login', { state: { from: '/movieFavorite' } });
+        navigate('/login', { state: { from: '/favorites' } });
         return;
       }
       if (!res.ok) {
@@ -113,25 +115,55 @@ export default function Favorites() {
     }
   };
 
-  const handleSaveReview = () => {
+  const handleSaveReview = async () => {
     if (!draftRating) return;
-    setFavorites((prev) =>
-      prev.map((f) =>
-        f.favorite_id === reviewModal.favorite_id
-          ? { ...f, review: { rating: draftRating, comment: draftComment } }
-          : f
-      )
-    );
-    showToast('Đã lưu đánh giá thành công!');
-    setReviewModal(null);
-    setDraftRating(0);
-    setDraftComment('');
+    const mid = reviewModal?.movie?.id;
+    if (!mid) return;
+
+    setReviewSaving(true);
+    setReviewError('');
+    try {
+      const res = await apiFetch(ME.REVIEW_BY_MOVIE(mid), {
+        method: 'PUT',
+        body: JSON.stringify({ rating: draftRating, comment: draftComment.trim() }),
+      });
+      const body = await res.json().catch(() => null);
+      if (res.status === 401) {
+        navigate('/login', { state: { from: '/favorites' } });
+        return;
+      }
+      if (!res.ok) {
+        setReviewError(body?.message || 'Không lưu được đánh giá');
+        return;
+      }
+      const saved = body?.data || { rating: draftRating, comment: draftComment.trim() };
+      setFavorites((prev) =>
+        prev.map((f) =>
+          f.favorite_id === reviewModal.favorite_id
+            ? { ...f, canReview: true, review: saved }
+            : f
+        )
+      );
+      showToast('Đã lưu đánh giá thành công!');
+      setReviewModal(null);
+      setDraftRating(0);
+      setDraftComment('');
+    } catch {
+      setReviewError('Lỗi kết nối');
+    } finally {
+      setReviewSaving(false);
+    }
   };
 
   const openReview = (fav) => {
+    if (!fav.canReview) {
+      showToast('Bạn cần mua vé và thanh toán thành công trước khi đánh giá phim này');
+      return;
+    }
     setReviewModal(fav);
     setDraftRating(fav.review?.rating || 0);
     setDraftComment(fav.review?.comment || '');
+    setReviewError('');
   };
 
   return (
@@ -269,6 +301,17 @@ export default function Favorites() {
         .btn-action.review:hover {
           background: rgba(212,226,25,0.18);
           border-color: var(--yellow);
+        }
+        .btn-action.review:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+          color: rgba(255,255,255,0.45);
+          border-color: rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.04);
+        }
+        .btn-action.review:disabled:hover {
+          background: rgba(255,255,255,0.04);
+          border-color: rgba(255,255,255,0.12);
         }
         .btn-action.remove {
           border-color: rgba(233,30,140,0.3);
@@ -544,9 +587,14 @@ export default function Favorites() {
                         <button
                           className="btn-action review"
                           onClick={() => openReview(fav)}
-                          title={fav.review ? 'Sửa đánh giá' : 'Viết đánh giá'}
+                          disabled={!fav.canReview}
+                          title={
+                            fav.canReview
+                              ? (fav.review ? 'Sửa đánh giá' : 'Viết đánh giá')
+                              : 'Chỉ đánh giá sau khi đã mua vé và thanh toán thành công'
+                          }
                         >
-                          {fav.review ? '✏️ Sửa' : '⭐ Đánh giá'}
+                          {!fav.canReview ? '🔒 Chưa mua vé' : (fav.review ? '✏️ Sửa' : '⭐ Đánh giá')}
                         </button>
                         <button
                           className="btn-action remove"
@@ -623,13 +671,18 @@ export default function Favorites() {
                 placeholder="Chia sẻ cảm nhận của bạn về bộ phim..."
                 value={draftComment}
                 onChange={(e) => setDraftComment(e.target.value)}
+                maxLength={150}
               />
+              <div className="d-flex justify-content-between mt-2">
+                <span className="text-danger small fw-semibold">{reviewError}</span>
+                <span className="text-white-50 small">{draftComment.length}/150</span>
+              </div>
             </div>
 
             <div className="d-flex align-items-center gap-2 justify-content-end">
-              <button className="btn-modal-cancel" onClick={() => setReviewModal(null)}>Hủy</button>
-              <button className="btn-modal-save" disabled={!draftRating} onClick={handleSaveReview}>
-                ✓ Lưu đánh giá
+              <button className="btn-modal-cancel" disabled={reviewSaving} onClick={() => setReviewModal(null)}>Hủy</button>
+              <button className="btn-modal-save" disabled={!draftRating || reviewSaving} onClick={handleSaveReview}>
+                {reviewSaving ? 'Đang lưu...' : '✓ Lưu đánh giá'}
               </button>
             </div>
           </div>

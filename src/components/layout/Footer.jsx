@@ -461,7 +461,7 @@ const Footer = () => {
 
               <div className="footer-heading">Dịch vụ</div>
               <ul className="list-unstyled">
-                <li><Link to="/items" className="footer-link">Bắp & Nước</Link></li>
+                <li><Link to="/foodorder" className="footer-link">Bắp & Nước</Link></li>
                 <li><Link to="/voucher" className="footer-link">Đổi voucher</Link></li>
                 <li><a href="#" className="footer-link">Combo tiết kiệm</a></li>
                 <li><a href="#" className="footer-link">Thẻ thành viên</a></li>
