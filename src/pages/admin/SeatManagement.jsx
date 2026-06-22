@@ -8,43 +8,75 @@ import { Lock, LockOpen, Save } from "lucide-react";
 
 import { apiFetch } from "../../utils/apiClient";
 
-import { ROOMS, SEATS } from "../../constants/apiEndpoints";
+import { ROOMS, SEATS, SEAT_TYPES } from "../../constants/apiEndpoints";
 
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
+
+import { useAdminToast } from "../../components/admin/AdminToast";
 
 import { getStoredStaff } from "../../utils/authStorage";
 
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
 
+import { isActiveStatus } from "../../utils/statusFormat";
+
+import {
+  contrastTextColorForHex,
+  isCoupleTypeName,
+  normalizeHex,
+  normalizeSeatTypeKey,
+  resolveSeatDisplayColor,
+  resolveSeatTypeColor,
+} from "../../utils/seatTypeColors";
+
+// Biến module-level để lưu seatTypes có coupleSeat
+let _seatTypesData = [];
 
 
-/** Tên loại ghế UI ↔ seed DB (`DatabaseSeedService`) */
 
-const UI_TO_API_SEAT_TYPE = {
+/** Tên loại ghế trên ô = tên trên DB (`cell.type` gửi lại API nguyên văn). */
 
-  Thường: "Ghế thường",
+function apiSeatTypeNameToUi(name) {
 
-  VIP: "Ghế VIP",
+  if (name == null || name === "") return "";
 
-  Đôi: "Ghế đôi Sweetbox",
+  return String(name).trim();
 
-};
+}
 
-const API_TO_UI_SEAT_TYPE = {
 
-  "Ghế thường": "Thường",
 
-  "Ghế VIP": "VIP",
+function uiSeatTypeToApi(type) {
 
-  "Ghế đôi Sweetbox": "Đôi",
+  return type && String(type).trim() ? String(type).trim() : "";
 
-};
+}
+
+
+
+/** Nhãn mới: A1, A2 (chữ hàng + số thứ tự trong hàng) → row = chữ, number = số. Hỗ trợ cũ 1A (số+chữ). */
+
+function layoutLabelToRowNumber(label, gridRowIndex) {
+
+  const s = String(label || "");
+
+  const mNew = s.match(/^([A-Z]+)(\d+)$/i);
+
+  if (mNew) return { row: mNew[1].toUpperCase(), number: mNew[2] };
+
+  const mOld = s.match(/^(\d+)([A-Z])$/i);
+
+  if (mOld) return { row: mOld[1], number: mOld[2].toUpperCase() };
+
+  return { row: String(gridRowIndex + 1), number: s || String(gridRowIndex + 1) };
+
+}
 
 
 
 const ROWS = 15;
 
-const COLS = 25;
+const COLS = 24;
 
 const SEAT_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -53,14 +85,6 @@ const SEAT_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const isPlacedSeat = (cell) =>
 
   cell && cell.type !== "Empty" && cell.type !== "OccupiedByDouble";
-
-
-
-/** Tên ghế: số Y + chữ cái thứ tự trong hàng (vd: 1A, 1B, 2A). */
-
-const makeSeatLabel = (y, seatLetterIndex) =>
-
-  `${y}${SEAT_LETTERS[seatLetterIndex] ?? "?"}`;
 
 
 
@@ -80,9 +104,9 @@ const rowHasAnySeat = (grid, r) => {
 
 
 
-/** Y ảo: hàng trên không có ghế thì hàng này vẫn 1A… */
+/** Chữ hàng A,B,C…: đếm các hàng phía trên có ít nhất một ghế. */
 
-const virtualRowY = (grid, r) => {
+function virtualRowLetterIndex(grid, r) {
 
   let above = 0;
 
@@ -92,9 +116,19 @@ const virtualRowY = (grid, r) => {
 
   }
 
-  return above + 1;
+  return above;
 
-};
+}
+
+
+
+function rowLetterForGridRow(grid, r) {
+
+  const i = virtualRowLetterIndex(grid, r);
+
+  return SEAT_LETTERS[i] ?? "?";
+
+}
 
 
 
@@ -104,9 +138,9 @@ const recomputeSeatLabels = (grid) => {
 
   for (let r = 0; r < ROWS; r++) {
 
-    const y = virtualRowY(out, r);
+    const letter = rowLetterForGridRow(out, r);
 
-    let letterIdx = 0;
+    let num = 0;
 
     for (let c = 0; c < COLS; c++) {
 
@@ -116,9 +150,9 @@ const recomputeSeatLabels = (grid) => {
 
       if (isPlacedSeat(cell)) {
 
-        out[idx] = { ...cell, label: makeSeatLabel(y, letterIdx) };
+        num++;
 
-        letterIdx++;
+        out[idx] = { ...cell, label: `${letter}${num}` };
 
       }
 
@@ -132,9 +166,65 @@ const recomputeSeatLabels = (grid) => {
 
 
 
-const TYPES = ["Thường", "VIP", "Đôi"];
+function indexOfSeatTypeInList(current, list) {
 
-const nextType = (t) => TYPES[(TYPES.indexOf(t) + 1) % TYPES.length];
+  if (!list || list.length === 0) return -1;
+
+  const key = normalizeSeatTypeKey(current);
+
+  if (key) {
+
+    const j = list.findIndex((t) => normalizeSeatTypeKey(t) === key);
+
+    if (j >= 0) return j;
+
+  }
+
+  return list.indexOf(current);
+
+}
+
+
+
+/** Kiểm tra ghế đôi dựa vào coupleSeat từ _seatTypesData (fallback về tên nếu chưa load) */
+function isCoupleSeatByType(typeName) {
+  if (!typeName) return false;
+  // Fallback: nếu _seatTypesData chưa load, dùng tên
+  if (!_seatTypesData || !Array.isArray(_seatTypesData) || _seatTypesData.length === 0) {
+    return isCoupleTypeName(typeName);
+  }
+  const st = _seatTypesData.find((t) => t.name === typeName);
+  // Ưu tiên coupleSeat từ API, nếu chưa có thì fallback theo tên
+  if (st && st.coupleSeat !== undefined) {
+    return st.coupleSeat === true;
+  }
+  return isCoupleTypeName(typeName);
+}
+
+/** Loại kế tiếp khi chuột phải: bỏ qua ghế đôi nếu không đủ điều kiện (cột lẻ, ô phải trống, sau ghế đơn trên hàng, không phía trên hàng có ghế đơn). */
+function nextApplicableSeatType(current, list, grid, r, c) {
+
+  if (!list || list.length === 0) return current;
+
+  const start = indexOfSeatTypeInList(current, list);
+
+  // Bắt đầu từ vị trí tiếp theo, không phải vị trí hiện tại
+  const i0 = start < 0 ? 0 : start + 1;
+
+  for (let i = 0; i < list.length; i++) {
+
+    const idx = (i0 + i) % list.length;
+
+    const cand = list[idx];
+
+    if (!isCoupleSeatByType(cand)) return cand;
+
+    if (canPlaceCoupleAt(grid, r, c)) return cand;
+
+  }
+
+  return current;
+}
 
 
 
@@ -162,6 +252,190 @@ const isEmptyCell = (cell) => cell?.type === "Empty";
 
 
 
+/** Cột lớn nhất (0-based) có ghế đơn trên hàng r; bỏ qua (excludeAnchor, excludeAnchor+1) khi đang thử đặt ghế đôi neo tại đó. */
+
+function maxSingleSeatColInRow(grid, r, excludeCoupleAnchorCol) {
+
+  const skip = new Set();
+
+  if (excludeCoupleAnchorCol != null) {
+
+    skip.add(excludeCoupleAnchorCol);
+
+    if (excludeCoupleAnchorCol + 1 < COLS) skip.add(excludeCoupleAnchorCol + 1);
+
+  }
+
+  let mx = -1;
+
+  for (let col = 0; col < COLS; col++) {
+
+    if (skip.has(col)) continue;
+
+    const cell = grid[r * COLS + col];
+
+    if (!isPlacedSeat(cell)) continue;
+
+    if (cell.type === "OccupiedByDouble") continue;
+
+    if (isCoupleSeatByType(cell.type)) continue;
+
+    mx = Math.max(mx, col);
+
+  }
+
+  return mx;
+
+}
+
+
+
+/** Hàng (0-based) cao nhất trên lưới có ít nhất một ghế đơn; bỏ qua hai ô neo ghế đôi đang thử (exR, exC1)(exR, exC2) nếu có. */
+
+function minSingleSeatRowInGrid(grid, exR, exC1, exC2) {
+
+  let minR = ROWS;
+
+  for (let r = 0; r < ROWS; r++) {
+
+    for (let col = 0; col < COLS; col++) {
+
+      if (exR != null && r === exR && (col === exC1 || col === exC2)) continue;
+
+      const cell = grid[r * COLS + col];
+
+      if (!isPlacedSeat(cell)) continue;
+
+      if (cell.type === "OccupiedByDouble") continue;
+
+      if (isCoupleSeatByType(cell.type)) continue;
+
+      minR = Math.min(minR, r);
+
+    }
+
+  }
+
+  return minR >= ROWS ? -1 : minR;
+
+}
+
+
+
+/** Ghế đôi: cột nhãn lẻ (1,3,5…); ô phải trống; sau mọi ghế đơn trên cùng hàng; không nằm trên hàng có ghế đơn (theo lưới: chỉ số hàng nhỏ hơn). */
+
+function canPlaceCoupleAt(grid, r, c) {
+
+  if (c + 1 >= COLS) return false;
+
+  if ((c + 1) % 2 !== 1) return false;
+
+  const i2 = r * COLS + c + 1;
+
+  if (!isEmptyCell(grid[i2])) return false;
+
+  const maxSingle = maxSingleSeatColInRow(grid, r, c);
+
+  if (maxSingle >= 0 && c <= maxSingle) return false;
+
+  const minSr = minSingleSeatRowInGrid(grid, r, c, c + 1);
+
+  if (minSr >= 0 && r < minSr) return false;
+
+  return true;
+
+}
+
+
+
+/** Kiểm tra toàn bộ lưới: ghế đôi sau ghế đơn trên cùng hàng; không có ghế đôi phía trên hàng có ghế đơn. */
+
+function validateCoupleAfterSinglesLayout(grid) {
+
+  const globalMinSingleRow = minSingleSeatRowInGrid(grid, null, null, null);
+
+  for (let r = 0; r < ROWS; r++) {
+
+    for (let c = 0; c < COLS; c++) {
+
+      const cell = grid[r * COLS + c];
+
+      if (!isPlacedSeat(cell) || !isCoupleSeatByType(cell.type)) continue;
+
+      if (globalMinSingleRow >= 0 && r < globalMinSingleRow) {
+
+        return {
+
+          ok: false,
+
+          message: `Hàng ${r + 1}: ghế đôi không được đặt phía trên (gần màn hình hơn) hàng có ghế đơn — kéo ghế đôi xuống dưới hàng ghế đơn cao nhất.`,
+
+        };
+
+      }
+
+      const maxS = maxSingleSeatColInRow(grid, r, null);
+
+      if (maxS < 0) continue;
+
+      if (c <= maxS) {
+
+        return {
+
+          ok: false,
+
+          message: `Hàng ${r + 1}: ghế đôi không được đặt trước ghế đơn — kéo ghế đôi sang phải sau tất cả ghế đơn trên hàng.`,
+
+        };
+
+      }
+
+    }
+
+  }
+
+  return { ok: true };
+
+}
+
+function validateEvenSeatCountByRow(grid) {
+
+  for (let r = 0; r < ROWS; r++) {
+
+    let count = 0;
+
+    for (let c = 0; c < COLS; c++) {
+
+      const cell = grid[r * COLS + c];
+
+      if (!isPlacedSeat(cell)) continue;
+
+      count += isCoupleSeatByType(cell.type) ? 2 : 1;
+
+    }
+
+    if (count > 0 && count % 2 !== 0) {
+
+      const rowLabel = rowLetterForGridRow(grid, r);
+
+      return {
+
+        ok: false,
+
+        message: `Hàng ${rowLabel || r + 1} đang có ${count} ghế. Sơ đồ chỉ được lưu khi mỗi hàng có số ghế chẵn.`,
+
+      };
+
+    }
+
+  }
+
+  return { ok: true };
+
+}
+
+
+
 /** Xóa ghế tại (r,c) (gồm ô ghép nếu Đôi). */
 
 const clearSeatAt = (grid, r, c) => {
@@ -174,7 +448,7 @@ const clearSeatAt = (grid, r, c) => {
 
   if (!isPlacedSeat(cell)) return g;
 
-  if (cell.type === "Đôi" && c + 1 < COLS) {
+  if (isCoupleSeatByType(cell.type) && c + 1 < COLS) {
 
     const i2 = r * COLS + c + 1;
 
@@ -208,9 +482,11 @@ const placeSeatCopy = (grid, r, c, src) => {
 
     label: "",
 
+    typeColor: src.typeColor,
+
   };
 
-  if (src.type === "Đôi" && c + 1 < COLS) {
+  if (isCoupleSeatByType(src.type) && c + 1 < COLS) {
 
     const i2 = r * COLS + c + 1;
 
@@ -244,9 +520,11 @@ const applyMoveSeat = (grid, fr, fc, tr, tc) => {
 
 
 
-  if (src.type === "Đôi") {
+  if (isCoupleSeatByType(src.type)) {
 
     if (tc + 1 >= COLS) return grid;
+
+    if (!canPlaceCoupleAt(work, tr, tc)) return grid;
 
     const a = work[tr * COLS + tc];
 
@@ -296,6 +574,14 @@ export default function SeatManagement() {
 
   const [isLocked, setIsLocked] = useState(false);
 
+  const { showToast, ToastComponent } = useAdminToast();
+
+  const [saving, setSaving] = useState(false);
+
+  const [seatTypeNames, setSeatTypeNames] = useState([]);
+
+  const [seatTypesForColor, setSeatTypesForColor] = useState([]);
+
   const [dragOverKey, setDragOverKey] = useState(null);
 
   const [selectedIndices, setSelectedIndices] = useState(new Set());
@@ -313,6 +599,57 @@ export default function SeatManagement() {
     setSelectedIndices(new Set());
 
   }, [selectedRoomId]);
+
+
+
+  useEffect(() => {
+
+    let mounted = true;
+
+    (async () => {
+
+      try {
+
+        const res = await apiFetch(SEAT_TYPES.LIST);
+
+        const json = await res.json().catch(() => null);
+
+        const arr = Array.isArray(json?.data) ? json.data : [];
+
+        const names = arr.map((x) => x.name).filter(Boolean);
+
+        if (mounted && names.length > 0) setSeatTypeNames(names);
+
+        if (mounted) {
+
+          const seatTypesWithCouple = arr.map((x) => ({ 
+            name: x.name, 
+            color: x.color,
+            coupleSeat: x.coupleSeat ?? x.couple_seat ?? isCoupleTypeName(x.name) 
+          })).filter((x) => x.name);
+          
+          // Lưu vào biến module-level để các hàm helper dùng
+          _seatTypesData = seatTypesWithCouple;
+          
+          setSeatTypesForColor(seatTypesWithCouple);
+
+        }
+
+      } catch {
+
+        /* giữ mặc định */
+
+      }
+
+    })();
+
+    return () => {
+
+      mounted = false;
+
+    };
+
+  }, []);
 
 
 
@@ -370,131 +707,81 @@ export default function SeatManagement() {
 
 
 
-  const handleBulkAction = (action) => {
-
+  const handleBulkAction = (action, payload) => {
     if (selectedIndices.size === 0) return;
 
-    
-
     setSeats(prev => {
-
       const next = [...prev];
-
       selectedIndices.forEach(idx => {
-
         const cell = next[idx];
-
         if (!cell || cell.type === "OccupiedByDouble") return;
 
-
-
         switch (action) {
+          case "SET_TYPE": {
+            const typeName = payload;
+            if (!typeName) break;
 
-          case "SET_NORMAL":
+            const isDouble = isCoupleSeatByType(typeName);
 
-            if (cell.type === "Đôi") clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
-
-            next[idx] = { ...next[idx], type: "Thường", isActive: true };
-
-            break;
-
-          case "SET_VIP":
-
-            if (cell.type === "Đôi") clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
-
-            next[idx] = { ...next[idx], type: "VIP", isActive: true };
-
-            break;
-
-          case "SET_DOUBLE":
-
-            if (cell.type === "Đôi") break;
-
-            // Check if can place double
-
-            if (cell.colIdx + 1 < COLS) {
-
+            if (isDouble) {
+              // Logic đặt ghế đôi
+              if (cell.colIdx + 1 >= COLS) break;
+              if (!canPlaceCoupleAt(next, cell.rowIdx, cell.colIdx)) break;
               const nextIdx = cell.rowIdx * COLS + cell.colIdx + 1;
+              if (!isEmptyCell(next[nextIdx])) break;
 
-              if (isEmptyCell(next[nextIdx]) || selectedIndices.has(nextIdx)) {
+              // Nếu đang là ghế đơn hoặc đôi cũ, cần dọn dẹp
+              if (isCoupleSeatByType(cell.type)) clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
 
-                next[idx] = { ...cell, type: "Đôi", isActive: true };
-
-                next[nextIdx] = { rowIdx: cell.rowIdx, colIdx: cell.colIdx + 1, type: "OccupiedByDouble", isActive: false, label: "" };
-
-              }
-
+              next[idx] = { ...cell, type: typeName, isActive: true, typeColor: undefined };
+              next[nextIdx] = {
+                rowIdx: cell.rowIdx,
+                colIdx: cell.colIdx + 1,
+                type: "OccupiedByDouble",
+                isActive: false,
+                label: "",
+              };
+            } else {
+              // Logic đặt ghế đơn
+              if (isCoupleSeatByType(cell.type)) clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
+              next[idx] = { ...next[idx], type: typeName, isActive: true, typeColor: undefined };
             }
-
             break;
-
+          }
           case "TOGGLE_ACTIVE":
-
             if (isPlacedSeat(cell)) {
-
               next[idx] = { ...cell, isActive: !cell.isActive };
-
             }
-
             break;
-
           case "DELETE":
-
-            if (cell.type === "Đôi") {
-
+            if (isCoupleSeatByType(cell.type)) {
               const nIdx = cell.rowIdx * COLS + cell.colIdx + 1;
-
               next[nIdx] = emptyCell(cell.rowIdx, cell.colIdx + 1);
-
             }
-
             next[idx] = emptyCell(cell.rowIdx, cell.colIdx);
-
             break;
-
           default: break;
-
         }
-
       });
-
       return recomputeSeatLabels(next);
-
     });
-
-    // Don't clear selection immediately so user can see result, but maybe it's better to clear
-
   };
-
-
 
   const clearSeatAtInPlace = (grid, r, c) => {
-
     const idx = r * COLS + c;
-
     const cell = grid[idx];
-
-    if (cell.type === "Đôi" && c + 1 < COLS) {
-
+    if (isCoupleSeatByType(cell.type) && c + 1 < COLS) {
       const i2 = r * COLS + c + 1;
-
       grid[i2] = emptyCell(r, c + 1);
-
     }
-
     grid[idx] = emptyCell(r, c);
-
   };
 
-
-
   const selectedRoom = useMemo(
-
     () => rooms.find((r) => String(r.id) === String(selectedRoomId)) || location.state?.roomInfo,
-
     [rooms, selectedRoomId, location.state?.roomInfo]
-
   );
+
 
 
 
@@ -534,9 +821,11 @@ export default function SeatManagement() {
 
         const active = s.isActive !== false;
 
-        grid[idx] = { ...grid[idx], type: s.type, label: "", isActive: active };
+        const typeColor = normalizeHex(s.typeColor) || undefined;
 
-        if (s.type === "Đôi" && s.colIdx + 1 < COLS) {
+        grid[idx] = { ...grid[idx], type: s.type, label: "", isActive: active, typeColor };
+
+        if (isCoupleSeatByType(s.type) && s.colIdx + 1 < COLS) {
 
           const nextIdx = s.rowIdx * COLS + s.colIdx + 1;
 
@@ -574,7 +863,7 @@ export default function SeatManagement() {
 
         const arr = Array.isArray(list) ? list : [];
 
-        setRooms(arr.map((r) => ({ id: r.id, name: r.name })));
+        setRooms(arr.filter((r) => isActiveStatus(r.status)).map((r) => ({ id: r.id, name: r.name })));
 
       } catch {
 
@@ -620,9 +909,11 @@ export default function SeatManagement() {
 
           colIdx: s.x,
 
-          type: API_TO_UI_SEAT_TYPE[s.seatTypeName] || "Thường",
+          type: apiSeatTypeNameToUi(s.seatTypeName),
 
           isActive: true,
+
+          typeColor: normalizeHex(s.seatTypeColor ?? s.seat_type_color) || undefined,
 
         }));
 
@@ -648,19 +939,19 @@ export default function SeatManagement() {
 
   const getSeatLabelPreview = useCallback((grid, r, c) => {
 
-    const y = virtualRowY(grid, r);
+    const letter = rowLetterForGridRow(grid, r);
 
-    let letterIdx = 0;
+    let n = 0;
 
     for (let col = 0; col < c; col++) {
 
       const i = r * COLS + col;
 
-      if (isPlacedSeat(grid[i])) letterIdx++;
+      if (isPlacedSeat(grid[i])) n++;
 
     }
 
-    return makeSeatLabel(y, letterIdx);
+    return `${letter}${n + 1}`;
 
   }, []);
 
@@ -804,7 +1095,23 @@ export default function SeatManagement() {
 
       const label = getSeatLabelPreview(seats, rowIdx, colIdx);
 
-      next[idx] = { ...cell, type: "Thường", label, isActive: true };
+      const defaultT =
+
+        seatTypeNames.find((t) => !isCoupleSeatByType(t) && !/vip/i.test(String(t))) ||
+
+        seatTypeNames.find((t) => !isCoupleSeatByType(t)) ||
+
+        seatTypeNames[0];
+
+      if (!defaultT) {
+
+        showToast("Vui lòng tạo loại ghế trước khi thiết kế sơ đồ.", "warning");
+
+        return;
+
+      }
+
+      next[idx] = { ...cell, type: defaultT, label, isActive: true, typeColor: undefined };
 
     }
 
@@ -824,17 +1131,15 @@ export default function SeatManagement() {
 
     const cell = seats[idx];
 
-    if (!cell || !cell.isActive || cell.type === "OccupiedByDouble") return;
+    if (!cell || cell.type === "OccupiedByDouble") return;
 
 
-
-    const nextTypeVal = nextType(cell.type);
 
     const next = [...seats];
 
 
 
-    if (cell.type === "Đôi") {
+    if (isCoupleSeatByType(cell.type)) {
 
       const nextCol = colIdx + 1;
 
@@ -850,7 +1155,11 @@ export default function SeatManagement() {
 
 
 
-    if (nextTypeVal === "Đôi") {
+    const nextTypeVal = nextApplicableSeatType(cell.type, seatTypeNames, next, rowIdx, colIdx);
+
+    if (isCoupleSeatByType(nextTypeVal)) {
+
+      if (!canPlaceCoupleAt(next, rowIdx, colIdx)) return;
 
       const nextCol = colIdx + 1;
 
@@ -860,13 +1169,13 @@ export default function SeatManagement() {
 
       if (!isEmptyCell(next[nextIdx])) return;
 
-      next[idx] = { ...cell, type: "Đôi", label: cell.label, isActive: true };
+      next[idx] = { ...cell, type: nextTypeVal, label: cell.label, isActive: true, typeColor: undefined };
 
       next[nextIdx] = { ...next[nextIdx], type: "OccupiedByDouble", isActive: false, label: "" };
 
     } else {
 
-      next[idx] = { ...cell, type: nextTypeVal, label: cell.label, isActive: true };
+      next[idx] = { ...cell, type: nextTypeVal, label: cell.label, isActive: true, typeColor: undefined };
 
     }
 
@@ -886,6 +1195,26 @@ export default function SeatManagement() {
 
     }
 
+    const layoutCheck = validateCoupleAfterSinglesLayout(seats);
+
+    if (!layoutCheck.ok) {
+
+      showToast(layoutCheck.message, "danger");
+
+      return;
+
+    }
+
+    const evenSeatCountCheck = validateEvenSeatCountByRow(seats);
+
+    if (!evenSeatCountCheck.ok) {
+
+      showToast(evenSeatCountCheck.message, "danger");
+
+      return;
+
+    }
+
     const items = [];
 
     for (let r = 0; r < ROWS; r++) {
@@ -900,17 +1229,19 @@ export default function SeatManagement() {
 
         if (isPlacedSeat(cell)) {
 
+          const { row: rowStr, number: numStr } = layoutLabelToRowNumber(cell.label, r);
+
           items.push({
 
             x: c,
 
             y: r,
 
-            row: String(r + 1),
+            row: rowStr,
 
-            number: cell.label || "",
+            number: numStr,
 
-            seatTypeName: UI_TO_API_SEAT_TYPE[cell.type] || "Ghế thường",
+            seatTypeName: uiSeatTypeToApi(cell.type),
 
           });
 
@@ -919,6 +1250,8 @@ export default function SeatManagement() {
       }
 
     }
+
+    setSaving(true);
 
     try {
 
@@ -940,19 +1273,43 @@ export default function SeatManagement() {
 
       if (!res.ok) {
 
-        alert(json?.message || "Lưu sơ đồ ghế thất bại");
+        showToast(json?.message || "Lưu sơ đồ ghế thất bại", "danger");
 
         return;
 
       }
 
-      alert("Đã lưu sơ đồ ghế.");
+      const resReload = await apiFetch(SEATS.BY_ROOM(selectedRoomId));
 
-      navigate(`${prefix}/rooms`);
+      const jsonReload = await resReload.json().catch(() => null);
+
+      const list = Array.isArray(jsonReload?.data) ? jsonReload.data : [];
+
+      const seatList = list.map((s) => ({
+
+        rowIdx: s.y,
+
+        colIdx: s.x,
+
+        type: apiSeatTypeNameToUi(s.seatTypeName),
+
+        isActive: true,
+
+        typeColor: normalizeHex(s.seatTypeColor ?? s.seat_type_color) || undefined,
+
+      }));
+
+      setSeats(buildGridFromSeats(seatList));
+
+      showToast(json?.message || `Đã lưu ${items.length} ghế lên máy chủ.`);
 
     } catch {
 
-      alert("Không thể kết nối server");
+      showToast("Không thể kết nối server", "danger");
+
+    } finally {
+
+      setSaving(false);
 
     }
 
@@ -976,21 +1333,15 @@ export default function SeatManagement() {
 
       if (!main.isActive) return "#adb5bd";
 
-      switch (main.type) {
+      if (isPlacedSeat(main))
 
-        case "Thường": return "#0d6efd";
+        return resolveSeatDisplayColor(main.type, seatTypesForColor, main.typeColor);
 
-        case "VIP": return "#ffc107";
-
-        case "Đôi": return "#dc3545";
-
-        default: return "#e9ecef";
-
-      }
+      return "#e9ecef";
 
     },
 
-    [seatGrid]
+    [seatGrid, seatTypesForColor]
 
   );
 
@@ -1028,7 +1379,7 @@ export default function SeatManagement() {
 
           <p className="mb-0 small" style={{ opacity: 0.92 }}>
 
-            Tên ghế: số hàng (Y) + chữ (vd 1A, 2B). Kéo ghế thả vào ô trống (ghế đôi cần 2 ô liền). Click ô trống tạo ghế; click ghế bật/tắt. Chuột phải đổi loại (khi bật).
+            Tên ghế: chữ hàng + số thứ tự trong hàng (vd A1, A2, B1). Mỗi hàng phải có số ghế chẵn mới được lưu. Chuột phải xoay theo các loại ghế trên hệ thống. Ghế đôi chỉ neo cột nhãn lẻ (1, 3, 5…), ô phải trống, nằm sau mọi ghế đơn trên cùng hàng, và không đặt ở hàng phía trên (gần màn hình hơn) bất kỳ hàng nào có ghế đơn. Kéo thả vào ô trống; click ô trống tạo ghế; click ghế bật/tắt.
 
           </p>
 
@@ -1080,17 +1431,21 @@ export default function SeatManagement() {
 
           </Button>
 
-          <button type="button" className="admin-btn" style={{ background: "white", color: "#6366f1" }} onClick={() => navigate(`${prefix}/rooms`)}>
+          <Button variant="light" className="fw-semibold text-primary" disabled={!selectedRoomId || isLocked || saving} onClick={handleSave}>
 
-            Hủy
-
-          </button>
-
-          <Button variant="light" className="fw-semibold text-primary" disabled={!selectedRoom || isLocked} onClick={handleSave}>
-
-            <Save size={16} className="me-1" /> Lưu sơ đồ
+            <Save size={16} className="me-1" /> {saving ? "Đang lưu…" : "Lưu sơ đồ"}
 
           </Button>
+
+          <button
+            type="button"
+            className="admin-btn text-nowrap"
+            style={{ background: "white", color: "#4f46e5" }}
+            onClick={() => navigate(`${prefix}/rooms`)}
+          >
+            <i className="bi bi-list-ul me-1" aria-hidden />
+            Danh sách phòng
+          </button>
 
         </div>
 
@@ -1099,6 +1454,10 @@ export default function SeatManagement() {
       className="seat-management"
 
     >
+
+      <div className="seat-management-page-wrap">
+
+      <ToastComponent />
 
       <style>{`
 
@@ -1270,6 +1629,14 @@ export default function SeatManagement() {
 
         }
 
+        .bulk-actions-toolbar {
+          box-shadow: 0 10px 30px rgba(0,0,0,0.25) !important;
+          border: 1px solid rgba(255,255,255,0.1);
+          max-width: 90vw;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .bulk-actions-toolbar::-webkit-scrollbar { display: none; }
       `}</style>
 
 
@@ -1298,11 +1665,31 @@ export default function SeatManagement() {
 
               <Badge bg="secondary">{seatGrid.filter((s) => isPlacedSeat(s) && !s.isActive).length} đang tắt</Badge>
 
-              <Badge bg="primary">{seatGrid.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "Thường").length} Thường</Badge>
+              {seatTypeNames.map((name) => {
 
-              <Badge bg="warning" text="dark">{seatGrid.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "VIP").length} VIP</Badge>
+                const n = seatGrid.filter((s) => isPlacedSeat(s) && s.isActive && s.type === name).length;
 
-              <Badge bg="danger">{seatGrid.filter((s) => isPlacedSeat(s) && s.isActive && s.type === "Đôi").length} Đôi</Badge>
+                const fill = resolveSeatTypeColor(name, seatTypesForColor);
+
+                return (
+
+                  <Badge
+
+                    key={name}
+
+                    className="border-0"
+
+                    style={{ backgroundColor: fill, color: contrastTextColorForHex(fill) }}
+
+                  >
+
+                    {n} {name}
+
+                  </Badge>
+
+                );
+
+              })}
 
               {isLocked && <Badge bg="warning">Form đã khóa</Badge>}
 
@@ -1348,6 +1735,8 @@ export default function SeatManagement() {
 
                     const isDropTarget = dragOverKey === `${r}-${c}`;
 
+                    const seatBg = getSeatColor(cell, r, c);
+
                     return (
 
                       <div
@@ -1360,13 +1749,25 @@ export default function SeatManagement() {
 
                         draggable={canDrag}
 
-                        className={`seat-box ${placed ? "placed" : "placeholder"} ${showActive ? "active" : ""} ${placed && !cell.isActive ? "seat-off" : ""} ${cell.type === "Đôi" ? "type-doi" : ""} ${isDropTarget ? "drag-over" : ""} ${selectedIndices.has(idx) ? "brush-selected" : ""}`}
+                        className={`seat-box ${placed ? "placed" : "placeholder"} ${showActive ? "active" : ""} ${placed && !cell.isActive ? "seat-off" : ""} ${isCoupleSeatByType(cell.type) ? "type-doi" : ""} ${isDropTarget ? "drag-over" : ""} ${selectedIndices.has(idx) ? "brush-selected" : ""}`}
 
                         style={{
 
-                          backgroundColor: getSeatColor(cell, r, c),
+                          backgroundColor: seatBg,
 
-                          gridColumn: cell.type === "Đôi" ? "span 2" : undefined,
+                          color:
+
+                            !placed
+
+                              ? undefined
+
+                              : showActive
+
+                                ? contrastTextColorForHex(seatBg)
+
+                                : "#fff",
+
+                          gridColumn: isCoupleSeatByType(cell.type) ? "span 2" : undefined,
 
                           opacity: placed && !cell.isActive ? 0.85 : 1,
 
@@ -1412,21 +1813,33 @@ export default function SeatManagement() {
 
               <div className="bulk-actions-toolbar shadow-lg d-flex align-items-center gap-2 p-3 bg-dark rounded-pill" style={{ position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
 
-                <span className="text-white fw-bold me-2 ps-2">{selectedIndices.size} ghế đang chọn</span>
+                <span className="text-white fw-bold me-2 ps-3 text-nowrap">{selectedIndices.size} ghế đang chọn</span>
 
-                <Button variant="primary" size="sm" className="rounded-pill" onClick={() => handleBulkAction("SET_NORMAL")}>Thường</Button>
+                <div className="d-flex gap-2 pe-2 border-end border-secondary me-2">
+                  {seatTypeNames.map(name => {
+                    const fill = resolveSeatTypeColor(name, seatTypesForColor);
+                    return (
+                      <Button
+                        key={name}
+                        size="sm"
+                        className="rounded-pill border-0 text-nowrap"
+                        style={{
+                          backgroundColor: fill,
+                          color: contrastTextColorForHex(fill),
+                        }}
+                        onClick={() => handleBulkAction("SET_TYPE", name)}
+                      >
+                        {name}
+                      </Button>
+                    );
+                  })}
+                </div>
 
-                <Button variant="warning" size="sm" className="rounded-pill" onClick={() => handleBulkAction("SET_VIP")}>VIP</Button>
-
-                <Button variant="danger" size="sm" className="rounded-pill" onClick={() => handleBulkAction("SET_DOUBLE")}>Đôi</Button>
-
-                <div className="vr bg-white mx-1" style={{ height: '20px' }}></div>
-
-                <Button variant="outline-light" size="sm" className="rounded-pill" onClick={() => handleBulkAction("TOGGLE_ACTIVE")}>Bật/Tắt</Button>
-
-                <Button variant="danger" size="sm" className="rounded-pill" onClick={() => handleBulkAction("DELETE")}>Xóa</Button>
-
-                <Button variant="secondary" size="sm" className="rounded-pill ms-2" onClick={() => setSelectedIndices(new Set())}>Hủy</Button>
+                <div className="d-flex gap-2">
+                  <Button variant="outline-light" size="sm" className="rounded-pill text-nowrap" onClick={() => handleBulkAction("TOGGLE_ACTIVE")}>Bật/Tắt</Button>
+                  <Button variant="danger" size="sm" className="rounded-pill text-nowrap" onClick={() => handleBulkAction("DELETE")}>Xóa</Button>
+                  <Button variant="secondary" size="sm" className="rounded-pill text-nowrap ms-2 pe-3" onClick={() => setSelectedIndices(new Set())}>Hủy</Button>
+                </div>
 
               </div>
 
@@ -1434,25 +1847,33 @@ export default function SeatManagement() {
 
 
 
-            <div className="d-flex justify-content-center gap-4 mt-4">
+            <div className="d-flex justify-content-center flex-wrap gap-3 mt-4">
 
-              <div className="d-flex align-items-center gap-2 small fw-bold">
+              {seatTypeNames.map((name) => (
 
-                <div style={{ width: 14, height: 14, borderRadius: 4, backgroundColor: "#0d6efd" }} /> Thường
+                <div key={name} className="d-flex align-items-center gap-2 small fw-bold">
 
-              </div>
+                  <div
 
-              <div className="d-flex align-items-center gap-2 small fw-bold">
+                    style={{
 
-                <div style={{ width: 14, height: 14, borderRadius: 4, backgroundColor: "#ffc107" }} /> VIP
+                      width: 14,
 
-              </div>
+                      height: 14,
 
-              <div className="d-flex align-items-center gap-2 small fw-bold">
+                      borderRadius: 4,
 
-                <div style={{ width: 14, height: 14, borderRadius: 4, backgroundColor: "#dc3545" }} /> Đôi
+                      backgroundColor: resolveSeatTypeColor(name, seatTypesForColor),
 
-              </div>
+                    }}
+
+                  />
+
+                  {name}
+
+                </div>
+
+              ))}
 
               <div className="d-flex align-items-center gap-2 small fw-bold text-muted">
 
@@ -1479,6 +1900,8 @@ export default function SeatManagement() {
         </>
 
       )}
+
+      </div>
 
     </AdminPanelPage>
 

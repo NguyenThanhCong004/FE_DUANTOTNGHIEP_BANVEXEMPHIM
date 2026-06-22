@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import AdminFormListBack from '../../components/admin/AdminFormListBack';
+import { useAdminToast } from '../../components/admin/AdminToast';
+import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
 import { apiFetch } from '../../utils/apiClient';
 import { CINEMAS } from '../../constants/apiEndpoints';
+import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 // --- Custom Searchable Select Component ---
 const SearchableSelect = ({ label, options, value, onChange, placeholder, disabled, error }) => {
@@ -87,6 +92,8 @@ const CreateCinema = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { showToast, ToastComponent } = useAdminToast();
+  const { refreshCinemas, setSelectedCinemaId } = useSuperAdminCinema();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -160,7 +167,7 @@ const CreateCinema = () => {
         setFormData(prev => ({
           ...prev,
           name: editData.name || '',
-          status: editData.status === 'Active' || editData.status === 1 ? 'Active' : 'Inactive',
+          status: codeToAdminStatus(editData.status, { allowUpcoming: true }),
           province: provinceName,
           district: districtName,
           ward: wardName,
@@ -189,6 +196,7 @@ const CreateCinema = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     let newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Vui lòng nhập tên rạp';
     if (!formData.province) newErrors.province = 'Chọn tỉnh thành';
@@ -208,23 +216,73 @@ const CreateCinema = () => {
     const body = {
       name: formData.name.trim(),
       address: fullAddress,
-      status: formData.status === 'Active' ? 1 : 0,
+      status: adminStatusToCode(formData.status, { allowUpcoming: true }),
     };
+    let payload = body;
+
+    if (editData?.id) {
+      const originalBody = {
+        name: String(editData.name || '').trim(),
+        address: String(editData.address || '').trim(),
+        status: adminStatusToCode(editData.status, { allowUpcoming: true }),
+      };
+
+      const isUnchanged =
+        body.name === originalBody.name &&
+        body.address === originalBody.address &&
+        body.status === originalBody.status;
+
+      if (isUnchanged) {
+        showToast(MESSAGES.noChanges, 'warning');
+        setSubmitting(false);
+        return;
+      }
+
+      // Chỉ gửi các trường thay đổi để giảm xử lý backend không cần thiết.
+      payload = {};
+      if (body.name !== originalBody.name) payload.name = body.name;
+      if (body.address !== originalBody.address) payload.address = body.address;
+      if (body.status !== originalBody.status) payload.status = body.status;
+    }
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
     try {
       const url = editData?.id ? CINEMAS.BY_ID(editData.id) : CINEMAS.LIST;
       const res = await apiFetch(url, {
         method: editData?.id ? 'PUT' : 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
+        signal: controller.signal,
       });
-      if (res.ok) navigate('/super-admin/cinemas');
-      else {
+      if (res.ok) {
         const json = await res.json().catch(() => null);
-        setServerError(json?.message || 'Lưu thất bại');
+        const message = apiMessage(json, editData?.id ? 'Cập nhật rạp thành công' : 'Lưu rạp thành công');
+        const messageType = resultToastType(message);
+        const savedCinemaId = json?.data?.cinemaId ?? json?.data?.id ?? editData?.id ?? null;
+
+        await refreshCinemas();
+        if (!editData?.id && savedCinemaId != null) {
+          setSelectedCinemaId(savedCinemaId);
+        }
+        
+        navigate('/super-admin/cinemas', {
+          state: {
+            message: message,
+            type: messageType,
+          },
+        });
+      } else {
+        const json = await res.json().catch(() => null);
+        setServerError(apiMessage(json, 'Lưu rạp thất bại'));
       }
-    } catch {
-      setServerError('Lỗi kết nối máy chủ');
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        setServerError('Máy chủ phản hồi chậm (quá 4 giây). Vui lòng thử lại.');
+      } else {
+        setServerError(MESSAGES.networkError);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setSubmitting(false);
     }
   };
@@ -234,8 +292,11 @@ const CreateCinema = () => {
       icon={editData ? "bi-building-gear" : "bi-building-add"} 
       title={editData ? 'Cập nhật rạp' : 'Thêm rạp mới'} 
       description="Quản lý thông tin cụm rạp và địa chỉ hoạt động trên hệ thống."
+      headerRight={<AdminFormListBack to="/super-admin/cinemas" />}
     >
-      <div className="admin-card admin-slide-up" style={{ maxWidth: '900px', margin: '0 auto' }}>
+      <ToastComponent />
+      <div className="admin-form-page-wrap admin-form-compact">
+      <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4 className="mb-0">
             <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
@@ -245,7 +306,7 @@ const CreateCinema = () => {
         <div className="admin-card-body p-4">
           {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="row">
               <div className="col-md-8 mb-4">
                 <label className="admin-form-label">Tên cụm rạp <span className="text-danger">*</span></label>
@@ -255,6 +316,7 @@ const CreateCinema = () => {
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="Ví dụ: Cinema Duy Tân"
+                  disabled={submitting}
                 />
                 {errors.name && <small className="text-danger fw-medium">{errors.name}</small>}
               </div>
@@ -264,6 +326,7 @@ const CreateCinema = () => {
                   className="admin-search-input w-100"
                   value={formData.status}
                   onChange={(e) => handleChange('status', e.target.value)}
+                  disabled={submitting}
                 >
                   <option value="Active">Đang hoạt động</option>
                   <option value="Inactive">Tạm khóa</option>
@@ -280,6 +343,7 @@ const CreateCinema = () => {
                   value={formData.province}
                   onChange={(val) => handleChange('province', val)}
                   placeholder="Tìm tỉnh thành..."
+                  disabled={submitting}
                   error={errors.province}
                 />
               </div>
@@ -290,7 +354,7 @@ const CreateCinema = () => {
                   value={formData.district}
                   onChange={(val) => handleChange('district', val)}
                   placeholder="Tìm quận huyện..."
-                  disabled={!formData.province}
+                  disabled={!formData.province || submitting}
                   error={errors.district}
                 />
               </div>
@@ -301,7 +365,7 @@ const CreateCinema = () => {
                   value={formData.ward}
                   onChange={(val) => handleChange('ward', val)}
                   placeholder="Tìm phường xã..."
-                  disabled={!formData.district}
+                  disabled={!formData.district || submitting}
                   error={errors.ward}
                 />
               </div>
@@ -315,12 +379,12 @@ const CreateCinema = () => {
                 value={formData.street}
                 onChange={(e) => handleChange('street', e.target.value)}
                 placeholder="Ví dụ: Số 123, đường Nguyễn Huệ"
+                disabled={submitting}
               />
               {errors.street && <small className="text-danger fw-medium">{errors.street}</small>}
             </div>
 
-            <div className="mt-4 d-flex justify-content-center gap-3">
-              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/cinemas')}>Hủy bỏ</button>
+            <div className="mt-3 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '180px' }} disabled={submitting}>
                 {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
                 {editData ? 'Cập nhật' : 'Lưu rạp'}
@@ -329,6 +393,20 @@ const CreateCinema = () => {
           </form>
         </div>
       </div>
+      </div>
+      {submitting && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center align-items-center"
+          style={{ backgroundColor: 'rgba(17, 24, 39, 0.45)', zIndex: 1200 }}
+        >
+          <div className="bg-white rounded-4 shadow-lg px-4 py-3 d-flex align-items-center gap-3">
+            <span className="spinner-border text-primary" role="status" aria-hidden="true"></span>
+            <div className="fw-semibold text-dark">
+              Đang cập nhật dữ liệu, vui lòng chờ...
+            </div>
+          </div>
+        </div>
+      )}
     </AdminPanelPage>
   );
 };

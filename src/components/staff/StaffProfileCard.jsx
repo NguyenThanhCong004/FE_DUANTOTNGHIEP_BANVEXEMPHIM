@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Card, Button, Spinner, Form } from "react-bootstrap";
 import { Building2, Mail, Shield, User, Lock } from "lucide-react";
+import { useAdminToast } from "../admin/AdminToast";
 import {
   getAccessToken,
   getRefreshToken,
@@ -10,34 +11,26 @@ import {
 } from "../../utils/authStorage";
 import { apiFetch } from "../../utils/apiClient";
 import { STAFF } from "../../constants/apiEndpoints";
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../utils/mediaFiles";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import { toDateInputValue } from "../../utils/formatters";
+import { PASSWORD_RULE_MESSAGE, STRONG_PASSWORD_REGEX } from "../../utils/passwordValidation";
 
 const GMAIL_RE = /^[a-z0-9._%+-]+@gmail\.com$/i;
 const PHONE_RE = /^[0-9]{10}$/;
 const DEFAULT_AVATAR_PLACEHOLDER =
   "https://placehold.co/120x120/1e293b/94a3b8?text=Avatar";
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result || ""));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-
-function toDateInputValue(birthday) {
-  if (birthday == null || birthday === "") return "";
-  if (typeof birthday === "string") return birthday.slice(0, 10);
-  if (Array.isArray(birthday) && birthday.length >= 3) {
-    const [y, m, d] = birthday;
-    return `${String(y)}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
-  return "";
-}
-
 function normalizeRole(role) {
   if (role == null) return "—";
   return String(role).replace(/^ROLE_/i, "");
+}
+
+function formatBirthdayDisplay(value) {
+  const dateValue = toDateInputValue(value);
+  if (!dateValue) return "—";
+  const [year, month, day] = dateValue.split("-");
+  return `${day}/${month}/${year}`;
 }
 
 function mergeStaffSession(serverDto) {
@@ -77,19 +70,15 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const [toast, setToast] = useState(null);
+  const { showToast, ToastComponent } = useAdminToast();
 
   const [pw, setPw] = useState({ current: "", newPw: "", confirm: "" });
+  const [showPw, setShowPw] = useState({ current: false, newPw: false, confirm: false });
   const [pwErrors, setPwErrors] = useState({});
   const [pwSaving, setPwSaving] = useState(false);
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
-
-  const showToast = useCallback((msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2800);
-  }, []);
 
   const load = useCallback(async () => {
     if (!staffId) {
@@ -101,7 +90,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       const res = await apiFetch(STAFF.BY_ID(staffId));
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.data) {
-        showToast(json?.message || "Không tải được hồ sơ", "error");
+        showToast(apiMessage(json, "Không tải được hồ sơ"), "danger");
         setModel(null);
         return;
       }
@@ -109,7 +98,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       setModel(d);
       mergeStaffSession(d);
     } catch {
-      showToast("Không kết nối được máy chủ", "error");
+      showToast(MESSAGES.networkError, "danger");
       setModel(null);
     } finally {
       setLoading(false);
@@ -198,13 +187,29 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
         status: model.status,
         cinemaId: model.cinemaId ?? null,
       };
+      const originalBody = {
+        fullname: String(model.fullname ?? "").trim(),
+        email: String(model.email ?? "").trim(),
+        username: String(model.username ?? "").trim(),
+        phone: String(model.phone ?? "").trim(),
+        birthday: toDateInputValue(model.birthday),
+        avatar: String(model.avatar ?? "").trim(),
+        role: model.role,
+        status: model.status,
+        cinemaId: model.cinemaId ?? null,
+      };
+      if (!avatarFile && JSON.stringify(body) === JSON.stringify(originalBody)) {
+        showToast(MESSAGES.noChanges, "warning");
+        setSaving(false);
+        return;
+      }
       const res = await apiFetch(STAFF.BY_ID(model.staffId), {
         method: "PUT",
         body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.data) {
-        showToast(json?.message || "Cập nhật thất bại", "error");
+        showToast(apiMessage(json, "Cập nhật thất bại"), "danger");
         return;
       }
       setModel(json.data);
@@ -214,7 +219,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       setAvatarPreview("");
       showToast("Đã lưu hồ sơ");
     } catch {
-      showToast("Không kết nối được máy chủ", "error");
+      showToast(MESSAGES.networkError, "danger");
     } finally {
       setSaving(false);
     }
@@ -229,7 +234,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const validatePw = () => {
     const e = {};
     if (!pw.current) e.current = "Nhập mật khẩu hiện tại";
-    if (!pw.newPw || pw.newPw.length < 8) e.newPw = "Mật khẩu mới tối thiểu 8 ký tự";
+    if (!STRONG_PASSWORD_REGEX.test(pw.newPw || "")) e.newPw = PASSWORD_RULE_MESSAGE;
     if (pw.newPw !== pw.confirm) e.confirm = "Mật khẩu xác nhận không khớp";
     return e;
   };
@@ -253,13 +258,13 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        showToast(json?.message || "Đổi mật khẩu thất bại", "error");
+        showToast(apiMessage(json, "Đổi mật khẩu thất bại"), "danger");
         return;
       }
       setPw({ current: "", newPw: "", confirm: "" });
       showToast("Đã đổi mật khẩu");
     } catch {
-      showToast("Không kết nối được máy chủ", "error");
+      showToast(MESSAGES.networkError, "danger");
     } finally {
       setPwSaving(false);
     }
@@ -289,14 +294,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
 
   return (
     <div className={`staff-profile-wrap${light ? " staff-profile-wrap--light" : ""}`}>
-      {toast && (
-        <div
-          className={`alert ${toast.type === "error" ? "alert-danger" : "alert-success"} py-2 px-3 mb-3`}
-          role="status"
-        >
-          {toast.msg}
-        </div>
-      )}
+      <ToastComponent />
 
       {!hideHeader ? (
         <div className="mb-4">
@@ -352,7 +350,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
                         <Form.Label className="small text-secondary mb-1">Đổi ảnh đại diện</Form.Label>
                         <Form.Control
                           type="file"
-                          accept="image/*"
+                          accept={IMAGE_FILE_ACCEPT}
                           size="sm"
                           className={inputDark || undefined}
                           onChange={(ev) => {
@@ -497,7 +495,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
                         isInvalid={!!errors.birthday}
                       />
                     ) : (
-                      <div className="fw-semibold">{toDateInputValue(model.birthday) || "—"}</div>
+                      <div className="fw-semibold">{formatBirthdayDisplay(model.birthday)}</div>
                     )}
                     {errors.birthday && (
                       <div className="text-danger small mt-1">{errors.birthday}</div>
@@ -534,48 +532,77 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
               <span className="fw-bold">Đổi mật khẩu</span>
             </div>
             <Form.Group className="mb-3">
-              <Form.Label className="small text-secondary">Mật khẩu hiện tại</Form.Label>
-              <Form.Control
-                type="password"
-                name="current"
-                value={pw.current}
-                onChange={handlePw}
-                className={inputDark || undefined}
-                autoComplete="current-password"
-                isInvalid={!!pwErrors.current}
-              />
+              <Form.Label className="small text-secondary fw-bold">Mật khẩu hiện tại</Form.Label>
+              <div style={{ position: "relative" }}>
+                <Form.Control
+                  type={showPw.current ? "text" : "password"}
+                  name="current"
+                  value={pw.current}
+                  onChange={handlePw}
+                  className={`${inputDark || ""} ${pwErrors.current ? "is-invalid border-danger" : ""}`.trim()}
+                  autoComplete="current-password"
+                  style={{ paddingRight: 42, backgroundImage: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => ({ ...s, current: !s.current }))}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
+                >
+                  <i className={`fas ${showPw.current ? "fa-eye-slash" : "fa-eye"}`} />
+                </button>
+              </div>
               {pwErrors.current && (
-                <Form.Control.Feedback type="invalid">{pwErrors.current}</Form.Control.Feedback>
+                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.current}</div>
               )}
             </Form.Group>
+
             <Form.Group className="mb-3">
-              <Form.Label className="small text-secondary">Mật khẩu mới (≥ 8 ký tự)</Form.Label>
-              <Form.Control
-                type="password"
-                name="newPw"
-                value={pw.newPw}
-                onChange={handlePw}
-                className={inputDark || undefined}
-                autoComplete="new-password"
-                isInvalid={!!pwErrors.newPw}
-              />
+              <Form.Label className="small text-secondary fw-bold">Mật khẩu mới (≥ 8 ký tự)</Form.Label>
+              <div style={{ position: "relative" }}>
+                <Form.Control
+                  type={showPw.newPw ? "text" : "password"}
+                  name="newPw"
+                  value={pw.newPw}
+                  onChange={handlePw}
+                  className={`${inputDark || ""} ${pwErrors.newPw ? "is-invalid border-danger" : ""}`.trim()}
+                  autoComplete="new-password"
+                  style={{ paddingRight: 42, backgroundImage: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => ({ ...s, newPw: !s.newPw }))}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
+                >
+                  <i className={`fas ${showPw.newPw ? "fa-eye-slash" : "fa-eye"}`} />
+                </button>
+              </div>
               {pwErrors.newPw && (
-                <Form.Control.Feedback type="invalid">{pwErrors.newPw}</Form.Control.Feedback>
+                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.newPw}</div>
               )}
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label className="small text-secondary">Xác nhận mật khẩu mới</Form.Label>
-              <Form.Control
-                type="password"
-                name="confirm"
-                value={pw.confirm}
-                onChange={handlePw}
-                className={inputDark || undefined}
-                autoComplete="new-password"
-                isInvalid={!!pwErrors.confirm}
-              />
+
+            <Form.Group className="mb-4">
+              <Form.Label className="small text-secondary fw-bold">Xác nhận mật khẩu mới</Form.Label>
+              <div style={{ position: "relative" }}>
+                <Form.Control
+                  type={showPw.confirm ? "text" : "password"}
+                  name="confirm"
+                  value={pw.confirm}
+                  onChange={handlePw}
+                  className={`${inputDark || ""} ${pwErrors.confirm ? "is-invalid border-danger" : ""}`.trim()}
+                  autoComplete="new-password"
+                  style={{ paddingRight: 42, backgroundImage: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw((s) => ({ ...s, confirm: !s.confirm }))}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
+                >
+                  <i className={`fas ${showPw.confirm ? "fa-eye-slash" : "fa-eye"}`} />
+                </button>
+              </div>
               {pwErrors.confirm && (
-                <Form.Control.Feedback type="invalid">{pwErrors.confirm}</Form.Control.Feedback>
+                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.confirm}</div>
               )}
             </Form.Group>
             <Button variant="warning" className="text-dark fw-semibold" onClick={savePassword} disabled={pwSaving}>

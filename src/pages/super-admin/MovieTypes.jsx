@@ -1,27 +1,42 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { GENRES } from "../../constants/apiEndpoints";
+import { useAdminToast } from "../../components/admin/AdminToast";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const MovieTypeManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { showToast, ToastComponent } = useAdminToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState("");
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const [genres, setGenres] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      showToast(
+        location.state.message,
+        location.state.type || "success"
+      );
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, showToast]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(GENRES.LIST);
+        const res = await apiFetch(withQuery(GENRES.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         if (!mounted) return;
@@ -41,11 +56,10 @@ const MovieTypeManagement = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [searchTerm]);
 
-  const filteredGenres = genres.filter((genre) =>
-    String(genre.name || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredGenres = genres
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -53,20 +67,14 @@ const MovieTypeManagement = () => {
   const totalPages = Math.ceil(filteredGenres.length / itemsPerPage);
 
   const handleDeleteGenre = async (genre) => {
-    console.log("Attempting to delete genre:", genre);
-    console.log("Delete URL:", GENRES.DELETE(genre.id));
-    
     try {
       const res = await apiFetch(GENRES.DELETE(genre.id), {
         method: "DELETE"
       });
       
-      console.log("Delete response status:", res.status);
-      console.log("Delete response ok:", res.ok);
-      
       if (res.ok) {
         // Refresh danh sách
-        const refreshRes = await apiFetch(GENRES.LIST);
+        const refreshRes = await apiFetch(withQuery(GENRES.LIST, { search: searchTerm }));
         const json = await refreshRes.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
@@ -79,22 +87,20 @@ const MovieTypeManagement = () => {
         setShowDeleteModal(false);
         setItemToDelete(null);
         setDeleteError("");
+        showToast("Xóa thể loại thành công", "success");
       } else {
         // Xử lý error từ BE
         const json = await res.json().catch(() => null);
-        console.log("Error response:", json);
-        setDeleteError(json?.message || "Xóa thể loại thất bại");
+        setDeleteError(apiMessage(json, "Xóa thể loại thất bại"));
       }
-    } catch (error) {
-      console.error("Error deleting genre:", error);
-      console.error("Error details:", error.message);
-      console.error("Error stack:", error.stack);
-      setDeleteError("Không thể kết nối tới server");
+    } catch {
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
   const openDeleteModal = (genre) => {
     setItemToDelete(genre);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
@@ -121,6 +127,7 @@ const MovieTypeManagement = () => {
         </button>
       }
     >
+      <ToastComponent />
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
@@ -201,22 +208,14 @@ const MovieTypeManagement = () => {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="admin-pagination-wrap mt-3">
-              <div className="admin-pagination">
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i + 1}
-                    type="button"
-                    className={`admin-pagination-btn ${currentPage === i + 1 ? "active" : ""}`}
-                    onClick={() => setCurrentPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredGenres.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="thể loại"
+          />
         </div>
       </div>
 

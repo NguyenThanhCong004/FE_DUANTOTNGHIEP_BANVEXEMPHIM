@@ -1,7 +1,43 @@
-/* Xóa bỏ CSS mặc định của React Template */
+/* Remove default React Template CSS */
 .App {
   width: 100%;
   min-height: 100vh;
   margin: 0;
   padding: 0;
+}
+
+html.cinetoon-public main {
+  padding-top: 32px;
+}
+
+/* Sync spacing from header to content across public pages */
+html.cinetoon-public main > *:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Many pages place <style> before content wrapper, need to reset next element */
+html.cinetoon-public main > style + * {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Sync page titles across public pages */
+html.cinetoon-public .page-title,
+html.cinetoon-public .mv-title,
+html.cinetoon-public .ev-title,
+html.cinetoon-public .fav-title,
+html.cinetoon-public .fd-title,
+html.cinetoon-public .th-title,
+html.cinetoon-public .auth-title,
+html.cinetoon-public .fp-card-title,
+html.cinetoon-public .md-title,
+html.cinetoon-public .ed-title {
+  font-family: var(--font-brand) !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 8px !important;
 }

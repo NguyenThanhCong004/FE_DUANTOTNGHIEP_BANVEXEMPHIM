@@ -1,11 +1,12 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Form, Button, Row, Col, Card } from "react-bootstrap";
-import { ArrowLeft, UserCheck, Calendar as CalendarIcon } from "lucide-react";
+import { UserCheck, Calendar as CalendarIcon } from "lucide-react";
 import { getAccessToken, getStoredStaff } from "../../../utils/authStorage";
 import { SuperAdminCinemaContext } from "../../../components/layout/SuperAdminCinemaContext";
 import { apiUrl } from "../../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../../constants/apiEndpoints";
+import { MESSAGES } from "../../../utils/uiMessages";
 
 export default function AdminShiftForm({ mode = "add" }) {
   const location = useLocation();
@@ -26,11 +27,16 @@ export default function AdminShiftForm({ mode = "add" }) {
   const [submitting, setSubmitting] = useState(false);
 
   const staffByRole = useMemo(
-    () => ({
-      "Bán vé": staffDtos.filter((s) => s.role === "Bán vé").map((s) => ({ id: s.id, name: s.name })),
-      "Soát vé": staffDtos.filter((s) => s.role === "Soát vé").map((s) => ({ id: s.id, name: s.name })),
-      "Phục vụ": staffDtos.filter((s) => s.role === "Phục vụ").map((s) => ({ id: s.id, name: s.name })),
-    }),
+    () => {
+      // Vì yêu cầu mới: Tất cả nhân viên rạp đều có role STAFF, 
+      // nên cả 3 vị trí Bán vé, Soát vé, Phục vụ đều hiển thị chung danh sách nhân viên của rạp.
+      const allStaff = staffDtos.map((s) => ({ id: s.id, name: s.name }));
+      return {
+        "Bán vé": allStaff,
+        "Soát vé": allStaff,
+        "Phục vụ": allStaff,
+      };
+    },
     [staffDtos]
   );
 
@@ -52,10 +58,12 @@ export default function AdminShiftForm({ mode = "add" }) {
       staff_phucvu: "",
     };
   });
+  const [originalFormData, setOriginalFormData] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error === MESSAGES.noChanges) setError("");
   };
 
   const handleSubmit = async (e) => {
@@ -91,6 +99,20 @@ export default function AdminShiftForm({ mode = "add" }) {
         staffSoatVeId: Number(formData.staff_soatve),
         staffPhucVuId: Number(formData.staff_phucvu),
       };
+      if (isEdit && originalFormData) {
+        const originalPayload = {
+          date: originalFormData.date,
+          shiftType: originalFormData.shiftType,
+          staffBanveId: Number(originalFormData.staff_banve),
+          staffSoatVeId: Number(originalFormData.staff_soatve),
+          staffPhucVuId: Number(originalFormData.staff_phucvu),
+        };
+        if (JSON.stringify(payload) === JSON.stringify(originalPayload)) {
+          setError(MESSAGES.noChanges);
+          setSubmitting(false);
+          return;
+        }
+      }
 
       const url = isEdit ? apiUrl(SHIFTS.BY_ID(id)) : apiUrl(SHIFTS.LIST);
 
@@ -196,14 +218,18 @@ export default function AdminShiftForm({ mode = "add" }) {
           return;
         }
 
-        setFormData((prev) => ({
-          ...prev,
+        const nextFormData = {
           date: data.date ? data.date.toString() : "",
           shiftType: data.shiftType ?? "Ca 1",
           staff_banve: data.staffBanveId != null ? String(data.staffBanveId) : "",
           staff_soatve: data.staffSoatVeId != null ? String(data.staffSoatVeId) : "",
           staff_phucvu: data.staffPhucVuId != null ? String(data.staffPhucVuId) : "",
-        }));
+        };
+        setFormData((prev) => {
+          const merged = { ...prev, ...nextFormData };
+          setOriginalFormData(merged);
+          return merged;
+        });
       } catch {
         if (!mounted) return;
         setError("Không thể kết nối tới server");
@@ -234,14 +260,7 @@ export default function AdminShiftForm({ mode = "add" }) {
         }
       `}</style>
 
-      <div className="d-flex align-items-center gap-3 mb-4">
-        <Button
-          variant="light"
-          className="rounded-circle p-2 shadow-sm"
-          onClick={() => navigate(`${prefix}/shifts`)}
-        >
-          <ArrowLeft size={20} />
-        </Button>
+      <div className="d-flex align-items-start justify-content-between gap-3 mb-4 flex-wrap">
         <div>
           <h2 className="mb-0 fw-bold">
             {isEdit ? `Chỉnh sửa phân ca #${id}` : "Phân ca làm việc mới"}
@@ -250,6 +269,9 @@ export default function AdminShiftForm({ mode = "add" }) {
             {isEdit ? "Cập nhật nhân sự cho các vị trí trong ca làm việc" : "Mỗi ca yêu cầu đủ 3 nhân viên cho 3 vị trí khác nhau"}
           </p>
         </div>
+        <Button variant="light" className="shadow-sm text-nowrap" onClick={() => navigate(`${prefix}/shifts`)}>
+          Danh sách ca
+        </Button>
       </div>
 
       {error ? <div className="text-center text-danger fw-bold mb-3">{error}</div> : null}
@@ -259,7 +281,7 @@ export default function AdminShiftForm({ mode = "add" }) {
         </div>
       ) : null}
 
-      <Form onSubmit={handleSubmit}>
+      <Form onSubmit={handleSubmit} noValidate>
         <Row className="justify-content-center">
           <Col lg={10}>
             <Card className="border-0 shadow-sm p-4 rounded-4 mb-4">
@@ -278,7 +300,6 @@ export default function AdminShiftForm({ mode = "add" }) {
                       className="shift-input"
                       value={formData.date}
                       onChange={handleInputChange}
-                      required
                       disabled={loadingStaff || submitting || (isSuperAdmin && selectedCinemaId == null)}
                     />
                   </Form.Group>
@@ -319,7 +340,6 @@ export default function AdminShiftForm({ mode = "add" }) {
                       className="shift-input bg-white"
                       value={formData.staff_banve}
                       onChange={handleInputChange}
-                      required
                       disabled={loadingStaff || submitting || (isSuperAdmin && selectedCinemaId == null)}
                     >
                       {isEdit ? null : <option value="">-- Chọn nhân viên --</option>}
@@ -341,7 +361,6 @@ export default function AdminShiftForm({ mode = "add" }) {
                       className="shift-input bg-white"
                       value={formData.staff_soatve}
                       onChange={handleInputChange}
-                      required
                       disabled={loadingStaff || submitting || (isSuperAdmin && selectedCinemaId == null)}
                     >
                       {isEdit ? null : <option value="">-- Chọn nhân viên --</option>}
@@ -363,7 +382,6 @@ export default function AdminShiftForm({ mode = "add" }) {
                       className="shift-input bg-white"
                       value={formData.staff_phucvu}
                       onChange={handleInputChange}
-                      required
                       disabled={loadingStaff || submitting || (isSuperAdmin && selectedCinemaId == null)}
                     >
                       {isEdit ? null : <option value="">-- Chọn nhân viên --</option>}

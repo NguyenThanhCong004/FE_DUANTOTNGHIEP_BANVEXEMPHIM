@@ -3,20 +3,73 @@ import { useLocation } from "react-router-dom";
 import { Badge, Button, Form, Spinner, Table, Row, Col, Pagination } from "react-bootstrap";
 import { ArrowDownLeft, ArrowUpRight, Search } from "lucide-react";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { useAdminToast } from "../../components/admin/AdminToast";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { CINEMAS } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import { formatVnd } from "../../utils/formatters";
 
 function formatMoney(v) {
-  if (v == null || Number.isNaN(Number(v))) return "—";
-  return `${Number(v).toLocaleString("vi-VN")} đ`;
+  return formatVnd(v);
 }
 
 function isComboCategory(name) {
   return String(name || "")
     .toLowerCase()
     .includes("combo");
+}
+
+function ProductThumb({ product }) {
+  const imageSrc = isDisplayableImageSrc(product?.image) ? String(product.image).trim() : "";
+  return (
+    <div
+      className="flex-shrink-0 overflow-hidden rounded-3"
+      style={{
+        width: 46,
+        height: 46,
+        background: "#f1f5f9",
+        border: "1px solid #e2e8f0",
+        position: "relative",
+      }}
+    >
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt={product?.name || "Sản phẩm"}
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+            const fallback = e.currentTarget.nextElementSibling;
+            if (fallback) fallback.style.display = "flex";
+          }}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : null}
+      <div
+        style={{
+          display: imageSrc ? "none" : "flex",
+          width: "100%",
+          height: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#94a3b8",
+          fontSize: 18,
+        }}
+      >
+        <i className="bi bi-image" />
+      </div>
+    </div>
+  );
+}
+
+/** Sản phẩm mới (id lớn hơn) lên trên — đồng bộ với API đã sort theo productId DESC */
+function sortProductsNewestFirst(items) {
+  return [...items].sort(
+    (a, b) => (Number(b.productId) || 0) - (Number(a.productId) || 0)
+  );
 }
 
 export default function ProductManagement() {
@@ -26,6 +79,7 @@ export default function ProductManagement() {
   const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
   const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : staffSession?.cinemaId ?? null;
 
+  const { showToast, ToastComponent } = useAdminToast();
   const [onSale, setOnSale] = useState([]);
   const [notOnSale, setNotOnSale] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +101,10 @@ export default function ProductManagement() {
     }
     setLoading(true);
     try {
-      const res = await apiFetch(CINEMAS.PRODUCT_MENU(effectiveCinemaId));
+      const res = await apiFetch(withQuery(CINEMAS.PRODUCT_MENU(effectiveCinemaId), {
+        onSaleSearch: searchA,
+        notOnSaleSearch: searchB,
+      }));
       const json = await res.json().catch(() => null);
       if (!res.ok) {
         setOnSale([]);
@@ -55,19 +112,24 @@ export default function ProductManagement() {
         return;
       }
       const data = json?.data ?? json;
-      setOnSale(Array.isArray(data?.onSale) ? data.onSale : []);
-      setNotOnSale(Array.isArray(data?.notOnSale) ? data.notOnSale : []);
+      setOnSale(
+        Array.isArray(data?.onSale) ? sortProductsNewestFirst(data.onSale) : []
+      );
+      setNotOnSale(
+        Array.isArray(data?.notOnSale) ? sortProductsNewestFirst(data.notOnSale) : []
+      );
     } catch {
       setOnSale([]);
       setNotOnSale([]);
     } finally {
       setLoading(false);
     }
-  }, [effectiveCinemaId]);
+  }, [effectiveCinemaId, searchA, searchB]);
 
   useEffect(() => {
     loadMenu();
   }, [loadMenu]);
+
 
   const toggleSelling = async (productId, selling) => {
     if (effectiveCinemaId == null) return;
@@ -79,45 +141,55 @@ export default function ProductManagement() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(json?.message || "Cập nhật thất bại");
+        showToast(apiMessage(json, "Cập nhật thất bại"), "danger");
         return;
       }
 
-      // Cập nhật local state để sản phẩm "nhảy" qua lại ngay lập tức
-      if (selling) {
-        // Chuyển từ "Chưa bán" -> "Đang bán"
-        const item = notOnSale.find((p) => p.productId === productId);
-        if (item) {
-          setNotOnSale((prev) => prev.filter((p) => p.productId !== productId));
-          setOnSale((prev) => [...prev, item]);
-        }
+      // Cập nhật local state
+      setOnSale(prev => prev.map(p => p.productId === productId ? { ...p, isActive: selling } : p));
+      
+      // Nếu sản phẩm đang ở danh sách "Chưa bán" và được bật bán
+      const inNotOnSale = notOnSale.find(p => p.productId === productId);
+      if (inNotOnSale && selling) {
+        setNotOnSale(prev => prev.filter(p => p.productId !== productId));
+        setOnSale(prev => [{ ...inNotOnSale, isActive: true }, ...prev]);
+        showToast(`Đã thêm "${inNotOnSale.name}" vào menu rạp.`, "success");
       } else {
-        // Chuyển từ "Đang bán" -> "Chưa bán"
-        const item = onSale.find((p) => p.productId === productId);
-        if (item) {
-          setOnSale((prev) => prev.filter((p) => p.productId !== productId));
-          setNotOnSale((prev) => [...prev, item]);
-        }
+        showToast(selling ? "Đã cập nhật: Còn hàng" : "Đã cập nhật: Hết hàng", "success");
       }
     } catch {
-      alert("Không thể kết nối server");
+      showToast(MESSAGES.networkError, "danger");
     } finally {
       setBusyId(null);
     }
   };
 
-  const filterRows = (rows, q) => {
-    const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter(
-      (r) =>
-        String(r.name || "").toLowerCase().includes(s) ||
-        String(r.categoryName || "").toLowerCase().includes(s)
-    );
+  const removeFromMenu = async (productId) => {
+    if (effectiveCinemaId == null) return;
+    setBusyId(productId);
+    try {
+      const res = await apiFetch(`${CINEMAS.PRODUCT_MENU(effectiveCinemaId)}/products/${productId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        showToast(apiMessage(json, "Gỡ thất bại"), "danger");
+        return;
+      }
+
+      const item = onSale.find(p => p.productId === productId) || notOnSale.find(p => p.productId === productId);
+      setOnSale(prev => prev.filter(p => p.productId !== productId));
+      setNotOnSale(prev => [{ ...item, isActive: false }, ...prev]);
+      showToast(`Đã gỡ "${item?.name}" khỏi menu rạp.`, "warning");
+    } catch {
+      showToast(MESSAGES.networkError, "danger");
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const filteredOnSale = useMemo(() => filterRows(onSale, searchA), [onSale, searchA]);
-  const filteredNotOnSale = useMemo(() => filterRows(notOnSale, searchB), [notOnSale, searchB]);
+  const filteredOnSale = onSale;
+  const filteredNotOnSale = notOnSale;
 
   // Paginated rows
   const paginatedA = useMemo(() => {
@@ -148,56 +220,91 @@ export default function ProductManagement() {
         <Table hover className="align-middle mb-0" style={{ fontSize: "0.875rem" }}>
           <thead className="table-light">
             <tr>
+              <th className="border-0" style={{ width: 56 }}>STT</th>
               <th className="border-0">Sản phẩm</th>
               <th className="text-end border-0">Giá</th>
+              <th className="text-center border-0" style={{ width: "100px" }}>Trạng thái</th>
               <th className="text-end border-0">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={3} className="text-center text-muted py-5">
+                <td colSpan={5} className="text-center text-muted py-5">
                   <i className="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
                   Không có mục nào
                 </td>
               </tr>
             ) : (
-              rows.map((r) => {
+              rows.map((r, idx) => {
                 const combo = isComboCategory(r.categoryName);
                 const id = r.productId;
+                const inStock = r.isActive !== false;
+
                 return (
                   <tr key={`${mode}-${id}`}>
+                    <td className="fw-semibold text-muted">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
                     <td>
-                      <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "180px" }}>{r.name}</div>
-                      <Badge pill bg={combo ? "warning" : "info"} text="dark" style={{ fontSize: "0.6rem" }}>
-                        {combo ? "Combo" : r.categoryName || "Khác"}
-                      </Badge>
+                      <div className="d-flex align-items-center gap-2">
+                        <ProductThumb product={r} />
+                        <div className="min-width-0">
+                          <div className="fw-bold text-dark text-truncate" style={{ maxWidth: "150px" }}>{r.name}</div>
+                          <Badge pill bg={combo ? "warning" : "info"} text="dark" style={{ fontSize: "0.6rem" }}>
+                            {combo ? "Combo" : r.categoryName || "Khác"}
+                          </Badge>
+                        </div>
+                      </div>
                     </td>
                     <td className="text-end fw-semibold text-primary">{formatMoney(r.price)}</td>
-                    <td className="text-end">
+                    <td className="text-center">
                       {mode === "on" ? (
-                        <Button
-                          variant="light"
-                          size="sm"
-                          className="text-danger border shadow-sm"
-                          disabled={busyId === id}
-                          onClick={() => toggleSelling(id, false)}
-                          title="Gỡ khỏi rạp"
-                        >
-                          {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
-                        </Button>
+                        <div className="d-flex flex-column align-items-center gap-1">
+                          <Form.Check
+                            type="switch"
+                            id={`stock-switch-${id}`}
+                            checked={inStock}
+                            disabled={busyId === id}
+                            onChange={(e) => toggleSelling(id, e.target.checked)}
+                            title={inStock ? "Đang còn hàng" : "Đã hết hàng"}
+                          />
+                          {!inStock && (
+                            <Badge bg="danger" style={{ fontSize: '0.6rem' }}>Ngừng bán</Badge>
+                          )}
+                        </div>
+                      ) : r.isActive === false ? (
+                        <Badge bg="danger" style={{ fontSize: '0.6rem' }}>Ngừng bán</Badge>
                       ) : (
-                        <Button
-                          variant="light"
-                          size="sm"
-                          className="text-success border shadow-sm"
-                          disabled={busyId === id}
-                          onClick={() => toggleSelling(id, true)}
-                          title="Bán tại rạp"
-                        >
-                          {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
-                        </Button>
+                        <span className="text-muted small">—</span>
                       )}
+                    </td>
+                    <td className="text-end">
+                      <div className="d-flex justify-content-end gap-1">
+                        {mode === "on" ? (
+                          <>
+                            <Button
+                              variant="light"
+                              size="sm"
+                              className="text-danger border shadow-sm"
+                              disabled={busyId === id}
+                              onClick={() => removeFromMenu(id)}
+                              title="Gỡ khỏi rạp"
+                            >
+                              {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="light"
+                            size="sm"
+                            className={r.isActive === false ? "text-warning border shadow-sm" : "text-success border shadow-sm"}
+                            disabled={busyId === id}
+                            onClick={() => toggleSelling(id, true)}
+                            title={r.isActive === false ? "Bật lại & đưa vào menu" : "Thêm vào rạp"}
+                          >
+                            {busyId === id ? <Spinner animation="border" size="sm" /> : <i className={r.isActive === false ? "bi bi-arrow-counterclockwise" : "bi bi-plus-circle"} />}
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -293,7 +400,7 @@ export default function ProductManagement() {
             <h5 className="text-dark">Chưa chọn rạp</h5>
             <p className="mb-0 small">
               {isSuperAdmin
-                ? "Vui lòng chọn rạp ở sidebar (Super Admin)."
+                ? "Vui lòng chọn rạp trên header (Super Admin)."
                 : "Tài khoản chưa được gán rạp (cinemaId). Liên hệ Super Admin."}
             </p>
           </div>
@@ -305,30 +412,6 @@ export default function ProductManagement() {
         </div>
       ) : (
         <Row className="g-4">
-          <Col lg={6}>
-            <div className="pm-card admin-slide-up">
-              <div className="pm-header">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h5 className="mb-0 fw-bold text-success d-flex align-items-center gap-2">
-                    <ArrowUpRight size={20} />
-                    Đang bán tại rạp
-                    <Badge bg="success" pill className="ms-1">{onSale.length}</Badge>
-                  </h5>
-                </div>
-                <div className="pm-search-wrapper">
-                  <Search size={16} className="pm-search-icon" />
-                  <Form.Control
-                    className="pm-search-input"
-                    placeholder="Tìm sản phẩm đang bán..."
-                    value={searchA}
-                    onChange={(e) => setSearchA(e.target.value)}
-                  />
-                </div>
-              </div>
-              {renderTable(paginatedA, "on", pageA, totalPagesA, setPageA)}
-            </div>
-          </Col>
-
           <Col lg={6}>
             <div className="pm-card admin-slide-up">
               <div className="pm-header">
@@ -352,8 +435,34 @@ export default function ProductManagement() {
               {renderTable(paginatedB, "off", pageB, totalPagesB, setPageB)}
             </div>
           </Col>
+
+          <Col lg={6}>
+            <div className="pm-card admin-slide-up">
+              <div className="pm-header">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0 fw-bold text-success d-flex align-items-center gap-2">
+                    <ArrowUpRight size={20} />
+                    Đang bán tại rạp
+                    <Badge bg="success" pill className="ms-1">{onSale.length}</Badge>
+                  </h5>
+                </div>
+                <div className="pm-search-wrapper">
+                  <Search size={16} className="pm-search-icon" />
+                  <Form.Control
+                    className="pm-search-input"
+                    placeholder="Tìm sản phẩm đang bán..."
+                    value={searchA}
+                    onChange={(e) => setSearchA(e.target.value)}
+                  />
+                </div>
+              </div>
+              {renderTable(paginatedA, "on", pageA, totalPagesA, setPageA)}
+            </div>
+          </Col>
         </Row>
       )}
+
+      <ToastComponent />
     </AdminPanelPage>
   );
 }

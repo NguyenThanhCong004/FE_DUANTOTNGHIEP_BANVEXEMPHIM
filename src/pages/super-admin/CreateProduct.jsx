@@ -1,22 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import AdminFormListBack from '../../components/admin/AdminFormListBack';
+import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiFetch } from '../../utils/apiClient';
 import { PRODUCTS, PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from '../../utils/mediaFiles';
+import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 const CreateProduct = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { showToast, ToastComponent } = useAdminToast();
   const imageInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -32,6 +29,7 @@ const CreateProduct = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [productList, setProductList] = useState([]);
+  const [originalProduct, setOriginalProduct] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
 
@@ -76,9 +74,17 @@ const CreateProduct = () => {
           name: p.name || '',
           description: p.description || '',
           price: p.price != null ? String(p.price) : '',
-          status: p.status === 1 ? 'Active' : 'Inactive',
+          status: codeToAdminStatus(p.status, { allowUpcoming: false }),
           category_id: p.categoryId != null ? String(p.categoryId) : '',
           image: null,
+        });
+        setOriginalProduct({
+          name: String(p.name ?? '').trim(),
+          description: p.description || '',
+          price: Number(p.price),
+          image: p.image || null,
+          status: Number(p.status),
+          categoryId: Number(p.categoryId),
         });
         if (p.image) setPreviewImage(p.image);
       } catch (error) {
@@ -151,11 +157,22 @@ const CreateProduct = () => {
         description: formData.description || '',
         price: parseFloat(formData.price),
         image: imageStr,
-        status: formData.status === 'Active' ? 1 : 0,
+        status: adminStatusToCode(formData.status, { allowUpcoming: false }),
         categoryId: Number(formData.category_id),
       };
 
       const pid = editData?.id;
+      if (pid && originalProduct && !(formData.image instanceof File)) {
+        const comparableBody = {
+          ...body,
+          image: body.image || null,
+        };
+        if (JSON.stringify(comparableBody) === JSON.stringify(originalProduct)) {
+          showToast(MESSAGES.noChanges, 'warning');
+          setSubmitting(false);
+          return;
+        }
+      }
       const url = pid ? PRODUCTS.BY_ID(pid) : PRODUCTS.LIST;
       const res = await apiFetch(url, {
         method: pid ? 'PUT' : 'POST',
@@ -163,13 +180,20 @@ const CreateProduct = () => {
       });
 
       if (res.ok) {
-        navigate('/super-admin/catalog-products');
+        const json = await res.json().catch(() => null);
+        const serverMessage = apiMessage(json, pid ? 'Cập nhật sản phẩm thành công' : 'Thêm sản phẩm thành công');
+        navigate('/super-admin/catalog-products', {
+          state: {
+            message: serverMessage,
+            type: resultToastType(serverMessage),
+          },
+        });
       } else {
         const json = await res.json().catch(() => null);
-        setServerError(json?.message || 'Lưu sản phẩm thất bại');
+        setServerError(apiMessage(json, 'Lưu sản phẩm thất bại'));
       }
     } catch {
-      setServerError('Lỗi kết nối máy chủ');
+      setServerError(MESSAGES.networkError);
     } finally {
       setSubmitting(false);
     }
@@ -180,7 +204,10 @@ const CreateProduct = () => {
       icon={editData ? "bi-box-seam-fill" : "bi-box-seam"} 
       title={editData ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'} 
       description="Quản lý danh mục sản phẩm bắp nước, combo và quà tặng trên hệ thống."
+      headerRight={<AdminFormListBack to="/super-admin/catalog-products" />}
     >
+      <ToastComponent />
+      <div className="admin-form-page-wrap admin-form-compact">
       <form onSubmit={handleSubmit} noValidate>
         <div className="row g-4">
           <div className="col-md-4">
@@ -203,7 +230,7 @@ const CreateProduct = () => {
                     </div>
                   )}
                 </div>
-                <input type="file" ref={imageInputRef} hidden accept="image/*" onChange={handleFileChange} />
+                <input type="file" ref={imageInputRef} hidden accept={IMAGE_FILE_ACCEPT} onChange={handleFileChange} />
                 {errors.image && <div className="text-danger small fw-bold">{errors.image}</div>}
               </div>
             </div>
@@ -265,8 +292,7 @@ const CreateProduct = () => {
                   </div>
                 </div>
 
-                <div className="mt-2 d-flex justify-content-center gap-3">
-                  <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/catalog-products')}>Hủy bỏ</button>
+                <div className="mt-2 d-flex justify-content-end">
                   <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
                     {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
                     {editData ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm'}
@@ -277,6 +303,7 @@ const CreateProduct = () => {
           </div>
         </div>
       </form>
+      </div>
     </AdminPanelPage>
   );
 };

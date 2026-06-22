@@ -1,8 +1,8 @@
 import React from "react";
 
 /**
- * Vỏ trang thống nhất với Super Admin Dashboard:
- * `admin-page` + `superadmin-page` + header gradient (`.admin-header`).
+ * Vỏ trang quản trị thống nhất:
+ * `admin-page` + `superadmin-page` + header gọn (`.admin-header`).
  *
  * @param {string} icon - Bootstrap Icons class, không gồm tiền tố `bi-` (vd: `shield-lock` → `bi-shield-lock`)
  * @param {React.ReactNode} [title] - Tiêu đề (chuỗi hoặc node)

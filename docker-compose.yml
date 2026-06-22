@@ -1,0 +1,21 @@
+name: java6-frontend
+
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    container_name: java6_frontend_app
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "backend-host:host-gateway"
+    networks:
+      - java6_frontend
+
+networks:
+  java6_frontend:
+    driver: bridge

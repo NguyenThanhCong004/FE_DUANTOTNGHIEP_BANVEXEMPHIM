@@ -1,28 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
-import { apiFetch } from '../../utils/apiClient';
+import { useAdminToast } from '../../components/admin/AdminToast';
+import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { CINEMAS } from '../../constants/apiEndpoints';
+import { codeToAdminStatus } from '../../utils/statusFormat';
+import AdminPagination from '../../components/admin/AdminPagination';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
 
 const CinemaManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshCinemas, selectedCinemaId, setSelectedCinemaId } = useSuperAdminCinema();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [cinemaToDelete, setCinemaToDelete] = useState(null);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  const itemsPerPage = 10;
+  const [deleteError, setDeleteError] = useState("");
+  const { showToast, ToastComponent } = useAdminToast();
+  const itemsPerPage = 5;
 
   const [cinemas, setCinemas] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
 
   useEffect(() => {
     if (location.state?.message) {
@@ -34,7 +36,7 @@ const CinemaManagement = () => {
   const fetchCinemas = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(CINEMAS.LIST);
+      const res = await apiFetch(withQuery(CINEMAS.LIST, { search: searchTerm }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -43,7 +45,7 @@ const CinemaManagement = () => {
           id: c.cinemaId ?? c.id,
           name: c.name ?? '',
           address: c.address ?? '',
-          status: c.status === 1 ? 'Active' : (c.status === 2 ? 'Upcoming' : 'Inactive'),
+          status: codeToAdminStatus(c.status, { allowUpcoming: true }),
         }))
       );
     } catch {
@@ -55,7 +57,7 @@ const CinemaManagement = () => {
 
   useEffect(() => {
     fetchCinemas();
-  }, []);
+  }, [searchTerm]);
 
   const handleDeleteCinema = async (cinema) => {
     try {
@@ -64,28 +66,35 @@ const CinemaManagement = () => {
       });
       
       if (res.ok) {
-        showToast(`Đã xóa rạp "${cinema.name}" thành công!`);
+        showToast(`Đã xóa rạp "${cinema.name}" thành công`);
         await fetchCinemas();
+        await refreshCinemas();
+        if (String(selectedCinemaId) === String(cinema.id)) {
+          setSelectedCinemaId(null);
+        }
         setShowDeleteModal(false);
         setCinemaToDelete(null);
+        setDeleteError("");
       } else {
         const json = await res.json().catch(() => null);
-        showToast(json?.message || "Xóa rạp thất bại", 'danger');
+        setDeleteError(apiMessage(json, "Xóa rạp thất bại"));
       }
     } catch (error) {
       console.error("Error deleting cinema:", error);
-      showToast("Không thể kết nối tới server", 'danger');
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
   const openDeleteModal = (cinema) => {
     setCinemaToDelete(cinema);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setCinemaToDelete(null);
+    setDeleteError("");
   };
 
   const renderStatusBadge = (status) => {
@@ -99,17 +108,13 @@ const CinemaManagement = () => {
     }
   };
 
-  const filteredCinemas = cinemas.filter(cinema =>
-    String(cinema.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(cinema.address || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCinemas = cinemas
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredCinemas.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredCinemas.length / itemsPerPage);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
     <AdminPanelPage
@@ -219,22 +224,14 @@ const CinemaManagement = () => {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="admin-pagination-wrap mt-3">
-              <div className="admin-pagination">
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i + 1}
-                    type="button"
-                    className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                    onClick={() => paginate(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredCinemas.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="rạp"
+          />
         </div>
       </div>
 
@@ -287,6 +284,12 @@ const CinemaManagement = () => {
                 <strong>Địa chỉ:</strong> {cinemaToDelete.address}<br/>
                 <strong>Trạng thái:</strong> {renderStatusBadge(cinemaToDelete.status)}
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả phòng chiếu, suất chiếu và lịch trình của rạp này sẽ bị ảnh hưởng.
@@ -314,16 +317,7 @@ const CinemaManagement = () => {
         </div>
       )}
 
-      {/* Toast thông báo */}
-      {toast.show && (
-        <div 
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 };

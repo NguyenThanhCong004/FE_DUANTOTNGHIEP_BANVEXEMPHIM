@@ -8,6 +8,14 @@ import './styles/site-chrome.css'
 import './styles/tailwind.css'
 import './styles/public-theme.css'
 import App from './App.jsx'
+import { installApiFetchInterceptor } from './utils/apiClient'
+
+installApiFetchInterceptor()
+
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault()
+  window.location.reload()
+})
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

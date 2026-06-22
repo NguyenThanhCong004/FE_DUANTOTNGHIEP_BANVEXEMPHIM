@@ -32,9 +32,21 @@ export function mapMeTransactionToFe(row) {
 
 export function mapFavoriteRowToFavCard(row) {
   const mid = row.movieId;
+  const review = row.review
+    ? {
+        reviewId: row.review.reviewId,
+        ticketId: row.review.ticketId,
+        rating: Number(row.review.rating ?? 0),
+        comment: row.review.comment || "",
+        userName: row.review.userName || "",
+        createdAt: row.review.createdAt || null,
+        updatedAt: row.review.updatedAt || null,
+      }
+    : null;
   return {
     favorite_id: row.favoriteId,
-    review: null,
+    canReview: Boolean(row.canReview || review),
+    review,
     movie: {
       id: mid,
       posterUrl: row.poster || "",

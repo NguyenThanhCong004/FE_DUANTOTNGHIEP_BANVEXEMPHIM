@@ -1,11 +1,11 @@
 /**
- * Design tokens — font sans-serif hiện đại, dễ đọc (Inter + fallback hệ thống).
- * Import đầu tiên trong main.jsx (trước Bootstrap).
+ * Design tokens — modern sans-serif font, easy to read (Inter + system fallback).
+ * Imported first in main.jsx (before Bootstrap).
  */
-@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 
 :root {
-  /* Inter + Roboto/Open Sans/Lato/Arial/Tahoma qua fallback (không tải thêm để nhẹ) */
+  /* Inter + Roboto/Open Sans/Lato/Arial/Tahoma via fallback (no extra downloads for performance) */
   --font-ui:
     "Inter",
     "Roboto",
@@ -25,10 +25,21 @@
   --admin-border: rgba(255, 255, 255, 0.08);
 }
 
-html.cinetoon-public {
-  --app-shell-font: var(--font-ui);
+/* Áp dụng Font mặc định cho TOÀN BỘ ứng dụng */
+* {
+  font-family: var(--font-ui);
 }
 
-html.admin-panel {
-  --app-shell-font: var(--font-ui);
+/* Tiêu đề luôn dùng font Brand */
+h1, h2, h3, h4, h5, h6, 
+.font-brand, .logo-wordmark, .footer-logo-text, .footer-heading {
+  font-family: var(--font-brand) !important;
+}
+
+.fw-black {
+  font-weight: 900 !important;
+}
+
+.tracking-tighter {
+  letter-spacing: -0.05em !important;
 }

@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
-import { apiFetch } from '../../utils/apiClient';
+import { useAdminToast } from '../../components/admin/AdminToast';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { NEWS } from '../../constants/apiEndpoints';
+import sanitizeHtml from '../../utils/sanitizeHtml';
+import { codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+import { formatDate } from '../../utils/formatters';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 const NewsManagement = () => {
   const navigate = useNavigate();
@@ -14,16 +20,13 @@ const NewsManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newsToDelete, setNewsToDelete] = useState(null);
-  const itemsPerPage = 8;
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const itemsPerPage = 5;
 
   const [newsList, setNewsList] = useState([]);
+  const { showToast, ToastComponent } = useAdminToast();
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
 
   useEffect(() => {
     if (location.state?.message) {
@@ -35,7 +38,7 @@ const NewsManagement = () => {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(NEWS.LIST);
+      const res = await apiFetch(withQuery(NEWS.LIST, { search: searchTerm }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -43,9 +46,9 @@ const NewsManagement = () => {
         arr.map((n) => ({
           id: n.id,
           title: n.title ?? '',
-          content: n.content ?? '',
+          content: sanitizeHtml(n.content ?? ''),
           image: n.image || 'https://placehold.co/600x360?text=News',
-          status: n.status === 1 ? 'Active' : 'Inactive',
+          status: codeToAdminStatus(n.status, { allowUpcoming: false }),
           date: n.createdAt || new Date().toISOString(),
         }))
       );
@@ -58,44 +61,50 @@ const NewsManagement = () => {
 
   useEffect(() => {
     fetchNews();
-  }, []);
+  }, [searchTerm]);
 
   const handleDeleteNews = async (news) => {
+    if (deleting) return;
+    setDeleting(true);
     try {
       const res = await apiFetch(NEWS.DELETE(news.id), {
         method: "DELETE"
       });
       if (res.ok) {
-        showToast('Xóa bài viết thành công!');
+        showToast('Xóa bài viết thành công');
         await fetchNews();
         setShowDeleteModal(false);
         setNewsToDelete(null);
+        setDeleteError("");
       } else {
         const json = await res.json().catch(() => null);
-        showToast(json?.message || "Xóa tin thất bại", 'danger');
+        setDeleteError(apiMessage(json, "Xóa tin thất bại"));
       }
     } catch (error) {
       console.error("Error deleting news:", error);
-      showToast("Lỗi kết nối máy chủ", 'danger');
+      setDeleteError(MESSAGES.networkError);
+    } finally {
+      setDeleting(false);
     }
   };
 
   const openDeleteModal = (news) => {
     setNewsToDelete(news);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setNewsToDelete(null);
+    setDeleteError("");
   };
 
   // Logic lọc, tìm kiếm và sắp xếp (mới nhất lên đầu)
   const filteredNews = newsList
     .filter(news => {
-      const matchesSearch = String(news.title || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'All' || news.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesStatus;
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -103,8 +112,6 @@ const NewsManagement = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredNews.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredNews.length / itemsPerPage);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
     <AdminPanelPage
@@ -195,14 +202,11 @@ const NewsManagement = () => {
                           />
                           <div>
                             <div className="fw-semibold line-clamp-1">{news.title}</div>
-                            <small className="text-muted line-clamp-1" style={{ maxWidth: '400px' }}>
-                              {news.content.replace(/<[^>]*>/g, '').substring(0, 100)}...
-                            </small>
                           </div>
                         </div>
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        {new Date(news.date).toLocaleDateString('vi-VN')}
+                        {formatDate(news.date)}
                       </td>
                       <td className="text-center">
                         <span className={`admin-badge ${news.status === 'Active' ? 'admin-badge-success' : 'admin-badge-danger'}`}>
@@ -243,26 +247,14 @@ const NewsManagement = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <span className="text-muted small">
-                Tổng cộng: {filteredNews.length} bài viết
-              </span>
-              <nav>
-                <ul className="admin-pagination">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <li key={i + 1}>
-                      <button 
-                        className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                        onClick={() => paginate(i + 1)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredNews.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              itemLabel="bài viết"
+            />
           </>
         )}
       </div>
@@ -294,13 +286,13 @@ const NewsManagement = () => {
                 </span>
                 <span className="text-muted small">
                   <i className="bi bi-calendar3 me-2"></i>
-                  Ngày đăng: {new Date(selectedItem.date).toLocaleDateString('vi-VN')}
+                  Ngày đăng: {formatDate(selectedItem.date)}
                 </span>
               </div>
               <div 
                 className="text-dark admin-news-content" 
                 style={{ lineHeight: '1.8', fontSize: '1.05rem' }}
-                dangerouslySetInnerHTML={{ __html: selectedItem.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedItem.content) }}
               />
             </div>
             <div className="admin-modal-footer">
@@ -350,6 +342,12 @@ const NewsManagement = () => {
                   </div>
                 </div>
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Bài viết sẽ bị gỡ khỏi trang chủ và ứng dụng khách hàng.
@@ -367,26 +365,18 @@ const NewsManagement = () => {
               <button
                 type="button"
                 className="admin-btn admin-btn-danger"
+                disabled={deleting}
                 onClick={() => handleDeleteNews(newsToDelete)}
               >
                 <i className="bi bi-trash me-2"></i>
-                Xóa bài viết
+                {deleting ? "Đang xóa..." : "Xóa bài viết"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Toast thông báo */}
-      {toast.show && (
-        <div 
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 };

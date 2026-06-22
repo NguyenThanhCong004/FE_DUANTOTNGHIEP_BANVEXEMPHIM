@@ -101,6 +101,14 @@
   flex: 1;
   overflow: auto;
   padding-right: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-shell-nav-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .app-shell-nav-block {
@@ -154,6 +162,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  background: transparent;
   color: #cbd5e1;
   text-decoration: none;
   border: 1px solid transparent;
@@ -161,8 +171,11 @@
   border-radius: 12px;
   margin-bottom: 6px;
   transition: 0.2s ease;
+  text-align: left;
   font-weight: 600;
   font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .app-shell-nav-link:hover {
@@ -209,6 +222,14 @@
 .app-shell-logout-btn:hover {
   background: rgba(127, 29, 29, 0.4);
   color: #fff;
+}
+
+.app-shell-logout-btn--header {
+  margin-top: 0;
+  width: auto;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  white-space: nowrap;
 }
 
 .app-shell-main {

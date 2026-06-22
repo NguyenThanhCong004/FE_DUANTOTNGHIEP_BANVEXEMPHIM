@@ -1,38 +1,50 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight, CalendarDays, Newspaper } from "lucide-react";
+import { formatDate } from "../../utils/formatters";
 
 export default function EventCard({ event }) {
-  const imgSrc =
-    event?.posterUrl ||
-    event?.imageUrl ||
-    "https://via.placeholder.com/400x600?text=Event";
-
+  const imgSrc = event?.posterUrl || event?.imageUrl || "";
   const title = event?.title ?? "Sự kiện";
-  const startDate = event?.startDate ? new Date(event.startDate).toLocaleDateString("vi-VN") : null;
+  const dateLabel =
+    event?.dateLabel ||
+    (event?.startDate
+      ? formatDate(event.startDate, {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        })
+      : null);
+  const excerpt = event?.excerpt || event?.summary || "";
 
   return (
-    <div className="card h-100 p-2 shadow-sm border-0">
-      <Link to={`/events/${event?.id}`}>
-        <img
-          src={imgSrc}
-          alt={title}
-          className="w-100"
-          style={{ aspectRatio: "2/3", objectFit: "cover", borderRadius: 12 }}
-        />
-      </Link>
-
-      <div className="card-body px-1 text-center">
-        <h6 className="fw-bold text-dark text-truncate m-0">{title}</h6>
-        <p className="text-muted small mb-3">{startDate ? startDate : ""}</p>
-
-        <Link
-          to={`/events/${event?.id}`}
-          className="btn btn-gradient w-100 rounded-pill fw-bold py-2 small shadow-sm"
-        >
-          XEM CHI TIẾT
-        </Link>
+    <Link to={`/events/${event?.id}`} className="event-post-card" aria-label={`Xem bài viết ${title}`}>
+      <div className="event-post-media">
+        {imgSrc ? (
+          <img src={imgSrc} alt={title} />
+        ) : (
+          <div className="event-post-empty">
+            <Newspaper size={34} />
+          </div>
+        )}
       </div>
-    </div>
+
+      <div className="event-post-body">
+        {dateLabel && (
+          <div className="event-post-meta">
+            <CalendarDays size={15} />
+            {dateLabel}
+          </div>
+        )}
+
+        <h3 className="event-post-title">{title}</h3>
+        {excerpt && <p className="event-post-excerpt">{excerpt}</p>}
+
+        <span className="event-post-action">
+          Đọc thêm
+          <ArrowRight size={15} />
+        </span>
+      </div>
+    </Link>
   );
 }
-

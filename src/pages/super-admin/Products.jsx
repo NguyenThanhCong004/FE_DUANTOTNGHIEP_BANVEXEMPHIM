@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { useAdminToast } from "../../components/admin/AdminToast";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { PRODUCTS, PRODUCT_CATEGORIES } from "../../constants/apiEndpoints";
+import { codeToAdminStatus } from "../../utils/statusFormat";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import { formatVnd } from "../../utils/formatters";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const ProductManagement = () => {
   const navigate = useNavigate();
@@ -15,17 +20,13 @@ const ProductManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
-  const itemsPerPage = 8;
+  const [deleteError, setDeleteError] = useState("");
+  const itemsPerPage = 5;
 
+  const { showToast, ToastComponent } = useAdminToast();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
 
   useEffect(() => {
     if (location.state?.message) {
@@ -37,7 +38,10 @@ const ProductManagement = () => {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(PRODUCTS.LIST);
+      const res = await apiFetch(withQuery(PRODUCTS.LIST, {
+        search: searchTerm,
+        categoryId: categoryFilter === "All" ? undefined : categoryFilter,
+      }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -49,9 +53,9 @@ const ProductManagement = () => {
           price: p.price ?? 0,
           categoryName: p.categoryName ?? "Chưa phân loại",
           categoryId: p.categoryId,
-          status: p.status === 1 ? "Active" : "Inactive",
+          status: codeToAdminStatus(p.status, { allowUpcoming: false }),
           image: p.image || "https://placehold.co/200x200?text=Product",
-        })).sort((a, b) => b.id - a.id)
+        })).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
       );
     } catch {
       setProducts([]);
@@ -73,15 +77,15 @@ const ProductManagement = () => {
 
   useEffect(() => {
     fetchProducts();
+  }, [searchTerm, categoryFilter]);
+
+  useEffect(() => {
     fetchCategories();
   }, []);
 
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = String(p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         String(p.description || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "All" || p.status === statusFilter;
-    const matchesCategory = categoryFilter === "All" || String(p.categoryId) === categoryFilter;
-    return matchesSearch && matchesStatus && matchesCategory;
+    return matchesStatus;
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -89,26 +93,31 @@ const ProductManagement = () => {
   const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
   const handleDeleteProduct = async (product) => {
     try {
       const res = await apiFetch(PRODUCTS.BY_ID(product.id), {
         method: "DELETE"
       });
       if (res.ok) {
-        showToast('Xóa sản phẩm thành công!');
+        showToast('Xóa sản phẩm thành công');
         await fetchProducts();
         setShowDeleteModal(false);
         setProductToDelete(null);
+        setDeleteError("");
       } else {
         const json = await res.json().catch(() => null);
-        showToast(json?.message || "Xóa sản phẩm thất bại", 'danger');
+        setDeleteError(apiMessage(json, "Xóa sản phẩm thất bại"));
       }
     } catch (error) {
       console.error("Error deleting product:", error);
-      showToast("Lỗi kết nối máy chủ", 'danger');
+      setDeleteError(MESSAGES.networkError);
     }
+  };
+
+  const closeProductDeleteModal = () => {
+    setShowDeleteModal(false);
+    setProductToDelete(null);
+    setDeleteError("");
   };
 
   return (
@@ -196,6 +205,7 @@ const ProductManagement = () => {
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 56 }}>STT</th>
                     <th>Sản phẩm</th>
                     <th>Loại</th>
                     <th className="text-end">Giá bán</th>
@@ -204,11 +214,12 @@ const ProductManagement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentItems.map((product) => (
+                  {currentItems.map((product, index) => (
                     <tr key={product.id}>
+                      <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                       <td>
                         <div className="d-flex align-items-center gap-3">
-                          <img 
+                          <img
                             src={product.image} 
                             alt={product.name} 
                             className="rounded" 
@@ -228,7 +239,7 @@ const ProductManagement = () => {
                         </span>
                       </td>
                       <td className="text-end fw-bold text-success">
-                        {product.price.toLocaleString('vi-VN')}đ
+                        {formatVnd(product.price)}
                       </td>
                       <td className="text-center">
                         <span className={`admin-badge ${product.status === 'Active' ? 'admin-badge-success' : 'admin-badge-danger'}`}>
@@ -258,6 +269,7 @@ const ProductManagement = () => {
                             className="admin-btn admin-btn-sm admin-btn-danger"
                             onClick={() => {
                               setProductToDelete(product);
+                              setDeleteError("");
                               setShowDeleteModal(true);
                             }}
                             title="Xóa sản phẩm"
@@ -272,26 +284,14 @@ const ProductManagement = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <span className="text-muted small">
-                Tổng cộng: {filteredProducts.length} sản phẩm
-              </span>
-              <nav>
-                <ul className="admin-pagination">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <li key={i + 1}>
-                      <button 
-                        className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                        onClick={() => paginate(i + 1)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredProducts.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              itemLabel="sản phẩm"
+            />
           </>
         )}
       </div>
@@ -329,7 +329,7 @@ const ProductManagement = () => {
                   <div className="row g-3">
                     <div className="col-12">
                       <p className="mb-2"><strong className="text-muted">Loại sản phẩm:</strong> {selectedItem.categoryName}</p>
-                      <p className="mb-2"><strong className="text-muted">Giá niêm yết:</strong> <span className="text-success fw-bold fs-5">{selectedItem.price.toLocaleString('vi-VN')}đ</span></p>
+                      <p className="mb-2"><strong className="text-muted">Giá niêm yết:</strong> <span className="text-success fw-bold fs-5">{formatVnd(selectedItem.price)}</span></p>
                     </div>
                     <div className="col-12">
                       <hr className="my-2" />
@@ -363,14 +363,14 @@ const ProductManagement = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && productToDelete && (
-        <div className="admin-modal-overlay" role="presentation" onClick={() => setShowDeleteModal(false)}>
+        <div className="admin-modal-overlay" role="presentation" onClick={closeProductDeleteModal}>
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
                 <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa sản phẩm
               </h3>
-              <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>
+              <button type="button" className="admin-modal-close" onClick={closeProductDeleteModal}>
                 ×
               </button>
             </div>
@@ -390,6 +390,12 @@ const ProductManagement = () => {
                   </div>
                 </div>
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Lưu ý: Chỉ có thể xóa sản phẩm nếu chưa có chi nhánh rạp nào nhập về bán.
@@ -399,7 +405,7 @@ const ProductManagement = () => {
               <button
                 type="button"
                 className="admin-btn admin-btn-outline-secondary"
-                onClick={() => setShowDeleteModal(false)}
+                onClick={closeProductDeleteModal}
               >
                 Hủy
               </button>
@@ -416,16 +422,7 @@ const ProductManagement = () => {
         </div>
       )}
 
-      {/* Toast thông báo */}
-      {toast.show && (
-        <div 
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 };
