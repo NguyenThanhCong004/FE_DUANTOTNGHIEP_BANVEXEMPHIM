@@ -1,39 +1,79 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { apiFetch } from '../../utils/apiClient';
+import { Modal, Button, Spinner } from 'react-bootstrap';
+import { ReceiptText } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { ORDERS_ONLINE } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
+import { formatDateTime, formatVnd } from '../../utils/formatters';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+import AdminPagination from '../../components/admin/AdminPagination';
+import InvoiceSummaryCard from '../../components/common/InvoiceSummaryCard';
 
 const InvoiceManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailOrder, setDetailOrder] = useState(null);
+  const [detailErr, setDetailErr] = useState('');
   const location = useLocation();
-  const isSuperAdmin = location.pathname.startsWith("/super-admin");
-  const prefix = isSuperAdmin ? "/super-admin" : "/admin";
+  const isSuperAdmin = location.pathname.startsWith('/super-admin');
+
+  const openOrderDetail = async (orderId) => {
+    setShowDetailModal(true);
+    setDetailOrder(null);
+    setDetailErr('');
+    setDetailLoading(true);
+    try {
+      const res = await apiFetch(ORDERS_ONLINE.BY_ID(orderId));
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setDetailErr(apiMessage(json, 'Không tải được đơn'));
+        return;
+      }
+      setDetailOrder(json?.data ?? json);
+    } catch {
+      setDetailErr(MESSAGES.networkError);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeOrderDetail = () => {
+    setShowDetailModal(false);
+    setDetailOrder(null);
+    setDetailErr('');
+  };
+
   const staffSession = getStoredStaff();
-  const { selectedCinemaId } = useSuperAdminCinema();
-  const effectiveCinemaId = staffSession?.cinemaId ?? selectedCinemaId ?? null;
+  const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
+  const effectiveCinemaId = isSuperAdmin ? (selectedCinemaId ?? null) : (staffSession?.cinemaId ?? null);
+  const requiresCinemaSelection = effectiveCinemaId == null;
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
+      if (requiresCinemaSelection) {
+        setInvoices([]);
+        setLoading(false);
+        return;
+      }
       try {
-        const res = await apiFetch(ORDERS_ONLINE.LIST);
+        const res = await apiFetch(withQuery(ORDERS_ONLINE.LIST, {
+          cinemaId: effectiveCinemaId,
+          search: searchTerm,
+        }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
 
-        const formatShowtime = (iso) => {
-          if (!iso) return '— —';
-          const d = new Date(iso);
-          if (Number.isNaN(d.getTime())) return '— —';
-          const date = d.toLocaleDateString('vi-VN');
-          const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          return `${date} ${time}`;
-        };
+        const formatShowtime = (iso) => formatDateTime(iso);
 
         const mapOrderStatus = (s) => {
           if (s === 0) return 'pending';
@@ -48,16 +88,13 @@ const InvoiceManagement = () => {
             displayCode: o.orderCode ? String(o.orderCode) : `#${o.id}`,
             customerName: o.customerName || '—',
             customerEmail: o.customerEmail || '—',
-            movieTitle: 'Đơn online',
+            movieTitle: o.tickets?.[0]?.movieTitle || (o.foods?.length > 0 ? 'Chỉ đặt đồ ăn' : 'Đơn online'),
             showtime: formatShowtime(o.createdAt),
-            roomName: '—',
-            seats: [],
-            subtotal: o.originalAmount ?? 0,
-            tax: o.discountAmount ?? 0,
             total: o.finalAmount ?? 0,
             status: mapOrderStatus(o.status),
-            paymentMethod: 'bank_transfer',
             createdAt: o.createdAt,
+            cinemaName: o.cinemaName,
+            cinemaId: o.cinemaId,
           }))
         );
       } catch {
@@ -69,42 +106,39 @@ const InvoiceManagement = () => {
     return () => {
       mounted = false;
     };
-  }, [effectiveCinemaId]);
-
-  const handleDelete = async (apiId) => {
-    if (apiId == null) return;
-    if (!window.confirm("Xóa đơn online này? Thao tác không hoàn tác.")) return;
-    try {
-      const res = await apiFetch(ORDERS_ONLINE.BY_ID(apiId), { method: "DELETE" });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        alert(json?.message || "Xóa thất bại");
-        return;
-      }
-      setInvoices((prev) => prev.filter((inv) => inv.apiId !== apiId));
-    } catch {
-      alert("Không thể kết nối server");
-    }
-  };
+  }, [effectiveCinemaId, requiresCinemaSelection, searchTerm]);
 
   const filteredInvoices = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return invoices.filter(invoice =>
-      String(invoice.displayCode || '').toLowerCase().includes(q) ||
-      String(invoice.apiId || '').toLowerCase().includes(q) ||
-      String(invoice.customerName || '').toLowerCase().includes(q) ||
-      String(invoice.movieTitle || '').toLowerCase().includes(q)
-    );
-  }, [invoices, searchTerm]);
+    return invoices
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  }, [invoices]);
+
+  // Pagination Logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredInvoices.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
+
+  // Reset to page 1 when searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, effectiveCinemaId]);
 
   const invoiceStats = useMemo(() => {
-    const totalRev = invoices.reduce((a, i) => a + (Number(i.total) || 0), 0);
+    // Chỉ cộng dồn doanh thu nếu trạng thái là 'completed'
+    const totalRev = invoices.reduce((a, i) => {
+      if (i.status === 'completed') {
+        return a + (Number(i.total) || 0);
+      }
+      return a;
+    }, 0);
+    
     const pending = invoices.filter((i) => i.status === 'pending').length;
     const completed = invoices.filter((i) => i.status === 'completed').length;
     const cancelled = invoices.filter((i) => i.status === 'cancelled').length;
+    
     return { totalRev, pending, completed, cancelled };
   }, [invoices]);
-
   const getStatusBadge = (status) => {
     switch (status) {
       case 'completed':
@@ -121,7 +155,7 @@ const InvoiceManagement = () => {
   const statItems = [
     {
       label: 'Tổng doanh thu',
-      value: `${invoiceStats.totalRev.toLocaleString('vi-VN')}đ`,
+      value: formatVnd(invoiceStats.totalRev),
       icon: 'bi-currency-exchange',
       color: '#10b981',
     },
@@ -154,7 +188,11 @@ const InvoiceManagement = () => {
               <i className="bi bi-receipt-cutoff me-3"></i>
               Quản lý Hóa đơn
             </h1>
-            <p className="lead">Theo dõi và quản lý hóa đơn vé phim</p>
+            <p className="lead">
+              {isSuperAdmin
+                ? `Theo dõi hóa đơn của ${selectedCinemaName || 'rạp đang chọn'}`
+                : 'Theo dõi hóa đơn của rạp đang đăng nhập'}
+            </p>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
@@ -204,6 +242,7 @@ const InvoiceManagement = () => {
             <table className="admin-table mb-0">
               <thead>
                 <tr>
+                  <th style={{ width: 56 }}>STT</th>
                   <th>Mã hóa đơn</th>
                   <th>Khách hàng</th>
                   <th>Phim</th>
@@ -216,38 +255,39 @@ const InvoiceManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-4">
+                    <td colSpan={8} className="text-center py-4">
                       <div className="spinner-border text-primary me-2" role="status">
                         <span className="visually-hidden">Loading...</span>
                       </div>
                       Đang tải dữ liệu...
                     </td>
                   </tr>
-                ) : filteredInvoices.length === 0 ? (
+                ) : currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="admin-empty">
                         <div className="admin-empty-icon">
                           <i className="bi bi-receipt"></i>
                         </div>
-                        <h5 className="mb-2">Không có hóa đơn</h5>
-                        <p className="mb-0">Chưa có hóa đơn nào trong hệ thống</p>
+                        <h5 className="mb-2">
+                          {requiresCinemaSelection ? 'Chưa chọn rạp' : 'Không có hóa đơn'}
+                        </h5>
+                        <p className="mb-0">
+                          {requiresCinemaSelection
+                            ? (isSuperAdmin
+                                ? 'Vui lòng chọn rạp trên header để xem hóa đơn của rạp đó.'
+                                : 'Tài khoản quản lý chưa được gán rạp, không thể tải hóa đơn.')
+                            : 'Chưa có hóa đơn nào trong rạp này'}
+                        </p>
                       </div>
                     </td>
                   </tr>
-                ) : filteredInvoices.map((invoice) => (
+                ) : currentItems.map((invoice, index) => (
                   <tr key={invoice.apiId}>
+                    <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td className="fw-bold">{invoice.displayCode}</td>
                     <td>
-                      <div className="d-flex align-items-center gap-3">
-                        <div className="admin-table-icon-tile" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
-                          <i className="bi bi-person"></i>
-                        </div>
-                        <div>
-                          <div className="fw-semibold text-dark">{invoice.customerName}</div>
-                          <small className="text-muted">{invoice.customerEmail}</small>
-                        </div>
-                      </div>
+                      <div className="fw-semibold text-dark">{invoice.customerName}</div>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-2">
@@ -263,19 +303,20 @@ const InvoiceManagement = () => {
                     </td>
                     <td>
                       <span className="fw-bold" style={{ color: 'var(--admin-success)' }}>
-                        {invoice.total.toLocaleString()}đ
+                        {formatVnd(invoice.total)}
                       </span>
                     </td>
                     <td>{getStatusBadge(invoice.status)}</td>
                     <td className="text-center">
                       <div className="admin-table-action-group d-inline-flex">
-                        <Link
-                          to={`${prefix}/invoices/view/${invoice.apiId}`}
+                        <button
+                          type="button"
                           className="admin-table-action-btn admin-table-action-btn--view"
                           title="Xem chi tiết"
+                          onClick={() => openOrderDetail(invoice.apiId)}
                         >
                           <i className="bi bi-eye"></i>
-                        </Link>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -285,6 +326,45 @@ const InvoiceManagement = () => {
           </div>
         </div>
       </div>
+
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredInvoices.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="hóa đơn"
+      />
+
+      <Modal show={showDetailModal} onHide={closeOrderDetail} centered size="lg">
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="d-flex align-items-center gap-2 fw-bold text-primary mb-0">
+            <ReceiptText size={22} />
+            Chi tiết hóa đơn
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-dark">
+          {detailLoading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" />
+            </div>
+          ) : detailErr ? (
+            <p className="text-danger mb-0">{detailErr}</p>
+          ) : !detailOrder ? (
+            <p className="text-muted mb-0">Không có dữ liệu</p>
+          ) : (
+            <InvoiceSummaryCard order={detailOrder} />
+          )}
+        </Modal.Body>
+        <Modal.Footer className="border-0">
+          <Button variant="outline-secondary" onClick={closeOrderDetail}>
+            Đóng
+          </Button>
+          <Button variant="primary" onClick={() => window.print()} className="d-none d-print-inline-block">
+            <i className="bi bi-printer me-2"></i>In hóa đơn
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

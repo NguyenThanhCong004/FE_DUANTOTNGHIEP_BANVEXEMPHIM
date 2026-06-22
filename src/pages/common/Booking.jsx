@@ -3,20 +3,81 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
 import Layout from "../../components/layout/Layout";
 import { apiFetch } from "../../utils/apiClient";
-import { SHOWTIMES, SEATS, TICKET_ORDERS, CINEMAS, SHOWTIME_SEAT_HOLDS, SEAT_TYPES } from "../../constants/apiEndpoints";
+import { SHOWTIMES, SEATS, TICKET_ORDERS, CINEMAS, SHOWTIME_SEAT_HOLDS, SEAT_TYPES, ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { checkNoSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
+import {
+  isCoupleTypeName,
+  resolveSeatDisplayColor,
+  resolveSeatTypeColor,
+  contrastTextColorForHex,
+} from "../../utils/seatTypeColors";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
+import { formatVnd } from "../../utils/formatters";
 
 const HOLDER_STORAGE_KEY = "booking_seat_holder_id";
+const SEAT_HOLD_DURATION_MS = 5 * 60 * 1000;
+
+// Biến module-level để lưu seatTypes có coupleSeat
+let _seatTypesData = [];
+
+// Hàm kiểm tra ghế đôi dựa vào coupleSeat từ API
+function isCoupleSeatByType(typeName) {
+  if (!typeName) return false;
+  const st = _seatTypesData.find((t) => t.name === typeName);
+  if (st && st.coupleSeat !== undefined) {
+    return st.coupleSeat === true;
+  }
+  return isCoupleTypeName(typeName);
+}
 
 // Grid constants - giống như SeatManagement
 const ROWS = 15;
-const COLS = 25;
+const COLS = 24;
 const SEAT_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 // Grid functions - giống như SeatManagement
 const isPlacedSeat = (cell) =>
   cell && cell.type !== "Empty" && cell.type !== "OccupiedByDouble";
+
+const rowHasAnySeat = (grid, r) => {
+  for (let c = 0; c < COLS; c++) {
+    const i = r * COLS + c;
+    if (isPlacedSeat(grid[i])) return true;
+  }
+  return false;
+};
+
+// Chữ hàng A,B,C…: đếm các hàng phía trên có ít nhất một ghế
+const virtualRowLetterIndex = (grid, r) => {
+  let above = 0;
+  for (let r2 = 0; r2 < r; r2++) {
+    if (rowHasAnySeat(grid, r2)) above++;
+  }
+  return above;
+};
+
+const rowLetterForGridRow = (grid, r) => {
+  const i = virtualRowLetterIndex(grid, r);
+  return SEAT_LETTERS[i] ?? "?";
+};
+
+const recomputeSeatLabels = (grid) => {
+  const out = [...grid];
+  for (let r = 0; r < ROWS; r++) {
+    const letter = rowLetterForGridRow(out, r);
+    let num = 0;
+    for (let c = 0; c < COLS; c++) {
+      const idx = r * COLS + c;
+      const cell = out[idx];
+      if (isPlacedSeat(cell)) {
+        num++;
+        out[idx] = { ...cell, label: `${letter}${num}` };
+      }
+    }
+  }
+  return out;
+};
 
 const emptyCell = (r, c) => ({
   rowIdx: r,
@@ -25,8 +86,6 @@ const emptyCell = (r, c) => ({
   label: "",
   isActive: false,
 });
-
-const isEmptyCell = (cell) => cell?.type === "Empty";
 
 // Xây dựng grid từ danh sách ghế
 function buildSeatGrid(seats) {
@@ -46,12 +105,9 @@ function buildSeatGrid(seats) {
     if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
       const idx = y * COLS + x;
       
-      // Xác định loại ghế
-      let seatType = "Thường";
-      if (seat.seatTypeName?.toLowerCase().includes("vip")) seatType = "VIP";
-      if (seat.seatTypeName?.toLowerCase().includes("đôi") || seat.seatTypeName?.toLowerCase().includes("sweet")) seatType = "Đôi";
-      
-      // Đặt ghế vào grid
+      const seatType = String(seat.seatTypeName || "Chưa có loại").trim() || "Chưa có loại";
+
+      // Đặt ghế vào grid (type = tên loại trên DB để khớp màu chú thích / API)
       grid[idx] = {
         rowIdx: y,
         colIdx: x,
@@ -62,7 +118,7 @@ function buildSeatGrid(seats) {
       };
       
       // Nếu là ghế đôi, đánh dấu ô tiếp theo là OccupiedByDouble
-      if (seatType === "Đôi" && x + 1 < COLS) {
+      if (isCoupleSeatByType(seatType) && x + 1 < COLS) {
         grid[idx + 1] = {
           rowIdx: y,
           colIdx: x + 1,
@@ -77,60 +133,16 @@ function buildSeatGrid(seats) {
   return grid;
 }
 
-// Function lấy màu ghế - 100% dựa trên data từ API
-function getSeatColor(cell, r, c, seatTypes = []) {
-  if (!isPlacedSeat(cell)) return "#e9ecef"; // Placeholder (đường đi)
-  if (!cell.isActive) return "#6c757d"; // Ghế bị khóa/bảo trì - xám đậm hơn
-  
-  // Ưu tiên tuyệt đối data từ API
-  if (seatTypes && seatTypes.length > 0) {
-    const seatType = seatTypes.find(st => st.name === cell.type);
-    if (seatType) {
-      console.log(`Found seat type for "${cell.type}":`, seatType);
-      // Dùng màu từ API, nếu không có thì dùng màu mặc định cho loại ghế đó
-      const color = seatType.color || getDefaultColorForType(cell.type);
-      console.log(`Using color for "${cell.type}":`, color);
-      return color;
-    } else {
-      console.log(`No seat type found for "${cell.type}" in API data`);
-    }
-  }
-  
-  // Fallback cuối cùng cho các loại ghế cơ bản
-  const fallbackColor = getDefaultColorForType(cell.type);
-  console.log(`Using fallback color for "${cell.type}":`, fallbackColor);
-  return fallbackColor;
-}
-
-// Function màu mặc định cho các loại ghế cơ bản (chỉ dùng khi API không có)
-function getDefaultColorForType(typeName) {
-  const defaultColors = {
-    "Thường": "#007bff",    // Xanh dương
-    "VIP": "#ffc107",        // Vàng
-    "Ghế đôi Sweetbox": "#dc3545", // Đỏ
-    "Đôi": "#dc3545",        // Đỏ (để tương thích với data cũ)
-  };
-  
-  // Nếu không có trong default, tạo màu ngẫu nhiên nhưng nhất quán
-  if (!defaultColors[typeName]) {
-    const colors = ["#6f42c1", "#20c997", "#fd7e14", "#6c757d", "#17a2b8", "#e83e8c", "#28a745"];
-    const hash = typeName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  }
-  
-  return defaultColors[typeName];
+function getSeatColor(cell, seatTypes = []) {
+  if (!isPlacedSeat(cell)) return "#e9ecef";
+  if (!cell.isActive) return "#6c757d";
+  const raw = cell.seatData?.seatTypeColor ?? cell.seatData?.seat_type_color;
+  return resolveSeatDisplayColor(cell.type, seatTypes, raw);
 }
 
 // Function để lấy danh sách tên loại ghế từ API
 const getSeatTypeOptions = (seatTypes) => {
-  console.log("getSeatTypeOptions input:", seatTypes);
-  if (!seatTypes || seatTypes.length === 0) {
-    console.log("No seat types, using fallback");
-    return ["Thường", "VIP", "Đôi"];
-  }
-  const options = seatTypes.map(st => st.name).filter(Boolean);
-  console.log("getSeatTypeOptions output:", options);
-  return options;
+  return Array.isArray(seatTypes) ? seatTypes.map((st) => st.name).filter(Boolean) : [];
 };
 
 function getOrCreateSeatHolderId() {
@@ -174,28 +186,10 @@ function normalizeSeat(s) {
     x: s.x != null ? Number(s.x) : 0,
     y: s.y != null ? Number(s.y) : 0,
     seatTypeName: s.seatTypeName ?? s.seat_type_name ?? "",
+    seatTypeColor: s.seatTypeColor ?? s.seat_type_color ?? "",
     surcharge: Number(s.seatTypeSurcharge ?? s.seat_type_surcharge ?? 0) || 0,
     status: s.status ?? "available", // available, locked, maintenance
   };
-}
-
-function buildSeatRows(seats) {
-  const byRow = new Map();
-  for (const s of seats) {
-    const r = s.row || "?";
-    if (!byRow.has(r)) byRow.set(r, []);
-    byRow.get(r).push(s);
-  }
-  const rowKeys = [...byRow.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  return rowKeys.map((row) => ({
-    row,
-    seats: byRow.get(row).sort((a, b) => (a.x || 0) - (b.x || 0) || a.number.localeCompare(b.number, undefined, { numeric: true })),
-  }));
-}
-
-function isCoupleType(name) {
-  const n = (name || "").toLowerCase();
-  return n.includes("đôi") || n.includes("sweet") || n.includes("couple");
 }
 
 function normalizeSnackProduct(o) {
@@ -203,9 +197,11 @@ function normalizeSnackProduct(o) {
   return {
     productId: id != null ? Number(id) : null,
     name: o.name ?? "—",
+    description: typeof o.description === "string" ? o.description.trim() : "",
     price: Number(o.price ?? 0) || 0,
     categoryName: o.categoryName ?? o.category_name ?? "",
-    image: typeof o.image === "string" ? o.image : "",
+    image: typeof o.image === "string" ? o.image.trim() : "",
+    isActive: o.isActive !== false,
   };
 }
 
@@ -222,16 +218,25 @@ const Booking = () => {
   const [selectedSeatIds, setSelectedSeatIds] = useState([]);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
+  const [seatSelectionError, setSeatSelectionError] = useState(null);
   const [snackProducts, setSnackProducts] = useState([]);
   const [snackMenuError, setSnackMenuError] = useState(null);
   const [snackCart, setSnackCart] = useState({});
   const [peerHeldList, setPeerHeldList] = useState([]);
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1); // Zoom level: 0.5 to 2
+
+  // Voucher states
+  const [userVouchers, setUserVouchers] = useState([]);
+  const [selectedVoucherId, setSelectedVoucherId] = useState(null);
+  const [voucherLoading, setVoucherLoading] = useState(false);
 
   const holderRef = useRef(null);
   if (!holderRef.current) {
     holderRef.current = getOrCreateSeatHolderId();
   }
+  const selectedSeatIdsRef = useRef([]);
 
   const bookedSet = useMemo(() => {
     const ids = showtime?.bookedSeatIds || [];
@@ -239,7 +244,6 @@ const Booking = () => {
   }, [showtime]);
 
   const baseTicketPrice = showtime?.price ?? 0;
-  const vatRate = showtime?.vatRate ?? 10; // Default 10% VAT
   const showEnded = showtime?.status === "Đã chiếu";
 
   const seatById = useMemo(() => {
@@ -250,9 +254,38 @@ const Booking = () => {
     return m;
   }, [seats]);
 
-  const seatRows = useMemo(() => buildSeatRows(seats), [seats]);
-  
-  const seatGrid = useMemo(() => buildSeatGrid(seats), [seats]);
+  const seatGrid = useMemo(() => recomputeSeatLabels(buildSeatGrid(seats)), [seats]);
+
+  // Tính toán số hàng và cột thực tế có ghế để thu gọn grid
+  const gridBounds = useMemo(() => {
+    let minRow = ROWS, maxRow = 0, minCol = COLS, maxCol = 0;
+    for (let i = 0; i < seatGrid.length; i++) {
+      const cell = seatGrid[i];
+      if (isPlacedSeat(cell)) {
+        if (cell.rowIdx < minRow) minRow = cell.rowIdx;
+        if (cell.rowIdx > maxRow) maxRow = cell.rowIdx;
+        if (cell.colIdx < minCol) minCol = cell.colIdx;
+        if (cell.colIdx > maxCol) maxCol = cell.colIdx;
+      }
+    }
+    // Nếu không có ghế nào, dùng mặc định
+    if (minRow > maxRow) minRow = 0, maxRow = ROWS - 1;
+    if (minCol > maxCol) minCol = 0, maxCol = COLS - 1;
+    return { minRow, maxRow, minCol, maxCol };
+  }, [seatGrid]);
+
+  const actualRows = gridBounds.maxRow - gridBounds.minRow + 1;
+  const actualCols = gridBounds.maxCol - gridBounds.minCol + 1;
+
+  // Auto-zoom to fit when room loads (prevents sparse layout for small rooms)
+  useEffect(() => {
+    if (actualCols <= 0 || actualRows <= 0) return;
+    // Estimate available area: ~700px wide, ~480px tall for the seat grid
+    const colZoom = 660 / Math.max(1, actualCols * 36 - 4);
+    const rowZoom = 460 / Math.max(1, actualRows * 36 - 4);
+    const autoZoom = Math.min(colZoom, rowZoom, 2);
+    setZoomLevel(Math.max(0.6, parseFloat(autoZoom.toFixed(2))));
+  }, [actualCols, actualRows]);
 
   // Zoom controls
   const handleZoomIn = () => {
@@ -273,7 +306,6 @@ const Booking = () => {
   const gapSize = Math.round(4 * zoomLevel);
   const paddingSize = Math.round(20 * zoomLevel);
   const fontSize = Math.round(10 * zoomLevel);
-  const labelFontSize = Math.round(11 * zoomLevel);
 
   const peerHeldSet = useMemo(() => {
     const s = new Set();
@@ -321,39 +353,19 @@ const Booking = () => {
   useEffect(() => {
     const loadSeatTypes = async () => {
       try {
-        console.log("Loading seat types from API...");
-        const response = await apiFetch(SEAT_TYPES.LIST);
-        console.log("Seat types API response:", response);
-        console.log("Seat types API response data:", response?.data);
-        console.log("Seat types API response data length:", response?.data?.length);
-        
-        if (response && response.data) {
-          console.log("Setting seat types from API:", response.data);
-          console.log("Seat types details:", response.data.map(st => ({
-            id: st.id,
-            name: st.name,
-            color: st.color,
-            description: st.description,
-            note: st.note
-          })));
-          setSeatTypes(response.data);
-        } else {
-          console.log("No data in API response, using fallback");
-          // Fallback to default seat types
-          setSeatTypes([
-            { id: 1, name: "Thường", price: 0, color: "#007bff" },
-            { id: 2, name: "VIP", price: 0, color: "#ffc107" },
-            { id: 3, name: "Ghế đôi Sweetbox", price: 0, color: "#dc3545" }
-          ]);
-        }
+        const res = await apiFetch(SEAT_TYPES.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        const seatTypesData = Array.isArray(list) ? list : [];
+        _seatTypesData = seatTypesData.map(st => ({
+          name: st.name,
+          coupleSeat: st.coupleSeat ?? st.couple_seat ?? isCoupleTypeName(st.name)
+        }));
+        setSeatTypes(seatTypesData);
       } catch (err) {
         console.error("Failed to load seat types:", err);
-        // Fallback to default seat types
-        setSeatTypes([
-          { id: 1, name: "Thường", price: 0, color: "#007bff" },
-          { id: 2, name: "VIP", price: 0, color: "#ffc107" },
-          { id: 3, name: "Ghế đôi Sweetbox", price: 0, color: "#dc3545" }
-        ]);
+        _seatTypesData = [];
+        setSeatTypes([]);
       }
     };
 
@@ -409,7 +421,7 @@ const Booking = () => {
           const mBody = await mRes.json().catch(() => null);
           if (mRes.ok && mBody?.data) {
             const onSale = Array.isArray(mBody.data.onSale) ? mBody.data.onSale : [];
-            setSnackProducts(onSale.map(normalizeSnackProduct).filter((p) => p.productId != null));
+            setSnackProducts(onSale.map(normalizeSnackProduct).filter((p) => p.productId != null && p.isActive));
           } else {
             setSnackMenuError(mBody?.message || "Không tải được menu bắp nước");
           }
@@ -451,7 +463,7 @@ const Booking = () => {
     };
   }, [loading, showtime, showEnded, showtimeId]);
 
-  /** Gia hạn giữ ghế (~45s) khi đang chọn */
+  /** Cập nhật danh sách ghế đang giữ tạm khi lựa chọn thay đổi. */
   useEffect(() => {
     if (!Number.isFinite(showtimeId) || showEnded) return;
     const holderId = holderRef.current;
@@ -468,6 +480,34 @@ const Booking = () => {
     return () => clearTimeout(handle);
   }, [showtimeId, selectedSeatIds, showEnded]);
 
+  /** Hết 5 phút giữ ghế của chính tab hiện tại — tự nhả ghế và bỏ chọn. */
+  useEffect(() => {
+    selectedSeatIdsRef.current = selectedSeatIds;
+
+    if (!Number.isFinite(showtimeId) || showEnded || selectedSeatIds.length === 0) {
+      return undefined;
+    }
+
+    const handle = setTimeout(() => {
+      const holderId = holderRef.current;
+      const heldSeatIds = selectedSeatIdsRef.current;
+
+      if (holderId && Number.isFinite(showtimeId) && heldSeatIds.length > 0) {
+        apiFetch(SHOWTIME_SEAT_HOLDS.REFRESH, {
+          method: "POST",
+          body: JSON.stringify({ showtimeId, holderId, seatIds: [] }),
+        }).catch(() => {});
+      }
+
+      setSelectedSeatIds([]);
+      setQuote(null);
+      setPayError("Ghế đã hết thời gian giữ 5 phút. Vui lòng chọn lại ghế.");
+      setSeatSelectionError(null);
+    }, SEAT_HOLD_DURATION_MS);
+
+    return () => clearTimeout(handle);
+  }, [showtimeId, selectedSeatIds, showEnded]);
+
   /** Rời trang / đổi suất — bỏ giữ ghế */
   useEffect(() => {
     return () => {
@@ -480,11 +520,11 @@ const Booking = () => {
     };
   }, [showtimeId]);
 
-  // Updated seat price calculation with VAT
+  // Tính giá ghế: basePrice + surcharge (không VAT), ghế đôi x2
   const seatPrice = (seat) => {
     const basePrice = baseTicketPrice + (seat?.surcharge || 0);
-    const priceWithVat = basePrice * (1 + vatRate / 100);
-    return Math.round(priceWithVat);
+    const multiplier = isCoupleSeatByType(seat?.seatTypeName) ? 2 : 1;
+    return Math.round(basePrice * multiplier);
   };
 
   const toggleSeat = (seat) => {
@@ -499,9 +539,10 @@ const Booking = () => {
     const blocked = new Set([...bookedSet, ...peerHeldSet, ...nextSelected]);
     const check = checkNoSingleSeatOrphanInRows(seats, blocked);
     if (!check.ok) {
-      setPayError(check.message);
+      setSeatSelectionError(check.message);
       return;
     }
+    setSeatSelectionError(null);
     setPayError(null);
     setSelectedSeatIds(nextSelected);
   };
@@ -520,7 +561,120 @@ const Booking = () => {
     return t;
   }, [snackProducts, snackCart]);
 
-  const grandTotal = seatPriceTotal + snackTotal;
+  const selectedSnackLines = useMemo(() => (
+    snackProducts
+      .map((p) => {
+        const quantity = Number(snackCart[p.productId] || 0);
+        if (quantity <= 0) return null;
+        return {
+          ...p,
+          quantity,
+          lineTotal: p.price * quantity,
+        };
+      })
+      .filter(Boolean)
+  ), [snackProducts, snackCart]);
+
+  // Voucher
+  const selectedVoucher = useMemo(() => userVouchers.find(v => v.userVoucherId === selectedVoucherId), [userVouchers, selectedVoucherId]);
+
+  const computedSubtotalFallback = seatPriceTotal + snackTotal;
+  const voucherDiscount = quote?.voucherDiscount != null
+    ? Number(quote.voucherDiscount || 0)
+    : 0;
+  const grandTotal = quote?.finalAmount != null
+    ? Number(quote.finalAmount || 0)
+    : (computedSubtotalFallback - voucherDiscount);
+  const ticketSummaryTotal = quote?.ticketTotal != null
+    ? Number(quote.ticketTotal || 0)
+    : seatPriceTotal;
+  const snackSummaryTotal = quote?.snackTotal != null
+    ? Number(quote.snackTotal || 0)
+    : snackTotal;
+  const summarySubtotal = ticketSummaryTotal + snackSummaryTotal;
+
+  const quoteLineBySeatId = useMemo(() => {
+    const m = new Map();
+    const lines = Array.isArray(quote?.ticketLines) ? quote.ticketLines : [];
+    for (const l of lines) {
+      const sid = Number(l.seatId);
+      if (Number.isFinite(sid)) m.set(sid, l);
+    }
+    return m;
+  }, [quote]);
+
+  // Quote (pricing) - only when logged in
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setQuote(null);
+      return;
+    }
+    if (!Number.isFinite(showtimeId) || showtimeId <= 0) return;
+    if (showEnded) return;
+    if (!selectedSeatIds.length && !Object.keys(snackCart || {}).length && !selectedVoucherId) {
+      setQuote(null);
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      setQuoteLoading(true);
+      try {
+        const snacks = Object.entries(snackCart)
+          .map(([k, q]) => ({ productId: Number(k), quantity: q }))
+          .filter((x) => Number.isFinite(x.productId) && x.quantity > 0);
+
+        const res = await apiFetch(TICKET_ORDERS.QUOTE, {
+          method: "POST",
+          body: JSON.stringify({
+            showtimeId,
+            seatIds: selectedSeatIds,
+            snacks: snacks.length ? snacks : undefined,
+            userVoucherId: selectedVoucherId || undefined,
+          }),
+        });
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.ok && body?.data) {
+          setQuote(body.data);
+        } else {
+          setQuote(null);
+        }
+      } catch {
+        if (!cancelled) setQuote(null);
+      } finally {
+        if (!cancelled) setQuoteLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [showtimeId, showEnded, selectedSeatIds, snackCart, selectedVoucherId]);
+
+  // Load user vouchers when logged in
+  useEffect(() => {
+    if (!getAccessToken()) return;
+    
+    const loadVouchers = async () => {
+      setVoucherLoading(true);
+      try {
+        const res = await apiFetch(ME.VOUCHERS);
+        const json = await res.json().catch(() => null);
+        if (res.ok && json?.data) {
+          // Filter only unused vouchers (status === 1)
+          const available = json.data.filter(v => v.status === 1);
+          setUserVouchers(available);
+        }
+      } catch (err) {
+        console.error('Failed to load vouchers:', err);
+      } finally {
+        setVoucherLoading(false);
+      }
+    };
+    
+    loadVouchers();
+  }, []);
 
   const addSnack = (productId) => {
     setSnackCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
@@ -538,7 +692,7 @@ const Booking = () => {
   const getSeatVisual = (seat, isSelected, isPeerHeld) => {
     const id = Number(seat.seatId);
     const booked = bookedSet.has(id);
-    const couple = isCoupleType(seat.seatTypeName);
+    const couple = isCoupleSeatByType(seat.seatTypeName);
     
     // Ưu tiên trạng thái từ database
     if (seat.status === "locked") {
@@ -570,21 +724,22 @@ const Booking = () => {
     if (booked || showEnded) {
       return {
         bg: "rgba(40, 167, 69, 0.8)", // Xanh lá - đã bán
-        color: "#000", // Chữ đen
+        color: "#fff", // Chữ trắng cho rõ
         border: "1px solid rgba(40, 167, 69, 0.9)",
         cursor: "not-allowed",
         width: couple ? 72 : 36,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
+        pointerEvents: "none", // Ngăn mọi sự kiện chuột
       };
     }
     
     if (isPeerHeld && !isSelected) {
       return {
-        bg: "rgba(255, 193, 7, 0.8)", // Vàng - đang có người chọn
-        color: "#000", // Chữ đen
-        border: "1px solid rgba(255, 193, 7, 0.9)",
+        bg: "#ff9800", // Cam đậm - đang có người chọn
+        color: "#111", // Chữ tối để tương phản nền cam
+        border: "2px solid #ffe082",
         cursor: "not-allowed",
         width: couple ? 72 : 36,
         display: "flex",
@@ -595,9 +750,9 @@ const Booking = () => {
     
     if (isSelected) {
       return {
-        bg: "var(--primary-gradient)",
-        color: "#000", // Chữ đen
-        border: "1px solid rgba(255,255,255,0.2)",
+        bg: "rgba(203, 213, 225, 0.92)",
+        color: "#111827",
+        border: "1px solid rgba(226, 232, 240, 0.95)",
         cursor: "pointer",
         width: couple ? 72 : 36,
         display: "flex",
@@ -608,9 +763,9 @@ const Booking = () => {
     
     // Default available state
     return {
-      bg: "rgba(0, 123, 255, 0.8)", // Xanh dương - có sẵn
+      bg: "rgba(13, 110, 253, 0.85)", // Xanh dương - có sẵn
       color: "#000", // Chữ đen
-      border: "1px solid rgba(0, 123, 255, 0.9)",
+      border: "1px solid rgba(13, 110, 253, 1)",
       cursor: "pointer",
       width: couple ? 72 : 36,
       display: "flex",
@@ -619,10 +774,51 @@ const Booking = () => {
     };
   };
 
-  const selectedLabels = selectedSeatIds.map((id) => {
-    const s = seatById.get(id);
-    return s ? `${s.row}${s.number}` : id;
-  });
+  const selectedSeatSummaries = selectedSeatIds
+    .map((id) => {
+      const seat = seatById.get(id);
+      if (!seat) return null;
+      const quoteLine = quoteLineBySeatId.get(Number(id));
+      const originalPrice = quoteLine?.originalPrice != null ? Number(quoteLine.originalPrice) : null;
+      const promotionDiscount = quoteLine?.promotionDiscount != null ? Number(quoteLine.promotionDiscount) : 0;
+      const membershipDiscount = quoteLine?.membershipDiscount != null ? Number(quoteLine.membershipDiscount) : 0;
+      const finalPrice = quoteLine?.finalPrice != null ? Number(quoteLine.finalPrice) : seatPrice(seat);
+      const displayPrice = originalPrice != null ? originalPrice : seatPrice(seat);
+      return {
+        id,
+        label: `${seat.row}${seat.number}`,
+        typeName: seat.seatTypeName || "Ghế",
+        originalPrice,
+        promotionDiscount,
+        membershipDiscount,
+        displayPrice,
+        finalPrice,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.label).localeCompare(String(b.label), "vi-VN", { numeric: true, sensitivity: "base" }));
+
+  const selectedSeatTypeGroups = Array.from(
+    selectedSeatSummaries.reduce((groups, seat) => {
+      const key = seat.typeName || "Ghế";
+      const current = groups.get(key) || { typeName: key, count: 0, total: 0 };
+      current.count += 1;
+      current.total += seat.displayPrice;
+      groups.set(key, current);
+      return groups;
+    }, new Map()).values()
+  );
+
+  const seatOriginalTotal = selectedSeatSummaries.reduce((sum, seat) => {
+    const beforeDiscount = seat.originalPrice != null
+      ? seat.originalPrice
+      : seat.finalPrice + seat.promotionDiscount + seat.membershipDiscount;
+    return sum + beforeDiscount;
+  }, 0);
+  const moviePromotionTotal = selectedSeatSummaries.reduce((sum, seat) => sum + seat.promotionDiscount, 0);
+  const membershipDiscountTotal = selectedSeatSummaries.reduce((sum, seat) => sum + seat.membershipDiscount, 0);
+  const hasTicketPromotion = moviePromotionTotal > 0;
+  const hasMembershipDiscount = membershipDiscountTotal > 0;
 
   const movieLink = showtime?.movieId ? `/movie/${showtime.movieId}` : "/movies";
 
@@ -649,6 +845,7 @@ const Booking = () => {
           clientHoldId: holderRef.current || undefined,
           returnUrl: `${origin}/payment/success`,
           cancelUrl: `${origin}/payment/cancel`,
+          userVoucherId: selectedVoucherId || undefined,
         }),
       });
       const body = await res.json().catch(() => null);
@@ -705,7 +902,13 @@ const Booking = () => {
 
   return (
     <Layout>
-      <div className="container my-5 pt-4">
+      <div className="container-fluid py-5" style={{
+        background: `radial-gradient(ellipse 65% 50% at 15% 20%, rgba(123,31,162,0.18) 0%, transparent 60%),
+          radial-gradient(ellipse 50% 40% at 85% 80%, rgba(233,30,140,0.13) 0%, transparent 60%),
+          #0f102a`,
+        minHeight: '100vh',
+        padding: '40px 20px'
+      }}>
         <div
           className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white bg-opacity-10"
           style={{ backdropFilter: "blur(10px)" }}
@@ -733,10 +936,6 @@ const Booking = () => {
                   <span className={`fw-bold ${showEnded ? "text-secondary" : "text-warning"}`}>• {showtime.status}</span>
                 ) : null}
               </div>
-            </div>
-            <div className="ms-auto text-end d-none d-md-block">
-              <small className="text-white-50 d-block">Giá vé (ước tính)</small>
-              <span className="text-danger fw-black">{baseTicketPrice.toLocaleString("vi-VN")} đ + phụ thu + {vatRate}% VAT</span>
             </div>
           </div>
         </div>
@@ -769,7 +968,7 @@ const Booking = () => {
                 <div className="alert alert-secondary border-0 small mb-3">Suất này đã kết thúc — không thể chọn ghế.</div>
               ) : null}
 
-              <div className="card p-4 border-0 shadow-lg bg-white bg-opacity-10 rounded-5 mb-4" style={{ backdropFilter: "blur(10px)" }}>
+              <div className="card p-4 border-0 shadow-lg rounded-5 mb-4" style={{ backdropFilter: "blur(10px)", background: 'rgba(20, 22, 50, 0.85)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <div className="text-center mb-4">
                   <div
                     className="mx-auto shadow-sm"
@@ -779,43 +978,35 @@ const Booking = () => {
                 </div>
 
                 <div className="d-flex flex-wrap justify-content-center gap-3 small text-white-50 mb-3">
-                  {(() => {
-                    console.log("Rendering legend with seatTypes:", seatTypes);
-                    const seatTypeOptions = getSeatTypeOptions(seatTypes);
-                    console.log("Seat type options for legend:", seatTypeOptions);
-                    return seatTypeOptions.map((typeName, index) => {
-                      // Tạo cell giả để lấy màu từ getSeatColor
-                      const mockCell = { type: typeName, isActive: true };
-                      const seatColor = getSeatColor(mockCell, 0, 0, seatTypes);
-                      // Chuyển đổi màu solid thành màu rgba cho legend
-                      const rgbaColor = seatColor.includes('rgba') ? seatColor : `${seatColor}CC`; // Thêm alpha 80%
-                      
-                      console.log(`Legend item "${typeName}": color=${seatColor}, rgba=${rgbaColor}`);
-                      
-                      return (
-                        <span key={typeName}>
-                          <span 
-                            className="d-inline-block rounded me-1 align-middle" 
-                            style={{ 
-                              width: 14, 
-                              height: 14, 
-                              background: rgbaColor, 
-                              border: `1px solid ${rgbaColor.replace('CC', 'FF')}` 
-                            }} 
-                          />{" "}
-                          {typeName}
-                        </span>
-                      );
-                    });
-                  })()}
+                  {getSeatTypeOptions(seatTypes).map((typeName) => {
+                    const seatColor = resolveSeatTypeColor(typeName, seatTypes);
+                    return (
+                      <span key={typeName}>
+                        <span
+                          className="d-inline-block rounded me-1 align-middle"
+                          style={{
+                            width: 14,
+                            height: 14,
+                            background: seatColor,
+                            border: "1px solid rgba(255,255,255,0.35)",
+                          }}
+                        />{" "}
+                        {typeName}
+                      </span>
+                    );
+                  })}
                   <span>
                     <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(40, 167, 69, 0.8)", border: "1px solid rgba(40, 167, 69, 0.9)" }} />{" "}
                     Đã bán
                   </span>
                   <span>
+                    <span className="d-inline-block rounded me-1 align-middle" style={{ width: 14, height: 14, background: "rgba(203, 213, 225, 0.92)", border: "1px solid rgba(226, 232, 240, 0.95)" }} />{" "}
+                    Đã chọn
+                  </span>
+                  <span>
                     <span
                       className="d-inline-block rounded me-1 align-middle"
-                      style={{ width: 14, height: 14, background: "rgba(255, 193, 7, 0.8)", border: "1px solid rgba(255, 193, 7, 0.9)" }}
+                      style={{ width: 14, height: 14, background: "#ff9800", border: "2px solid #ffe082" }}
                     />{" "}
                     Đang có người chọn
                   </span>
@@ -872,27 +1063,30 @@ const Booking = () => {
                       padding: '10px',
                       background: 'rgba(0, 0, 0, 0.2)',
                       borderRadius: '8px',
-                      display: 'flex',
-                      justifyContent: 'center'
+                      border: '1px solid rgba(255,255,255,0.08)'
                     }}
                     onWheel={handleWheel}
                   >
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: `${Math.round(40 * zoomLevel)}px repeat(${COLS}, ${seatSize}px)`,
+                        gridTemplateColumns: `${Math.round(40 * zoomLevel)}px repeat(${actualCols}, ${seatSize}px)`,
+                        gridTemplateRows: `${Math.round(60 * zoomLevel)}px repeat(${actualRows}, ${seatSize}px)`,
                         gap: `${gapSize}px`,
                         padding: `${paddingSize}px`,
                         background: 'rgba(0, 0, 0, 0.3)',
                         borderRadius: '12px',
                         position: 'relative',
-                        minWidth: 'fit-content'
+                        width: 'max-content',
+                        minWidth: 'fit-content',
+                        margin: '0 auto',
+                        alignItems: 'center',
+                        justifyItems: 'center'
                       }}>
                         <div style={{
                           gridColumn: '1 / -1',
                           height: `${Math.round(60 * zoomLevel)}px`,
                           background: 'linear-gradient(to bottom, rgba(255,255,255,0.1), rgba(255,255,255,0.05))',
                           borderRadius: '100% 100% 0 0',
-                          marginBottom: `${gapSize * 5}px`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -902,8 +1096,9 @@ const Booking = () => {
                         }}>
                           MÀN HÌNH
                         </div>
-                        <div />
-                        {Array.from({ length: COLS }).map((_, c) => (
+                        {/* Ẩn column labels */}
+                        {/* <div />
+                        {Array.from({ length: actualCols }).map((_, c) => (
                           <div key={`col_${c}`} style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -912,40 +1107,37 @@ const Booking = () => {
                             color: 'rgba(255, 255, 255, 0.6)',
                             fontWeight: '500'
                           }}>{c + 1}</div>
-                        ))}
-                        {Array.from({ length: ROWS }).map((_, r) => (
+                        ))} */}
+                        {Array.from({ length: actualRows }).map((_, r) => {
+                          const actualRow = gridBounds.minRow + r;
+                          const rowLabel = rowHasAnySeat(seatGrid, actualRow) ? rowLetterForGridRow(seatGrid, actualRow) : "";
+                          return (
                           <React.Fragment key={r}>
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: `${labelFontSize}px`,
-                              color: 'rgba(255, 255, 255, 0.6)',
-                              fontWeight: '500'
-                            }}>{r + 1}</div>
-                            {Array.from({ length: COLS }).map((_, c) => {
-                              const idx = r * COLS + c;
+                            <div
+                              style={{
+                                width: `${Math.round(28 * zoomLevel)}px`,
+                                height: `${seatSize}px`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "rgba(255,255,255,0.64)",
+                                fontSize: `${Math.round(11 * zoomLevel)}px`,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {rowLabel}
+                            </div>
+                            {Array.from({ length: actualCols }).map((_, c) => {
+                              const actualCol = gridBounds.minCol + c;
+                              const idx = actualRow * COLS + actualCol;
                               const cell = seatGrid[idx] || { type: "Empty", isActive: false, label: "" };
                               
-                              // Debug: Log cell data
-                              if (isCoupleType(cell.type)) {
-                                console.log(`Couple seat found at [${r},${c}]:`, cell);
-                                console.log(`Next cell [${r},${c+1}]:`, seatGrid[idx + 1]);
-                              }
-                              
-                              // Kiểm tra xem ô này có phải là ô thứ hai của ghế đôi không
-                              const isSecondCellOfCouple = c > 0 && isCoupleType(seatGrid[idx - 1]?.type);
-                              if (isSecondCellOfCouple) {
-                                console.log(`Skipping second cell of couple at [${r},${c}]`);
-                                return null; // Skip ô thứ hai của ghế đôi
-                              }
-                              
+                              // Bỏ qua ô bị chiếm bởi ghế đôi
                               if (cell.type === "OccupiedByDouble") return null;
                               const placed = isPlacedSeat(cell);
-                              const showActive = placed && cell.isActive;
                               
                               // Kiểm tra xem có phải ghế đôi không
-                              const isCouple = isCoupleType(cell.type);
+                              const isCouple = isCoupleSeatByType(cell.type);
                               
                               // Nếu là ghế thực tế, lấy data từ seatData
                               if (placed && cell.seatData) {
@@ -955,7 +1147,8 @@ const Booking = () => {
                                 const peerHeld = peerHeldSet.has(id);
                                 const vis = getSeatVisual(seat, isSelected, peerHeld);
                                 const booked = bookedSet.has(id);
-                                
+                                const seatFill = getSeatColor(cell, seatTypes);
+
                                 return (
                                   <button
                                     key={idx}
@@ -967,7 +1160,7 @@ const Booking = () => {
                                         ? "Ghế đang bảo trì - không thể đặt"
                                         : peerHeld && !isSelected
                                         ? "Người khác đang chọn ghế này"
-                                        : `${seat.seatTypeName || "Ghế"} — ${baseTicketPrice.toLocaleString("vi-VN")} đ${seat?.surcharge ? ` + ${seat.surcharge.toLocaleString("vi-VN")} đ phụ thu` : ""} + ${vatRate}% VAT = ${seatPrice(seat).toLocaleString("vi-VN")} đ`
+                                        : `${seat.seatTypeName || "Ghế"}`
                                     }
                                     disabled={booked || showEnded || (peerHeld && !isSelected) || seat.status === "locked" || seat.status === "maintenance"}
                                     onClick={() => toggleSeat(seat)}
@@ -981,16 +1174,16 @@ const Booking = () => {
                                       fontWeight: "bold",
                                       borderRadius: `${Math.round(6 * zoomLevel)}px`,
                                       transition: "all 0.2s",
-                                      border: "1px solid rgba(0,0,0,0.06)",
-                                      cursor: "pointer",
-                                      backgroundColor: getSeatColor(cell, r, c, seatTypes),
-                                      color: placed ? vis.color : "transparent", // Sử dụng màu từ getSeatVisual
+                                      backgroundColor: (booked || isSelected || peerHeld) ? vis.bg : seatFill,
+                                      color: (booked || isSelected || peerHeld) ? vis.color : contrastTextColorForHex(seatFill),
                                       gridColumn: isCouple ? "span 2" : undefined,
-                                      opacity: placed && !cell.isActive ? 0.85 : 1,
+                                      opacity: (booked || !cell.isActive) ? 0.8 : 1,
                                       border: vis.border,
                                       cursor: vis.cursor,
-                                      transform: isSelected ? `scale(${1.15})` : "none",
-                                      boxShadow: isSelected ? "0 6px 20px rgba(13, 110, 253, 0.6)" : "none"
+                                      pointerEvents: vis.pointerEvents,
+                                      boxShadow: isSelected
+                                        ? "none"
+                                        : (peerHeld && !isSelected ? "0 0 0 2px rgba(255, 224, 130, 0.6), 0 4px 10px rgba(255, 152, 0, 0.45)" : "none")
                                     }}
                                   >
                                     {cell.label}
@@ -998,66 +1191,114 @@ const Booking = () => {
                                 );
                               }
                               
-                              // Nếu là placeholder (đường đi)
+                              // Nếu là ô trống, render nhưng ẩn đi (visibility: hidden) để giữ cấu trúc grid
                               return (
                                 <div
                                   key={idx}
                                   style={{
                                     width: isCouple ? `${doubleSeatSize}px` : `${seatSize}px`,
                                     height: `${seatSize}px`,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: `${fontSize}px`,
-                                    fontWeight: "bold",
-                                    borderRadius: `${Math.round(6 * zoomLevel)}px`,
-                                    transition: "all 0.2s",
-                                    border: "1px dashed rgba(255,255,255,0.2)",
-                                    background: "transparent",
-                                    cursor: "default",
-                                    color: "transparent",
+                                    visibility: "hidden",
                                     gridColumn: isCouple ? "span 2" : undefined,
                                   }}
-                                >
-                                  {placed ? cell.label : ""}
-                                </div>
+                                />
                               );
                             })}
                           </React.Fragment>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
+                    {seatSelectionError ? (
+                      <div className="alert alert-warning border-0 small mt-3 mb-0 d-flex align-items-start gap-2">
+                        <i className="fas fa-exclamation-triangle mt-1" />
+                        <span>{seatSelectionError}</span>
+                      </div>
+                    ) : null}
                   </>
                 )}
               </div>
 
-              <div className="card p-4 border-0 shadow-lg bg-white bg-opacity-10 rounded-5" style={{ backdropFilter: "blur(10px)" }}>
-                <h4 className="fw-black mb-2 tracking-tighter text-uppercase" style={{ color: '#000' }}>
+              <div className="card p-4 border-0 shadow-lg rounded-5" style={{ backdropFilter: "blur(10px)", background: 'rgba(20, 22, 50, 0.85)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <h4 className="fw-black mb-2 tracking-tighter text-uppercase" style={{ color: '#fff' }}>
                   <i className="fas fa-popcorn text-warning me-3" />
                   Bắp nước kèm vé
                 </h4>
                 {showtime?.cinemaName ? (
-                  <p className="small mb-3" style={{ color: '#000' }}>
+                  <p className="small mb-3" style={{ color: '#fff' }}>
                     Menu rạp <span className="text-warning fw-bold">{showtime.cinemaName}</span> — thanh toán chung PayOS với vé.
                   </p>
                 ) : null}
                 {snackMenuError ? <div className="alert alert-warning py-2 small border-0 mb-0">{snackMenuError}</div> : null}
                 {!snackMenuError && snackProducts.length === 0 && showtime?.cinemaId ? (
-                  <p className="small text-center py-3 mb-0" style={{ color: '#000' }}>Rạp chưa có món đang bán.</p>
+                  <p className="small text-center py-3 mb-0" style={{ color: '#fff' }}>Rạp chưa có món đang bán.</p>
                 ) : null}
                 {!snackMenuError && snackProducts.length > 0 ? (
                   <div className="d-flex flex-column gap-2" style={{ maxHeight: 320, overflowY: "auto" }}>
                     {snackProducts.map((p) => {
                       const q = snackCart[p.productId] || 0;
+                      const imageSrc = isDisplayableImageSrc(p.image) ? p.image : "";
                       return (
                         <div
                           key={p.productId}
-                          className="d-flex align-items-center gap-2 p-2 rounded-3"
+                          className="d-flex align-items-center gap-3 p-2 rounded-3"
                           style={{ background: "rgba(0,0,0,0.2)" }}
                         >
+                          <div
+                            className="flex-shrink-0 overflow-hidden"
+                            style={{
+                              width: 58,
+                              height: 58,
+                              borderRadius: 12,
+                              background: "rgba(255,255,255,0.08)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              position: "relative",
+                            }}
+                          >
+                            {imageSrc ? (
+                              <img
+                                src={imageSrc}
+                                alt={p.name}
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                  const fallback = e.currentTarget.nextElementSibling;
+                                  if (fallback) fallback.style.display = "flex";
+                                }}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : null}
+                            <div
+                              style={{
+                                display: imageSrc ? "none" : "flex",
+                                width: "100%",
+                                height: "100%",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "rgba(255,255,255,0.58)",
+                                fontSize: 22,
+                              }}
+                            >
+                              <i className="fas fa-utensils" />
+                            </div>
+                          </div>
                           <div className="flex-grow-1 min-width-0">
-                            <div className="fw-bold small text-truncate" style={{ color: '#000' }}>{p.name}</div>
-                            <div className="text-danger fw-bold small">{p.price.toLocaleString("vi-VN")} đ</div>
+                            <div className="fw-bold small text-truncate" style={{ color: '#fff' }}>{p.name}</div>
+                            <div
+                              className="small"
+                              title={p.description || "Chưa có mô tả"}
+                              style={{
+                                color: "rgba(255,255,255,0.62)",
+                                lineHeight: 1.35,
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                              }}
+                            >
+                              {p.description || "Chưa có mô tả"}
+                            </div>
+                            <div className="text-danger fw-bold small">{formatVnd(p.price)}</div>
                           </div>
                           <div className="d-flex align-items-center gap-1">
                             <button
@@ -1068,7 +1309,7 @@ const Booking = () => {
                             >
                               −
                             </button>
-                            <span className="fw-bold px-1" style={{ minWidth: 22, textAlign: "center", color: '#000' }}>
+                            <span className="fw-bold px-1" style={{ minWidth: 22, textAlign: "center", color: '#fff' }}>
                               {q}
                             </span>
                             <button type="button" className="btn btn-sm btn-outline-warning" onClick={() => addSnack(p.productId)}>
@@ -1085,53 +1326,221 @@ const Booking = () => {
 
             <div className="col-lg-4">
               <div
-                className="card p-4 border-0 shadow-lg rounded-5 bg-white bg-opacity-10 sticky-top"
-                style={{ top: 100, backdropFilter: "blur(20px)" }}
+                className="card p-4 border-0 shadow-lg rounded-4 sticky-top"
+                style={{
+                  top: 100,
+                  backdropFilter: "blur(20px)",
+                  background: "linear-gradient(180deg, rgba(22,24,44,0.96), rgba(13,15,28,0.96))",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                }}
               >
-                <h4 className="fw-black mb-4 text-uppercase tracking-tighter border-bottom border-white border-opacity-10 pb-3" style={{ color: '#000' }}>
-                  Hóa đơn
-                </h4>
+                <div className="d-flex align-items-start justify-content-between gap-3 mb-4">
+                  <div>
+                    <div className="small text-uppercase fw-bold mb-1" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: 0 }}>
+                      Hóa đơn
+                    </div>
+                    <h4 className="fw-black m-0" style={{ color: "#fff" }}>
+                      Tóm tắt đặt vé
+                    </h4>
+                  </div>
+                  <span
+                    className="badge rounded-pill px-3 py-2"
+                    style={{ background: "rgba(255,193,7,0.16)", color: "#ffd166", border: "1px solid rgba(255,193,7,0.28)" }}
+                  >
+                    {selectedSeatIds.length} ghế
+                  </span>
+                </div>
 
-                <div className="bg-white bg-opacity-5 p-3 rounded-4 mb-4">
-                  <div className="d-flex justify-content-between mb-2">
-                    <span className="small fw-bold" style={{ color: '#000' }}>PHIM</span>
-                    <span className="fw-bold text-end small" style={{ color: '#000' }}>{showtime.movieTitle}</span>
-                  </div>
-                  <div className="d-flex justify-content-between mb-2 small">
-                    <span className="small fw-bold" style={{ color: '#000' }}>SUẤT</span>
-                    <span className="text-end" style={{ color: '#000' }}>
-                      {showtime.date} {showtime.time}
-                    </span>
-                  </div>
-                  <div className="d-flex justify-content-between mb-2 border-top border-white border-opacity-5 pt-2">
-                    <span className="small fw-bold" style={{ color: '#000' }}>GHẾ ({selectedSeatIds.length})</span>
-                    <div className="text-end">
-                      <div className="fw-bold small" style={{ color: '#000' }}>{selectedLabels.length ? selectedLabels.join(", ") : "—"}</div>
+                <div className="d-flex flex-column gap-3 mb-4">
+                  <section className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                    <div className="small fw-bold text-uppercase mb-1" style={{ color: "rgba(255,255,255,0.58)", letterSpacing: 0 }}>
+                      Phim
                     </div>
-                  </div>
-                  {selectedSeatIds.map((id) => {
-                    const s = seatById.get(id);
-                    if (!s) return null;
-                    return (
-                      <div key={id} className="d-flex justify-content-between small mb-1">
-                        <span style={{ color: '#000' }}>
-                          {s.row}
-                          {s.number} ({s.seatTypeName || "Ghế"})
-                        </span>
-                        <span className="fw-bold" style={{ color: '#000' }}>{seatPrice(s).toLocaleString("vi-VN")} đ</span>
+                    <div className="fw-bold lh-sm" style={{ color: "#fff" }}>
+                      {showtime.movieTitle}
+                    </div>
+                    <div className="row g-2 mt-3">
+                      <div className="col-6">
+                        <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Ngày</div>
+                        <div className="fw-bold small" style={{ color: "#fff" }}>{showtime.date}</div>
                       </div>
-                    );
-                  })}
-                  {snackTotal > 0 ? (
-                    <div className="d-flex justify-content-between small mb-1 mt-2 pt-2 border-top border-white border-opacity-10">
-                      <span className="fw-bold" style={{ color: '#000' }}>BẮP NƯỚC</span>
-                      <span className="fw-bold" style={{ color: '#000' }}>{snackTotal.toLocaleString("vi-VN")} đ</span>
+                      <div className="col-6">
+                        <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Giờ</div>
+                        <div className="fw-bold small" style={{ color: "#fff" }}>{showtime.time}</div>
+                      </div>
+                      <div className="col-6">
+                        <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Phòng</div>
+                        <div className="fw-bold small text-truncate" style={{ color: "#fff" }}>{showtime.roomName || "—"}</div>
+                      </div>
+                      <div className="col-6">
+                        <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Rạp</div>
+                        <div className="fw-bold small text-truncate" style={{ color: "#fff" }}>{showtime.cinemaName || "—"}</div>
+                      </div>
                     </div>
+                  </section>
+
+                  <section className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                    <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
+                      <div className="fw-bold" style={{ color: "#fff" }}>
+                        Ghế đã chọn
+                      </div>
+                      <span className="small fw-bold" style={{ color: selectedSeatIds.length ? "#9fe6b8" : "rgba(255,255,255,0.5)" }}>
+                        {selectedSeatIds.length ? `${selectedSeatIds.length} vé` : "Chưa chọn"}
+                      </span>
+                    </div>
+
+                    {selectedSeatSummaries.length ? (
+                      <div>
+                        <div className="d-flex flex-wrap gap-2">
+                          {selectedSeatSummaries.map((seat) => (
+                            <span
+                              key={seat.id}
+                              className="badge rounded-pill px-3 py-2"
+                              title={`${seat.typeName} - ${formatVnd(seat.displayPrice)}`}
+                              style={{
+                                background: "rgba(13,110,253,0.16)",
+                                color: "#d8e9ff",
+                                border: "1px solid rgba(13,110,253,0.22)",
+                              }}
+                            >
+                              {seat.label}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="d-flex flex-column gap-1 mt-3">
+                          {selectedSeatTypeGroups.map((group) => (
+                            <div key={group.typeName} className="d-flex justify-content-between small">
+                              <span style={{ color: "rgba(255,255,255,0.72)" }}>
+                                {group.typeName} x{group.count}
+                              </span>
+                              <span className="fw-bold" style={{ color: "#fff" }}>
+                                {formatVnd(group.total)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="small rounded-3 p-3 text-center" style={{ color: "rgba(255,255,255,0.58)", background: "rgba(0,0,0,0.22)" }}>
+                        Chọn ghế trên sơ đồ để xem giá vé.
+                      </div>
+                    )}
+
+                    {selectedSeatSummaries.length ? (
+                      <div className="mt-3 pt-3 border-top border-white border-opacity-10">
+                        <div className="d-flex justify-content-between small mb-2" style={{ color: "rgba(255,255,255,0.68)" }}>
+                          <span>Giá ghế</span>
+                          <span className="fw-bold">{formatVnd(seatOriginalTotal || ticketSummaryTotal)}</span>
+                        </div>
+                        {hasTicketPromotion ? (
+                          <div className="d-flex justify-content-between small mb-2" style={{ color: "#8ee6a8" }}>
+                            <span>Khuyến mãi phim</span>
+                            <span className="fw-bold">-{formatVnd(moviePromotionTotal)}</span>
+                          </div>
+                        ) : null}
+                        {hasMembershipDiscount ? (
+                          <div className="d-flex justify-content-between small mb-2" style={{ color: "#8ee6a8" }}>
+                            <span>{quote?.rankName || "Ưu đãi thành viên"}</span>
+                            <span className="fw-bold">-{formatVnd(membershipDiscountTotal)}</span>
+                          </div>
+                        ) : null}
+                        <div className="d-flex justify-content-between align-items-center pt-2 border-top border-white border-opacity-10">
+                          <span className="small fw-bold" style={{ color: "#fff" }}>Tổng ghế</span>
+                          <span className="fw-black" style={{ color: "#fff" }}>{formatVnd(ticketSummaryTotal)}</span>
+                        </div>
+                      </div>
+                    ) : null}
+                  </section>
+
+                  {selectedSnackLines.length ? (
+                    <section className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <div className="fw-bold" style={{ color: "#fff" }}>Bắp nước</div>
+                        <div className="fw-bold small" style={{ color: "#fff" }}>{formatVnd(snackSummaryTotal)}</div>
+                      </div>
+                      <div className="d-flex flex-column gap-2">
+                        {selectedSnackLines.map((item) => (
+                          <div key={item.productId} className="d-flex justify-content-between gap-2 small">
+                            <span className="text-truncate" style={{ color: "rgba(255,255,255,0.78)" }}>
+                              {item.name} x{item.quantity}
+                            </span>
+                            <span className="fw-bold flex-shrink-0" style={{ color: "#fff" }}>
+                              {formatVnd(item.lineTotal)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                   ) : null}
-                  <div className="d-flex justify-content-between align-items-center mt-3 border-top border-white border-opacity-10 pt-3">
-                    <span className="small fw-bold" style={{ color: '#000' }}>TỔNG</span>
-                    <h3 className="text-danger fw-black m-0">{grandTotal.toLocaleString("vi-VN")} đ</h3>
-                  </div>
+
+                  <section className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                    <div className="d-flex align-items-center justify-content-between gap-2 mb-2">
+                      <div className="fw-bold" style={{ color: "#fff" }}>
+                        <i className="fas fa-ticket-alt me-2 text-success" /> Voucher
+                      </div>
+                      {selectedVoucher && voucherDiscount > 0 ? (
+                        <span className="small fw-bold" style={{ color: "#9fe6b8" }}>
+                          -{formatVnd(voucherDiscount)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {getAccessToken() ? (
+                      voucherLoading ? (
+                        <div className="small" style={{ color: "rgba(255,255,255,0.55)" }}>Đang tải voucher...</div>
+                      ) : userVouchers.length === 0 ? (
+                        <div className="small" style={{ color: "rgba(255,255,255,0.55)" }}>Bạn chưa có voucher khả dụng</div>
+                      ) : (
+                        <select
+                          className="form-select form-select-sm"
+                          value={selectedVoucherId || ""}
+                          onChange={(e) => setSelectedVoucherId(e.target.value ? Number(e.target.value) : null)}
+                          style={{ fontSize: "0.85rem" }}
+                        >
+                          <option value="">Không dùng voucher</option>
+                          {userVouchers.map((v) => (
+                            <option key={v.userVoucherId} value={v.userVoucherId}>
+                              {v.voucher?.code || "Voucher"} - {v.voucher?.discountType === "PERCENT" || v.voucher?.discountType === "%"
+                                ? `Giảm ${v.voucher?.value}%`
+                                : `Giảm ${formatVnd(v.voucher?.value)}`}
+                              {v.voucher?.minOrderValue > 0 && `, đơn từ ${formatVnd(v.voucher.minOrderValue)}`}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    ) : (
+                      <div className="small">
+                        <Link to="/login" state={{ from: `/booking/${showtimeId}` }} style={{ color: "#ffd166" }}>
+                          Đăng nhập để dùng voucher
+                        </Link>
+                      </div>
+                    )}
+                    {selectedVoucher && voucherDiscount === 0 ? (
+                      <div className="small mt-2" style={{ color: "#ffd166" }}>
+                        Voucher cần đơn từ {formatVnd(selectedVoucher.voucher?.minOrderValue)}
+                      </div>
+                    ) : null}
+                  </section>
+
+                  <section className="p-3 rounded-4" style={{ background: "rgba(0,0,0,0.28)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="d-flex justify-content-between small mb-2" style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <span>Tạm tính sau giảm ghế</span>
+                      <span className="fw-bold">{formatVnd(summarySubtotal)}</span>
+                    </div>
+                    {voucherDiscount > 0 ? (
+                      <div className="d-flex justify-content-between small mb-2" style={{ color: "#8ee6a8" }}>
+                        <span>Giảm voucher</span>
+                        <span className="fw-bold">-{formatVnd(voucherDiscount)}</span>
+                      </div>
+                    ) : null}
+                    <div className="d-flex justify-content-between align-items-end gap-3 pt-3 border-top border-white border-opacity-10">
+                      <span className="small fw-bold text-uppercase" style={{ color: "rgba(255,255,255,0.72)", letterSpacing: 0 }}>
+                        Cần thanh toán
+                      </span>
+                      <h3 className="fw-black m-0 text-end" style={{ color: "#ff4d6d" }}>
+                        {quoteLoading ? "Đang tính..." : formatVnd(grandTotal)}
+                      </h3>
+                    </div>
+                  </section>
                 </div>
 
                 {payError ? <div className="alert alert-warning small py-2 mb-3 border-0">{payError}</div> : null}
@@ -1144,16 +1553,20 @@ const Booking = () => {
                   {paying ? (
                     <>
                       <Spinner animation="border" size="sm" className="me-2" />
-                      ĐANG TẠO LINK…
+                      Đang tạo link...
                     </>
+                  ) : showEnded ? (
+                    "Suất chiếu đã kết thúc"
+                  ) : selectedSeatIds.length === 0 ? (
+                    "Chọn ghế để tiếp tục"
                   ) : (
                     <>
-                      THANH TOÁN PAYOS <i className="fas fa-magic ms-2" />
+                      Thanh toán PayOS <i className="fas fa-qrcode ms-2" />
                     </>
                   )}
                 </button>
                 <p className="small text-white-50 text-center mt-2 mb-0">
-                  Đăng nhập khách hàng. Vé + bắp nước (nếu có) cùng một giao dịch PayOS; webhook kích hoạt vé &amp; đơn đồ ăn.
+                  Vé và bắp nước được thanh toán chung trong một giao dịch.
                 </p>
               </div>
             </div>

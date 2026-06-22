@@ -6,8 +6,13 @@ export const API_V1 = "/api/v1";
 
 export const AUTH = {
   LOGIN: `${API_V1}/auth/login`,
+  STAFF_LOGIN: `${API_V1}/auth/staff-login`,
   REGISTER: `${API_V1}/auth/register`,
   REFRESH: `${API_V1}/auth/refresh`,
+  FORGOT_PASSWORD: `${API_V1}/auth/forgot-password`,
+  FORGOT_PASSWORD_VERIFY_OTP: `${API_V1}/auth/forgot-password/verify-otp`,
+  FORGOT_PASSWORD_RESEND_OTP: `${API_V1}/auth/forgot-password/resend-otp`,
+  RESET_PASSWORD: `${API_V1}/auth/reset-password`,
 };
 
 export const USERS = {
@@ -50,6 +55,7 @@ export const MOVIES = {
   LIST: `${API_V1}/movies`,
   BY_ID: (id) => `${API_V1}/movies/${id}`,
   DELETE: (id) => `${API_V1}/movies/${id}`,
+  REVIEWS: (id) => `${API_V1}/movies/${id}/reviews`,
   /** GET — danh sách URL ảnh banner (phim đang chiếu, ưu tiên doanh thu vé) */
   HOME_BANNERS: `${API_V1}/movies/home-banners`,
 };
@@ -91,6 +97,8 @@ export const SHIFTS = {
   BY_ID: (id) => `${API_V1}/shifts/${id}`,
   /** GET — JWT bắt buộc; chỉ nhân viên (staff), trả ca của chính mình */
   ME: `${API_V1}/shifts/me`,
+  /** GET — ca làm việc hiện tại của nhân viên */
+  ACTIVE: `${API_V1}/shifts/active`,
 };
 
 export const PAYOS = {
@@ -100,14 +108,25 @@ export const PAYOS = {
 
 /** Đặt vé online — JWT khách (ROLE_USER), tạo đơn + link PayOS */
 export const TICKET_ORDERS = {
+  QUOTE: `${API_V1}/ticket-orders/quote`,
   CHECKOUT: `${API_V1}/ticket-orders/checkout`,
+  CONFIRM_PAYOS: `${API_V1}/ticket-orders/confirm-payos`,
   CANCEL_PENDING: `${API_V1}/ticket-orders/cancel-pending`,
 };
 
 /** Đặt bắp nước riêng — JWT khách, PayOS */
 export const FOOD_ORDERS = {
   CHECKOUT: `${API_V1}/food-orders/checkout`,
+  CONFIRM_PAYOS: `${API_V1}/food-orders/confirm-payos`,
   CANCEL_PENDING: `${API_V1}/food-orders/cancel-pending`,
+};
+
+/** Đặt vé & bắp nước tại quầy (POS) — JWT nhân viên (STAFF/ADMIN) */
+export const COUNTER_ORDERS = {
+  CHECKOUT: `${API_V1}/counter-orders/checkout`,
+  CHECK_STATUS: (orderCode) => `${API_V1}/counter-orders/${orderCode}/status`,
+  CONFIRM_PAID: (orderCode) => `${API_V1}/counter-orders/${orderCode}/confirm-paid`,
+  CANCEL: (orderCode) => `${API_V1}/counter-orders/${orderCode}/cancel`,
 };
 
 export const VOUCHERS = {
@@ -124,6 +143,7 @@ export const NEWS = {
 export const MEMBERSHIP_RANKS = {
   LIST: `${API_V1}/membership-ranks`,
   BY_ID: (id) => `${API_V1}/membership-ranks/${id}`,
+  DELETE: (id) => `${API_V1}/membership-ranks/${id}`,
 };
 
 export const PRODUCT_CATEGORIES = {
@@ -139,7 +159,13 @@ export const PRODUCTS = {
 export const SUPER_ADMIN_DASHBOARD = {
   SUMMARY: `${API_V1}/super-admin/dashboard/summary`,
   REVENUE_CHART: (year) => `${API_V1}/super-admin/dashboard/revenue-chart${year ? `?year=${year}` : ""}`,
-  CINEMA_RANKING: `${API_V1}/super-admin/dashboard/cinema-ranking`,
+  CINEMA_RANKING: (year, month) => {
+    const q = new URLSearchParams();
+    if (year) q.set("year", String(year));
+    if (month) q.set("month", String(month));
+    const qs = q.toString();
+    return `${API_V1}/super-admin/dashboard/cinema-ranking${qs ? `?${qs}` : ""}`;
+  },
   CINEMA_DETAIL: (id) => `${API_V1}/super-admin/dashboard/cinema-detail/${id}`,
 };
 
@@ -153,7 +179,16 @@ export const ME = {
   TRANSACTIONS: `${API_V1}/me/transactions`,
   FAVORITES: `${API_V1}/me/favorites`,
   FAVORITE_BY_MOVIE: (movieId) => `${API_V1}/me/favorites/${movieId}`,
+  REVIEW_BY_MOVIE: (movieId) => `${API_V1}/me/movie-reviews/${movieId}`,
   VOUCHERS: `${API_V1}/me/vouchers`,
   REDEEM_VOUCHER: `${API_V1}/me/vouchers/redeem`,
   POINTS_HISTORY: `${API_V1}/me/points-history`,
+};
+
+export const STAFF_DASHBOARD = {
+  STATS: `${API_V1}/staff/dashboard-stats`,
+  RECENT_ORDERS: `${API_V1}/staff/dashboard-stats/recent-orders`,
+  ORDER_DETAIL: (orderCode) => `${API_V1}/staff/dashboard-stats/orders/${orderCode}`,
+  PRODUCTS_BREAKDOWN: `${API_V1}/staff/dashboard-stats/products-breakdown`,
+  REVENUE_BREAKDOWN: `${API_V1}/staff/dashboard-stats/revenue-breakdown`,
 };

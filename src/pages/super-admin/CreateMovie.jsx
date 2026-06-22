@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
+import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
 import { MOVIES, GENRES } from '../../constants/apiEndpoints';
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
+import { useAdminToast } from '../../components/admin/AdminToast';
+import { fileToDataUrl, IMAGE_FILE_ACCEPT } from '../../utils/mediaFiles';
+import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 
 const FAMOUS_NATIONS = [
   { value: 'Việt Nam', label: 'Việt Nam' },
@@ -33,6 +29,7 @@ const CreateMovie = () => {
   const editData = location.state?.editData;
   const posterInputRef = useRef(null);
   const bannerInputRef = useRef(null);
+  const { showToast, ToastComponent } = useAdminToast();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -57,6 +54,7 @@ const CreateMovie = () => {
   const [genreOptions, setGenreOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [originalDate, setOriginalDate] = useState('');
+  const [originalData, setOriginalData] = useState(null);
 
   useEffect(() => {
     fetchGenres();
@@ -88,6 +86,7 @@ const CreateMovie = () => {
         const gid = genreOptions.find((g) => g.name === m.genre)?.genreId;
         const rd = m.releaseDate ? String(m.releaseDate).slice(0, 10) : "";
         setOriginalDate(rd);
+        setOriginalData({ ...m, genreId: gid });
         
         setFormData({
           title: m.title || "",
@@ -100,7 +99,7 @@ const CreateMovie = () => {
           release_date: rd,
           age_limit: m.ageLimit != null ? String(m.ageLimit) : "",
           base_price: m.basePrice != null ? String(m.basePrice) : "",
-          status: m.status === 1 ? "Active" : (m.status === 2 ? "Upcoming" : "Inactive"),
+          status: codeToAdminStatus(m.status, { allowUpcoming: true }),
           poster: null,
           banner: null,
         });
@@ -133,7 +132,7 @@ const CreateMovie = () => {
         setFormData(prev => ({ ...prev, status: 'Active' }));
       }
     }
-  }, [formData.release_date]);
+  }, [formData.release_date, formData.status]);
 
   const validateForm = () => {
     let newErrors = {};
@@ -146,7 +145,11 @@ const CreateMovie = () => {
     } else if (parseInt(formData.duration, 10) <= 0) {
       newErrors.duration = 'Thời lượng phải là số dương';
     }
-    if (!formData.genre_id) newErrors.genre_id = 'Vui lòng chọn thể loại';
+    if (!formData.genre_id) {
+      newErrors.genre_id = genreOptions.length === 0
+        ? 'Chưa có thể loại phim. Hệ thống sẽ tạo thể loại mặc định sau khi chạy lại Docker.'
+        : 'Vui lòng chọn thể loại';
+    }
     
     if (!formData.release_date) {
       newErrors.release_date = 'Ngày khởi chiếu không được để trống';
@@ -231,7 +234,7 @@ const CreateMovie = () => {
         ageLimit: Number(formData.age_limit),
         releaseDate: formData.release_date,
         poster: posterBase64,
-        status: formData.status === "Active" ? 1 : (formData.status === "Upcoming" ? 2 : 0),
+        status: adminStatusToCode(formData.status, { allowUpcoming: true }),
         basePrice: Number(formData.base_price),
         author: formData.author?.trim() || null,
         nation: formData.nation?.trim() || null,
@@ -240,25 +243,71 @@ const CreateMovie = () => {
       };
 
       const movieId = editData?.id ?? editData?.movie_id;
+      let payload = body;
+
+      if (movieId && originalData) {
+        payload = {};
+        
+        if (body.genreId !== originalData.genreId) payload.genreId = body.genreId;
+        if (body.title !== originalData.title) payload.title = body.title;
+        if (body.description !== originalData.description) payload.description = body.description;
+        if (body.duration !== originalData.duration) payload.duration = body.duration;
+        if (body.ageLimit !== originalData.ageLimit) payload.ageLimit = body.ageLimit;
+        if (body.releaseDate !== (originalData.releaseDate ? String(originalData.releaseDate).slice(0, 10) : null)) payload.releaseDate = body.releaseDate;
+        if (body.poster !== originalData.posterUrl) payload.poster = body.poster;
+        if (body.status !== originalData.status) payload.status = body.status;
+        if (body.basePrice !== originalData.basePrice) payload.basePrice = body.basePrice;
+        if (body.author !== originalData.author) payload.author = body.author;
+        if (body.nation !== originalData.nation) payload.nation = body.nation;
+        if (body.content !== originalData.content) payload.content = body.content;
+        if (body.banner !== originalData.banner) payload.banner = body.banner;
+
+        if (Object.keys(payload).length === 0) {
+          showToast(MESSAGES.noChanges, 'warning');
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        payload = {};
+        if (body.genreId != null) payload.genreId = body.genreId;
+        if (body.title != null && body.title.trim() !== "") payload.title = body.title;
+        if (body.description != null && body.description.trim() !== "") payload.description = body.description;
+        if (body.duration != null) payload.duration = body.duration;
+        if (body.ageLimit != null) payload.ageLimit = body.ageLimit;
+        if (body.releaseDate != null) payload.releaseDate = body.releaseDate;
+        if (body.poster != null) payload.poster = body.poster;
+        if (body.status != null) payload.status = body.status;
+        if (body.basePrice != null) payload.basePrice = body.basePrice;
+        if (body.author != null && body.author.trim() !== "") payload.author = body.author;
+        if (body.nation != null && body.nation.trim() !== "") payload.nation = body.nation;
+        if (body.content != null && body.content.trim() !== "") payload.content = body.content;
+        if (body.banner != null) payload.banner = body.banner;
+      }
+
       const url = movieId ? MOVIES.BY_ID(movieId) : MOVIES.LIST;
       const res = await apiFetch(url, {
         method: movieId ? "PUT" : "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
+        const json = await res.json().catch(() => null);
+        const message = apiMessage(json, editData ? 'Cập nhật phim thành công' : 'Thêm phim mới thành công');
+        const messageType = resultToastType(message);
+        
         navigate("/super-admin/movies", { 
           state: { 
-            message: editData ? 'Cập nhật phim thành công!' : 'Thêm phim mới thành công!',
-            type: 'success'
+            message: message,
+            type: messageType
           } 
         });
       } else {
         const json = await res.json().catch(() => null);
-        alert(json?.message || "Lưu phim thất bại");
+        const errorMessage = apiMessage(json, "Lưu phim thất bại");
+        showToast(errorMessage, 'danger');
       }
-    } catch (error) {
-      alert("Lỗi kết nối máy chủ");
+    } catch {
+      showToast(MESSAGES.networkError, 'danger');
     } finally {
       setSubmitting(false);
     }
@@ -267,11 +316,15 @@ const CreateMovie = () => {
   if (loading) return <AdminPanelPage title="Đang tải..."><div className="text-center py-5"><div className="spinner-border text-primary"></div></div></AdminPanelPage>;
 
   return (
-    <AdminPanelPage
-      icon={editData ? "bi-film" : "bi-plus-circle-dotted"}
-      title={editData ? "Cập nhật phim" : "Thêm phim mới"}
-      description="Quản lý thông tin phim, poster, banner và nội dung chi tiết trên hệ thống."
-    >
+    <>
+      <ToastComponent />
+      <AdminPanelPage
+        icon={editData ? "bi-film" : "bi-plus-circle-dotted"}
+        title={editData ? "Cập nhật phim" : "Thêm phim mới"}
+        description="Quản lý thông tin phim, poster, banner và nội dung chi tiết trên hệ thống."
+        headerRight={<AdminFormListBack to="/super-admin/movies" />}
+      >
+        <div className="admin-form-page-wrap admin-form-compact">
       <form onSubmit={handleSubmit} noValidate>
         <div className="row g-4">
           <div className="col-12">
@@ -297,7 +350,7 @@ const CreateMovie = () => {
                         </div>
                       )}
                     </div>
-                    <input type="file" ref={posterInputRef} hidden accept="image/*" name="poster" onChange={handleFileChange} />
+                    <input type="file" ref={posterInputRef} hidden accept={IMAGE_FILE_ACCEPT} name="poster" onChange={handleFileChange} />
                     {errors.poster && <div className="text-danger small fw-bold">{errors.poster}</div>}
                   </div>
                   <div className="col-md-8 text-center">
@@ -316,7 +369,7 @@ const CreateMovie = () => {
                         </div>
                       )}
                     </div>
-                    <input type="file" ref={bannerInputRef} hidden accept="image/*" name="banner" onChange={handleFileChange} />
+                    <input type="file" ref={bannerInputRef} hidden accept={IMAGE_FILE_ACCEPT} name="banner" onChange={handleFileChange} />
                     <p className="text-muted small mb-0 mt-2">Tỉ lệ 16:9 giúp banner hiển thị tốt nhất trên màn hình lớn.</p>
                   </div>
                 </div>
@@ -433,8 +486,7 @@ const CreateMovie = () => {
           </div>
 
           <div className="col-12 mt-2">
-            <div className="d-flex justify-content-center gap-3">
-              <button type="button" className="admin-btn admin-btn-outline" onClick={() => navigate('/super-admin/movies')}>Hủy bỏ</button>
+            <div className="d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '220px' }} disabled={submitting}>
                 {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
                 {editData ? 'Cập nhật phim' : 'Lưu phim mới'}
@@ -443,7 +495,9 @@ const CreateMovie = () => {
           </div>
         </div>
       </form>
+      </div>
     </AdminPanelPage>
+    </>
   );
 };
 

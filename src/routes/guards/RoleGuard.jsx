@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { getAccessToken, getStoredStaff } from "../../utils/authStorage";
+import { getAuthSession } from "../../utils/authStorage";
 
 /** Chuẩn hóa role từ BE (ROLE_ADMIN, Admin, ...) → ADMIN */
 function normalizeStaffRole(staff) {
@@ -16,16 +16,16 @@ function normalizeStaffRole(staff) {
  * Phải khớp với logic điều hướng trong `Login.jsx`.
  */
 const RoleGuard = ({ children, allowedRoles }) => {
-  const token = getAccessToken();
-  const staff = getStoredStaff();
+  const authSession = getAuthSession();
+  const staff = authSession.staff;
   const role = normalizeStaffRole(staff);
 
-  if (!token || !staff || !role) {
-    return <Navigate to="/login" replace />;
+  if (!authSession.isAuthenticated || !staff || !role) {
+    return <Navigate to="/staff/login" replace />;
   }
 
   if (!allowedRoles.includes(role)) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/staff/login" replace />;
   }
 
   return children;

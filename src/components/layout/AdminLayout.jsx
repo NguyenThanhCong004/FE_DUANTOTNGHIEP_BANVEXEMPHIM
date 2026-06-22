@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Armchair,
-  Bell,
   CalendarClock,
   DoorOpen,
   Film,
@@ -63,6 +62,7 @@ const sectionsRest = [
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const staff = getStoredStaff();
   const {
     selectedCinemaId,
@@ -84,7 +84,7 @@ export default function AdminLayout() {
 
   const handleLogout = () => {
     clearAuthSession();
-    navigate("/login");
+    navigate("/staff/login");
   };
 
   const renderNavSection = (section) => {
@@ -110,6 +110,8 @@ export default function AdminLayout() {
                   to={item.path}
                   end={Boolean(item.end)}
                   locked={locked}
+                  currentPath={location.pathname}
+                  onNavigate={navigate}
                 >
                   <Icon size={17} />
                   <span>{item.label}</span>
@@ -128,6 +130,8 @@ export default function AdminLayout() {
                   to={item.path}
                   end={Boolean(item.end)}
                   locked={false}
+                  currentPath={location.pathname}
+                  onNavigate={navigate}
                 >
                   <Icon size={17} />
                   <span>{item.label}</span>
@@ -146,7 +150,7 @@ export default function AdminLayout() {
         <div className="app-shell-brand">
           <div className="app-shell-brand-dot" />
           <div>
-            <div className="app-shell-brand-title">CINETOON</div>
+            <div className="app-shell-brand-title">ERROR404</div>
             <div className="app-shell-brand-sub">Quản trị rạp</div>
           </div>
         </div>
@@ -158,11 +162,6 @@ export default function AdminLayout() {
           {sectionsCinema.map(renderNavSection)}
           {sectionsRest.map(renderNavSection)}
         </nav>
-
-        <button type="button" className="app-shell-logout-btn" onClick={handleLogout}>
-          <LogOut size={16} />
-          <span>Đăng xuất</span>
-        </button>
       </aside>
 
       <main className="app-shell-main">
@@ -172,9 +171,6 @@ export default function AdminLayout() {
           </div>
 
           <div className="app-shell-header-actions">
-            <button className="app-shell-icon-btn" type="button" aria-label="Thông báo">
-              <Bell size={16} />
-            </button>
             <div className="app-shell-cinema-chip" title="Rạp hiện tại">
               <span>
                 {cinemaReady
@@ -196,6 +192,14 @@ export default function AdminLayout() {
                 </div>
               </div>
             </NavLink>
+            <button
+              type="button"
+              className="app-shell-logout-btn app-shell-logout-btn--header"
+              onClick={handleLogout}
+            >
+              <LogOut size={16} />
+              <span>Đăng xuất</span>
+            </button>
           </div>
         </header>
 
@@ -207,7 +211,12 @@ export default function AdminLayout() {
   );
 }
 
-function LinkOrSpan({ to, end, locked, children }) {
+function isActivePath(currentPath, to, end) {
+  if (end) return currentPath === to;
+  return currentPath === to || currentPath.startsWith(`${to}/`);
+}
+
+function LinkOrSpan({ to, end, locked, currentPath, onNavigate, children }) {
   if (locked) {
     return (
       <span
@@ -219,15 +228,14 @@ function LinkOrSpan({ to, end, locked, children }) {
       </span>
     );
   }
+  const active = isActivePath(currentPath, to, Boolean(end));
   return (
-    <NavLink
-      to={to}
-      end={Boolean(end)}
-      className={({ isActive }) =>
-        `app-shell-nav-link ${isActive ? "active" : ""}`
-      }
+    <button
+      type="button"
+      className={`app-shell-nav-link ${active ? "active" : ""}`}
+      onClick={() => onNavigate(to)}
     >
       {children}
-    </NavLink>
+    </button>
   );
 }

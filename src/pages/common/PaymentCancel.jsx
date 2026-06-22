@@ -58,7 +58,7 @@ const PaymentCancel = () => {
         const body = await res.json().catch(() => null);
         if (alive) {
           if (res.ok) {
-            setCancelNote("Đã hủy đơn chờ — ghế được trả lại để bán.");
+            setCancelNote(body?.message || "Đã hủy đơn chờ — ghế được trả lại để bán.");
           } else if (res.status === 404) {
             setCancelNote(body?.message || "Đơn không còn (có thể đã thanh toán hoặc đã hủy trước đó).");
           } else {

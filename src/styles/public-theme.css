@@ -1,33 +1,250 @@
 /**
- * Theme giao diện khách / trang công khai — CHỈ áp dụng khi html.cinetoon-public
- * (xem RouteThemeSync + index.html). Không đè lên admin-panel.
- * Font: design-tokens.css (không @import trùng).
- * Không style .navbar / .nav-link toàn cục — tránh đè Navbar/Footer (site-chrome.css).
+ * Public/customer interface theme — ONLY applies when html.cinetoon-public
+ * (see RouteThemeSync + index.html). Does not override admin-panel.
+ * Font: design-tokens.css (no duplicate @import).
+ * Do not style .navbar / .nav-link globally — avoid overriding Navbar/Footer (site-chrome.css).
  */
 
 html.cinetoon-public {
-  /* Đồng bộ với Navbar (Tailwind zinc-950 + rose): thanh điều hướng cố định */
-  --primary-gradient: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
-  --secondary-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
+  /* Public/customer pages share the same dark cinema surface as Movies.jsx. */
+  --user-purple: #7b1fa2;
+  --user-pink: #e91e8c;
+  --user-yellow: #d4e219;
+  --user-dark: #0f102a;
+  --user-card: rgba(20, 22, 50, 0.92);
+  --user-card-soft: rgba(255, 255, 255, 0.045);
+  --user-border: rgba(255, 255, 255, 0.085);
+  --user-text: #ffffff;
+  --user-muted: rgba(255, 255, 255, 0.72);
+  --user-page-bg:
+    radial-gradient(ellipse 65% 50% at 15% 20%, rgba(123, 31, 162, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 80%, rgba(233, 30, 140, 0.13) 0%, transparent 60%),
+    #0f102a;
+  --user-accent-gradient: linear-gradient(135deg, var(--user-purple), var(--user-pink));
+  --user-strip-gradient: linear-gradient(90deg, var(--user-purple), var(--user-pink), var(--user-yellow));
+  --user-container-max: 80rem;
+  --user-page-pad-y: clamp(28px, 4vw, 40px);
+  --user-page-pad-bottom: clamp(60px, 7vw, 84px);
+  --user-section-gap: clamp(28px, 4vw, 42px);
+  --user-title-size: clamp(30px, 4.8vw, 44px);
+  --user-section-title-size: clamp(22px, 3.4vw, 32px);
+  --user-card-radius: 12px;
+  --user-control-radius: 10px;
+  --user-control-height: 42px;
+  --user-control-font: 13px;
+  --user-card-padding: clamp(18px, 2.3vw, 24px);
+  --primary-gradient: var(--user-accent-gradient);
+  --secondary-gradient: linear-gradient(135deg, #f472b6 0%, #e91e8c 100%);
   --bg-gradient:
-    radial-gradient(ellipse 85% 45% at 50% -20%, rgba(244, 63, 94, 0.12) 0%, transparent 55%),
-    linear-gradient(180deg, #09090b 0%, #18181b 45%, #09090b 100%);
+    radial-gradient(ellipse 65% 50% at 15% 20%, rgba(123, 31, 162, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 80%, rgba(233, 30, 140, 0.13) 0%, transparent 60%),
+    #0f102a;
   --toon-shadow: 0 8px 0 rgba(0, 0, 0, 0.25);
+  --customer-page-top-gap: 0px;
+  color-scheme: dark;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 226, 25, 0.62) rgba(255, 255, 255, 0.055);
 }
 
+html.cinetoon-public,
 html.cinetoon-public body {
-  font-family: var(--font-ui);
   background: var(--bg-gradient);
   background-attachment: fixed;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--user-text);
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Scrollbar đồng bộ cho trang khách/user */
+html.cinetoon-public::-webkit-scrollbar,
+html.cinetoon-public *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html.cinetoon-public::-webkit-scrollbar-track,
+html.cinetoon-public *::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.045);
+  border-radius: 999px;
+}
+
+html.cinetoon-public::-webkit-scrollbar-thumb,
+html.cinetoon-public *::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(180deg, rgba(123, 31, 162, 0.95), rgba(233, 30, 140, 0.92) 58%, rgba(212, 226, 25, 0.9));
+  border: 2px solid #0f102a;
+  border-radius: 999px;
+  min-height: 44px;
+}
+
+html.cinetoon-public::-webkit-scrollbar-thumb:hover,
+html.cinetoon-public *::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(180deg, #8f2fc0, #f03c9d 58%, #e7f43a);
+}
+
+html.cinetoon-public::-webkit-scrollbar-corner,
+html.cinetoon-public *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html.cinetoon-public .pf-tabs,
+html.cinetoon-public .mv-toggle,
+html.cinetoon-public .fd-cats,
+html.cinetoon-public .md-date-row,
+html.cinetoon-public .fd-cart-scroll,
+html.cinetoon-public .th-modal,
+html.cinetoon-public .fav-modal,
+html.cinetoon-public .modal-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 226, 25, 0.64) rgba(255, 255, 255, 0.045);
+}
+
+html.cinetoon-public .pf-tabs::-webkit-scrollbar,
+html.cinetoon-public .mv-toggle::-webkit-scrollbar,
+html.cinetoon-public .fd-cats::-webkit-scrollbar,
+html.cinetoon-public .md-date-row::-webkit-scrollbar,
+html.cinetoon-public .fd-cart-scroll::-webkit-scrollbar,
+html.cinetoon-public .th-modal::-webkit-scrollbar,
+html.cinetoon-public .fav-modal::-webkit-scrollbar,
+html.cinetoon-public .modal-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+html.cinetoon-public .pf-tabs::-webkit-scrollbar-thumb,
+html.cinetoon-public .mv-toggle::-webkit-scrollbar-thumb,
+html.cinetoon-public .fd-cats::-webkit-scrollbar-thumb,
+html.cinetoon-public .md-date-row::-webkit-scrollbar-thumb,
+html.cinetoon-public .fd-cart-scroll::-webkit-scrollbar-thumb,
+html.cinetoon-public .th-modal::-webkit-scrollbar-thumb,
+html.cinetoon-public .fav-modal::-webkit-scrollbar-thumb,
+html.cinetoon-public .modal-body::-webkit-scrollbar-thumb {
+  border-width: 1px;
+}
+
+/* Public pages: same dark canvas, same compact cinema frame. */
+html.cinetoon-public .mv-page,
+html.cinetoon-public .voucher-page,
+html.cinetoon-public .fd-page,
+html.cinetoon-public .pf-page,
+html.cinetoon-public .th-page,
+html.cinetoon-public .ev-page,
+html.cinetoon-public .ed-page,
+html.cinetoon-public .md-page,
+html.cinetoon-public .fav-page,
+html.cinetoon-public .fp-page,
+html.cinetoon-public .auth-page-wrapper {
+  background: var(--user-page-bg) !important;
+  color: var(--user-text);
+}
+
+html.cinetoon-public .mv-filters,
+html.cinetoon-public .ev-search-card,
+html.cinetoon-public .pf-hero,
+html.cinetoon-public .pf-card,
+html.cinetoon-public .fd-cart-panel,
+html.cinetoon-public .fd-card,
+html.cinetoon-public .voucher-card,
+html.cinetoon-public .fav-modal,
+html.cinetoon-public .pf-modal,
+html.cinetoon-public .th-modal,
+html.cinetoon-public .md-booking-panel,
+html.cinetoon-public .auth-card,
+html.cinetoon-public .fp-card {
+  background: var(--user-card) !important;
+  border-color: var(--user-border) !important;
+}
+
+html.cinetoon-public .mv-title,
+html.cinetoon-public .fd-title,
+html.cinetoon-public .pf-title,
+html.cinetoon-public .ev-title,
+html.cinetoon-public .ed-title,
+html.cinetoon-public .md-title,
+html.cinetoon-public .fav-title,
+html.cinetoon-public .page-title,
+html.cinetoon-public .auth-title,
+html.cinetoon-public .fp-card-title {
+  color: var(--user-text) !important;
+}
+
+html.cinetoon-public .mv-title span,
+html.cinetoon-public .fd-title span,
+html.cinetoon-public .pf-title span,
+html.cinetoon-public .ev-title span,
+html.cinetoon-public .ed-title span,
+html.cinetoon-public .md-title span,
+html.cinetoon-public .fav-title span,
+html.cinetoon-public .page-title span,
+html.cinetoon-public .auth-title span,
+html.cinetoon-public .fp-card-title span {
+  color: var(--user-yellow) !important;
+}
+
+html.cinetoon-public .mv-title-bar,
+html.cinetoon-public .pf-title-bar,
+html.cinetoon-public .ev-strip,
+html.cinetoon-public .ed-strip,
+html.cinetoon-public .md-strip,
+html.cinetoon-public .auth-strip {
+  background: var(--user-strip-gradient) !important;
+}
+
+html.cinetoon-public .mv-input,
+html.cinetoon-public .mv-select,
+html.cinetoon-public .ev-search-input,
+html.cinetoon-public .fd-search,
+html.cinetoon-public .fd-select,
+html.cinetoon-public .pf-input,
+html.cinetoon-public .th-search-input,
+html.cinetoon-public .auth-input,
+html.cinetoon-public .auth-datepicker-input,
+html.cinetoon-public .fp-input,
+html.cinetoon-public .md-select,
+html.cinetoon-public .search-box .form-control {
+  background: rgba(255, 255, 255, 0.055) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--user-text) !important;
+}
+
+html.cinetoon-public .mv-input:focus,
+html.cinetoon-public .mv-select:focus,
+html.cinetoon-public .ev-search-wrap:focus-within,
+html.cinetoon-public .fd-search:focus,
+html.cinetoon-public .fd-select:focus,
+html.cinetoon-public .pf-input:focus,
+html.cinetoon-public .th-search-input:focus,
+html.cinetoon-public .auth-input-group:focus-within,
+html.cinetoon-public .fp-input-wrap:focus-within,
+html.cinetoon-public .md-select:focus,
+html.cinetoon-public .search-box .form-control:focus {
+  border-color: var(--user-yellow) !important;
+  box-shadow: 0 0 18px rgba(212, 226, 25, 0.12) !important;
+}
+
+html.cinetoon-public .mv-toggle,
+html.cinetoon-public .pf-tabs,
+html.cinetoon-public .md-steps-bar {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--user-border) !important;
+}
+
+html.cinetoon-public .mv-toggle-btn.active,
+html.cinetoon-public .pf-tab.active,
+html.cinetoon-public .filter-btn.active,
+html.cinetoon-public .fd-cat-btn.active,
+html.cinetoon-public .fav-filter-btn.active,
+html.cinetoon-public .md-step-pill.active {
+  background: var(--user-accent-gradient) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
 html.cinetoon-public main {
-  font-family: var(--font-content);
+  padding-top: var(--customer-page-top-gap);
 }
 
 html.cinetoon-public .toon-bg {
@@ -55,15 +272,15 @@ html.cinetoon-public .btn-gradient:hover {
   color: white;
 }
 
-/* Card glass — chữ sáng mặc định; vùng nền sáng bên trong dùng chữ đậm */
+/* Card glass — light text by default; bright background areas use bold text */
 html.cinetoon-public .card {
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--user-card-radius);
+  border: 1px solid var(--user-border);
+  background: var(--user-card);
   backdrop-filter: blur(10px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--user-text);
 }
 
 html.cinetoon-public .card .bg-light,
@@ -82,12 +299,12 @@ html.cinetoon-public .card .bg-white .text-dark {
   color: #212529 !important;
 }
 
-/* Đoạn mô tả muted trực tiếp trong card (không nằm trong bg-light) — nền kính tối */
+/* Muted description directly in card (not within bg-light) — dark glass background */
 html.cinetoon-public .card > p.text-muted {
-  color: rgba(255, 255, 255, 0.72) !important;
+  color: #64748b !important;
 }
 
-/* Form trong main — không đè ô tìm kiếm trên Navbar */
+/* Forms in main — do not override search box on Navbar */
 html.cinetoon-public main input.form-control,
 html.cinetoon-public main select.form-select,
 html.cinetoon-public main textarea.form-control {
@@ -110,7 +327,7 @@ html.cinetoon-public main textarea.form-control::placeholder {
   color: rgba(255, 255, 255, 0.5) !important;
 }
 
-/* Form trong auth page (Login, Register) - không nằm trong main */
+/* Forms in auth page (Login, Register) - not within main */
 html.cinetoon-public .auth-public-page input.form-control,
 html.cinetoon-public .auth-public-page select.form-select,
 html.cinetoon-public .auth-public-page textarea.form-control {
@@ -133,9 +350,9 @@ html.cinetoon-public main select.form-select option {
   color: #ffffff;
 }
 
-/* Khung nội dung trang khách — cùng max-width / padding ngang với Navbar: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 */
+/* Customer page content frame — same max-width / horizontal padding as Navbar: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 */
 html.cinetoon-public .customer-page {
-  color: rgba(255, 255, 255, 0.92);
+  color: inherit;
 }
 
 html.cinetoon-public .customer-page-container {
@@ -165,7 +382,18 @@ html.cinetoon-public .customer-page--full {
   min-height: 0;
 }
 
-/* Không ép .text-dark / .text-muted toàn cục — để Bootstrap + ngữ cảnh quyết định */
+/* User/customer dark pages: Bootstrap dark text utilities must stay readable on the dark canvas. */
+html.cinetoon-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) {
+  color: var(--user-text) !important;
+}
+
+html.cinetoon-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) :where(.text-dark, .text-body, .text-black, .text-secondary, .card-title, .card-text, .form-label) {
+  color: var(--user-text) !important;
+}
+
+html.cinetoon-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) :where(.text-muted, .small, small) {
+  color: var(--user-muted) !important;
+}
 
 html.cinetoon-public .text-gradient {
   background: var(--primary-gradient);
@@ -191,5 +419,316 @@ html.cinetoon-public .animate-bounce-soft {
   }
   50% {
     transform: translateY(-10px);
+  }
+}
+
+/* User size system: one rhythm for all customer-facing pages. */
+html.cinetoon-public .container,
+html.cinetoon-public .container-sm,
+html.cinetoon-public .container-md,
+html.cinetoon-public .container-lg,
+html.cinetoon-public .container-xl,
+html.cinetoon-public .container-xxl,
+html.cinetoon-public .customer-page-container {
+  width: 100%;
+  max-width: var(--user-container-max) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: clamp(16px, 2vw, 24px) !important;
+  padding-right: clamp(16px, 2vw, 24px) !important;
+}
+
+html.cinetoon-public .mv-page,
+html.cinetoon-public .voucher-page,
+html.cinetoon-public .fd-page:not(.embedded),
+html.cinetoon-public .pf-page,
+html.cinetoon-public .th-page,
+html.cinetoon-public .ev-page,
+html.cinetoon-public .ed-page,
+html.cinetoon-public .md-page,
+html.cinetoon-public .fav-page,
+html.cinetoon-public .fp-page {
+  min-height: calc(100vh - var(--cinema-header-offset, 76px));
+  padding-top: var(--user-page-pad-y) !important;
+  padding-bottom: var(--user-page-pad-bottom) !important;
+}
+
+html.cinetoon-public .auth-page-wrapper {
+  min-height: calc(100vh - var(--cinema-header-offset, 76px));
+  padding: var(--user-page-pad-y) 16px var(--user-page-pad-bottom) !important;
+}
+
+html.cinetoon-public .home-section {
+  padding-top: var(--user-section-gap) !important;
+  padding-bottom: var(--user-section-gap) !important;
+}
+
+html.cinetoon-public .mv-header,
+html.cinetoon-public .ev-header,
+html.cinetoon-public .pf-header,
+html.cinetoon-public .home-section-header {
+  gap: clamp(16px, 2vw, 24px) !important;
+  margin-bottom: clamp(22px, 3vw, 32px) !important;
+}
+
+html.cinetoon-public .fd-page .row.align-items-end,
+html.cinetoon-public .voucher-page .row.align-items-end,
+html.cinetoon-public .fav-page .row.align-items-end {
+  margin-bottom: clamp(22px, 3vw, 32px) !important;
+}
+
+html.cinetoon-public .mv-title,
+html.cinetoon-public .fd-title,
+html.cinetoon-public .pf-title,
+html.cinetoon-public .ev-title,
+html.cinetoon-public .ed-title,
+html.cinetoon-public .md-title,
+html.cinetoon-public .fav-title,
+html.cinetoon-public .page-title {
+  font-size: var(--user-title-size) !important;
+  letter-spacing: 3.5px !important;
+  line-height: 1.02 !important;
+  margin-bottom: 10px !important;
+}
+
+html.cinetoon-public .home-section-title,
+html.cinetoon-public .pf-card-title,
+html.cinetoon-public .fd-cart-panel-title,
+html.cinetoon-public .md-panel-title,
+html.cinetoon-public .fav-modal-title,
+html.cinetoon-public .pf-modal-title,
+html.cinetoon-public .th-modal-title,
+html.cinetoon-public .modal-title {
+  font-size: var(--user-section-title-size) !important;
+  line-height: 1.1 !important;
+}
+
+html.cinetoon-public .mv-title-bar,
+html.cinetoon-public .pf-title-bar,
+html.cinetoon-public .ev-strip,
+html.cinetoon-public .ed-strip,
+html.cinetoon-public .md-strip,
+html.cinetoon-public .home-section-title::after,
+html.cinetoon-public .auth-strip,
+html.cinetoon-public .fp-strip {
+  width: 56px !important;
+  height: 3px !important;
+  border-radius: 3px !important;
+}
+
+html.cinetoon-public .mv-filters,
+html.cinetoon-public .ev-search-card,
+html.cinetoon-public .pf-hero,
+html.cinetoon-public .pf-card,
+html.cinetoon-public .fd-cart-panel,
+html.cinetoon-public .fd-card,
+html.cinetoon-public .voucher-card,
+html.cinetoon-public .mc-card,
+html.cinetoon-public .ec-card,
+html.cinetoon-public .fav-modal,
+html.cinetoon-public .pf-modal,
+html.cinetoon-public .th-modal,
+html.cinetoon-public .md-booking-panel,
+html.cinetoon-public .auth-card,
+html.cinetoon-public .fp-card,
+html.cinetoon-public .modal-content {
+  border-radius: var(--user-card-radius) !important;
+  border-color: var(--user-border) !important;
+}
+
+html.cinetoon-public .pf-card,
+html.cinetoon-public .fd-cart-panel,
+html.cinetoon-public .md-booking-panel,
+html.cinetoon-public .auth-card,
+html.cinetoon-public .fp-card,
+html.cinetoon-public .modal-body {
+  padding: var(--user-card-padding) !important;
+}
+
+html.cinetoon-public .pf-hero {
+  padding: clamp(20px, 2.6vw, 28px) !important;
+}
+
+html.cinetoon-public .mv-input,
+html.cinetoon-public .mv-select,
+html.cinetoon-public .ev-search-input,
+html.cinetoon-public .fd-search,
+html.cinetoon-public .fd-select,
+html.cinetoon-public .pf-input,
+html.cinetoon-public .th-search-input,
+html.cinetoon-public .auth-input,
+html.cinetoon-public .auth-datepicker-input,
+html.cinetoon-public .fp-input,
+html.cinetoon-public .md-select,
+html.cinetoon-public main input.form-control,
+html.cinetoon-public main select.form-select,
+html.cinetoon-public main textarea.form-control {
+  min-height: var(--user-control-height) !important;
+  border-radius: var(--user-control-radius) !important;
+  font-size: var(--user-control-font) !important;
+}
+
+html.cinetoon-public .auth-input-group,
+html.cinetoon-public .fp-input-wrap,
+html.cinetoon-public .ev-search-wrap,
+html.cinetoon-public .search-box .form-control,
+html.cinetoon-public .search-box .input-group-text {
+  min-height: var(--user-control-height) !important;
+  border-radius: var(--user-control-radius) !important;
+}
+
+html.cinetoon-public .search-box .form-control {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+html.cinetoon-public .search-box .input-group-text {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+html.cinetoon-public .mv-toggle,
+html.cinetoon-public .pf-tabs,
+html.cinetoon-public .fd-cats,
+html.cinetoon-public .filter-bar {
+  gap: 6px !important;
+}
+
+html.cinetoon-public .mv-toggle-btn,
+html.cinetoon-public .pf-tab,
+html.cinetoon-public .filter-btn,
+html.cinetoon-public .fd-cat-btn,
+html.cinetoon-public .fav-filter-btn,
+html.cinetoon-public .pf-filter-btn,
+html.cinetoon-public .md-date-chip,
+html.cinetoon-public .md-step-pill {
+  min-height: 34px !important;
+  border-radius: 8px !important;
+  padding: 7px 14px !important;
+  font-size: 11px !important;
+  line-height: 1.1 !important;
+}
+
+html.cinetoon-public .mc-btn,
+html.cinetoon-public .ec-btn,
+html.cinetoon-public .fd-add-btn,
+html.cinetoon-public .fd-checkout-btn,
+html.cinetoon-public .pf-btn-primary,
+html.cinetoon-public .pf-btn-ghost,
+html.cinetoon-public .pf-btn-yellow,
+html.cinetoon-public .btn-redeem,
+html.cinetoon-public .btn-redeemed,
+html.cinetoon-public .ev-empty-btn,
+html.cinetoon-public .ed-empty-btn,
+html.cinetoon-public .home-section-link,
+html.cinetoon-public .md-book-btn,
+html.cinetoon-public .md-fav-btn,
+html.cinetoon-public .auth-btn-primary,
+html.cinetoon-public .fp-btn,
+html.cinetoon-public .btn-gradient,
+html.cinetoon-public .btn-modal-save,
+html.cinetoon-public .btn-modal-cancel,
+html.cinetoon-public .btn-confirm-remove {
+  min-height: 38px !important;
+  border-radius: var(--user-control-radius) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  font-size: 13px !important;
+}
+
+html.cinetoon-public .mc-btn,
+html.cinetoon-public .ec-btn,
+html.cinetoon-public .fd-add-btn,
+html.cinetoon-public .fd-checkout-btn,
+html.cinetoon-public .auth-btn-primary,
+html.cinetoon-public .fp-btn {
+  width: 100% !important;
+}
+
+html.cinetoon-public .mc-card,
+html.cinetoon-public .ec-card {
+  background: var(--user-card) !important;
+  border: 1px solid var(--user-border) !important;
+}
+
+html.cinetoon-public .mc-body,
+html.cinetoon-public .ec-body {
+  min-height: 108px !important;
+  padding: 12px 14px 14px !important;
+}
+
+html.cinetoon-public .mc-title,
+html.cinetoon-public .ec-title {
+  font-size: 16px !important;
+  line-height: 1.15 !important;
+}
+
+html.cinetoon-public .mc-genre,
+html.cinetoon-public .mc-release,
+html.cinetoon-public .ec-date,
+html.cinetoon-public .mv-count,
+html.cinetoon-public .pf-count,
+html.cinetoon-public .ev-subtitle,
+html.cinetoon-public .result-count,
+html.cinetoon-public .text-muted,
+html.cinetoon-public .card > p.text-muted {
+  color: var(--user-muted) !important;
+}
+
+html.cinetoon-public .stat-chip,
+html.cinetoon-public .pf-hs,
+html.cinetoon-public .points-badge,
+html.cinetoon-public .code-chip,
+html.cinetoon-public .point-cost,
+html.cinetoon-public .status-pill,
+html.cinetoon-public .pf-rank-card,
+html.cinetoon-public .pf-voucher-card,
+html.cinetoon-public .pf-tx-row,
+html.cinetoon-public .md-slot-card {
+  border-radius: var(--user-card-radius) !important;
+}
+
+html.cinetoon-public .home-page .mySwiper img {
+  height: clamp(320px, 40vw, 520px) !important;
+}
+
+html.cinetoon-public .row.g-4,
+html.cinetoon-public .row.g-3 {
+  --bs-gutter-x: clamp(16px, 1.8vw, 24px);
+  --bs-gutter-y: clamp(16px, 1.8vw, 24px);
+}
+
+@media (max-width: 767.98px) {
+  html.cinetoon-public {
+    --user-page-pad-y: 24px;
+    --user-page-pad-bottom: 56px;
+    --user-card-padding: 18px;
+    --user-title-size: clamp(28px, 9vw, 36px);
+  }
+
+  html.cinetoon-public .mv-header,
+  html.cinetoon-public .ev-header,
+  html.cinetoon-public .pf-header,
+  html.cinetoon-public .home-section-header {
+    align-items: flex-start !important;
+    margin-bottom: 22px !important;
+  }
+
+  html.cinetoon-public .mv-filters,
+  html.cinetoon-public .ev-search-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 14px !important;
+  }
+
+  html.cinetoon-public .pf-hero-stats,
+  html.cinetoon-public .stat-chip {
+    width: 100%;
+  }
+
+  html.cinetoon-public .home-page .mySwiper img {
+    height: 320px !important;
   }
 }

@@ -1,305 +1,986 @@
 import React, { useEffect, useMemo, useState } from 'react';
+
 import { Link, useLocation } from 'react-router-dom';
-import { apiFetch } from '../../utils/apiClient';
+
+import { Modal, Button, Row, Col, Card, Badge, Spinner } from 'react-bootstrap';
+
+import { apiFetch, withQuery } from '../../utils/apiClient';
+
 import { STAFF } from '../../constants/apiEndpoints';
+
 import { getStoredStaff } from '../../utils/authStorage';
+
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
 
+import { isActiveStatus } from '../../utils/statusFormat';
+
+import { useAdminToast } from '../../components/admin/AdminToast';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+
+import { formatDate } from '../../utils/formatters';
+import AdminPagination from '../../components/admin/AdminPagination';
+
+const staffStatusLabel = (value) => (
+  isActiveStatus(value) ? 'Đang làm việc' : 'Tạm nghỉ / Khóa'
+);
+
+
+
 const StaffManagement = () => {
+
   const [searchTerm, setSearchTerm] = useState('');
+
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+
+  const itemsPerPage = 5;
+
+
 
   const location = useLocation();
+
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
+
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
+
   const staffSession = getStoredStaff();
+
   const { selectedCinemaId } = useSuperAdminCinema();
 
+
+
   const addPath = `${prefix}/staff/add`;
-  const viewPath = (id) => `${prefix}/staff/view/${id}`;
+
   const editPath = (id) => `${prefix}/staff/edit/${id}`;
 
+
+
   const [staffDtos, setStaffDtos] = useState([]);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(null);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa nhân viên #${id} không?`)) return;
+  const { showToast, ToastComponent } = useAdminToast();
+
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const [detailStaff, setDetailStaff] = useState(null);
+
+  const [showToggleModal, setShowToggleModal] = useState(false);
+
+  const [staffToToggle, setStaffToToggle] = useState(null);
+
+  const [toggleError, setToggleError] = useState("");
+
+
+
+
+
+
+  const formatBirthdayDetail = (d) => formatDate(d, { day: '2-digit', month: '2-digit', year: 'numeric', fallback: '' });
+
+
+
+  const openStaffDetail = async (staffId) => {
+
+    setShowDetailModal(true);
+
+    setDetailStaff(null);
+
+    setDetailLoading(true);
+
     try {
-      const res = await apiFetch(STAFF.BY_ID(id), { method: 'DELETE' });
-      if (res.ok) {
-        setStaffDtos((prev) => prev.filter((s) => s.staffId !== id));
-      } else {
-        const json = await res.json().catch(() => null);
-        alert(json?.message || "Xóa nhân viên thất bại");
+
+      const res = await apiFetch(STAFF.BY_ID(staffId));
+
+      const json = await res.json().catch(() => null);
+
+      const data = json?.data ?? json;
+
+      if (res.ok && data) {
+
+        setDetailStaff({
+
+          staffId: data.staffId,
+
+          fullname: data.fullname,
+
+          username: data.username,
+
+          email: data.email,
+
+          phone: data.phone,
+
+          status: data.status,
+
+          role: data.role,
+
+          birthday: data.birthday,
+
+          avatar: data.avatar,
+
+          cinemaId: data.cinemaId,
+
+        });
+
       }
+
     } catch {
-      alert("Không thể kết nối tới server để xóa nhân viên");
+
+      setDetailStaff(null);
+
+    } finally {
+
+      setDetailLoading(false);
+
     }
+
   };
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiFetch(STAFF.LIST);
-        const json = await res.json().catch(() => null);
-        const list = json?.data ?? json ?? [];
-        if (!mounted) return;
-        let data = Array.isArray(list) ? list : [];
-        if (!isSuperAdmin && staffSession?.cinemaId != null) {
-          data = data.filter((s) => String(s.cinemaId) === String(staffSession.cinemaId));
-        } else if (isSuperAdmin && selectedCinemaId != null) {
-          data = data.filter((s) => String(s.cinemaId) === String(selectedCinemaId));
-        }
-        const norm = (r) => String(r || "").replace(/^ROLE_/i, "").toUpperCase();
-        // Danh sách nhân viên sàn: loại ADMIN / SUPER_ADMIN (họ nằm ở trang Quản trị viên rạp).
-        data = data.filter((s) => {
-          const r = norm(s.role);
-          return r !== "ADMIN" && r !== "SUPER_ADMIN";
-        });
-        setStaffDtos(data);
-      } catch {
-        if (mounted) {
-          setStaffDtos([]);
-          setError('Không tải được danh sách nhân viên.');
-        }
-      } finally {
-        if (mounted) setLoading(false);
+
+
+  const closeStaffDetail = () => {
+
+    setShowDetailModal(false);
+
+    setDetailStaff(null);
+
+  };
+
+
+
+  const openToggleModal = (staff) => {
+
+    setStaffToToggle(staff);
+
+    setToggleError("");
+
+    setShowToggleModal(true);
+
+  };
+
+
+
+  const closeToggleModal = () => {
+
+    setShowToggleModal(false);
+
+    setStaffToToggle(null);
+
+    setToggleError("");
+
+  };
+
+
+
+  const handleToggleStatus = async () => {
+
+    if (!staffToToggle) return;
+
+    const staff = staffToToggle;
+
+    const isLocking = isActiveStatus(staff.status);
+
+    const actionText = isLocking ? 'khóa' : 'mở khóa';
+
+
+
+    try {
+
+      // Tìm dữ liệu gốc từ staffDtos để lấy đầy đủ thông tin (email, phone, birthday...)
+
+      const s = staffDtos.find(item => (item.staffId || item.id) === staff.id);
+
+      if (!s) {
+
+        setToggleError("Không tìm thấy dữ liệu nhân viên để cập nhật");
+
+        return;
+
       }
+
+
+
+      const updatedData = {
+        status: isLocking ? 0 : 1,
+      };
+
+
+
+      const res = await apiFetch(STAFF.BY_ID(staff.id), {
+
+        method: 'PUT',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify(updatedData)
+
+      });
+
+
+
+      if (res.ok) {
+
+        // Cập nhật lại state cục bộ
+
+        setStaffDtos((prev) =>
+
+          prev.map((item) => (item.staffId || item.id) === staff.id ? { ...item, status: isLocking ? 0 : 1 } : item)
+
+        );
+
+
+
+        closeToggleModal();
+
+        if (isLocking) {
+
+          showToast(
+
+            `Đã khóa tài khoản của ${staff.name}. Các ca làm việc từ hôm nay của nhân viên đã được gỡ tự động.`,
+
+            "warning",
+
+            5000
+
+          );
+
+        } else {
+
+          showToast(`Đã mở khóa tài khoản cho ${staff.name}.`, "success");
+
+        }
+
+      } else {
+
+        const json = await res.json().catch(() => null);
+
+        setToggleError(apiMessage(json, `Thao tác ${actionText} thất bại. Vui lòng kiểm tra lại dữ liệu.`));
+
+      }
+
+    } catch (err) {
+
+      console.error("❌ Lỗi Toggle Status:", err);
+
+      setToggleError(MESSAGES.networkError);
+
+    }
+
+  };
+
+
+
+  useEffect(() => {
+
+    let mounted = true;
+
+    (async () => {
+
+      setLoading(true);
+
+      setError(null);
+
+      try {
+
+        const scopedCinemaId = !isSuperAdmin ? staffSession?.cinemaId : selectedCinemaId;
+        const res = await apiFetch(withQuery(STAFF.LIST, {
+          cinemaId: scopedCinemaId,
+          search: searchTerm,
+        }));
+
+        const json = await res.json().catch(() => null);
+
+        const list = json?.data ?? json ?? [];
+
+        if (!mounted) return;
+
+        let data = Array.isArray(list) ? list : [];
+
+        const norm = (r) => String(r || "").replace(/^ROLE_/i, "").toUpperCase();
+
+        // Danh sách nhân viên sàn: loại ADMIN / SUPER_ADMIN (họ nằm ở trang Quản trị viên rạp).
+
+        data = data.filter((s) => {
+
+          const r = norm(s.role);
+
+          return r !== "ADMIN" && r !== "SUPER_ADMIN";
+
+        });
+
+        setStaffDtos(data);
+
+      } catch {
+
+        if (mounted) {
+
+          setStaffDtos([]);
+
+          setError('Không tải được danh sách nhân viên.');
+
+        }
+
+      } finally {
+
+        if (mounted) setLoading(false);
+
+      }
+
     })();
+
     return () => {
+
       mounted = false;
+
     };
-  }, [isSuperAdmin, staffSession?.cinemaId, selectedCinemaId]);
+
+  }, [isSuperAdmin, staffSession?.cinemaId, selectedCinemaId, searchTerm]);
+
+
+
+  useEffect(() => {
+
+    if (location.state?.message) {
+
+      showToast(location.state.message, location.state.type || "success");
+
+      window.history.replaceState({}, document.title);
+
+    }
+
+  }, [location.state]);
+
+
 
   const staffUI = useMemo(() => {
+
     return staffDtos.map((s) => ({
+
       id: s.staffId,
+
       name: s.fullname ?? "",
+
       username: s.username ?? "",
+
       email: s.email ?? "",
+
       phone: s.phone ?? "",
+
       role: s.role ?? "",
-      status: s.status === 0 ? "Khóa" : "Hoạt động",
+
+      status: s.status,
+
       image: s.avatar ?? "https://via.placeholder.com/40",
+
     }));
+
   }, [staffDtos]);
 
-  const filteredStaff = staffUI.filter((staff) => {
-    const q = searchTerm.toLowerCase();
-    return (
-      staff.name.toLowerCase().includes(q) ||
-      staff.username.toLowerCase().includes(q) ||
-      staff.email.toLowerCase().includes(q) ||
-      String(staff.id).includes(searchTerm)
-    );
-  });
+
+
+  const filteredStaff = staffUI;
+
+
 
   const indexOfLastItem = currentPage * itemsPerPage;
+
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
   const currentItems = filteredStaff.slice(indexOfFirstItem, indexOfLastItem);
+
   const totalPages = Math.ceil(filteredStaff.length / itemsPerPage);
 
+
+
   return (
+
     <div className="admin-page superadmin-page admin-fade-in">
+
       <div className="admin-header">
+
         <div className="admin-header-content">
+
           <div>
+
             <h1>
+
               <i className="bi bi-people-fill me-3"></i>
+
               Quản lý nhân viên rạp
+
             </h1>
+
             <p className="lead">Quản lý thông tin và phân công nhân viên</p>
+
           </div>
+
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
+
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
+
               <i className="bi bi-search admin-search-icon" aria-hidden />
+
               <input
+
                 type="search"
+
                 className="admin-search-input"
+
                 placeholder="Tìm nhân viên..."
+
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+
                 aria-label="Tìm nhân viên"
+
               />
+
             </div>
+
             <Link to={addPath} className="admin-btn" style={{ background: "white", color: "#6366f1" }}>
+
               <i className="bi bi-person-plus-fill me-2"></i>
+
               Thêm nhân viên
+
             </Link>
+
           </div>
+
         </div>
+
       </div>
+
+
 
       {error && (
+
         <div className="alert alert-danger py-2 mb-3" role="alert">
+
           {error}
+
         </div>
+
       )}
+
+
 
       <div className="admin-card admin-slide-up">
+
         <div className="admin-card-header">
+
           <h4>
+
             <i className="bi bi-list-ul me-2 text-primary"></i>
+
             Danh sách nhân viên
+
           </h4>
+
         </div>
+
         <div className="admin-card-body p-0">
+
           <div className="table-responsive">
+
             <table className="admin-table mb-0">
+
               <thead>
+
                 <tr>
-                  <th>ID</th>
+
+                  <th style={{ width: 56 }}>STT</th>
+
                   <th>Nhân viên</th>
+
                   <th>Liên hệ</th>
+
                   <th>Trạng thái</th>
+
                   <th className="text-center">Thao tác</th>
+
                 </tr>
+
               </thead>
+
               <tbody>
+
                 {loading ? (
+
                   <tr>
+
                     <td colSpan={5} className="text-center py-4">
+
                       <div className="spinner-border text-primary me-2" role="status">
+
                         <span className="visually-hidden">Loading...</span>
+
                       </div>
+
                       Đang tải dữ liệu...
+
                     </td>
+
                   </tr>
+
                 ) : error ? (
+
                   <tr>
+
                     <td colSpan={5} className="text-center py-4">
+
                       <i className="bi bi-exclamation-triangle text-warning me-2"></i>
+
                       {error}
+
                     </td>
+
                   </tr>
+
                 ) : currentItems.length === 0 ? (
+
                   <tr>
+
                     <td colSpan={5}>
+
                       <div className="admin-empty">
+
                         <div className="admin-empty-icon">
+
                           <i className="bi bi-people"></i>
+
                         </div>
+
                         <h5 className="mb-2">Không có dữ liệu nhân viên</h5>
+
                         <p className="mb-0">Chưa có nhân viên nào trong hệ thống</p>
+
                       </div>
+
                     </td>
+
                   </tr>
+
                 ) : (
-                  currentItems.map((staff) => (
+
+                  currentItems.map((staff, index) => (
+
                     <tr key={staff.id}>
-                      <td className="fw-bold">#{staff.id}</td>
+
+                      <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
+
                       <td>
+
                         <div className="d-flex align-items-center gap-3">
+
                           <div className="admin-table-avatar">
+
                             {staff.name.charAt(0).toUpperCase()}
+
                           </div>
+
                           <div>
+
                             <div className="fw-semibold text-dark">{staff.name}</div>
+
                             <small className="text-muted">@{staff.username}</small>
+
                           </div>
+
                         </div>
+
                       </td>
+
                       <td>
+
                         <div>
+
                           <div className="d-flex align-items-center gap-2 mb-1">
+
                             <i className="bi bi-envelope text-muted small"></i>
+
                             <small className="text-muted">{staff.email}</small>
+
                           </div>
+
                           <div className="d-flex align-items-center gap-2">
+
                             <i className="bi bi-telephone text-muted small"></i>
+
                             <small className="text-muted">{staff.phone || 'Chưa có'}</small>
+
                           </div>
+
                         </div>
+
                       </td>
+
                       <td>
+
                         <span
+
                           className={
-                            staff.status === 'Hoạt động'
+
+                            isActiveStatus(staff.status)
+
                               ? 'admin-badge admin-badge-success'
+
                               : 'admin-badge admin-badge-danger'
+
                           }
+
                         >
-                          {staff.status}
+
+                          {staffStatusLabel(staff.status)}
+
                         </span>
+
                       </td>
+
                       <td>
+
                         <div className="admin-table-action-group">
-                          <Link
-                            to={viewPath(staff.id)}
-                            className="admin-table-action-btn admin-table-action-btn--view"
-                            title="Xem chi tiết"
-                          >
-                            <i className="bi bi-eye"></i>
-                          </Link>
-                          <Link
-                            to={editPath(staff.id)}
-                            className="admin-table-action-btn admin-table-action-btn--edit"
-                            title="Chỉnh sửa"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </Link>
+
                           <button
+
                             type="button"
-                            className="admin-table-action-btn admin-table-action-btn--danger"
-                            title="Xóa nhân viên"
-                            onClick={() => handleDelete(staff.id)}
+
+                            className="admin-table-action-btn admin-table-action-btn--view"
+
+                            title="Xem chi tiết"
+
+                            onClick={() => openStaffDetail(staff.id)}
+
                           >
-                            <i className="bi bi-trash"></i>
+
+                            <i className="bi bi-eye"></i>
+
                           </button>
+
+                          <Link
+
+                            to={editPath(staff.id)}
+
+                            className="admin-table-action-btn admin-table-action-btn--edit"
+
+                            title="Chỉnh sửa"
+
+                          >
+
+                            <i className="bi bi-pencil"></i>
+
+                          </Link>
+
+                          <button
+
+                            type="button"
+
+                            className={`admin-table-action-btn ${isActiveStatus(staff.status) ? 'admin-table-action-btn--danger' : 'admin-table-action-btn--success'}`}
+
+                            title={isActiveStatus(staff.status) ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+
+                            onClick={() => openToggleModal(staff)}
+
+                          >
+
+                            <i className={`bi ${isActiveStatus(staff.status) ? 'bi-lock-fill' : 'bi-unlock-fill'}`}></i>
+
+                          </button>
+
                         </div>
+
                       </td>
+
                     </tr>
+
                   ))
+
                 )}
+
               </tbody>
+
             </table>
+
           </div>
+
         </div>
+
       </div>
 
-      {totalPages > 1 && (
-        <div className="admin-pagination-wrap">
-          <div className="admin-pagination">
-            <button
-              type="button"
-              className="admin-pagination-btn"
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              aria-label="Trang trước"
-            >
-              <i className="bi bi-chevron-left"></i>
-            </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                type="button"
-                className={`admin-pagination-btn ${currentPage === page ? 'active' : ''}`}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
+
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredStaff.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="nhân viên"
+      />
+
+
+
+      <ToastComponent />
+
+
+
+      {showToggleModal && staffToToggle && (
+
+        <div className="admin-modal-overlay" role="presentation" onClick={closeToggleModal}>
+
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+
+            <div className="admin-modal-header">
+
+              <h3 className="text-danger mb-0">
+
+                <i className="bi bi-exclamation-triangle me-2"></i>
+
+                {isActiveStatus(staffToToggle.status) ? "Xác nhận khóa tài khoản" : "Xác nhận mở khóa tài khoản"}
+
+              </h3>
+
+              <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeToggleModal}>
+
+                ×
+
               </button>
-            ))}
 
-            <button
-              type="button"
-              className="admin-pagination-btn"
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              aria-label="Trang sau"
-            >
-              <i className="bi bi-chevron-right"></i>
-            </button>
+            </div>
+
+            <div className="admin-modal-body">
+
+              <p className="mb-3">
+
+                Bạn có chắc chắn muốn {isActiveStatus(staffToToggle.status) ? "khóa" : "mở khóa"} tài khoản này?
+
+              </p>
+
+              <div className="alert alert-warning">
+
+                <strong>Nhân viên:</strong> {staffToToggle.name} ({staffToToggle.username})
+
+              </div>
+
+              {isActiveStatus(staffToToggle.status) && (
+
+                <p className="text-muted small mb-0">
+
+                  <i className="bi bi-info-circle me-1"></i>
+
+                  Các ca làm việc từ hôm nay trở đi của nhân viên sẽ được gỡ tự động.
+
+                </p>
+
+              )}
+
+              {toggleError && (
+
+                <div className="alert alert-danger mt-3 mb-0">
+
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+
+                  {toggleError}
+
+                </div>
+
+              )}
+
+            </div>
+
+            <div className="admin-modal-footer">
+
+              <button type="button" className="admin-btn admin-btn-outline" onClick={closeToggleModal}>
+
+                Hủy
+
+              </button>
+
+              <button
+
+                type="button"
+
+                className={`admin-btn ${isActiveStatus(staffToToggle.status) ? "admin-btn-danger" : "admin-btn-primary"}`}
+
+                onClick={handleToggleStatus}
+
+              >
+
+                {isActiveStatus(staffToToggle.status) ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+
+              </button>
+
+            </div>
+
           </div>
+
         </div>
+
       )}
+
+
+
+      <Modal show={showDetailModal} onHide={closeStaffDetail} centered size="lg">
+
+        <Modal.Header closeButton className="border-0 pb-0">
+
+          <Modal.Title className="fw-bold text-primary">Chi tiết nhân viên</Modal.Title>
+
+        </Modal.Header>
+
+        <Modal.Body className="text-dark pt-0">
+
+          {detailLoading ? (
+
+            <div className="text-center py-5">
+
+              <Spinner animation="border" variant="primary" className="me-2" />
+
+              Đang tải…
+
+            </div>
+
+          ) : !detailStaff ? (
+
+            <p className="text-muted mb-0 py-3">Không có dữ liệu nhân viên.</p>
+
+          ) : (
+
+            <Row>
+
+              <Col lg={4} className="text-center mb-3 mb-lg-0">
+
+                <img
+
+                  src={detailStaff.avatar || 'https://via.placeholder.com/180'}
+
+                  alt={detailStaff.fullname ?? ''}
+
+                  className="rounded-circle shadow-sm mb-2 border"
+
+                  style={{ width: 160, height: 160, objectFit: 'cover' }}
+
+                />
+
+                <h5 className="fw-bold mb-1">{detailStaff.fullname ?? '—'}</h5>
+
+                <p className="text-muted small mb-2">Ngày sinh: {formatBirthdayDetail(detailStaff.birthday) || '—'}</p>
+
+                <Badge bg={isActiveStatus(detailStaff.status) ? 'success' : 'danger'} className="rounded-pill px-3 py-2">
+
+                  {staffStatusLabel(detailStaff.status)}
+
+                </Badge>
+
+              </Col>
+
+              <Col lg={8}>
+
+                <Card className="border-0 bg-light">
+
+                  <Card.Body>
+
+                    <h6 className="fw-bold mb-3 border-bottom pb-2">Thông tin tài khoản</h6>
+
+                    <Row className="g-3">
+
+                      <Col md={6}>
+
+                        <div className="small text-muted fw-bold text-uppercase">Mã nhân viên</div>
+
+                        <div className="fw-bold">#{detailStaff.staffId}</div>
+
+                      </Col>
+
+                      <Col md={6}>
+
+                        <div className="small text-muted fw-bold text-uppercase">Vai trò</div>
+
+                        <div className="fw-bold">{detailStaff.role ?? '—'}</div>
+
+                      </Col>
+
+                      <Col md={6}>
+
+                        <div className="small text-muted fw-bold text-uppercase">Username</div>
+
+                        <div className="fw-bold">{detailStaff.username ?? '—'}</div>
+
+                      </Col>
+
+                      <Col md={6}>
+
+                        <div className="small text-muted fw-bold text-uppercase">Email</div>
+
+                        <div className="fw-bold">{detailStaff.email ?? '—'}</div>
+
+                      </Col>
+
+                      <Col md={6}>
+
+                        <div className="small text-muted fw-bold text-uppercase">Số điện thoại</div>
+
+                        <div className="fw-bold">{detailStaff.phone ?? '—'}</div>
+
+                      </Col>
+
+                      <Col md={6}>
+
+                        <div className="small text-muted fw-bold text-uppercase">Mã rạp</div>
+
+                        <div className="fw-bold">{detailStaff.cinemaId ?? '—'}</div>
+
+                      </Col>
+
+                    </Row>
+
+                  </Card.Body>
+
+                </Card>
+
+              </Col>
+
+            </Row>
+
+          )}
+
+        </Modal.Body>
+
+        <Modal.Footer className="border-0">
+
+          <Button variant="secondary" onClick={closeStaffDetail}>
+
+            Đóng
+
+          </Button>
+
+          {detailStaff ? (
+
+            <Button variant="primary" as={Link} to={editPath(detailStaff.staffId)} onClick={closeStaffDetail}>
+
+              <i className="bi bi-pencil me-2"></i>
+
+              Chỉnh sửa
+
+            </Button>
+
+          ) : null}
+
+        </Modal.Footer>
+
+      </Modal>
+
     </div>
+
   );
+
 };
 
+
+
 export default StaffManagement;
+

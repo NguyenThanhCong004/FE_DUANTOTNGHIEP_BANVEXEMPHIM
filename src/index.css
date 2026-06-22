@@ -1,6 +1,6 @@
-/* Font: design-tokens.css (import trước file này trong main.jsx) */
+/* Font: design-tokens.css (imported before this file in main.jsx) */
 
-/* Reset mặc định để tràn màn hình */
+/* Default reset for full-screen layout */
 * {
   margin: 0;
   padding: 0;
@@ -8,20 +8,41 @@
 }
 
 html, body, #root {
-  width: 100%;
-  min-height: 100vh;
+  height: 100%;
   margin: 0;
   padding: 0;
-  scroll-behavior: smooth;
 }
 
 body {
-  overflow-x: hidden;
-  background-color: #f0f4f8;
-  font-family: var(--font-ui, system-ui, sans-serif);
+  min-height: 100vh;
 }
 
-/* Trang quản trị: nền đồng bộ shell admin */
+/* Enforce single font across entire FE */
+html,
+body,
+#root,
+button,
+input,
+select,
+textarea,
+label,
+p,
+span,
+div,
+a,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+li,
+td,
+th {
+  font-family: var(--font-ui, system-ui, sans-serif) !important;
+}
+
+/* Admin page: sync admin shell background */
 html.admin-panel body {
   background-color: var(--admin-bg-deep, #070b17);
   color: var(--admin-text, #e2e8f0);
@@ -31,13 +52,13 @@ html.admin-panel body {
 #root {
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* Đảm bảo nội dung bắt đầu từ trên cùng */
+  align-items: flex-start; /* Ensure content starts from top */
   justify-content: flex-start;
 }
 
 .w-100 { width: 100% !important; }
 
-/* ── MODAL / FORM ADMIN — chỉ trong admin-panel (không đè user/common) ── */
+/* ── MODAL / FORM ADMIN — only in admin-panel (does not override user/common) ── */
 html.admin-panel .modal-content-custom,
 html.admin-panel .custom-modal-content,
 html.admin-panel .modal-dialog,
@@ -57,72 +78,6 @@ html.admin-panel .create-product {
   color: #212529 !important;
 }
 
-html.admin-panel .modal-content-custom *,
-html.admin-panel .custom-modal-content *,
-html.admin-panel .modal-dialog *,
-html.admin-panel .modal-content *,
-html.admin-panel .custom-modal-overlay *,
-html.admin-panel .user-management *,
-html.admin-panel .movie-management *,
-html.admin-panel .employee-management *,
-html.admin-panel .cinema-management *,
-html.admin-panel .voucher-management *,
-html.admin-panel .product-management *,
-html.admin-panel .create-cinema *,
-html.admin-panel .create-employee *,
-html.admin-panel .create-movie *,
-html.admin-panel .create-voucher *,
-html.admin-panel .create-product * {
-  color: inherit !important;
-}
-
-html.admin-panel .modal-content-custom,
-html.admin-panel .modal-dialog .modal-content {
-  color: #212529 !important;
-}
-
-html.admin-panel .modal-content-custom .btn,
-html.admin-panel .modal-dialog .btn {
-  color: inherit !important;
-}
-
-html.admin-panel .status-badge,
-html.admin-panel .role-badge,
-html.admin-panel .age-badge,
-html.admin-panel .error-message {
-  color: inherit !important;
-}
-
-html.admin-panel .error-message {
-  color: #dc3545 !important;
-}
-
-html.admin-panel .btn-cancel,
-html.admin-panel .btn-cancel * {
-  color: #212529 !important;
-  background-color: #fff !important;
-  border: 2px solid #212529 !important;
-  opacity: 1 !important;
-}
-
-html.admin-panel .btn-cancel:hover {
-  background-color: #f8f9fa !important;
-}
-
-html.admin-panel .btn-save,
-html.admin-panel .btn-save * {
-  color: #fff !important;
-  background-color: #212529 !important;
-  border: 2px solid #212529 !important;
-  opacity: 1 !important;
-}
-
-html.admin-panel .btn-save:hover {
-  background-color: #333 !important;
-  color: #fff !important;
-}
-
-html.admin-panel .modal-dialog .btn-primary,
-html.admin-panel .modal-dialog .btn-dark {
-  color: #fff !important;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
 }

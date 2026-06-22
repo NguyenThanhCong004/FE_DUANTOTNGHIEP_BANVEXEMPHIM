@@ -1,27 +1,34 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { useAdminToast } from "../../components/admin/AdminToast";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { VOUCHERS } from "../../constants/apiEndpoints";
+import { formatDate, formatVnd } from "../../utils/formatters";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const VoucherManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [voucherToDelete, setVoucherToDelete] = useState(null);
-  const itemsPerPage = 10;
+  const [deleteError, setDeleteError] = useState("");
+  const itemsPerPage = 5;
 
+  const { showToast, ToastComponent } = useAdminToast();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
+  useEffect(() => {
+    if (location.state?.message) {
+      showToast(location.state.message, location.state.type || 'success');
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Mapping trạng thái sang text và màu sắc
   const getStatusInfo = (status) => {
@@ -34,7 +41,7 @@ const VoucherManagement = () => {
     }
   };
 
-  const mapVoucher = (v) => ({
+  const mapVoucher = useCallback((v) => ({
     id: v.id,
     code: v.code ?? "",
     value: v.value ?? 0,
@@ -44,12 +51,12 @@ const VoucherManagement = () => {
     endDate: v.endDate ?? "",
     pointVoucher: v.pointVoucher ?? 0,
     status: v.status,
-  });
+  }), []);
 
-  const fetchVouchers = async () => {
+  const fetchVouchers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(VOUCHERS.LIST);
+      const res = await apiFetch(withQuery(VOUCHERS.LIST, { search: searchTerm }));
       const json = await res.json().catch(() => null);
       
       const list = json?.data ?? json ?? [];
@@ -62,15 +69,14 @@ const VoucherManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [mapVoucher, searchTerm]);
 
   useEffect(() => {
     fetchVouchers();
-  }, []);
+  }, [fetchVouchers]);
 
-  const filteredVouchers = vouchers.filter((v) =>
-    String(v.code || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredVouchers = vouchers
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -90,24 +96,27 @@ const VoucherManagement = () => {
         await fetchVouchers();
         setShowDeleteModal(false);
         setVoucherToDelete(null);
+        setDeleteError("");
       } else {
         const errorMsg = json?.message || `Lỗi từ hệ thống (Mã: ${res.status})`;
-        showToast(errorMsg, 'danger');
+        setDeleteError(errorMsg);
       }
     } catch (error) {
       console.error("Lỗi khi gọi API xóa:", error);
-      showToast('Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng!', 'danger');
+      setDeleteError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại mạng!");
     }
   };
 
   const openDeleteModal = (voucher) => {
     setVoucherToDelete(voucher);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setVoucherToDelete(null);
+    setDeleteError("");
   };
 
   return (
@@ -154,6 +163,7 @@ const VoucherManagement = () => {
             <table className="admin-table mb-0">
               <thead>
                 <tr>
+                  <th style={{ width: 56 }}>STT</th>
                   <th>Mã Code</th>
                   <th>Giảm giá (%)</th>
                   <th>Giảm tối đa</th>
@@ -167,32 +177,33 @@ const VoucherManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-4 text-muted">
+                    <td colSpan={9} className="text-center py-4 text-muted">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
                 ) : currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-5 text-muted">
+                    <td colSpan={9} className="text-center py-5 text-muted">
                       Không tìm thấy voucher nào.
                     </td>
                   </tr>
                 ) : (
-                  currentItems.map((voucher) => {
+                  currentItems.map((voucher, index) => {
                     const statusInfo = getStatusInfo(voucher.status);
                     return (
                       <tr key={voucher.id}>
+                        <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                         <td>
                           <span className="font-monospace fw-bold px-2 py-1 rounded border bg-light">{voucher.code}</span>
                         </td>
                         <td>
                           <div className="fw-semibold">{voucher.value}%</div>
                         </td>
-                        <td className="fw-semibold text-danger">{voucher.maxDiscountAmount.toLocaleString("vi-VN")} đ</td>
-                        <td className="fw-semibold">{voucher.minOrderValue.toLocaleString("vi-VN")} đ</td>
+                        <td className="fw-semibold text-danger">{formatVnd(voucher.maxDiscountAmount)}</td>
+                        <td className="fw-semibold">{formatVnd(voucher.minOrderValue)}</td>
                         <td className="small">
-                          <div>Từ: {new Date(voucher.startDate).toLocaleDateString("vi-VN")}</div>
-                          <div>Đến: {new Date(voucher.endDate).toLocaleDateString("vi-VN")}</div>
+                          <div>Từ: {formatDate(voucher.startDate)}</div>
+                          <div>Đến: {formatDate(voucher.endDate)}</div>
                         </td>
                         <td className="text-center fw-semibold">{voucher.pointVoucher} điểm</td>
                         <td className="text-center">
@@ -239,22 +250,14 @@ const VoucherManagement = () => {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="admin-pagination-wrap mt-3 d-flex justify-content-end">
-              <div className="admin-pagination">
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i + 1}
-                    type="button"
-                    className={`admin-pagination-btn ${currentPage === i + 1 ? "active" : ""}`}
-                    onClick={() => setCurrentPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredVouchers.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="voucher"
+          />
         </div>
       </div>
 
@@ -279,17 +282,17 @@ const VoucherManagement = () => {
                   <p className="admin-form-label mb-1 text-muted">Giá trị giảm</p>
                   <p className="fw-bold fs-5 mb-4 text-primary">{selectedItem.value}%</p>
                   <p className="admin-form-label mb-1 text-muted">Giảm tối đa</p>
-                  <p className="fw-bold fs-5 text-danger mb-0">{selectedItem.maxDiscountAmount.toLocaleString("vi-VN")} đ</p>
+                  <p className="fw-bold fs-5 text-danger mb-0">{formatVnd(selectedItem.maxDiscountAmount)}</p>
                 </div>
                 <div className="col-md-6 ps-md-4">
                   <p className="admin-form-label mb-1 text-muted">Đơn tối thiểu</p>
-                  <p className="fw-semibold mb-3">{selectedItem.minOrderValue.toLocaleString("vi-VN")} đ</p>
+                  <p className="fw-semibold mb-3">{formatVnd(selectedItem.minOrderValue)}</p>
                   <p className="admin-form-label mb-1 text-muted">Điểm cần đổi</p>
                   <p className="fw-semibold mb-3">{selectedItem.pointVoucher} điểm</p>
                   <p className="admin-form-label mb-1 text-muted">Thời gian hiệu lực</p>
                   <div className="mb-3 small">
-                    Từ: <b>{new Date(selectedItem.startDate).toLocaleDateString("vi-VN")}</b><br />
-                    Đến: <b>{new Date(selectedItem.endDate).toLocaleDateString("vi-VN")}</b>
+                    Từ: <b>{formatDate(selectedItem.startDate)}</b><br />
+                    Đến: <b>{formatDate(selectedItem.endDate)}</b>
                   </div>
                   <p className="admin-form-label mb-1 text-muted">Trạng thái hiện tại</p>
                   <span className={`admin-badge ${getStatusInfo(selectedItem.status).class}`}>
@@ -323,6 +326,12 @@ const VoucherManagement = () => {
             <div className="admin-modal-body text-center py-4">
               <p className="mb-3">Bạn có chắc chắn muốn xóa voucher <b>{voucherToDelete.code}</b>?</p>
               <div className="alert alert-warning py-2 small">Hành động này không thể hoàn tác.</div>
+              {deleteError && (
+                <div className="alert alert-danger mb-0 mt-3 text-start">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
             </div>
             <div className="admin-modal-footer">
               <button type="button" className="admin-btn admin-btn-outline" onClick={closeDeleteModal}>Hủy</button>
@@ -332,15 +341,7 @@ const VoucherManagement = () => {
         </div>
       )}
 
-      {toast.show && (
-        <div 
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 };

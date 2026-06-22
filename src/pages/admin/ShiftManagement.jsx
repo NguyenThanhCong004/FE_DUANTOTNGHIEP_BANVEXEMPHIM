@@ -3,10 +3,13 @@ import { useLocation } from "react-router-dom";
 import { Badge, Button, Card, Row, Col, Spinner } from "react-bootstrap";
 import { Users, GripVertical, Search, Clock, Calendar, Save, Trash2, UserPlus, ShieldCheck, Brush, ChevronLeft, ChevronRight } from "lucide-react";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
+import { useAdminToast } from "../../components/admin/AdminToast";
+import useRealtimeSync from "../../utils/useRealtimeSync";
+import { isActiveStatus } from "../../utils/statusFormat";
 
 const DAY_NAMES = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 const SHIFT_TYPES = [
@@ -42,22 +45,60 @@ const toIso = (d) => {
   return d.toISOString().slice(0, 10);
 };
 
+const formatSyncTime = (date) => {
+  if (!date) return "";
+  return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+};
+
 export default function ShiftManagement() {
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const staffSession = getStoredStaff();
   const { selectedCinemaId } = useSuperAdminCinema();
+  const { showToast, ToastComponent } = useAdminToast();
   const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : staffSession?.cinemaId ?? null;
 
   const [staffList, setStaffList] = useState([]);
   const [shifts, setShifts] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [weekStart, setWeekStart] = useState(getWeekStart(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   const [dragData, setDragData] = useState(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
+
+  // Auto-scroll logic when dragging
+  useEffect(() => {
+    if (!dragData) return;
+
+    const handleGlobalDragOver = (e) => {
+      const threshold = 120; // Khoảng cách từ mép màn hình để bắt đầu cuộn (px)
+      const scrollSpeed = 20; // Tốc độ cuộn
+      
+      // 1. Cuộn dọc toàn trang
+      if (window.innerHeight - e.clientY < threshold) {
+        window.scrollBy({ top: scrollSpeed, behavior: 'auto' });
+      } else if (e.clientY < threshold) {
+        window.scrollBy({ top: -scrollSpeed, behavior: 'auto' });
+      }
+
+      // 2. Cuộn ngang container bảng (nếu có thanh cuộn)
+      const container = document.querySelector('.table-responsive');
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        if (e.clientY > rect.top && e.clientY < rect.bottom) {
+          if (e.clientX > rect.right - threshold) {
+            container.scrollBy({ left: scrollSpeed, behavior: 'auto' });
+          } else if (e.clientX < rect.left + threshold) {
+            container.scrollBy({ left: -scrollSpeed, behavior: 'auto' });
+          }
+        }
+      }
+    };
+
+    window.addEventListener("dragover", handleGlobalDragOver);
+    return () => window.removeEventListener("dragover", handleGlobalDragOver);
+  }, [dragData]);
 
   const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const weekRangeStr = useMemo(() => {
@@ -69,42 +110,17 @@ export default function ShiftManagement() {
     if (!effectiveCinemaId) return;
     setLoading(true);
     try {
-      console.log("🔄 Bắt đầu tải dữ liệu ca làm việc...");
-      console.log("🏢 Cinema ID:", effectiveCinemaId);
-      console.log("📅 Tuần:", weekRangeStr);
-      
-      const qStaff = `?cinemaId=${effectiveCinemaId}`;
+      const staffPath = withQuery(STAFF.LIST, { cinemaId: effectiveCinemaId, search: searchTerm });
       const qShifts = `?cinemaId=${effectiveCinemaId}&startDate=${toIso(weekDays[0])}&endDate=${toIso(weekDays[6])}`;
-      
-      console.log("📡 API calls:");
-      console.log("  Staff:", `${STAFF.LIST}${qStaff}`);
-      console.log("  Shifts:", `${SHIFTS.LIST}${qShifts}`);
-      
+
       const [staffRes, shiftRes] = await Promise.all([
-        apiFetch(`${STAFF.LIST}${qStaff}`),
+        apiFetch(staffPath),
         apiFetch(`${SHIFTS.LIST}${qShifts}`),
       ]);
       
       const staffJson = await staffRes.json();
       const shiftJson = await shiftRes.json();
-      
-      console.log("📊 Staff response:", staffJson);
-      console.log("📊 Shifts response:", shiftJson);
-      
-      // Log chi tiết data từ backend
-      if (shiftJson?.data?.[0]) {
-        const firstShift = shiftJson.data[0];
-        console.log("🔍 First shift from backend:");
-        console.log("  - id:", firstShift.id);
-        console.log("  - staffName:", firstShift.staffName);
-        console.log("  - role:", firstShift.role);
-        console.log("  - shiftType:", firstShift.shiftType);
-        console.log("  - date:", firstShift.date);
-        console.log("  - startTime:", firstShift.startTime);
-        console.log("  - endTime:", firstShift.endTime);
-        console.log("  - All keys:", Object.keys(firstShift));
-      }
-      
+
       // staff data structure from API: staffId, fullname, role, etc.
       setStaffList(Array.isArray(staffJson?.data) ? staffJson.data : []);
       
@@ -116,76 +132,73 @@ export default function ShiftManagement() {
         startTime: s.startTime,
         endTime: s.endTime,
         role: s.role,
-        staffId: null, // Backend không trả staffId, chỉ có staffName
+        staffId: s.staffId ?? null,
         staffName: s.staffName || "Không tên",
         dirty: false
       }));
-      
-      console.log("📝 Processed shifts:", loadedShifts);
+
       setShifts(loadedShifts);
       setPendingDeleteIds([]);
-      console.log("✅ Tải dữ liệu hoàn tất");
     } catch (err) {
       console.error("❌ Lỗi tải dữ liệu ca làm:", err);
     } finally {
       setLoading(false);
     }
-  }, [effectiveCinemaId, weekStart, weekDays]);
+  }, [effectiveCinemaId, weekDays, searchTerm]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const filteredStaff = useMemo(() => {
-    // Filter out Admin and Super Admin
+    // Filter out Admin and Super Admin, AND only active staff
     return staffList
       .filter(s => {
+        if (!isActiveStatus(s.status)) return false;
+
         const role = (s.role || "").toLowerCase();
         return !role.includes("admin") && !role.includes("super");
-      })
-      .filter(s => (s.fullname || s.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [staffList, searchTerm]);
+      });
+  }, [staffList]);
 
-  const getShiftInCell = (date, shiftName, role) => {
-    return shifts.find(s => s.date === date && s.shiftType === shiftName && s.role === role);
+  const getShiftsInCell = (date, shiftName, role) => {
+    return shifts.filter(s => s.date === date && s.shiftType === shiftName && s.role === role);
   };
 
   const onDropStaff = (date, shiftObj, posObj) => {
     if (!dragData) return;
-    const { staffId, staffName } = dragData;
     
-    // Check if staff already has a shift in this specific CA (Ca 1, Ca 2, or Ca 3) on this day
-    const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
-    
-    if (alreadyInShift) {
-      if (alreadyInShift.role === posObj.role) return; // Same position, do nothing
-      alert(`Nhân viên ${staffName} đã được phân công vị trí "${alreadyInShift.role}" trong ${shiftObj.name}. Một người không thể làm nhiều vị trí trong cùng một ca.`);
+    // Chặn kéo thả vào ngày quá khứ
+    const todayStr = toIso(new Date());
+    if (date < todayStr) {
+      showToast("Không thể thay đổi lịch làm việc của ngày đã qua.", "warning");
       return;
     }
 
-    const existing = getShiftInCell(date, shiftObj.name, posObj.role);
+    const { staffId, staffName } = dragData;
     
-    if (existing) {
-      setShifts(prev => prev.map(s => 
-        s === existing 
-          ? { ...s, staffId, staffName, dirty: true } 
-          : s
-      ));
-    } else {
-      const newShift = {
-        id: `local-${Date.now()}-${Math.random()}`,
-        serverId: null,
-        date,
-        shiftType: shiftObj.name,
-        startTime: shiftObj.start,
-        endTime: shiftObj.end,
-        role: posObj.role,
-        staffId,
-        staffName,
-        dirty: false
-      };
-      setShifts(prev => [...prev, newShift]);
+    // Kiểm tra xem nhân viên này đã có mặt trong CA này chưa (bất kể vị trí nào)
+    const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
+    
+    if (alreadyInShift) {
+      showToast(`Nhân viên ${staffName} đã có lịch làm trong ${shiftObj.name} (vị trí: ${alreadyInShift.role}).`, "warning");
+      return;
     }
+
+    // Luôn tạo một bản ghi mới (hỗ trợ nhiều người cùng vị trí)
+    const newShift = {
+      id: `local-${Date.now()}-${Math.random()}`,
+      serverId: null,
+      date,
+      shiftType: shiftObj.name,
+      startTime: shiftObj.start,
+      endTime: shiftObj.end,
+      role: posObj.role,
+      staffId,
+      staffName,
+      dirty: true // Đánh dấu là mới/thay đổi để lưu
+    };
+    setShifts(prev => [...prev, newShift]);
     setDragData(null);
   };
 
@@ -196,40 +209,12 @@ export default function ShiftManagement() {
     setShifts(prev => prev.filter(s => s.id !== shift.id));
   };
 
-  const testDebugEndpoint = async () => {
-    console.log("🔍 Testing debug endpoint...");
-    try {
-      const response = await apiFetch(`${SHIFTS.LIST}/debug`);
-      const data = await response.json();
-      console.log("🔍 Debug response:", data);
-      console.log("🔍 Total shifts in database:", data.data?.length || 0);
-      
-      if (data.data?.length > 0) {
-        console.log("🔍 First few shifts:");
-        data.data.slice(0, 3).forEach((shift, index) => {
-          console.log(`  ${index + 1}.`, shift);
-        });
-      }
-      
-      alert(`Debug: Có ${data.data?.length || 0} ca làm trong database. Xem console để chi tiết.`);
-    } catch (err) {
-      console.error("🔍 Debug endpoint failed:", err);
-      alert("Debug endpoint thất bại! Xem console để chi tiết.");
-    }
-  };
-
   const handleSave = async () => {
     if (!effectiveCinemaId) return;
     setSaving(true);
     try {
-      console.log("🔍 Bắt đầu lưu ca làm việc...");
-      console.log("📅 Tuần hiện tại:", weekRangeStr);
-      console.log("🔄 Pending deletes:", pendingDeleteIds);
-      console.log("📝 Shifts to save:", shifts.filter(s => !s.serverId || s.dirty).length);
-      
       // Xóa các ca đã đánh dấu xóa
       for (const id of pendingDeleteIds) {
-        console.log("🗑️ Xóa ca ID:", id);
         await apiFetch(SHIFTS.BY_ID(id), { method: "DELETE" });
       }
       
@@ -245,18 +230,14 @@ export default function ShiftManagement() {
             role: s.role,
             cinemaId: Number(effectiveCinemaId)
           };
-          
-          console.log("💾 Lưu ca:", { staffId: s.staffId, date: s.date, shiftType: s.shiftType, role: s.role });
-          
+
           if (s.serverId) {
-            console.log("✏️ Cập nhật ca tồn tại:", s.serverId);
             await apiFetch(`${SHIFTS.BY_ID(s.serverId)}/individual`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body)
             });
           } else {
-            console.log("➕ Tạo ca mới");
             await apiFetch(`${SHIFTS.LIST}/individual`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -265,20 +246,15 @@ export default function ShiftManagement() {
           }
         }
       }
-      
-      console.log("✅ Lưu thành công, bắt đầu tải lại dữ liệu...");
-      setSuccessMessage("Đã lưu lịch làm việc thành công!");
-      
+
+      showToast("Đã lưu lịch làm việc thành công!", "success");
+
       // Tải lại dữ liệu để hiển thị các ca đã lưu
       await loadData();
-      console.log("🔄 Tải lại dữ liệu hoàn tất");
-      
-      // Clear success message sau 3 giây
-      setTimeout(() => setSuccessMessage(''), 3000);
-      
+      notifySync("shifts:saved");
     } catch (err) {
       console.error("❌ Lỗi khi lưu lịch làm việc:", err);
-      alert("Lỗi khi lưu lịch làm việc: " + (err.message || "Vui lòng thử lại."));
+      showToast("Lỗi khi lưu lịch làm việc: " + (err.message || "Vui lòng thử lại."), "danger");
     } finally {
       setSaving(false);
     }
@@ -287,25 +263,39 @@ export default function ShiftManagement() {
   const navigateWeek = (weeks) => {
     const next = new Date(weekStart);
     next.setDate(weekStart.getDate() + (weeks * 7));
-    console.log("🗓️ Chuyển tuần:", weeks, "tuần");
-    console.log("📅 Từ:", weekRangeStr);
     setWeekStart(next);
     // loadData sẽ được gọi tự động qua useEffect vì weekStart thay đổi
   };
 
-  const goToCurrentWeek = () => {
-    console.log("🗓️ Quay về tuần hiện tại");
-    setWeekStart(getWeekStart(new Date()));
+  const handleDateChange = (e) => {
+    const selectedDate = e.target.value;
+    if (selectedDate) {
+      setWeekStart(getWeekStart(new Date(selectedDate)));
+    }
   };
 
   const hasChanges = pendingDeleteIds.length > 0 || shifts.some(s => !s.serverId || s.dirty);
+  const { lastSyncedAt, syncing: realtimeSyncing, notifySync } = useRealtimeSync({
+    enabled: Boolean(effectiveCinemaId),
+    intervalMs: 10000,
+    hasPendingChanges: hasChanges || saving || Boolean(dragData),
+    onSync: loadData,
+    channelName: `java6-shifts-${effectiveCinemaId || "none"}`,
+  });
+  const syncLabel = hasChanges
+    ? "Tạm dừng real-time"
+    : realtimeSyncing
+      ? "Đang đồng bộ"
+      : lastSyncedAt
+        ? `Đồng bộ ${formatSyncTime(lastSyncedAt)}`
+        : "Real-time sẵn sàng";
 
   if (!effectiveCinemaId) {
     return (
       <AdminPanelPage icon="calendar-check" title="Quản lý Ca làm việc" description="Chọn rạp để phân lịch">
         <div className="alert alert-warning border-0 shadow-sm mb-0">
           <i className="bi bi-exclamation-triangle-fill me-2"></i>
-          <strong>Chưa chọn rạp.</strong> {isSuperAdmin ? "Vui lòng chọn rạp từ thanh sidebar để quản lý ca làm việc." : "Tài khoản của bạn chưa được gán cho rạp nào."}
+          <strong>Chưa chọn rạp.</strong> {isSuperAdmin ? "Vui lòng chọn rạp trên header để quản lý ca làm việc." : "Tài khoản của bạn chưa được gán cho rạp nào."}
         </div>
       </AdminPanelPage>
     );
@@ -316,9 +306,12 @@ export default function ShiftManagement() {
       icon="calendar-check"
       title="Quản lý Ca làm việc"
       description={
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
           <span>Phân bổ nhân sự trực quan bằng cách kéo thả.</span>
           {hasChanges && <Badge bg="warning" text="dark" className="admin-fade-in">Có thay đổi chưa lưu</Badge>}
+          <span className={`admin-realtime-pill ${hasChanges ? "is-paused" : realtimeSyncing ? "is-syncing" : ""}`}>
+            {syncLabel}
+          </span>
         </div>
       }
       headerRight={
@@ -345,15 +338,23 @@ export default function ShiftManagement() {
             >
               <ChevronRight size={16} />
             </Button>
-            <Button 
-              variant="link" 
-              size="sm" 
-              className="p-1 text-primary ms-2" 
-              onClick={goToCurrentWeek}
-              title="Quay về tuần hiện tại"
-            >
-              <Calendar size={14} />
-            </Button>
+            <div className="position-relative ms-2">
+              <input
+                type="date"
+                className="position-absolute opacity-0"
+                style={{ width: '24px', height: '24px', cursor: 'pointer', zIndex: 1, left: 0, top: 0 }}
+                onChange={handleDateChange}
+                title="Chọn ngày để xem lịch"
+              />
+              <Button 
+                variant="link" 
+                size="sm" 
+                className="p-1 text-primary" 
+                title="Chọn ngày để xem lịch"
+              >
+                <Calendar size={14} />
+              </Button>
+            </div>
           </div>
           
           <Button 
@@ -365,15 +366,6 @@ export default function ShiftManagement() {
           >
             {saving ? <Spinner animation="border" size="sm" className="me-2" /> : <Save size={18} className="me-2" />}
             Lưu lịch làm việc
-          </Button>
-          
-          <Button 
-            variant="outline-secondary" 
-            size="sm"
-            onClick={testDebugEndpoint}
-            title="Debug - Kiểm tra data trong database"
-          >
-            🔍 Debug
           </Button>
         </div>
       }
@@ -413,7 +405,7 @@ export default function ShiftManagement() {
                 </div>
                 <div className="flex-grow-1 overflow-hidden">
                   <div className="fw-bold text-truncate" style={{ fontSize: '0.8rem' }}>{staff.fullname || staff.fullName || staff.name}</div>
-                  <div className="text-muted" style={{ fontSize: '0.65rem' }}>{staff.role}</div>
+                  <div className="text-muted" style={{ fontSize: '0.65rem' }}>Nhân viên rạp</div>
                 </div>
               </div>
             )) : (
@@ -447,52 +439,76 @@ export default function ShiftManagement() {
                     </td>
                     {weekDays.map((day, dIdx) => {
                       const dateStr = toIso(day);
+                      const isPast = dateStr < toIso(new Date());
                       return (
                         <td key={dIdx} className="p-2 align-top">
                           <div className="d-flex flex-column gap-2">
                             {POSITIONS.map(pos => {
-                              const assignment = getShiftInCell(dateStr, shift.name, pos.role);
+                              const assignments = getShiftsInCell(dateStr, shift.name, pos.role);
+                              const hasAssignments = assignments.length > 0;
                               return (
                                 <div 
                                   key={pos.id}
-                                  onDragOver={(e) => e.preventDefault()}
-                                  onDrop={() => onDropStaff(dateStr, shift, pos)}
-                                  className={`position-slot-v2 p-2 rounded ${assignment ? 'border-solid-v2 bg-white shadow-xs' : 'bg-light bg-opacity-50'}`}
+                                  onDragOver={(e) => !isPast && e.preventDefault()}
+                                  onDrop={() => !isPast && onDropStaff(dateStr, shift, pos)}
+                                  className={`position-slot-v2 p-2 rounded ${
+                                    isPast 
+                                      ? (hasAssignments ? 'border-past-v2 bg-past-assigned' : 'bg-past-empty border-dashed-past')
+                                      : (hasAssignments ? 'border-solid-v2 bg-white shadow-xs' : 'bg-light bg-opacity-50')
+                                  } ${isPast ? 'past-no-hover' : ''}`}
+                                  style={{ cursor: isPast ? 'not-allowed' : 'default', minHeight: '60px' }}
                                 >
-                                  <div className="d-flex align-items-center justify-content-between mb-1">
-                                    <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.6rem' }}>
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className={`d-flex align-items-center gap-1 fw-bold ${isPast ? 'text-muted opacity-50' : 'text-primary opacity-75'}`} style={{ fontSize: '0.6rem' }}>
                                       {pos.icon} {pos.name}
                                     </div>
-                                    {assignment && (
-                                      <button 
-                                        className="btn btn-link btn-sm p-0 text-danger opacity-50 hover-opacity-100"
-                                        onClick={() => handleRemoveShift(assignment)}
-                                      >
-                                        <Trash2 size={12} />
-                                      </button>
+                                    {hasAssignments && (
+                                      <Badge bg={isPast ? "secondary" : "primary"} className="rounded-pill" style={{ fontSize: '0.55rem' }}>
+                                        {assignments.length} người
+                                      </Badge>
                                     )}
                                   </div>
                                   
-                                  {assignment ? (
-                                    <div className="d-flex align-items-center gap-2 overflow-hidden">
-                                      <div className="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center staff-avatar-sm">
-                                        {assignment.staffName.charAt(0).toUpperCase()}
-                                      </div>
-                                      <div className="flex-grow-1">
-                                        <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.75rem' }}>
-                                          {assignment.staffName}
+                                  <div className="d-flex flex-column gap-2">
+                                    {hasAssignments ? (
+                                      assignments.map((assignment, idx) => (
+                                        <div 
+                                          key={assignment.id || idx} 
+                                          className={`d-flex align-items-center gap-2 p-1 rounded ${!isPast ? 'bg-light' : ''}`}
+                                          style={{ borderBottom: idx < assignments.length - 1 ? '1px solid #f1f5f9' : 'none' }}
+                                        >
+                                          <div className={`${isPast ? 'bg-secondary' : 'bg-success'} bg-opacity-10 ${isPast ? 'text-secondary' : 'text-success'} rounded-circle d-flex align-items-center justify-content-center staff-avatar-sm flex-shrink-0`}>
+                                            {assignment.staffName.charAt(0).toUpperCase()}
+                                          </div>
+                                          <div className="flex-grow-1 overflow-hidden">
+                                            <div className={`fw-bold ${isPast ? 'text-muted' : 'text-dark'} text-truncate`} style={{ fontSize: '0.7rem' }}>
+                                              {assignment.staffName}
+                                            </div>
+                                            {!isPast && (
+                                              <div className="text-muted" style={{ fontSize: '0.55rem' }}>Đã phân công</div>
+                                            )}
+                                          </div>
+                                          {!isPast && (
+                                            <button 
+                                              className="btn btn-link btn-sm p-0 text-danger opacity-50 hover-opacity-100 flex-shrink-0"
+                                              onClick={() => handleRemoveShift(assignment)}
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          )}
                                         </div>
-                                        <div className="text-muted" style={{ fontSize: '0.6rem' }}>
-                                          Đã phân công
-                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="text-muted text-center py-2" style={{ fontSize: '0.6rem', opacity: isPast ? 0.3 : 0.5 }}>
+                                        {isPast ? '—' : (
+                                          <>
+                                            <div className="mb-1 small">👥</div>
+                                            <div>Kéo vào đây</div>
+                                          </>
+                                        )}
                                       </div>
-                                    </div>
-                                  ) : (
-                                    <div className="text-muted text-center" style={{ fontSize: '0.6rem', opacity: 0.7 }}>
-                                      <div className="mb-1">👥</div>
-                                      <div>Kéo nhân viên vào đây</div>
-                                    </div>
-                                  )}
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -540,6 +556,19 @@ export default function ShiftManagement() {
           border: 1px solid #e2e8f0 !important;
           border-left: 3px solid #6366f1 !important;
         }
+        .shift-management-v2 .border-past-v2 {
+          border: 1px solid #cbd5e1 !important;
+          border-left: 3px solid #94a3b8 !important;
+        }
+        .shift-management-v2 .bg-past-empty {
+          background-color: #f8fafc !important;
+        }
+        .shift-management-v2 .bg-past-assigned {
+          background-color: #f1f5f9 !important;
+        }
+        .shift-management-v2 .border-dashed-past {
+          border: 1px dashed #e2e8f0 !important;
+        }
         .shift-management-v2 .staff-avatar-sm {
           width: 18px;
           height: 18px;
@@ -556,6 +585,7 @@ export default function ShiftManagement() {
           box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
         }
       `}</style>
+      <ToastComponent />
     </AdminPanelPage>
   );
 }

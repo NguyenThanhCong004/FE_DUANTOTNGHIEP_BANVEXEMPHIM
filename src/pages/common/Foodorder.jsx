@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import { Container, Row, Col, Spinner, Form, Alert } from "react-bootstrap";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { CINEMAS, FOOD_ORDERS } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
+import { formatVnd } from "../../utils/formatters";
 
-const fmt = (n) => (Number(n) || 0).toLocaleString("vi-VN") + "đ";
+const fmt = formatVnd;
 
 function normalizeProduct(o) {
   const id = o.productId ?? o.product_id;
@@ -17,12 +19,13 @@ function normalizeProduct(o) {
     price: Number(o.price ?? 0) || 0,
     categoryName: o.categoryName ?? o.category_name ?? "Khác",
     image: typeof o.image === "string" ? o.image.trim() : "",
+    isActive: o.isActive !== false,
   };
 }
 
 function ProductCard({ product, qty, onAdd, onRemove }) {
   const img =
-    product.image && (product.image.startsWith("http") || product.image.startsWith("data:")) ? (
+    product.image && isDisplayableImageSrc(product.image) ? (
       <img
         src={product.image}
         alt=""
@@ -71,7 +74,7 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
   );
 }
 
-export default function FoodOrder() {
+export function FoodOrderContent({ embedded = false }) {
   const navigate = useNavigate();
   const [cinemas, setCinemas] = useState([]);
   const [cinemaId, setCinemaId] = useState("");
@@ -93,9 +96,10 @@ export default function FoodOrder() {
         const res = await apiFetch(CINEMAS.LIST);
         const body = await res.json().catch(() => null);
         if (!c && res.ok && Array.isArray(body?.data)) {
-          setCinemas(body.data);
-          if (body.data.length === 1) {
-            const only = body.data[0];
+          const cinemaRows = body.data;
+          setCinemas(cinemaRows);
+          if (cinemaRows.length === 1) {
+            const only = cinemaRows[0];
             setCinemaId(String(only.cinemaId ?? only.cinema_id ?? only.id ?? ""));
           }
         }
@@ -114,18 +118,18 @@ export default function FoodOrder() {
     setLoadingMenu(true);
     setMenuError(null);
     try {
-      const res = await apiFetch(CINEMAS.PRODUCT_MENU(id));
+      const res = await apiFetch(withQuery(CINEMAS.PRODUCT_MENU(id), { search }));
       const body = await res.json().catch(() => null);
       if (!res.ok) { setMenuError(body?.message || "Không tải được menu"); setProducts([]); return; }
       const onSale = Array.isArray(body?.data?.onSale) ? body.data.onSale : [];
-      setProducts(onSale.map(normalizeProduct).filter((p) => p.productId != null));
+      setProducts(onSale.map(normalizeProduct).filter((p) => p.productId != null && p.isActive));
     } catch {
       setMenuError("Không kết nối được máy chủ");
       setProducts([]);
     } finally {
       setLoadingMenu(false);
     }
-  }, []);
+  }, [search]);
 
   useEffect(() => { if (cinemaId) loadMenu(cinemaId); }, [cinemaId, loadMenu]);
 
@@ -136,13 +140,11 @@ export default function FoodOrder() {
   }, [products]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     return products.filter((p) => {
       const catOk = activeCategory === "Tất cả" || p.categoryName === activeCategory;
-      const searchOk = !q || p.name.toLowerCase().includes(q);
-      return catOk && searchOk;
+      return catOk;
     });
-  }, [products, activeCategory, search]);
+  }, [products, activeCategory]);
 
   const addItem    = (productId) => setCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
   const removeItem = (productId) => setCart((c) => {
@@ -197,7 +199,7 @@ export default function FoodOrder() {
   };
 
   return (
-    <Layout>
+    <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap');
 
@@ -217,6 +219,18 @@ export default function FoodOrder() {
             #0f102a;
           font-family: 'Syne', sans-serif;
           padding: 32px 0 80px;
+        }
+        .fd-page.embedded {
+          min-height: auto;
+          background: transparent;
+          padding: 0 0 12px;
+        }
+        .fd-page.embedded .container-xl {
+          padding-left: 0;
+          padding-right: 0;
+        }
+        .fd-page.embedded .fd-cart-panel {
+          top: 88px;
         }
 
         /* ── TITLE ── */
@@ -489,7 +503,7 @@ export default function FoodOrder() {
         .fd-empty p { font-size: 13px; font-weight: 600; }
       `}</style>
 
-      <div className="fd-page mt-4">
+      <div className={`fd-page${embedded ? " embedded" : " mt-4"}`}>
         <Container fluid="xl">
 
           {/* HEADER */}
@@ -618,6 +632,14 @@ export default function FoodOrder() {
           </Row>
         </Container>
       </div>
+    </>
+  );
+}
+
+export default function FoodOrder() {
+  return (
+    <Layout>
+      <FoodOrderContent />
     </Layout>
   );
 }

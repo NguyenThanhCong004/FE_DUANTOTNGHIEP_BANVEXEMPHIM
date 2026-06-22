@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { Row, Col, Spinner } from "react-bootstrap";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { getStoredStaff } from "../../utils/authStorage";
-import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
 import { apiFetch } from "../../utils/apiClient";
 import {
   SHOWTIMES,
@@ -13,23 +12,15 @@ import {
   ORDERS_ONLINE,
   CINEMAS,
 } from "../../constants/apiEndpoints";
+import { formatNumber } from "../../utils/formatters";
 
 function formatMoney(v) {
-  if (v == null || Number.isNaN(Number(v))) return "0";
-  return Number(v).toLocaleString("vi-VN");
+  return formatNumber(v, "0");
 }
 
 const AdminDashboard = () => {
   const staffSession = getStoredStaff();
-  const { selectedCinemaId, selectedCinemaName, setSelectedCinemaId } = useSuperAdminCinema();
-
-  const effectiveCinemaId = staffSession?.cinemaId ?? selectedCinemaId ?? null;
-
-  useEffect(() => {
-    const cid = staffSession?.cinemaId;
-    if (cid == null) return;
-    if (selectedCinemaId !== cid) setSelectedCinemaId(cid);
-  }, [staffSession?.cinemaId, selectedCinemaId, setSelectedCinemaId]);
+  const cinemaId = staffSession?.cinemaId;
 
   const [loading, setLoading] = useState(true);
   const [cinemaLabel, setCinemaLabel] = useState("");
@@ -46,81 +37,85 @@ const AdminDashboard = () => {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      if (!cinemaId) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
-      const empty = {
-        revenueToday: 0,
-        showtimeCount: 0,
-        showtimeUpcoming: 0,
-        roomCount: 0,
-        staffCount: 0,
-        promoCount: 0,
-        ordersToday: 0,
-      };
       try {
         const today0 = new Date();
         today0.setHours(0, 0, 0, 0);
+        const tonight = new Date();
+        tonight.setHours(23, 59, 59, 999);
 
-        const ordersRes = await apiFetch(ORDERS_ONLINE.LIST);
+        // Fetch song song các dữ liệu cần thiết của rạp
+        const [ordersRes, stRes, rmRes, sfRes, cRes, prRes] = await Promise.all([
+          apiFetch(`${ORDERS_ONLINE.LIST}?cinemaId=${cinemaId}`),
+          apiFetch(`${SHOWTIMES.LIST}?cinemaId=${cinemaId}`),
+          apiFetch(`${ROOMS.LIST}?cinemaId=${cinemaId}`),
+          apiFetch(STAFF.LIST),
+          apiFetch(CINEMAS.BY_ID(cinemaId)),
+          apiFetch(`${PROMOTIONS.LIST}?cinemaId=${cinemaId}`),
+        ]);
+
+        // 1. Xử lý Đơn hàng & Doanh thu
         const ordersJson = await ordersRes.json().catch(() => null);
-        const orders = Array.isArray(ordersJson?.data) ? ordersJson.data : [];
-
+        const allOrders = Array.isArray(ordersJson?.data) ? ordersJson.data : [];
+        
         let revenueToday = 0;
         let ordersToday = 0;
-        for (const o of orders) {
-          const st = o.status;
-          if (st === 0 || st === 2) continue;
+        
+        allOrders.forEach(o => {
+          const isOurCinema = o.cinemaId != null && Number(o.cinemaId) === Number(cinemaId); 
+          const isSuccess = o.status === 1; 
           const created = o.createdAt ? new Date(o.createdAt) : null;
-          if (!created || Number.isNaN(created.getTime())) continue;
-          if (created >= today0) {
+          const isToday = created && created >= today0 && created <= tonight;
+
+          if (isOurCinema && isSuccess && isToday) {
             ordersToday += 1;
             revenueToday += Number(o.finalAmount) || 0;
           }
-        }
+        });
 
-        let showtimeCount = 0;
-        let showtimeUpcoming = 0;
-        let roomCount = 0;
-        let staffCount = 0;
-        let promoCount = 0;
-        let label = selectedCinemaName || "";
+        // 2. Xử lý Suất chiếu (Chỉ tính suất chiếu của ngày hôm nay)
+        const stJson = await stRes.json().catch(() => null);
+        const allSlots = Array.isArray(stJson?.data) ? stJson.data : [];
+        
+        const slotsToday = allSlots.filter(s => {
+          const stDate = s.date ? new Date(s.date) : null;
+          if (!stDate) return false;
+          stDate.setHours(0,0,0,0);
+          return stDate.getTime() === today0.getTime();
+        });
 
-        if (effectiveCinemaId != null) {
-          const [stRes, rmRes, sfRes, prRes, cRes] = await Promise.all([
-            apiFetch(`${SHOWTIMES.LIST}?cinemaId=${effectiveCinemaId}`),
-            apiFetch(`${ROOMS.LIST}?cinemaId=${effectiveCinemaId}`),
-            apiFetch(STAFF.LIST),
-            apiFetch(`${PROMOTIONS.LIST}?cinemaId=${effectiveCinemaId}`),
-            apiFetch(CINEMAS.BY_ID(effectiveCinemaId)),
-          ]);
+        const showtimeCount = slotsToday.length;
+        const showtimeUpcoming = slotsToday.length; 
 
-          const stJson = await stRes.json().catch(() => null);
-          const slots = Array.isArray(stJson?.data) ? stJson.data : [];
-          showtimeCount = slots.length;
-          showtimeUpcoming = slots.filter((s) => {
-            const t = String(s.status || "");
-            return t.includes("Sắp") || t.includes("Đang");
-          }).length;
+        // 3. Xử lý Phòng chiếu
+        const rmJson = await rmRes.json().catch(() => null);
+        const rooms = Array.isArray(rmJson?.data) ? rmJson.data : [];
+        const roomCount = rooms.length;
 
-          const rmJson = await rmRes.json().catch(() => null);
-          const rooms = Array.isArray(rmJson?.data) ? rmJson.data : [];
-          roomCount = rooms.length;
+        // 4. Xử lý Nhân viên
+        const sfJson = await sfRes.json().catch(() => null);
+        const staffList = Array.isArray(sfJson?.data) ? sfJson.data : [];
+        const staffCount = staffList.filter(
+          (s) => Number(s.cinemaId) === Number(cinemaId)
+        ).length;
 
-          const sfJson = await sfRes.json().catch(() => null);
-          const staffList = Array.isArray(sfJson?.data) ? sfJson.data : [];
-          staffCount = staffList.filter(
-            (s) => Number(s.cinemaId) === Number(effectiveCinemaId)
-          ).length;
+        // 5. Xử lý Khuyến mãi
+        const prJson = await prRes.json().catch(() => null);
+        const promos = Array.isArray(prJson?.data) ? prJson.data : [];
+        const promoCount = promos.length;
 
-          const prJson = await prRes.json().catch(() => null);
-          const promos = Array.isArray(prJson?.data) ? prJson.data : [];
-          promoCount = promos.length;
-
-          const cJson = await cRes.json().catch(() => null);
-          const cdata = cJson?.data ?? cJson;
-          if (cdata?.name) label = cdata.name;
-        }
+        // 6. Lấy tên rạp
+        const cJson = await cRes.json().catch(() => null);
+        const cdata = cJson?.data ?? cJson;
+        const label = cdata?.name || "";
 
         if (!mounted) return;
+        
         setStats({
           revenueToday,
           showtimeCount,
@@ -131,9 +126,8 @@ const AdminDashboard = () => {
           ordersToday,
         });
         setCinemaLabel(label);
-      } catch {
-        if (!mounted) return;
-        setStats(empty);
+      } catch (error) {
+        console.error("Dashboard Fetch Error:", error);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -141,7 +135,7 @@ const AdminDashboard = () => {
     return () => {
       mounted = false;
     };
-  }, [effectiveCinemaId, selectedCinemaName]);
+  }, [cinemaId]);
 
   const statCards = useMemo(
     () => [
@@ -159,10 +153,7 @@ const AdminDashboard = () => {
         subtitle: "tại rạp",
         icon: "bi-calendar-check",
         color: "#8b5cf6",
-        hint:
-          effectiveCinemaId == null
-            ? "Chọn rạp để xem"
-            : `${stats.showtimeUpcoming} suất sắp/đang diễn ra`,
+        hint: `${stats.showtimeUpcoming} suất hôm nay`,
       },
       {
         title: "Phòng chiếu",
@@ -170,7 +161,7 @@ const AdminDashboard = () => {
         subtitle: "phòng",
         icon: "bi-door-open",
         color: "#3b82f6",
-        hint: effectiveCinemaId == null ? "—" : "Theo rạp hiện tại",
+        hint: "Theo rạp hiện tại",
       },
       {
         title: "Nhân viên rạp",
@@ -178,10 +169,10 @@ const AdminDashboard = () => {
         subtitle: "người",
         icon: "bi-people",
         color: "#f59e0b",
-        hint: effectiveCinemaId == null ? "—" : "Được gán cinemaId",
+        hint: "Được gán cinemaId",
       },
     ],
-    [stats, effectiveCinemaId]
+    [stats]
   );
 
   const quickLinks = useMemo(
@@ -199,18 +190,18 @@ const AdminDashboard = () => {
   const headerDescription = (
     <>
       <p className="lead mb-1">
-        {effectiveCinemaId != null
-          ? cinemaLabel || `Rạp #${effectiveCinemaId}`
-          : "Chưa có rạp — chọn rạp ở sidebar (nếu có) hoặc liên hệ Super Admin gán rạp."}
+        {cinemaId != null
+          ? cinemaLabel || `Rạp #${cinemaId}`
+          : "Chưa có rạp — vui lòng liên hệ Super Admin gán rạp cho tài khoản của bạn."}
       </p>
       <p className="small text-white-50 mb-0">
-        Doanh thu/ngày tính trên <strong>tất cả đơn online hoàn thành</strong> (BE chưa gắn cinema cho đơn).
+        Doanh thu/ngày tính trên các đơn hàng online hoàn thành của chi nhánh.
       </p>
     </>
   );
 
   return (
-    <AdminPanelPage icon="speedometer2" title="Bảng điều khiển" description={headerDescription}>
+    <AdminPanelPage icon="speedometer2" title="Bảng điều khiển Admin" description={headerDescription}>
       {loading ? (
         <div className="text-center py-5">
           <Spinner animation="border" variant="primary" />
@@ -278,8 +269,7 @@ const AdminDashboard = () => {
                 </div>
                 <div className="admin-card-body">
                   <p className="text-muted mb-0">
-                    Đang có <strong>{stats.promoCount}</strong> nhóm khuyến mãi
-                    {effectiveCinemaId != null ? "" : " (chọn rạp để đếm)"}.
+                    Đang có <strong>{stats.promoCount}</strong> nhóm khuyến mãi đang hoạt động.
                     <Link to="/admin/promotions" className="ms-2">
                       Quản lý →
                     </Link>

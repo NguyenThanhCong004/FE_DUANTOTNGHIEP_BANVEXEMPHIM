@@ -1,32 +1,65 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { apiFetch } from '../../utils/apiClient';
+import { Modal, Button, Badge, Row, Col, Spinner } from 'react-bootstrap';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { USERS } from '../../constants/apiEndpoints';
+import { formatDate } from '../../utils/formatters';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailUser, setDetailUser] = useState(null);
 
-  const formatBirthday = (d) => {
-    if (!d) return '';
-    const dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return String(d);
-    return `${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}/${dt.getFullYear()}`;
+  const openUserDetail = async (userId) => {
+    setShowDetailModal(true);
+    setDetailUser(null);
+    setDetailLoading(true);
+    try {
+      const res = await apiFetch(USERS.BY_ID(userId));
+      const json = await res.json().catch(() => null);
+      const found = json?.data ?? json;
+      if (res.ok && found) {
+        setDetailUser({
+          userId: found.userId,
+          fullname: found.fullname ?? '',
+          email: found.email ?? '',
+          phone: found.phone ?? '',
+          birthday: found.birthday ?? '',
+          points: found.points ?? 0,
+          status: found.status ?? 1,
+          avatar: found.avatar || 'https://via.placeholder.com/160',
+        });
+      }
+    } catch {
+      setDetailUser(null);
+    } finally {
+      setDetailLoading(false);
+    }
   };
+
+  const closeUserDetail = () => {
+    setShowDetailModal(false);
+    setDetailUser(null);
+  };
+
+  const formatBirthday = (d) => formatDate(d, { day: '2-digit', month: '2-digit', year: 'numeric', fallback: '' });
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(USERS.LIST);
+        const res = await apiFetch(withQuery(USERS.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         if (!mounted) return;
@@ -51,18 +84,11 @@ const UserManagement = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [searchTerm]);
 
   const filteredUsers = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => {
-      const name = String(u.fullname ?? u.username ?? '').toLowerCase();
-      const phone = String(u.phone ?? '');
-      const idStr = String(u.userId ?? '');
-      return name.includes(q) || phone.includes(q) || idStr.includes(q);
-    });
-  }, [searchTerm, users]);
+    return [...users].sort((a, b) => (Number(b.userId) || 0) - (Number(a.userId) || 0));
+  }, [users]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -119,7 +145,7 @@ const UserManagement = () => {
             <table className="admin-table mb-0">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th style={{ width: 56 }}>STT</th>
                   <th>Khách hàng</th>
                   <th>Liên hệ</th>
                   <th>Ngày sinh</th>
@@ -150,9 +176,9 @@ const UserManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : currentItems.map((user) => (
+                ) : currentItems.map((user, index) => (
                   <tr key={user.userId}>
-                    <td className="fw-bold">#{user.userId}</td>
+                    <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
                       <div className="d-flex align-items-center gap-3">
                         <div className="admin-table-icon-tile">
@@ -191,13 +217,14 @@ const UserManagement = () => {
                     <td>{getStatusBadge(user.status)}</td>
                     <td>
                       <div className="admin-table-action-group">
-                        <Link
-                          to={`${prefix}/users/view/${user.userId}`}
+                        <button
+                          type="button"
                           className="admin-table-action-btn admin-table-action-btn--view"
                           title="Xem chi tiết"
+                          onClick={() => openUserDetail(user.userId)}
                         >
                           <i className="bi bi-eye"></i>
-                        </Link>
+                        </button>
                         <Link
                           to={`${prefix}/users/edit/${user.userId}`}
                           className="admin-table-action-btn admin-table-action-btn--edit"
@@ -215,44 +242,83 @@ const UserManagement = () => {
         </div>
       </div>
 
-      {totalPages > 1 && (
-        <div className="admin-pagination-bar">
-          <span className="admin-pagination-meta">
-            Hiển thị {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredUsers.length)} / {filteredUsers.length}{' '}
-            khách hàng
-          </span>
-          <div className="admin-pagination">
-            <button
-              type="button"
-              className="admin-pagination-btn"
-              onClick={() => setCurrentPage((p) => p - 1)}
-              disabled={currentPage === 1}
-              aria-label="Trang trước"
-            >
-              <i className="bi bi-chevron-left"></i>
-            </button>
-            {[...Array(totalPages)].map((_, index) => (
-              <button
-                key={index}
-                type="button"
-                className={`admin-pagination-btn ${currentPage === index + 1 ? 'active' : ''}`}
-                onClick={() => setCurrentPage(index + 1)}
-              >
-                {index + 1}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="admin-pagination-btn"
-              onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={currentPage === totalPages}
-              aria-label="Trang sau"
-            >
-              <i className="bi bi-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      )}
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredUsers.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="khách hàng"
+      />
+
+      <Modal show={showDetailModal} onHide={closeUserDetail} centered size="lg">
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold text-primary">Chi tiết khách hàng</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-dark pt-0">
+          {detailLoading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" className="me-2" />
+              Đang tải…
+            </div>
+          ) : !detailUser ? (
+            <p className="text-muted mb-0 py-3">Không tìm thấy thông tin khách hàng.</p>
+          ) : (
+            <Row className="g-4 align-items-start">
+              <Col md={4} className="text-center">
+                <img
+                  src={detailUser.avatar}
+                  alt={detailUser.fullname}
+                  className="rounded-circle border"
+                  style={{ width: 140, height: 140, objectFit: 'cover' }}
+                />
+                <h5 className="fw-bold mt-3 mb-1">{detailUser.fullname}</h5>
+                <Badge bg={Number(detailUser.status) === 1 ? 'success' : 'danger'}>
+                  {Number(detailUser.status) === 1 ? 'Hoạt động' : 'Khóa'}
+                </Badge>
+              </Col>
+              <Col md={8}>
+                <Row className="g-3">
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Mã khách hàng</div>
+                    <div className="fw-semibold">#{detailUser.userId}</div>
+                  </Col>
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Email</div>
+                    <div className="fw-semibold">{detailUser.email || '—'}</div>
+                  </Col>
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Số điện thoại</div>
+                    <div className="fw-semibold">{detailUser.phone || '—'}</div>
+                  </Col>
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Ngày sinh</div>
+                    <div className="fw-semibold">{formatBirthday(detailUser.birthday) || '—'}</div>
+                  </Col>
+                  <Col sm={6}>
+                    <div className="small text-muted fw-bold">Điểm tích lũy</div>
+                    <div className="fw-semibold">{detailUser.points} điểm</div>
+                  </Col>
+                </Row>
+                <p className="small text-muted mt-3 mb-0">
+                  Thông tin đăng nhập và mật khẩu không hiển thị tại đây.
+                </p>
+              </Col>
+            </Row>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="border-0">
+          <Button variant="secondary" onClick={closeUserDetail}>
+            Đóng
+          </Button>
+          {detailUser ? (
+            <Button variant="primary" as={Link} to={`${prefix}/users/edit/${detailUser.userId}`} onClick={closeUserDetail}>
+              <i className="bi bi-pencil me-2"></i>
+              Chỉnh sửa
+            </Button>
+          ) : null}
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

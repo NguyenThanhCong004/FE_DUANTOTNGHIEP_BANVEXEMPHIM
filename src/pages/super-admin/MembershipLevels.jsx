@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { useAdminToast } from "../../components/admin/AdminToast";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { MEMBERSHIP_RANKS } from "../../constants/apiEndpoints";
+import { isActiveStatus } from "../../utils/statusFormat";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
+import { formatVnd } from "../../utils/formatters";
+import AdminPagination from "../../components/admin/AdminPagination";
 
 const MembershipLevelManagement = () => {
   const navigate = useNavigate();
@@ -13,16 +18,12 @@ const MembershipLevelManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
-  const itemsPerPage = 8;
+  const [deleteError, setDeleteError] = useState("");
+  const itemsPerPage = 5;
 
+  const { showToast, ToastComponent } = useAdminToast();
   const [levels, setLevels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
 
   useEffect(() => {
     if (location.state?.message) {
@@ -34,7 +35,7 @@ const MembershipLevelManagement = () => {
   const fetchLevels = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(MEMBERSHIP_RANKS.LIST);
+      const res = await apiFetch(withQuery(MEMBERSHIP_RANKS.LIST, { search: searchTerm }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -46,6 +47,8 @@ const MembershipLevelManagement = () => {
           description: l.description ?? "",
           discount_percent: l.discountPercent ?? 0,
           bonus_point: l.bonusPoint ?? 1,
+          status: l.status ?? 1,
+          is_default: l.isDefault ?? (l.minSpending === 0),
         }))
       );
     } catch {
@@ -57,18 +60,19 @@ const MembershipLevelManagement = () => {
 
   useEffect(() => {
     fetchLevels();
-  }, []);
+  }, [searchTerm]);
 
-  const filteredLevels = levels.filter((level) =>
-    String(level.rank_name || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLevels = levels
+    .sort((a, b) => {
+      if (a.is_default) return 1;
+      if (b.is_default) return -1;
+      return (Number(b.id) || 0) - (Number(a.id) || 0);
+    });
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredLevels.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredLevels.length / itemsPerPage);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const handleDelete = async (id) => {
     try {
@@ -77,24 +81,32 @@ const MembershipLevelManagement = () => {
       });
       
       if (res.ok) {
-        showToast('Xóa hạng thành công!');
+        showToast('Xóa hạng thành công');
         await fetchLevels();
         setShowDeleteModal(false);
         setItemToDelete(null);
+        setDeleteError("");
       } else {
-        showToast('Xóa hạng thất bại!', 'danger');
+        const json = await res.json().catch(() => null);
+        setDeleteError(apiMessage(json, "Xóa hạng thất bại"));
       }
     } catch (error) {
       console.error("Error deleting membership rank:", error);
-      showToast('Lỗi kết nối máy chủ!', 'danger');
+      setDeleteError(MESSAGES.networkError);
     }
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+    setDeleteError("");
   };
 
   return (
     <AdminPanelPage
       icon="award"
       title="Hạng thành viên"
-      description="Quản lý mức độ hội viên, chi tiêu tối thiểu và các ưu đãi đặc quyền."
+      description="Quản lý mức độ hội viên. Hạng có chi tiêu 0đ sẽ được coi là hạng mặc định cho mọi khách hàng mới."
       headerRight={
         <button
           type="button"
@@ -145,6 +157,7 @@ const MembershipLevelManagement = () => {
                     <th className="text-end">Chi tiêu tối thiểu</th>
                     <th className="text-center">Giảm giá (%)</th>
                     <th className="text-center">Hệ số điểm</th>
+                    <th className="text-center">Trạng thái</th>
                     <th className="text-center">Thao tác</th>
                   </tr>
                 </thead>
@@ -159,15 +172,29 @@ const MembershipLevelManagement = () => {
                           <span className="admin-badge admin-badge-primary text-uppercase fw-bold">
                             {level.rank_name}
                           </span>
+                          {level.is_default && (
+                            <span className="badge bg-info-subtle text-info border border-info-subtle px-2 py-1" style={{ fontSize: '0.65rem' }}>
+                              MẶC ĐỊNH
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="text-end fw-bold text-dark">
-                        {level.min_spending.toLocaleString("vi-VN")}đ
+                        {level.is_default ? (
+                          <span className="text-muted italic fw-normal">0đ (Mặc định)</span>
+                        ) : (
+                          formatVnd(level.min_spending)
+                        )}
                       </td>
                       <td className="text-center">
                         <span className="fw-semibold text-success">{level.discount_percent}%</span>
                       </td>
                       <td className="text-center fw-medium">x{level.bonus_point}</td>
+                      <td className="text-center">
+                        <span className={`admin-badge ${isActiveStatus(level.status) ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                          {isActiveStatus(level.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
+                        </span>
+                      </td>
                       <td className="text-center">
                         <div className="d-flex gap-1 justify-content-center">
                           <button 
@@ -183,7 +210,9 @@ const MembershipLevelManagement = () => {
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-primary"
                             onClick={() => navigate("/super-admin/membership-levels/create", { state: { editData: level } })}
-                            title="Sửa hạng"
+                            title={level.is_default ? "Không thể sửa hạng mặc định" : "Sửa hạng"}
+                            disabled={level.is_default}
+                            style={level.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                           >
                             <i className="bi bi-pencil"></i>
                           </button>
@@ -191,9 +220,12 @@ const MembershipLevelManagement = () => {
                             className="admin-btn admin-btn-sm admin-btn-danger"
                             onClick={() => {
                               setItemToDelete(level);
+                              setDeleteError("");
                               setShowDeleteModal(true);
                             }}
-                            title="Xóa hạng"
+                            title={level.is_default ? "Không thể xóa hạng mặc định" : "Xóa hạng"}
+                            disabled={level.is_default}
+                            style={level.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                           >
                             <i className="bi bi-trash"></i>
                           </button>
@@ -205,26 +237,14 @@ const MembershipLevelManagement = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <span className="text-muted small">
-                Tổng cộng: {filteredLevels.length} hạng
-              </span>
-              <nav>
-                <ul className="admin-pagination">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <li key={i + 1}>
-                      <button 
-                        className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                        onClick={() => paginate(i + 1)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredLevels.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              itemLabel="hạng"
+            />
           </>
         )}
       </div>
@@ -252,7 +272,7 @@ const MembershipLevelManagement = () => {
                 <div className="col-sm-6">
                   <div className="p-3 border rounded-4 bg-light">
                     <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Chi tiêu tối thiểu</small>
-                    <div className="fs-5 fw-bold text-dark">{selectedItem.min_spending.toLocaleString("vi-VN")}đ</div>
+                    <div className="fs-5 fw-bold text-dark">{formatVnd(selectedItem.min_spending)}</div>
                   </div>
                 </div>
                 <div className="col-sm-6">
@@ -265,6 +285,16 @@ const MembershipLevelManagement = () => {
                   <div className="p-3 border rounded-4 bg-light">
                     <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Hệ số tích điểm</small>
                     <div className="fs-5 fw-bold text-dark">x{selectedItem.bonus_point} (Nhân với giá trị hóa đơn)</div>
+                  </div>
+                </div>
+                <div className="col-sm-12">
+                  <div className="p-3 border rounded-4 bg-light">
+                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Trạng thái</small>
+                    <div>
+                      <span className={`admin-badge ${isActiveStatus(selectedItem.status) ? 'admin-badge-success' : 'admin-badge-warning'}`}>
+                        {isActiveStatus(selectedItem.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="col-sm-12">
@@ -287,6 +317,9 @@ const MembershipLevelManagement = () => {
                   setShowModal(false);
                   navigate("/super-admin/membership-levels/create", { state: { editData: selectedItem } });
                 }}
+                disabled={selectedItem.is_default}
+                style={selectedItem.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                title={selectedItem.is_default ? "Không thể sửa hạng mặc định" : "Chỉnh sửa hạng"}
               >
                 <i className="bi bi-pencil me-2"></i>
                 Chỉnh sửa hạng
@@ -298,14 +331,14 @@ const MembershipLevelManagement = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && itemToDelete && (
-        <div className="admin-modal-overlay" role="presentation" onClick={() => setShowDeleteModal(false)}>
+        <div className="admin-modal-overlay" role="presentation" onClick={closeDeleteModal}>
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
                 <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa hạng
               </h3>
-              <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>
+              <button type="button" className="admin-modal-close" onClick={closeDeleteModal}>
                 ×
               </button>
             </div>
@@ -313,8 +346,14 @@ const MembershipLevelManagement = () => {
               <p className="mb-3">Bạn có chắc chắn muốn xóa hạng thành viên này?</p>
               <div className="alert alert-warning">
                 <strong>Tên hạng:</strong> {itemToDelete.rank_name.toUpperCase()}<br/>
-                <strong>Chi tiêu tối thiểu:</strong> {itemToDelete.min_spending.toLocaleString("vi-VN")}đ
+                <strong>Chi tiêu tối thiểu:</strong> {formatVnd(itemToDelete.min_spending)}
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này có thể ảnh hưởng đến hạng hội viên của khách hàng hiện tại. Cân nhắc kỹ trước khi thực hiện.
@@ -324,7 +363,7 @@ const MembershipLevelManagement = () => {
               <button
                 type="button"
                 className="admin-btn admin-btn-outline-secondary"
-                onClick={() => setShowDeleteModal(false)}
+                onClick={closeDeleteModal}
               >
                 Hủy
               </button>
@@ -341,16 +380,7 @@ const MembershipLevelManagement = () => {
         </div>
       )}
 
-      {/* Toast thông báo */}
-      {toast.show && (
-        <div 
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
+      <ToastComponent />
     </AdminPanelPage>
   );
 };

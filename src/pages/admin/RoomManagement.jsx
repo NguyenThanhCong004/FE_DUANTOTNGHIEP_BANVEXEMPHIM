@@ -1,14 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { apiFetch } from '../../utils/apiClient';
+import { useAdminToast } from '../../components/admin/AdminToast';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { ROOMS } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
+import { isActiveStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 const RoomManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const [roomsFromStore, setRoomsFromStore] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { showToast, ToastComponent } = useAdminToast();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
@@ -22,8 +32,10 @@ const RoomManagement = () => {
     (async () => {
       setLoading(true);
       try {
-        const q = effectiveCinemaId != null ? `?cinemaId=${effectiveCinemaId}` : '';
-        const res = await apiFetch(`${ROOMS.LIST}${q}`);
+        const res = await apiFetch(withQuery(ROOMS.LIST, {
+          cinemaId: effectiveCinemaId,
+          search: searchTerm,
+        }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         if (!mounted) return;
@@ -32,7 +44,7 @@ const RoomManagement = () => {
           arr.map((r) => ({
             id: r.id ?? r.roomId,
             name: r.name ?? '',
-            status: r.status === 1 || r.status === 'active' ? 1 : r.status,
+            status: isActiveStatus(r.status) ? 1 : 0,
           }))
         );
       } catch {
@@ -44,24 +56,31 @@ const RoomManagement = () => {
     return () => {
       mounted = false;
     };
-  }, [effectiveCinemaId]);
+  }, [effectiveCinemaId, searchTerm]);
 
-  const filteredRooms = roomsFromStore.filter(r =>
-    String(r.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRooms = roomsFromStore
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredRooms.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredRooms.length / itemsPerPage);
 
   const handleDelete = async (roomId) => {
-    if (!window.confirm('Xóa phòng chiếu này? (Ghế trong phòng cũng bị xóa theo ràng buộc DB)')) return;
     try {
       const res = await apiFetch(ROOMS.BY_ID(roomId), { method: 'DELETE' });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(json?.message || 'Xóa thất bại');
+        setDeleteError(apiMessage(json, 'Xóa phòng chiếu thất bại'));
         return;
       }
       setRoomsFromStore((prev) => prev.filter((r) => String(r.id) !== String(roomId)));
+      setShowDeleteModal(false);
+      setRoomToDelete(null);
+      setDeleteError('');
+      showToast('Xóa phòng chiếu thành công');
     } catch {
-      alert('Không thể kết nối server');
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
@@ -112,7 +131,7 @@ const RoomManagement = () => {
             <table className="admin-table mb-0">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th style={{ width: 56 }}>STT</th>
                   <th>Tên phòng</th>
                   <th>Trạng thái</th>
                   <th className="text-center">Thao tác</th>
@@ -144,9 +163,9 @@ const RoomManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : filteredRooms.map((room) => (
+                ) : currentItems.map((room, index) => (
                   <tr key={room.id}>
-                    <td className="fw-bold">#{room.id}</td>
+                    <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
                       <div className="d-flex align-items-center gap-3">
                         <div className="admin-table-icon-tile">
@@ -161,12 +180,12 @@ const RoomManagement = () => {
                     <td>
                       <span
                         className={
-                          room.status === 1
+                          isActiveStatus(room.status)
                             ? 'admin-badge admin-badge-success'
                             : 'admin-badge admin-badge-danger'
                         }
                       >
-                        {room.status === 1 ? 'Hoạt động' : 'Ngừng hoạt động'}
+                        {isActiveStatus(room.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
                       </span>
                     </td>
                     <td>
@@ -190,7 +209,11 @@ const RoomManagement = () => {
                           type="button"
                           className="admin-table-action-btn admin-table-action-btn--danger"
                           title="Xóa"
-                          onClick={() => handleDelete(room.id)}
+                          onClick={() => {
+                            setRoomToDelete(room);
+                            setDeleteError('');
+                            setShowDeleteModal(true);
+                          }}
                         >
                           <i className="bi bi-trash"></i>
                         </button>
@@ -203,6 +226,45 @@ const RoomManagement = () => {
           </div>
         </div>
       </div>
+      <AdminPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredRooms.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        itemLabel="phòng chiếu"
+      />
+      {showDeleteModal && roomToDelete && (
+        <div className="admin-modal-overlay" role="presentation" onClick={() => setShowDeleteModal(false)}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="text-danger mb-0">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Xác nhận xóa phòng
+              </h3>
+              <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="mb-3">Bạn có chắc chắn muốn xóa phòng chiếu này?</p>
+              <div className="alert alert-warning">
+                <strong>Phòng:</strong> {roomToDelete.name}
+              </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
+              <p className="text-muted small mb-0">Ghế trong phòng có thể bị ảnh hưởng theo ràng buộc dữ liệu.</p>
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={() => setShowDeleteModal(false)}>Hủy</button>
+              <button type="button" className="admin-btn admin-btn-danger" onClick={() => handleDelete(roomToDelete.id)}>Xóa phòng</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <ToastComponent />
     </div>
   );
 };

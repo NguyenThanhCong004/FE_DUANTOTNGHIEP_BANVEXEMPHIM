@@ -1,31 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { MOVIES } from '../../constants/apiEndpoints';
+import { useAdminToast } from '../../components/admin/AdminToast';
+import { codeToAdminStatus } from '../../utils/statusFormat';
+import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+import { formatDate, formatVnd } from '../../utils/formatters';
+import AdminPagination from '../../components/admin/AdminPagination';
 
 const PLACEHOLDER_POSTER = 'https://placehold.co/120x180?text=Poster';
 
 const MovieManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { showToast, ToastComponent } = useAdminToast();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [movieToDelete, setMovieToDelete] = useState(null);
-  const itemsPerPage = 8;
+  const [deleteError, setDeleteError] = useState("");
+  const itemsPerPage = 5;
 
   const [allMovies, setAllMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
 
   useEffect(() => {
     if (location.state?.message) {
@@ -33,14 +34,14 @@ const MovieManagement = () => {
       // Xóa state để tránh hiện lại khi F5
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(MOVIES.LIST);
+        const res = await apiFetch(withQuery(MOVIES.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
@@ -52,7 +53,7 @@ const MovieManagement = () => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            let statusStr = m.status === 1 ? 'Active' : (m.status === 2 ? 'Upcoming' : 'Inactive');
+            let statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
             
             // CHỈ tự động chuyển từ Sắp chiếu -> Đang chiếu nếu đã đến ngày
             // Nếu là Ngưng chiếu (Inactive) thì giữ nguyên
@@ -88,15 +89,13 @@ const MovieManagement = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [searchTerm]);
 
   // Logic lọc, tìm kiếm và sắp xếp
   const filteredMovies = allMovies
     .filter(movie => {
-      const matchesSearch = String(movie.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           String(movie.author || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'All' || movie.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesStatus;
     })
     .sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
 
@@ -105,8 +104,6 @@ const MovieManagement = () => {
   const currentItems = filteredMovies.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredMovies.length / itemsPerPage);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
   const handleDeleteMovie = async (movie) => {
     try {
       const res = await apiFetch(MOVIES.DELETE(movie.id), {
@@ -114,9 +111,9 @@ const MovieManagement = () => {
       });
       
       if (res.ok) {
-        showToast('Xóa phim thành công!');
+        showToast('Xóa phim thành công');
         // Refresh danh sách
-        const refreshRes = await apiFetch(MOVIES.LIST);
+        const refreshRes = await apiFetch(withQuery(MOVIES.LIST, { search: searchTerm }));
         const json = await refreshRes.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
@@ -127,7 +124,7 @@ const MovieManagement = () => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            let statusStr = m.status === 1 ? 'Active' : (m.status === 2 ? 'Upcoming' : 'Inactive');
+            let statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
             
             // CHỈ tự động chuyển từ Sắp chiếu -> Đang chiếu nếu đã đến ngày
             // Nếu là Ngưng chiếu (Inactive) thì giữ nguyên
@@ -156,27 +153,32 @@ const MovieManagement = () => {
         );
         setShowDeleteModal(false);
         setMovieToDelete(null);
+        setDeleteError("");
       } else {
-        showToast('Xóa phim thất bại!', 'danger');
+        const errJson = await res.json().catch(() => null);
+        setDeleteError(apiMessage(errJson, "Xóa phim thất bại"));
       }
     } catch (error) {
       console.error("Error deleting movie:", error);
-      showToast('Lỗi kết nối máy chủ!', 'danger');
+      setDeleteError(MESSAGES.networkError);
     }
   };
 
   const openDeleteModal = (movie) => {
     setMovieToDelete(movie);
+    setDeleteError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setMovieToDelete(null);
+    setDeleteError("");
   };
 
   return (
-    <AdminPanelPage
+    <>
+      <AdminPanelPage
       icon="film"
       title="Quản lý phim"
       description="Kho phim toàn hệ thống — poster, giá, trạng thái chiếu."
@@ -242,6 +244,7 @@ const MovieManagement = () => {
               <table className="admin-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 56 }}>STT</th>
                     <th>Phim</th>
                     <th className="text-center">Thời lượng</th>
                     <th>Quốc gia</th>
@@ -252,8 +255,9 @@ const MovieManagement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentItems.map((movie) => (
+                  {currentItems.map((movie, index) => (
                     <tr key={movie.id}>
+                      <td className="fw-semibold text-muted align-middle">{indexOfFirstItem + index + 1}</td>
                       <td>
                         <div className="d-flex align-items-center gap-3">
                           <img 
@@ -275,9 +279,9 @@ const MovieManagement = () => {
                       </td>
                       <td className="text-center">{movie.duration} phút</td>
                       <td>{movie.nation}</td>
-                      <td>{new Date(movie.release_date).toLocaleDateString('vi-VN')}</td>
+                      <td>{formatDate(movie.release_date)}</td>
                       <td className="text-end fw-bold text-success">
-                        {movie.base_price.toLocaleString('vi-VN')}đ
+                        {formatVnd(movie.base_price)}
                       </td>
                       <td className="text-center">
                         <span className={`admin-badge ${
@@ -324,26 +328,14 @@ const MovieManagement = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <span className="text-muted small">
-                Tổng cộng: {filteredMovies.length} phim
-              </span>
-              <nav>
-                <ul className="admin-pagination">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <li key={i + 1}>
-                      <button 
-                        className={`admin-pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
-                        onClick={() => paginate(i + 1)}
-                      >
-                        {i + 1}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            </div>
+            <AdminPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredMovies.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              itemLabel="phim"
+            />
           </>
         )}
       </div>
@@ -383,7 +375,7 @@ const MovieManagement = () => {
                       <p className="mb-2"><strong className="text-muted">Quốc gia:</strong> {selectedItem.nation}</p>
                     </div>
                     <div className="col-6">
-                      <p className="mb-2"><strong className="text-muted">Ngày chiếu:</strong> {new Date(selectedItem.release_date).toLocaleDateString('vi-VN')}</p>
+                      <p className="mb-2"><strong className="text-muted">Ngày chiếu:</strong> {formatDate(selectedItem.release_date)}</p>
                       <p className="mb-2"><strong className="text-muted">Thể loại:</strong> {selectedItem.genre}</p>
                       <p className="mb-2">
                         <strong className="text-muted">Trạng thái:</strong>
@@ -399,7 +391,7 @@ const MovieManagement = () => {
                       </p>
                     </div>
                     <div className="col-12">
-                      <p className="mb-2"><strong className="text-muted">Giá vé cơ bản:</strong> <span className="text-success fw-bold">{selectedItem.base_price.toLocaleString('vi-VN')}đ</span></p>
+                      <p className="mb-2"><strong className="text-muted">Giá vé cơ bản:</strong> <span className="text-success fw-bold">{formatVnd(selectedItem.base_price)}</span></p>
                       <p className="mb-2"><strong className="text-muted">Mô tả:</strong> {selectedItem.description}</p>
                       <p className="mb-1"><strong className="text-muted">Nội dung chi tiết:</strong></p>
                       <p>{selectedItem.describe}</p>
@@ -466,6 +458,12 @@ const MovieManagement = () => {
                   </div>
                 </div>
               </div>
+              {deleteError && (
+                <div className="alert alert-danger mb-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {deleteError}
+                </div>
+              )}
               <p className="text-muted small mb-0">
                 <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả suất chiếu, vé đặt và dữ liệu liên quan sẽ bị xóa.
@@ -493,17 +491,9 @@ const MovieManagement = () => {
         </div>
       )}
 
-      {/* Toast thông báo */}
-      {toast.show && (
-        <div 
-          className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${toast.type} border-0 shadow-lg d-flex align-items-center gap-2`}
-          style={{ minWidth: '300px' }}
-        >
-          <i className={`bi bi-${toast.type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill'} fs-5`}></i>
-          <div className="fw-bold">{toast.message}</div>
-        </div>
-      )}
-    </AdminPanelPage>
+      </AdminPanelPage>
+      <ToastComponent />
+    </>
   );
 };
 

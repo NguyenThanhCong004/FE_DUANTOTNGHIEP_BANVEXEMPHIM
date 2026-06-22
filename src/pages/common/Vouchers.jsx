@@ -4,11 +4,12 @@ import Layout from '../../components/layout/Layout';
 import { Container, Row, Col, Button, Modal, Form, InputGroup, Spinner } from "react-bootstrap";
 import { getStoredUser, getAccessToken } from '../../utils/authStorage';
 import { getUserIdFromToken } from '../../utils/jwt';
-import { apiFetch, apiUrl } from '../../utils/apiClient';
+import { apiFetch, apiUrl, withQuery } from '../../utils/apiClient';
 import { VOUCHERS as VOUCHERS_API, ME, USERS } from '../../constants/apiEndpoints';
+import { formatDate, formatNumber, formatVnd } from '../../utils/formatters';
 
-const fmt     = (n) => n.toLocaleString("vi-VN") + "đ";
-const fmtDate = (d) => new Date(d).toLocaleDateString("vi-VN");
+const fmt = formatVnd;
+const fmtDate = formatDate;
 
 function normalizeCatalogVoucher(v) {
   const end = v.endDate ? new Date(`${String(v.endDate).slice(0, 10)}T23:59:59`) : null;
@@ -71,7 +72,7 @@ export default function VoucherExchange() {
     (async () => {
       setLoading(true);
       try {
-        const vr = await apiFetch(VOUCHERS_API.LIST);
+        const vr = await apiFetch(withQuery(VOUCHERS_API.LIST, { search }));
         const vj = await vr.json().catch(() => null);
         if (!cancelled && vr.ok && Array.isArray(vj?.data)) {
           const rows = vj.data
@@ -96,7 +97,7 @@ export default function VoucherExchange() {
       }
     })();
     return () => { cancelled = true; };
-  }, [loadWallet]);
+  }, [loadWallet, search]);
 
   const filtered = useMemo(() => catalog.filter((v) => {
     const matchFilter =
@@ -104,12 +105,8 @@ export default function VoucherExchange() {
       (filter === "active"  && v.status === "active")  ||
       (filter === "expired" && v.status === "expired") ||
       (filter === "mine"    && redeemedIds.includes(v.Vouchers_id));
-    const matchSearch =
-      String(v.Code || "").toLowerCase().includes(search.toLowerCase()) ||
-      (v.discount_type === "fixed" ? fmt(v.value) : `${v.value}%`)
-        .toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
-  }), [catalog, filter, search, redeemedIds]);
+    return matchFilter;
+  }), [catalog, filter, redeemedIds]);
 
   const handleRedeem = async () => {
     if (!selected) return;
@@ -168,8 +165,8 @@ export default function VoucherExchange() {
           padding: 32px 0 60px;
         }
 
-        .page-title { font-family:'Bebas Neue',sans-serif; font-size:clamp(38px,7vw,64px); letter-spacing:4px; line-height:1; color:#fff; }
-        .page-title span { color:#d4e219; }
+        .page-title { color:#fff; }
+        .page-title span { color:inherit; }
 
         .points-badge { background:linear-gradient(135deg,#7b1fa2,#e91e8c); border-radius:14px; padding:14px 24px; display:inline-flex; align-items:center; gap:12px; box-shadow:0 0 32px rgba(233,30,140,0.3); }
         .points-badge .pts-num { font-family:'Bebas Neue',sans-serif; font-size:36px; color:#d4e219; line-height:1; letter-spacing:2px; }
@@ -281,7 +278,7 @@ export default function VoucherExchange() {
               <div className="points-badge">
                 <div>
                   <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.6)", textTransform:"uppercase", letterSpacing:1.5, marginBottom:2 }}>Điểm của bạn</div>
-                  <div className="pts-num">{userPoints.toLocaleString()}</div>
+                  <div className="pts-num">{formatNumber(userPoints)}</div>
                   <div className="pts-label">điểm tích lũy</div>
                 </div>
                 <div style={{ fontSize:32 }}>⭐</div>
@@ -364,7 +361,7 @@ export default function VoucherExchange() {
                         <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                           {isFree
                             ? <span style={{ fontSize:12, fontWeight:700, color:"#81c784" }}>🎁 Miễn phí</span>
-                            : <span className={`point-cost${!enough?" not-enough":""}`}>⭐ {v.point_voucher.toLocaleString()} điểm</span>
+                            : <span className={`point-cost${!enough?" not-enough":""}`}>⭐ {formatNumber(v.point_voucher)} điểm</span>
                           }
                           {isRedeemed ? (
                             <button className="btn-redeemed" onClick={(e) => e.stopPropagation()}>✓ Đã đổi</button>
@@ -380,7 +377,7 @@ export default function VoucherExchange() {
                         </div>
                         {!isFree && !isExpired && !isRedeemed && !enough && (
                           <div style={{ marginTop:10, fontSize:11, color:"rgba(233,30,140,0.7)", fontWeight:600 }}>
-                            ⚠ Cần thêm {(v.point_voucher - userPoints).toLocaleString()} điểm
+                            ⚠ Cần thêm {formatNumber(v.point_voucher - userPoints)} điểm
                           </div>
                         )}
                       </div>
@@ -417,7 +414,7 @@ export default function VoucherExchange() {
               <div>🛒 Đơn tối thiểu: <span className="c-white">{fmt(selected.min_order_value)}</span></div>
               <div>📅 Hết hạn: <span className="c-white">{fmtDate(selected.end_date)}</span></div>
               {selected.point_voucher > 0 && (
-                <div>⭐ Chi phí: <span className="c-yellow">{selected.point_voucher.toLocaleString()} điểm</span></div>
+                <div>⭐ Chi phí: <span className="c-yellow">{formatNumber(selected.point_voucher)} điểm</span></div>
               )}
             </div>
 
@@ -425,7 +422,7 @@ export default function VoucherExchange() {
               <div style={{ marginTop:16, padding:"12px 16px", background:"rgba(212,226,25,0.06)", borderRadius:10, border:"1px solid rgba(212,226,25,0.2)", fontSize:13, fontWeight:600 }}>
                 Số điểm sau khi đổi:{" "}
                 <span className="c-yellow" style={{ fontFamily:"'Bebas Neue'", fontSize:18, letterSpacing:1 }}>
-                  {(userPoints - selected.point_voucher).toLocaleString()} điểm
+                  {formatNumber(userPoints - selected.point_voucher)} điểm
                 </span>
               </div>
             )}
