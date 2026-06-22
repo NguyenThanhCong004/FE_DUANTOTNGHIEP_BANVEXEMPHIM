@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { useAdminToast } from '../../components/admin/AdminToast';
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { NEWS } from '../../constants/apiEndpoints';
 import sanitizeHtml from '../../utils/sanitizeHtml';
 import { codeToAdminStatus } from '../../utils/statusFormat';
@@ -21,6 +21,7 @@ const NewsManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newsToDelete, setNewsToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const itemsPerPage = 5;
 
   const [newsList, setNewsList] = useState([]);
@@ -37,7 +38,7 @@ const NewsManagement = () => {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(NEWS.LIST);
+      const res = await apiFetch(withQuery(NEWS.LIST, { search: searchTerm }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -60,9 +61,11 @@ const NewsManagement = () => {
 
   useEffect(() => {
     fetchNews();
-  }, []);
+  }, [searchTerm]);
 
   const handleDeleteNews = async (news) => {
+    if (deleting) return;
+    setDeleting(true);
     try {
       const res = await apiFetch(NEWS.DELETE(news.id), {
         method: "DELETE"
@@ -80,6 +83,8 @@ const NewsManagement = () => {
     } catch (error) {
       console.error("Error deleting news:", error);
       setDeleteError(MESSAGES.networkError);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -98,9 +103,8 @@ const NewsManagement = () => {
   // Logic lọc, tìm kiếm và sắp xếp (mới nhất lên đầu)
   const filteredNews = newsList
     .filter(news => {
-      const matchesSearch = String(news.title || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'All' || news.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesStatus;
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -198,9 +202,6 @@ const NewsManagement = () => {
                           />
                           <div>
                             <div className="fw-semibold line-clamp-1">{news.title}</div>
-                            <small className="text-muted line-clamp-1" style={{ maxWidth: '400px' }}>
-                              {news.content.replace(/<[^>]*>/g, '').substring(0, 100)}...
-                            </small>
                           </div>
                         </div>
                       </td>
@@ -364,10 +365,11 @@ const NewsManagement = () => {
               <button
                 type="button"
                 className="admin-btn admin-btn-danger"
+                disabled={deleting}
                 onClick={() => handleDeleteNews(newsToDelete)}
               >
                 <i className="bi bi-trash me-2"></i>
-                Xóa bài viết
+                {deleting ? "Đang xóa..." : "Xóa bài viết"}
               </button>
             </div>
           </div>

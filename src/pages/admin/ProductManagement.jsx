@@ -4,7 +4,7 @@ import { Badge, Button, Form, Spinner, Table, Row, Col, Pagination } from "react
 import { ArrowDownLeft, ArrowUpRight, Search } from "lucide-react";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { CINEMAS } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
@@ -101,7 +101,10 @@ export default function ProductManagement() {
     }
     setLoading(true);
     try {
-      const res = await apiFetch(CINEMAS.PRODUCT_MENU(effectiveCinemaId));
+      const res = await apiFetch(withQuery(CINEMAS.PRODUCT_MENU(effectiveCinemaId), {
+        onSaleSearch: searchA,
+        notOnSaleSearch: searchB,
+      }));
       const json = await res.json().catch(() => null);
       if (!res.ok) {
         setOnSale([]);
@@ -121,7 +124,7 @@ export default function ProductManagement() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveCinemaId]);
+  }, [effectiveCinemaId, searchA, searchB]);
 
   useEffect(() => {
     loadMenu();
@@ -185,18 +188,8 @@ export default function ProductManagement() {
     }
   };
 
-  const filterRows = (rows, q) => {
-    const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter(
-      (r) =>
-        String(r.name || "").toLowerCase().includes(s) ||
-        String(r.categoryName || "").toLowerCase().includes(s)
-    );
-  };
-
-  const filteredOnSale = useMemo(() => filterRows(onSale, searchA), [onSale, searchA]);
-  const filteredNotOnSale = useMemo(() => filterRows(notOnSale, searchB), [notOnSale, searchB]);
+  const filteredOnSale = onSale;
+  const filteredNotOnSale = notOnSale;
 
   // Paginated rows
   const paginatedA = useMemo(() => {
@@ -407,7 +400,7 @@ export default function ProductManagement() {
             <h5 className="text-dark">Chưa chọn rạp</h5>
             <p className="mb-0 small">
               {isSuperAdmin
-                ? "Vui lòng chọn rạp ở sidebar (Super Admin)."
+                ? "Vui lòng chọn rạp trên header (Super Admin)."
                 : "Tài khoản chưa được gán rạp (cinemaId). Liên hệ Super Admin."}
             </p>
           </div>

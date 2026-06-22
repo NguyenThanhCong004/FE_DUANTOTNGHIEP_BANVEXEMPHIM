@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import MovieCard from "../../components/common/MovieCard";
 import EmptyState from "../../components/common/EmptyState";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { MOVIES } from "../../constants/apiEndpoints";
 import { mapMovieForCard } from "../../utils/movieApiMap";
 
@@ -27,7 +27,7 @@ const Movies = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await apiFetch(MOVIES.LIST);
+        const res = await apiFetch(withQuery(MOVIES.LIST, { search: filter.keyword }));
         const json = await res.json().catch(() => null);
         if (!m) return;
         if (!res.ok) {
@@ -48,17 +48,16 @@ const Movies = () => {
       }
     })();
     return () => { m = false; };
-  }, []);
+  }, [filter.keyword]);
 
   const filteredMovies = useMemo(() => {
     const list = allMovies.filter((movie) => {
-      const matchKeyword = movie.title.toLowerCase().includes(filter.keyword.toLowerCase());
       const matchGenre   = filter.genre === "" || movie.genre === filter.genre;
       const matchStatus  =
         filter.status === "all" ||
         (filter.status === "now"  && movie.type === "now") ||
         (filter.status === "soon" && movie.type === "soon");
-      return matchKeyword && matchGenre && matchStatus;
+      return matchGenre && matchStatus;
     });
     return list.sort((a, b) => {
       const ad = a.releaseYmd || "";

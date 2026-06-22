@@ -1,7 +1,6 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSuperAdminCinema } from "./useSuperAdminCinema";
-import CinemaPicker from "./CinemaPicker";
 
 const menuSections = [
   {
@@ -54,6 +53,8 @@ const menuSections = [
 
 export default function SuperAdminSidebar() {
   const { selectedCinemaId } = useSuperAdminCinema();
+  const navigate = useNavigate();
+  const location = useLocation();
   const cinemaReady = selectedCinemaId != null;
 
   return (
@@ -65,8 +66,6 @@ export default function SuperAdminSidebar() {
           <div className="app-shell-brand-sub">SUPER ADMIN</div>
         </div>
       </div>
-
-      <CinemaPicker />
 
       <nav className="app-shell-nav-scroll">
         {menuSections.map((section) => {
@@ -80,7 +79,7 @@ export default function SuperAdminSidebar() {
                   <div className="app-shell-nav-section-title">{section.title}</div>
                   {locked && (
                     <p className="app-shell-lock-hint">
-                      Chọn rạp trên <strong>header</strong> (hoặc ô sidebar) để mở dữ liệu theo{" "}
+                      Chọn rạp trên <strong>header</strong> để mở dữ liệu theo{" "}
                       <strong>cinemaId</strong> — nhân viên, khuyến mãi, suất chiếu, hóa đơn…
                     </p>
                   )}
@@ -92,6 +91,8 @@ export default function SuperAdminSidebar() {
                       locked={locked}
                       icon={item.icon}
                       label={item.label}
+                      currentPath={location.pathname}
+                      onNavigate={navigate}
                     />
                   ))}
                 </div>
@@ -106,6 +107,8 @@ export default function SuperAdminSidebar() {
                       locked={false}
                       icon={item.icon}
                       label={item.label}
+                      currentPath={location.pathname}
+                      onNavigate={navigate}
                     />
                   ))}
                 </>
@@ -118,7 +121,12 @@ export default function SuperAdminSidebar() {
   );
 }
 
-function BiNavLink({ to, end, locked, icon, label }) {
+function isActivePath(currentPath, to, end) {
+  if (end) return currentPath === to;
+  return currentPath === to || currentPath.startsWith(`${to}/`);
+}
+
+function BiNavLink({ to, end, locked, icon, label, currentPath, onNavigate }) {
   if (locked) {
     return (
       <span
@@ -131,14 +139,15 @@ function BiNavLink({ to, end, locked, icon, label }) {
       </span>
     );
   }
+  const active = isActivePath(currentPath, to, Boolean(end));
   return (
-    <NavLink
-      to={to}
-      end={Boolean(end)}
-      className={({ isActive }) => `app-shell-nav-link ${isActive ? "active" : ""}`}
+    <button
+      type="button"
+      className={`app-shell-nav-link ${active ? "active" : ""}`}
+      onClick={() => onNavigate(to)}
     >
       <i className={`bi ${icon}`} />
       <span>{label}</span>
-    </NavLink>
+    </button>
   );
 }

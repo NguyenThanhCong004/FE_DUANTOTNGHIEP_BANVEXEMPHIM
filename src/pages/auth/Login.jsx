@@ -15,6 +15,11 @@ const Login = ({ mode = "user" }) => {
   const [error, setError] = useState(() => {
     const registerMessage = location.state?.message;
     if (registerMessage) return registerMessage;
+    const authErrorMessage = sessionStorage.getItem('authErrorMessage');
+    if (authErrorMessage) {
+      sessionStorage.removeItem('authErrorMessage');
+      return authErrorMessage;
+    }
     const stored = sessionStorage.getItem('fe_admin_cinema_error');
     if (stored) {
       sessionStorage.removeItem('fe_admin_cinema_error');

@@ -22,6 +22,18 @@ export function apiUrl(path) {
   return `${base}${p}`;
 }
 
+export function withQuery(path, params = {}) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    const text = String(value).trim();
+    if (text) search.set(key, text);
+  });
+  const qs = search.toString();
+  if (!qs) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}${qs}`;
+}
+
 function buildApiUrl(path) {
   const base = getApiBaseUrl();
   return path.startsWith("http") ? path : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
@@ -44,6 +56,40 @@ function isAuthUrl(url) {
   } catch {
     return false;
   }
+}
+
+async function redirectIfLockedAccount(res) {
+  if (typeof window === "undefined" || res?.status !== 403) return false;
+
+  let message = "";
+  try {
+    const json = await res.clone().json();
+    message = String(json?.message || "");
+  } catch {
+    message = "";
+  }
+
+  const normalized = message
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (!normalized.includes("tai khoan") || !normalized.includes("khoa")) {
+    return false;
+  }
+
+  const wasStaffSession = Boolean(getStoredStaff());
+  clearAuthSession();
+  window.sessionStorage?.setItem(
+    "authErrorMessage",
+    message || "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên."
+  );
+
+  const loginPath = wasStaffSession ? "/staff/login" : "/login";
+  if (window.location.pathname !== loginPath) {
+    window.location.href = loginPath;
+  }
+  return true;
 }
 
 function getFetchInputUrl(input) {
@@ -128,6 +174,7 @@ export function installApiFetchInterceptor() {
     }
 
     let res = await nativeFetch(input, { ...init, headers });
+    await redirectIfLockedAccount(res);
 
     if (res.status === 401 && getRefreshToken()) {
       try {
@@ -136,6 +183,7 @@ export function installApiFetchInterceptor() {
           ...init,
           headers: mergeFetchHeaders(input, init, token),
         });
+        await redirectIfLockedAccount(res);
       } catch {
         const wasStaffSession = Boolean(getStoredStaff());
         clearAuthSession();
@@ -160,11 +208,13 @@ export async function apiFetch(path, init = {}) {
 
   let token = hasExplicitAuth ? null : await getFreshAccessToken();
   let res = await requestWithToken(token);
+  await redirectIfLockedAccount(res);
 
   if (res.status === 401 && !hasExplicitAuth && getRefreshToken()) {
     try {
       token = await refreshTokenOnce();
       res = await requestWithToken(token);
+      await redirectIfLockedAccount(res);
     } catch {
       clearAuthSession();
     }

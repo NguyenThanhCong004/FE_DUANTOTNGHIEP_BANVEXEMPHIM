@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { ORDERS_ONLINE } from "../../constants/apiEndpoints";
 import { Spinner, Badge } from "react-bootstrap";
 import { formatDateTime, formatVnd } from "../../utils/formatters";
 import AdminPagination from "../../components/admin/AdminPagination";
+import InvoiceSummaryCard from "../../components/common/InvoiceSummaryCard";
 
 const GlobalInvoiceManagement = () => {
   const [orders, setOrders] = useState([]);
@@ -15,12 +16,40 @@ const GlobalInvoiceManagement = () => {
 
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+
+  const openOrderDetail = async (order) => {
+    setSelectedOrder(order);
+    setShowModal(true);
+    setDetailLoading(true);
+    setDetailError("");
+    try {
+      const res = await apiFetch(ORDERS_ONLINE.BY_ID(order.id));
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setDetailError(json?.message || "Không tải được chi tiết hóa đơn");
+        return;
+      }
+      setSelectedOrder(json?.data ?? json ?? order);
+    } catch {
+      setDetailError("Không kết nối được máy chủ.");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeOrderDetail = () => {
+    setShowModal(false);
+    setSelectedOrder(null);
+    setDetailError("");
+  };
 
   // Fetch dữ liệu và sắp xếp mới nhất lên đầu
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(ORDERS_ONLINE.LIST);
+      const res = await apiFetch(withQuery(ORDERS_ONLINE.LIST, { search: searchTerm }));
       const json = await res.json();
       if (res.ok) {
         // Sắp xếp theo ngày tạo giảm dần (mới nhất lên trên)
@@ -38,7 +67,7 @@ const GlobalInvoiceManagement = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [searchTerm]);
 
   // Xử lý xuất PDF trực tiếp có lề 15mm
   const handleDownloadPDF = async () => {
@@ -107,16 +136,10 @@ const GlobalInvoiceManagement = () => {
 
   const formatMoney = (val) => formatVnd(val, { compact: true });
 
-  const filteredOrders = orders.filter(o => 
-    (o.orderCode || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (o.customerName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (o.cinemaName || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredOrders.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const currentItems = orders.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(orders.length / itemsPerPage);
 
   return (
     <AdminPanelPage
@@ -149,7 +172,7 @@ const GlobalInvoiceManagement = () => {
             <Spinner animation="border" variant="primary" />
             <p className="mt-3 text-muted">Đang tải danh sách hóa đơn hệ thống...</p>
           </div>
-        ) : filteredOrders.length === 0 ? (
+        ) : orders.length === 0 ? (
           <div className="admin-empty">
             <i className="bi bi-receipt admin-empty-icon"></i>
             <p>Không tìm thấy hóa đơn nào</p>
@@ -194,10 +217,7 @@ const GlobalInvoiceManagement = () => {
                       <td className="text-center">
                         <button 
                           className="admin-btn admin-btn-sm admin-btn-primary"
-                          onClick={() => {
-                            setSelectedOrder(order);
-                            setShowModal(true);
-                          }}
+                          onClick={() => openOrderDetail(order)}
                         >
                           <i className="bi bi-eye me-1"></i> Chi tiết
                         </button>
@@ -211,7 +231,7 @@ const GlobalInvoiceManagement = () => {
             <AdminPagination
               currentPage={currentPage}
               totalPages={totalPages}
-              totalItems={filteredOrders.length}
+              totalItems={orders.length}
               itemsPerPage={itemsPerPage}
               onPageChange={setCurrentPage}
               itemLabel="hóa đơn"
@@ -221,122 +241,33 @@ const GlobalInvoiceManagement = () => {
       </div>
 
       {showModal && selectedOrder && (
-        <div className="admin-modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="admin-modal-overlay" onClick={closeOrderDetail}>
           <div className="admin-modal" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>
                 <i className="bi bi-receipt me-2"></i>
                 Chi tiết hóa đơn #{selectedOrder.orderCode}
               </h3>
-              <button className="admin-modal-close" onClick={() => setShowModal(false)}>
+              <button className="admin-modal-close" onClick={closeOrderDetail}>
                 <i className="bi bi-x-lg"></i>
               </button>
             </div>
-            <div className="admin-modal-body invoice-print-area bg-white">
-              <div className="text-center mb-4">
-                <h2 className="fw-bold mb-1" style={{ color: '#6366f1' }}>CINEMAX</h2>
-                <h4 className="fw-bold text-dark">HÓA ĐƠN THANH TOÁN</h4>
-                <p className="text-muted small">Mã hóa đơn: {selectedOrder.orderCode} | Ngày: {formatDateTime(selectedOrder.createdAt, { fallback: "N/A" })}</p>
-                <hr style={{ borderTop: '2px dashed #eee' }} />
-              </div>
-              <div className="row g-4 mb-4">
-                <div className="col-md-6">
-                  <div className="p-3 bg-light rounded-4">
-                    <h6 className="text-uppercase small text-muted fw-bold mb-3">Thông tin giao dịch</h6>
-                    <p className="mb-1"><strong>Mã đơn:</strong> {selectedOrder.orderCode}</p>
-                    <p className="mb-1"><strong>Thời gian:</strong> {formatDateTime(selectedOrder.createdAt, { fallback: "N/A" })}</p>
-                    <p className="mb-1"><strong>Rạp:</strong> {selectedOrder.cinemaName}</p>
-                    <p className="mb-0"><strong>Nhân viên:</strong> {selectedOrder.staffName}</p>
-                  </div>
+            <div className="admin-modal-body invoice-print-area">
+              {detailLoading ? (
+                <div className="text-center py-5">
+                  <Spinner animation="border" variant="primary" />
                 </div>
-                <div className="col-md-6">
-                  <div className="p-3 bg-light rounded-4">
-                    <h6 className="text-uppercase small text-muted fw-bold mb-3">Thông tin khách hàng</h6>
-                    <p className="mb-1"><strong>Họ tên:</strong> {selectedOrder.customerName}</p>
-                    <p className="mb-1"><strong>Email:</strong> {selectedOrder.customerEmail}</p>
-                    <p className="mb-0"><strong>Trạng thái:</strong> {getStatusBadge(selectedOrder.status)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {selectedOrder.tickets && selectedOrder.tickets.length > 0 && (
-                <div className="mb-4">
-                  <h6 className="fw-bold mb-3"><i className="bi bi-ticket-perforated me-2"></i>Danh sách vé xem phim</h6>
-                  <div className="table-responsive">
-                    <table className="table table-sm align-middle border-bottom">
-                      <thead className="table-light">
-                        <tr>
-                          <th>Phim</th>
-                          <th>Suất chiếu</th>
-                          <th>Ghế</th>
-                          <th className="text-end">Giá</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedOrder.tickets.map((t, i) => (
-                          <tr key={i}>
-                            <td className="fw-medium">{t.movieTitle}</td>
-                            <td className="small">{formatDateTime(t.showtime, { fallback: "N/A" })}</td>
-                            <td><span className="badge bg-secondary">{t.seatNumber}</span></td>
-                            <td className="text-end">{formatMoney(t.price)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+              ) : detailError ? (
+                <div className="alert alert-danger mb-0">{detailError}</div>
+              ) : (
+                <InvoiceSummaryCard order={selectedOrder} />
               )}
-
-              {selectedOrder.foods && selectedOrder.foods.length > 0 && (
-                <div className="mb-4">
-                  <h6 className="fw-bold mb-3"><i className="bi bi-cup-straw me-2"></i>Dịch vụ kèm theo</h6>
-                  <div className="table-responsive">
-                    <table className="table table-sm align-middle border-bottom">
-                      <thead className="table-light">
-                        <tr>
-                          <th>Sản phẩm</th>
-                          <th className="text-center">Số lượng</th>
-                          <th className="text-end">Đơn giá</th>
-                          <th className="text-end">Thành tiền</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedOrder.foods.map((f, i) => (
-                          <tr key={i}>
-                            <td className="fw-medium">{f.productName}</td>
-                            <td className="text-center">{f.quantity}</td>
-                            <td className="text-end">{formatMoney(f.price)}</td>
-                            <td className="text-end fw-bold">{formatMoney(f.price * f.quantity)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              <div className="d-flex justify-content-end pt-3 border-top">
-                <div className="text-end" style={{ minWidth: '250px' }}>
-                  <div className="d-flex justify-content-between mb-2">
-                    <span className="text-muted">Tạm tính:</span>
-                    <span>{formatMoney(selectedOrder.originalAmount)}</span>
-                  </div>
-                  <div className="d-flex justify-content-between mb-2 text-danger">
-                    <span>Giảm giá:</span>
-                    <span>-{formatMoney(selectedOrder.discountAmount)}</span>
-                  </div>
-                  <div className="d-flex justify-content-between fs-5 fw-bold text-primary pt-2 border-top">
-                    <span>TỔNG CỘNG:</span>
-                    <span>{formatMoney(selectedOrder.finalAmount)}</span>
-                  </div>
-                </div>
-              </div>
             </div>
             <div className="admin-modal-footer">
-              <button className="admin-btn admin-btn-outline" onClick={() => setShowModal(false)}>
+              <button className="admin-btn admin-btn-outline" onClick={closeOrderDetail}>
                 Đóng cửa sổ
               </button>
-              <button className="admin-btn admin-btn-primary btn-pdf-download" onClick={handleDownloadPDF}>
+              <button className="admin-btn admin-btn-primary btn-pdf-download" onClick={handleDownloadPDF} disabled={detailLoading || !!detailError}>
                 <i className="bi bi-printer me-2"></i> In hóa đơn (PDF)
               </button>
             </div>

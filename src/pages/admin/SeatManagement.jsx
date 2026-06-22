@@ -38,7 +38,7 @@ let _seatTypesData = [];
 
 function apiSeatTypeNameToUi(name) {
 
-  if (name == null || name === "") return "Thường";
+  if (name == null || name === "") return "";
 
   return String(name).trim();
 
@@ -48,7 +48,7 @@ function apiSeatTypeNameToUi(name) {
 
 function uiSeatTypeToApi(type) {
 
-  return type && String(type).trim() ? String(type).trim() : "Thường";
+  return type && String(type).trim() ? String(type).trim() : "";
 
 }
 
@@ -389,6 +389,42 @@ function validateCoupleAfterSinglesLayout(grid) {
         };
 
       }
+
+    }
+
+  }
+
+  return { ok: true };
+
+}
+
+function validateEvenSeatCountByRow(grid) {
+
+  for (let r = 0; r < ROWS; r++) {
+
+    let count = 0;
+
+    for (let c = 0; c < COLS; c++) {
+
+      const cell = grid[r * COLS + c];
+
+      if (!isPlacedSeat(cell)) continue;
+
+      count += isCoupleSeatByType(cell.type) ? 2 : 1;
+
+    }
+
+    if (count > 0 && count % 2 !== 0) {
+
+      const rowLabel = rowLetterForGridRow(grid, r);
+
+      return {
+
+        ok: false,
+
+        message: `Hàng ${rowLabel || r + 1} đang có ${count} ghế. Sơ đồ chỉ được lưu khi mỗi hàng có số ghế chẵn.`,
+
+      };
 
     }
 
@@ -1065,9 +1101,15 @@ export default function SeatManagement() {
 
         seatTypeNames.find((t) => !isCoupleSeatByType(t)) ||
 
-        seatTypeNames[0] ||
+        seatTypeNames[0];
 
-        "Thường";
+      if (!defaultT) {
+
+        showToast("Vui lòng tạo loại ghế trước khi thiết kế sơ đồ.", "warning");
+
+        return;
+
+      }
 
       next[idx] = { ...cell, type: defaultT, label, isActive: true, typeColor: undefined };
 
@@ -1158,6 +1200,16 @@ export default function SeatManagement() {
     if (!layoutCheck.ok) {
 
       showToast(layoutCheck.message, "danger");
+
+      return;
+
+    }
+
+    const evenSeatCountCheck = validateEvenSeatCountByRow(seats);
+
+    if (!evenSeatCountCheck.ok) {
+
+      showToast(evenSeatCountCheck.message, "danger");
 
       return;
 
@@ -1327,7 +1379,7 @@ export default function SeatManagement() {
 
           <p className="mb-0 small" style={{ opacity: 0.92 }}>
 
-            Tên ghế: chữ hàng + số thứ tự trong hàng (vd A1, A2, B1). Chuột phải xoay theo các loại ghế trên hệ thống. Ghế đôi chỉ neo cột nhãn lẻ (1, 3, 5…), ô phải trống, nằm sau mọi ghế đơn trên cùng hàng, và không đặt ở hàng phía trên (gần màn hình hơn) bất kỳ hàng nào có ghế đơn. Kéo thả vào ô trống; click ô trống tạo ghế; click ghế bật/tắt.
+            Tên ghế: chữ hàng + số thứ tự trong hàng (vd A1, A2, B1). Mỗi hàng phải có số ghế chẵn mới được lưu. Chuột phải xoay theo các loại ghế trên hệ thống. Ghế đôi chỉ neo cột nhãn lẻ (1, 3, 5…), ô phải trống, nằm sau mọi ghế đơn trên cùng hàng, và không đặt ở hàng phía trên (gần màn hình hơn) bất kỳ hàng nào có ghế đơn. Kéo thả vào ô trống; click ô trống tạo ghế; click ghế bật/tắt.
 
           </p>
 

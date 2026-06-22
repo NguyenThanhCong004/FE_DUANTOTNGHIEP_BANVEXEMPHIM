@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 
 import { Modal, Button, Row, Col, Card, Badge, Spinner } from 'react-bootstrap';
 
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 
 import { STAFF } from '../../constants/apiEndpoints';
 
@@ -12,13 +12,17 @@ import { getStoredStaff } from '../../utils/authStorage';
 
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
 
-import { codeToStaffStatus, isActiveStatus } from '../../utils/statusFormat';
+import { isActiveStatus } from '../../utils/statusFormat';
 
 import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiMessage, MESSAGES } from '../../utils/uiMessages';
 
 import { formatDate } from '../../utils/formatters';
 import AdminPagination from '../../components/admin/AdminPagination';
+
+const staffStatusLabel = (value) => (
+  isActiveStatus(value) ? 'Đang làm việc' : 'Tạm nghỉ / Khóa'
+);
 
 
 
@@ -199,30 +203,8 @@ const StaffManagement = () => {
 
 
 
-      // Chuẩn bị object gửi lên BE - Đảm bảo tên trường khớp StaffDTO.java
-
       const updatedData = {
-
-        staffId: s.staffId || s.id,
-
-        fullname: s.fullname || s.fullName || s.name,
-
-        email: s.email,
-
-        phone: s.phone,
-
-        username: s.username,
-
-        birthday: s.birthday || s.birthDate,
-
-        role: s.role,
-
-        avatar: s.avatar || s.image,
-
         status: isLocking ? 0 : 1,
-
-        cinemaId: s.cinemaId
-
       };
 
 
@@ -303,7 +285,11 @@ const StaffManagement = () => {
 
       try {
 
-        const res = await apiFetch(STAFF.LIST);
+        const scopedCinemaId = !isSuperAdmin ? staffSession?.cinemaId : selectedCinemaId;
+        const res = await apiFetch(withQuery(STAFF.LIST, {
+          cinemaId: scopedCinemaId,
+          search: searchTerm,
+        }));
 
         const json = await res.json().catch(() => null);
 
@@ -312,16 +298,6 @@ const StaffManagement = () => {
         if (!mounted) return;
 
         let data = Array.isArray(list) ? list : [];
-
-        if (!isSuperAdmin && staffSession?.cinemaId != null) {
-
-          data = data.filter((s) => String(s.cinemaId) === String(staffSession.cinemaId));
-
-        } else if (isSuperAdmin && selectedCinemaId != null) {
-
-          data = data.filter((s) => String(s.cinemaId) === String(selectedCinemaId));
-
-        }
 
         const norm = (r) => String(r || "").replace(/^ROLE_/i, "").toUpperCase();
 
@@ -361,7 +337,7 @@ const StaffManagement = () => {
 
     };
 
-  }, [isSuperAdmin, staffSession?.cinemaId, selectedCinemaId]);
+  }, [isSuperAdmin, staffSession?.cinemaId, selectedCinemaId, searchTerm]);
 
 
 
@@ -395,7 +371,7 @@ const StaffManagement = () => {
 
       role: s.role ?? "",
 
-      status: codeToStaffStatus(s.status),
+      status: s.status,
 
       image: s.avatar ?? "https://via.placeholder.com/40",
 
@@ -405,23 +381,7 @@ const StaffManagement = () => {
 
 
 
-  const filteredStaff = staffUI.filter((staff) => {
-
-    const q = searchTerm.toLowerCase();
-
-    return (
-
-      staff.name.toLowerCase().includes(q) ||
-
-      staff.username.toLowerCase().includes(q) ||
-
-      staff.email.toLowerCase().includes(q) ||
-
-      String(staff.id).includes(searchTerm)
-
-    );
-
-  });
+  const filteredStaff = staffUI;
 
 
 
@@ -675,7 +635,7 @@ const StaffManagement = () => {
 
                         >
 
-                          {staff.status}
+                          {staffStatusLabel(staff.status)}
 
                         </span>
 
@@ -912,7 +872,7 @@ const StaffManagement = () => {
 
                 <Badge bg={isActiveStatus(detailStaff.status) ? 'success' : 'danger'} className="rounded-pill px-3 py-2">
 
-                  {codeToStaffStatus(detailStaff.status)}
+                  {staffStatusLabel(detailStaff.status)}
 
                 </Badge>
 

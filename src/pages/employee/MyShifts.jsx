@@ -10,10 +10,11 @@ export default function MyShifts() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [clockTick, setClockTick] = useState(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    if (!silent) setError(null);
     try {
       const res = await apiFetch(SHIFTS.ME);
       const json = await res.json().catch(() => null);
@@ -33,12 +34,20 @@ export default function MyShifts() {
       setError("Không kết nối được máy chủ");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [navigate]);
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setClockTick((tick) => tick + 1);
+      load(true);
+    }, 30000);
+    return () => clearInterval(interval);
   }, [load]);
 
   const { upcomingShifts, pastShifts } = useMemo(() => {
@@ -93,7 +102,7 @@ export default function MyShifts() {
     past.sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
 
     return { upcomingShifts: upcoming, pastShifts: past };
-  }, [rows]);
+  }, [rows, clockTick]);
 
   const ShiftCard = ({ shift, isPast }) => (
     <div className={`shift-card ${isPast ? 'past' : ''} ${shift.status === 'WORKING' ? 'working' : ''}`}>
@@ -130,7 +139,7 @@ export default function MyShifts() {
           <h1 className="h4 fw-bold text-white mb-1">Lịch làm việc của tôi</h1>
           <p className="text-white-50 small mb-0">Theo dõi và quản lý các ca làm việc đã được phân công.</p>
         </div>
-        <button className="refresh-btn" onClick={load} disabled={loading}>
+        <button className="refresh-btn" onClick={() => load()} disabled={loading}>
           <RefreshCw size={16} className={loading ? "spin" : ""} />
           Làm mới
         </button>
@@ -230,6 +239,13 @@ export default function MyShifts() {
         .shift-card:hover { transform: translateY(-4px); border-color: #38bdf8; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
         .shift-card.past { opacity: 0.7; background: rgba(30, 41, 59, 0.5); }
         .shift-card.past:hover { opacity: 1; }
+        .shift-card.working { border-color: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.25); background: rgba(30,41,59,1); }
+
+        .status-badge.working-now { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); animation: pulse-border 2s infinite; }
+        .status-badge.working-now .dot { width: 7px; height: 7px; background: #22c55e; border-radius: 50%; animation: blink 1s infinite; flex-shrink: 0; }
+        @keyframes pulse-border { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.3); } 50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); } }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .shadow-pulse { }
 
         .shift-date-box { 
           width: 60px; 

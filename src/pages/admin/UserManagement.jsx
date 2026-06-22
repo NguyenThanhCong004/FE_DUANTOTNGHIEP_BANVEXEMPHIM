@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Modal, Button, Badge, Row, Col, Spinner } from 'react-bootstrap';
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { USERS } from '../../constants/apiEndpoints';
 import { formatDate } from '../../utils/formatters';
 import AdminPagination from '../../components/admin/AdminPagination';
@@ -59,7 +59,7 @@ const UserManagement = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(USERS.LIST);
+        const res = await apiFetch(withQuery(USERS.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         if (!mounted) return;
@@ -84,20 +84,11 @@ const UserManagement = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [searchTerm]);
 
   const filteredUsers = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    const filtered = q
-      ? users.filter((u) => {
-          const name = String(u.fullname ?? u.username ?? '').toLowerCase();
-          const phone = String(u.phone ?? '');
-          const idStr = String(u.userId ?? '');
-          return name.includes(q) || phone.includes(q) || idStr.includes(q);
-        })
-      : users;
-    return [...filtered].sort((a, b) => (Number(b.userId) || 0) - (Number(a.userId) || 0));
-  }, [searchTerm, users]);
+    return [...users].sort((a, b) => (Number(b.userId) || 0) - (Number(a.userId) || 0));
+  }, [users]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;

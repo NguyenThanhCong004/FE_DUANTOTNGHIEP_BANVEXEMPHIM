@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Banknote, Ticket, Utensils, Clock, TrendingUp, Calendar as CalendarIcon, ChevronRight, X, User as UserIcon, Search, CreditCard, Banknote as CashIcon, Printer, CheckCircle2 } from 'lucide-react';
 import { getAccessToken, getStoredStaff } from '../../utils/authStorage';
-import { apiUrl } from '../../utils/apiClient';
+import { apiUrl, withQuery } from '../../utils/apiClient';
 import { STAFF_DASHBOARD } from '../../constants/apiEndpoints';
+import InvoiceSummaryCard from '../../components/common/InvoiceSummaryCard';
 
 const EmployeeDashboard = () => {
   const [stats, setStats] = useState({
@@ -71,7 +72,7 @@ const EmployeeDashboard = () => {
             <div style="font-size: 10px; text-transform: uppercase; color: #666; margin-bottom: 5px;">Ghế / Seats</div>
             ${order.tickets.map(t => `
               <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 3px;">
-                <span>${t.seatNumber} (${t.seatTypeName || 'Ghế thường'})</span>
+                <span>${t.seatNumber} (${t.seatTypeName || 'Chưa có loại'})</span>
                 <span style="font-weight: bold;">${(t.price || 0).toLocaleString()}đ</span>
               </div>
             `).join("")}
@@ -136,13 +137,13 @@ const EmployeeDashboard = () => {
       const jsonStats = await resStats.json();
       if (jsonStats?.data) setStats(jsonStats.data);
 
-      const resOrders = await fetch(apiUrl(STAFF_DASHBOARD.RECENT_ORDERS), { headers });
+      const resOrders = await fetch(apiUrl(withQuery(STAFF_DASHBOARD.RECENT_ORDERS, { search: searchQuery })), { headers });
       const jsonOrders = await resOrders.json();
       if (jsonOrders?.data) setRecentOrders(jsonOrders.data);
     } catch (err) {
       console.error("Lỗi lấy dữ liệu dashboard:", err);
     }
-  }, [token]);
+  }, [token, searchQuery]);
 
   useEffect(() => {
     fetchData();
@@ -199,12 +200,6 @@ const EmployeeDashboard = () => {
       fetchOrderDetail(searchQuery.trim().toUpperCase());
     }
   };
-
-  const filteredRecentOrders = useMemo(() => {
-    return recentOrders.filter(o => 
-      o.orderCode.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [recentOrders, searchQuery]);
 
   const StatCard = ({ title, value, icon, color, subValue, onClick, clickable }) => (
     <div className={`stat-card ${clickable ? 'clickable' : ''}`} onClick={onClick}>
@@ -271,8 +266,8 @@ const EmployeeDashboard = () => {
             </div>
             
             <div className="recent-orders-list">
-              {filteredRecentOrders.length > 0 ? (
-                filteredRecentOrders.map(order => (
+              {recentOrders.length > 0 ? (
+                recentOrders.map(order => (
                   <div key={order.orderOnlineId} className="order-item" onClick={() => fetchOrderDetail(order.orderCode)}>
                     <div className="order-main">
                       <div className="order-code">{order.orderCode}</div>
@@ -338,51 +333,8 @@ const EmployeeDashboard = () => {
               <button className="close-btn" onClick={() => setSelectedOrder(null)}><X size={20} /></button>
             </div>
             <div className="modal-body custom-scrollbar">
-              <div className="order-summary-box">
-                <div className="summary-row"><span>Mã đơn hàng:</span> <strong>{selectedOrder.orderCode}</strong></div>
-                <div className="summary-row"><span>Thời gian:</span> <span>{selectedOrder.createdAt}</span></div>
-                <div className="summary-row">
-                  <span>Trạng thái:</span> 
-                  <strong className={selectedOrder.status === 1 ? "text-success" : "text-danger"}>
-                    {selectedOrder.status === 1 ? "Thành công" : "Đã hủy"}
-                  </strong>
-                </div>
-                <div className="summary-row">
-                  <span>Thanh toán:</span> 
-                  <span className="badge-method">
-                    {selectedOrder.paymentMethod === 'CASH' ? 'Tiền mặt' : 
-                     selectedOrder.paymentMethod === 'TRANSFER' ? 'Chuyển khoản' : 
-                     selectedOrder.paymentMethod === 'PAYOS' ? 'Ví điện tử' : selectedOrder.paymentMethod}
-                  </span>
-                </div>
-                <div className="summary-row"><span>Khách hàng:</span> <span><UserIcon size={14} /> {selectedOrder.customerName}</span></div>
-              </div>
-              {selectedOrder.tickets?.length > 0 && (
-                <div className="detail-section">
-                  <h4 className="section-title"><Ticket size={16} /> Danh sách vé</h4>
-                  {selectedOrder.tickets.map((t, i) => (
-                    <div key={i} className="detail-item">
-                      <div className="item-name">{t.movieTitle}</div>
-                      <div className="item-sub">Ghế {t.seatNumber} | {t.showtime} | {t.roomName}</div>
-                      <div className="item-price">{t.price?.toLocaleString()}đ</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {selectedOrder.foods?.length > 0 && (
-                <div className="detail-section">
-                  <h4 className="section-title"><Utensils size={16} /> Bắp nước</h4>
-                  {selectedOrder.foods.map((f, i) => (
-                    <div key={i} className="detail-item">
-                      <div className="item-name">{f.productName}</div>
-                      <div className="item-sub">Số lượng: {f.quantity}</div>
-                      <div className="item-price">{(f.price * f.quantity).toLocaleString()}đ</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <InvoiceSummaryCard order={selectedOrder} />
             </div>
-            <div className="modal-footer"><div className="total-label">TỔNG CỘNG</div><div className="total-amount">{selectedOrder.finalAmount?.toLocaleString()}đ</div></div>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Alert, Form } from "react-bootstrap";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import AdminFormListBack from "../../components/admin/AdminFormListBack";
+import { useAdminToast } from "../../components/admin/AdminToast";
 import { apiFetch } from "../../utils/apiClient";
 import { SEAT_TYPES } from "../../constants/apiEndpoints";
 import {
@@ -24,6 +25,7 @@ const CreateSeatType = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { showToast, ToastComponent } = useAdminToast();
   const editId = editData?.id ?? null;
 
   const [formData, setFormData] = useState(initialForm);
@@ -154,6 +156,19 @@ const CreateSeatType = () => {
       color: normalizeHex(formData.color),
     };
     const tid = editData?.id;
+    if (tid) {
+      const originalBody = {
+        name: String(editData.name ?? "").trim(),
+        surcharge: Number(editData.surcharge ?? editData.price ?? 0),
+        coupleSeat: Boolean(editData.coupleSeat),
+        color: normalizeHex(editData.color),
+      };
+      if (JSON.stringify(body) === JSON.stringify(originalBody)) {
+        showToast(MESSAGES.noChanges, "warning");
+        setSubmitting(false);
+        return;
+      }
+    }
     const url = tid ? SEAT_TYPES.BY_ID(tid) : SEAT_TYPES.LIST;
     try {
       const res = await apiFetch(url, {
@@ -197,6 +212,7 @@ const CreateSeatType = () => {
       description="Chọn màu từ bảng có số (mỗi màu chỉ một loại ghế). Màu lưu trên máy chủ và hiển thị đồng bộ trên sơ đồ phòng / đặt vé."
       headerRight={<AdminFormListBack to="/super-admin/seat-types" />}
     >
+      <ToastComponent />
       <div className="admin-form-page-wrap admin-form-compact">
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">

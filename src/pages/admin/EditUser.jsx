@@ -12,6 +12,7 @@ export default function EditUser() {
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
   const [user, setUser] = useState(null);
+  const [originalUser, setOriginalUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
@@ -30,7 +31,7 @@ export default function EditUser() {
           setErr(apiMessage(json, "Không tải được người dùng"));
           return;
         }
-        setUser({
+        const nextUser = {
           userId: found.userId,
           fullname: found.fullname ?? "",
           email: found.email ?? "",
@@ -41,7 +42,9 @@ export default function EditUser() {
           avatar: found.avatar || "https://via.placeholder.com/160",
           username: found.username ?? "",
           totalSpending: found.totalSpending ?? 0,
-        });
+        };
+        setUser(nextUser);
+        setOriginalUser(nextUser);
       } catch {
         if (mounted) {
           setUser(null);
@@ -79,6 +82,10 @@ export default function EditUser() {
         points: user.points,
         totalSpending: user.totalSpending ?? 0,
       };
+      if (originalUser && Number(user.status) === Number(originalUser.status)) {
+        setErr(MESSAGES.noChanges);
+        return;
+      }
       const res = await apiFetch(USERS.BY_ID(user.userId), {
         method: "PUT",
         body: JSON.stringify(body),
@@ -175,7 +182,10 @@ export default function EditUser() {
                   name="status"
                   label={<span className="fw-semibold text-success">Hoạt động</span>}
                   checked={Number(user.status) === 1}
-                  onChange={() => setUser((prev) => ({ ...prev, status: 1 }))}
+                  onChange={() => {
+                    setUser((prev) => ({ ...prev, status: 1 }));
+                    if (err === MESSAGES.noChanges) setErr("");
+                  }}
                 />
                 <Form.Check
                   type="radio"
@@ -183,7 +193,10 @@ export default function EditUser() {
                   name="status"
                   label={<span className="fw-semibold text-danger">Khóa tài khoản</span>}
                   checked={Number(user.status) === 0}
-                  onChange={() => setUser((prev) => ({ ...prev, status: 0 }))}
+                  onChange={() => {
+                    setUser((prev) => ({ ...prev, status: 0 }));
+                    if (err === MESSAGES.noChanges) setErr("");
+                  }}
                 />
               </div>
             </Col>

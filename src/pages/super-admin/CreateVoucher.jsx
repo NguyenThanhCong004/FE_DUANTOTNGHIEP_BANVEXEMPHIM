@@ -15,7 +15,7 @@ const CreateVoucher = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
-  const { ToastComponent } = useAdminToast();
+  const { showToast, ToastComponent } = useAdminToast();
 
   const [formData, setFormData] = useState({
     code: '',
@@ -203,6 +203,23 @@ const CreateVoucher = () => {
     };
 
     const vid = editData?.id;
+    if (vid) {
+      const originalBody = {
+        code: String(editData.code ?? '').trim(),
+        value: parseFloat(editData.value ?? 0),
+        minOrderValue: parseFloat(editData.min_order_value ?? editData.minOrderValue ?? 0),
+        maxDiscountAmount: parseFloat(editData.max_discount_amount ?? editData.maxDiscountAmount ?? 0),
+        startDate: String(editData.start_date ?? editData.startDate ?? '').slice(0, 10),
+        endDate: String(editData.end_date ?? editData.endDate ?? '').slice(0, 10),
+        pointVoucher: Number(editData.point_voucher ?? editData.pointVoucher ?? 0),
+        status: Number(editData.status),
+      };
+      if (JSON.stringify(body) === JSON.stringify(originalBody)) {
+        showToast(MESSAGES.noChanges, 'warning');
+        setSubmitting(false);
+        return;
+      }
+    }
     const url = vid ? VOUCHERS.BY_ID(vid) : VOUCHERS.LIST;
     try {
       const res = await apiFetch(url, {

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { PRODUCT_CATEGORIES } from "../../constants/apiEndpoints";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 import AdminPagination from "../../components/admin/AdminPagination";
@@ -33,7 +33,7 @@ const ProductTypeManagement = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(PRODUCT_CATEGORIES.LIST);
+        const res = await apiFetch(withQuery(PRODUCT_CATEGORIES.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
@@ -48,10 +48,9 @@ const ProductTypeManagement = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [searchTerm]);
 
   const filteredTypes = productTypes
-    .filter((type) => type.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -67,7 +66,7 @@ const ProductTypeManagement = () => {
       
       if (res.ok) {
         // Refresh danh sách
-        const refreshRes = await apiFetch(PRODUCT_CATEGORIES.LIST);
+        const refreshRes = await apiFetch(withQuery(PRODUCT_CATEGORIES.LIST, { search: searchTerm }));
         const json = await refreshRes.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];

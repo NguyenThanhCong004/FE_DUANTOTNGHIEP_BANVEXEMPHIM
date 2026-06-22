@@ -16,6 +16,7 @@ import { isDisplayableImageSrc } from "../../utils/mediaFiles";
 import { formatVnd } from "../../utils/formatters";
 
 const HOLDER_STORAGE_KEY = "booking_seat_holder_id";
+const SEAT_HOLD_DURATION_MS = 5 * 60 * 1000;
 
 // Biến module-level để lưu seatTypes có coupleSeat
 let _seatTypesData = [];
@@ -104,7 +105,7 @@ function buildSeatGrid(seats) {
     if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
       const idx = y * COLS + x;
       
-      const seatType = String(seat.seatTypeName || "Thường").trim() || "Thường";
+      const seatType = String(seat.seatTypeName || "Chưa có loại").trim() || "Chưa có loại";
 
       // Đặt ghế vào grid (type = tên loại trên DB để khớp màu chú thích / API)
       grid[idx] = {
@@ -141,10 +142,7 @@ function getSeatColor(cell, seatTypes = []) {
 
 // Function để lấy danh sách tên loại ghế từ API
 const getSeatTypeOptions = (seatTypes) => {
-  if (!seatTypes || seatTypes.length === 0) {
-    return ["Thường", "VIP", "Đôi"];
-  }
-  return seatTypes.map((st) => st.name).filter(Boolean);
+  return Array.isArray(seatTypes) ? seatTypes.map((st) => st.name).filter(Boolean) : [];
 };
 
 function getOrCreateSeatHolderId() {
@@ -238,6 +236,7 @@ const Booking = () => {
   if (!holderRef.current) {
     holderRef.current = getOrCreateSeatHolderId();
   }
+  const selectedSeatIdsRef = useRef([]);
 
   const bookedSet = useMemo(() => {
     const ids = showtime?.bookedSeatIds || [];
@@ -277,6 +276,16 @@ const Booking = () => {
 
   const actualRows = gridBounds.maxRow - gridBounds.minRow + 1;
   const actualCols = gridBounds.maxCol - gridBounds.minCol + 1;
+
+  // Auto-zoom to fit when room loads (prevents sparse layout for small rooms)
+  useEffect(() => {
+    if (actualCols <= 0 || actualRows <= 0) return;
+    // Estimate available area: ~700px wide, ~480px tall for the seat grid
+    const colZoom = 660 / Math.max(1, actualCols * 36 - 4);
+    const rowZoom = 460 / Math.max(1, actualRows * 36 - 4);
+    const autoZoom = Math.min(colZoom, rowZoom, 2);
+    setZoomLevel(Math.max(0.6, parseFloat(autoZoom.toFixed(2))));
+  }, [actualCols, actualRows]);
 
   // Zoom controls
   const handleZoomIn = () => {
@@ -348,27 +357,15 @@ const Booking = () => {
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const seatTypesData = Array.isArray(list) ? list : [];
-        if (seatTypesData.length > 0) {
-          // Lưu vào biến module-level với coupleSeat
-          _seatTypesData = seatTypesData.map(st => ({
-            name: st.name,
-            coupleSeat: st.coupleSeat ?? st.couple_seat ?? isCoupleTypeName(st.name)
-          }));
-          setSeatTypes(seatTypesData);
-        } else {
-          setSeatTypes([
-            { id: 1, name: "Thường", price: 0, color: "#007bff" },
-            { id: 2, name: "VIP", price: 0, color: "#ffc107" },
-            { id: 3, name: "Ghế đôi Sweetbox", price: 0, color: "#dc3545" }
-          ]);
-        }
+        _seatTypesData = seatTypesData.map(st => ({
+          name: st.name,
+          coupleSeat: st.coupleSeat ?? st.couple_seat ?? isCoupleTypeName(st.name)
+        }));
+        setSeatTypes(seatTypesData);
       } catch (err) {
         console.error("Failed to load seat types:", err);
-        setSeatTypes([
-          { id: 1, name: "Thường", price: 0, color: "#007bff" },
-          { id: 2, name: "VIP", price: 0, color: "#ffc107" },
-          { id: 3, name: "Ghế đôi Sweetbox", price: 0, color: "#dc3545" }
-        ]);
+        _seatTypesData = [];
+        setSeatTypes([]);
       }
     };
 
@@ -466,7 +463,7 @@ const Booking = () => {
     };
   }, [loading, showtime, showEnded, showtimeId]);
 
-  /** Gia hạn giữ ghế (~45s) khi đang chọn */
+  /** Cập nhật danh sách ghế đang giữ tạm khi lựa chọn thay đổi. */
   useEffect(() => {
     if (!Number.isFinite(showtimeId) || showEnded) return;
     const holderId = holderRef.current;
@@ -480,6 +477,34 @@ const Booking = () => {
         }),
       }).catch(() => {});
     }, 400);
+    return () => clearTimeout(handle);
+  }, [showtimeId, selectedSeatIds, showEnded]);
+
+  /** Hết 5 phút giữ ghế của chính tab hiện tại — tự nhả ghế và bỏ chọn. */
+  useEffect(() => {
+    selectedSeatIdsRef.current = selectedSeatIds;
+
+    if (!Number.isFinite(showtimeId) || showEnded || selectedSeatIds.length === 0) {
+      return undefined;
+    }
+
+    const handle = setTimeout(() => {
+      const holderId = holderRef.current;
+      const heldSeatIds = selectedSeatIdsRef.current;
+
+      if (holderId && Number.isFinite(showtimeId) && heldSeatIds.length > 0) {
+        apiFetch(SHOWTIME_SEAT_HOLDS.REFRESH, {
+          method: "POST",
+          body: JSON.stringify({ showtimeId, holderId, seatIds: [] }),
+        }).catch(() => {});
+      }
+
+      setSelectedSeatIds([]);
+      setQuote(null);
+      setPayError("Ghế đã hết thời gian giữ 5 phút. Vui lòng chọn lại ghế.");
+      setSeatSelectionError(null);
+    }, SEAT_HOLD_DURATION_MS);
+
     return () => clearTimeout(handle);
   }, [showtimeId, selectedSeatIds, showEnded]);
 
@@ -758,6 +783,7 @@ const Booking = () => {
       const promotionDiscount = quoteLine?.promotionDiscount != null ? Number(quoteLine.promotionDiscount) : 0;
       const membershipDiscount = quoteLine?.membershipDiscount != null ? Number(quoteLine.membershipDiscount) : 0;
       const finalPrice = quoteLine?.finalPrice != null ? Number(quoteLine.finalPrice) : seatPrice(seat);
+      const displayPrice = originalPrice != null ? originalPrice : seatPrice(seat);
       return {
         id,
         label: `${seat.row}${seat.number}`,
@@ -765,6 +791,7 @@ const Booking = () => {
         originalPrice,
         promotionDiscount,
         membershipDiscount,
+        displayPrice,
         finalPrice,
       };
     })
@@ -776,7 +803,7 @@ const Booking = () => {
       const key = seat.typeName || "Ghế";
       const current = groups.get(key) || { typeName: key, count: 0, total: 0 };
       current.count += 1;
-      current.total += seat.finalPrice;
+      current.total += seat.displayPrice;
       groups.set(key, current);
       return groups;
     }, new Map()).values()
@@ -1369,7 +1396,7 @@ const Booking = () => {
                             <span
                               key={seat.id}
                               className="badge rounded-pill px-3 py-2"
-                              title={`${seat.typeName} - ${formatVnd(seat.finalPrice)}`}
+                              title={`${seat.typeName} - ${formatVnd(seat.displayPrice)}`}
                               style={{
                                 background: "rgba(13,110,253,0.16)",
                                 color: "#d8e9ff",

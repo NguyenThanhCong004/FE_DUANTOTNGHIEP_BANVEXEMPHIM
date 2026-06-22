@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Bell, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import SuperAdminSidebar from "./SuperAdminSidebar";
@@ -35,9 +35,6 @@ export default function SuperAdminLayout({ children }) {
               <span className="app-shell-header-cinema-label d-none d-lg-inline">Rạp:</span>
               <CinemaPicker variant="header" />
             </div>
-            <button className="app-shell-icon-btn" aria-label="Thông báo" type="button">
-              <Bell size={16} />
-            </button>
             <NavLink to="/super-admin/profile" className="text-decoration-none">
               <div className="app-shell-profile-chip">
                 <img

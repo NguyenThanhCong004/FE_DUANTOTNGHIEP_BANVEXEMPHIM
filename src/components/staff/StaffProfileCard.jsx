@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Card, Button, Spinner, Form } from "react-bootstrap";
 import { Building2, Mail, Shield, User, Lock } from "lucide-react";
+import { useAdminToast } from "../admin/AdminToast";
 import {
   getAccessToken,
   getRefreshToken,
@@ -11,8 +12,9 @@ import {
 import { apiFetch } from "../../utils/apiClient";
 import { STAFF } from "../../constants/apiEndpoints";
 import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../utils/mediaFiles";
-import { apiMessage, MESSAGES, normalizeToastType } from "../../utils/uiMessages";
+import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 import { toDateInputValue } from "../../utils/formatters";
+import { PASSWORD_RULE_MESSAGE, STRONG_PASSWORD_REGEX } from "../../utils/passwordValidation";
 
 const GMAIL_RE = /^[a-z0-9._%+-]+@gmail\.com$/i;
 const PHONE_RE = /^[0-9]{10}$/;
@@ -22,6 +24,13 @@ const DEFAULT_AVATAR_PLACEHOLDER =
 function normalizeRole(role) {
   if (role == null) return "—";
   return String(role).replace(/^ROLE_/i, "");
+}
+
+function formatBirthdayDisplay(value) {
+  const dateValue = toDateInputValue(value);
+  if (!dateValue) return "—";
+  const [year, month, day] = dateValue.split("-");
+  return `${day}/${month}/${year}`;
 }
 
 function mergeStaffSession(serverDto) {
@@ -61,7 +70,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const [toast, setToast] = useState(null);
+  const { showToast, ToastComponent } = useAdminToast();
 
   const [pw, setPw] = useState({ current: "", newPw: "", confirm: "" });
   const [showPw, setShowPw] = useState({ current: false, newPw: false, confirm: false });
@@ -70,11 +79,6 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
-
-  const showToast = useCallback((msg, type = "success") => {
-    setToast({ msg, type: normalizeToastType(type) });
-    setTimeout(() => setToast(null), 2800);
-  }, []);
 
   const load = useCallback(async () => {
     if (!staffId) {
@@ -183,6 +187,22 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
         status: model.status,
         cinemaId: model.cinemaId ?? null,
       };
+      const originalBody = {
+        fullname: String(model.fullname ?? "").trim(),
+        email: String(model.email ?? "").trim(),
+        username: String(model.username ?? "").trim(),
+        phone: String(model.phone ?? "").trim(),
+        birthday: toDateInputValue(model.birthday),
+        avatar: String(model.avatar ?? "").trim(),
+        role: model.role,
+        status: model.status,
+        cinemaId: model.cinemaId ?? null,
+      };
+      if (!avatarFile && JSON.stringify(body) === JSON.stringify(originalBody)) {
+        showToast(MESSAGES.noChanges, "warning");
+        setSaving(false);
+        return;
+      }
       const res = await apiFetch(STAFF.BY_ID(model.staffId), {
         method: "PUT",
         body: JSON.stringify(body),
@@ -214,7 +234,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const validatePw = () => {
     const e = {};
     if (!pw.current) e.current = "Nhập mật khẩu hiện tại";
-    if (!pw.newPw || pw.newPw.length < 8) e.newPw = "Mật khẩu mới tối thiểu 8 ký tự";
+    if (!STRONG_PASSWORD_REGEX.test(pw.newPw || "")) e.newPw = PASSWORD_RULE_MESSAGE;
     if (pw.newPw !== pw.confirm) e.confirm = "Mật khẩu xác nhận không khớp";
     return e;
   };
@@ -274,14 +294,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
 
   return (
     <div className={`staff-profile-wrap${light ? " staff-profile-wrap--light" : ""}`}>
-      {toast && (
-        <div
-          className={`alert alert-${toast.type} py-2 px-3 mb-3`}
-          role="status"
-        >
-          {toast.msg}
-        </div>
-      )}
+      <ToastComponent />
 
       {!hideHeader ? (
         <div className="mb-4">
@@ -482,7 +495,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
                         isInvalid={!!errors.birthday}
                       />
                     ) : (
-                      <div className="fw-semibold">{toDateInputValue(model.birthday) || "—"}</div>
+                      <div className="fw-semibold">{formatBirthdayDisplay(model.birthday)}</div>
                     )}
                     {errors.birthday && (
                       <div className="text-danger small mt-1">{errors.birthday}</div>

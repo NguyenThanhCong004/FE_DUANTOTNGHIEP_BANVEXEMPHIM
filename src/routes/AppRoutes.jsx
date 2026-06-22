@@ -176,6 +176,7 @@ const AppRoutes = () => {
           <Route path="cinemas/create" element={<CreateCinema />} />
           <Route path="system-staff" element={<SystemStaffManagement />} />
           <Route path="system-staff/create" element={<CreateSystemStaff />} />
+          <Route path="system-staff/edit/:id" element={<CreateSystemStaff />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="users/edit" element={<EditUserSuperAdmin />} />
           <Route path="movies" element={<SuperMovies />} />

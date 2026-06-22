@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 
 
@@ -12,15 +12,20 @@ import AdminPagination from '../../components/admin/AdminPagination';
 
 
 
-import { apiJson } from '../../utils/apiClient';
+import { apiJson, withQuery } from '../../utils/apiClient';
 
 
 
 import { STAFF, CINEMAS } from '../../constants/apiEndpoints';
 
-import { codeToStaffStatus, isActiveStatus } from '../../utils/statusFormat';
+import { isActiveStatus } from '../../utils/statusFormat';
 
 import { apiMessage, MESSAGES } from '../../utils/uiMessages';
+import { formatDate } from '../../utils/formatters';
+
+const staffStatusLabel = (value) => (
+  isActiveStatus(value) ? 'Đang làm việc' : 'Tạm nghỉ / Khóa'
+);
 
 
 
@@ -104,22 +109,6 @@ const SystemStaffManagement = () => {
 
 
 
-    fetchInitialData();
-
-
-
-  }, []);
-
-
-
-
-
-
-
-  useEffect(() => {
-
-
-
     if (location.state?.message) {
 
 
@@ -139,7 +128,7 @@ const SystemStaffManagement = () => {
 
 
 
-  }, [location.state]);
+  }, [location.state, showToast]);
 
 
 
@@ -147,7 +136,7 @@ const SystemStaffManagement = () => {
 
 
 
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
 
 
 
@@ -163,7 +152,7 @@ const SystemStaffManagement = () => {
 
 
 
-        apiJson(STAFF.SUPER_ADMIN_VIEW),
+        apiJson(withQuery(STAFF.SUPER_ADMIN_VIEW, { search: searchTerm })),
 
 
 
@@ -199,7 +188,7 @@ const SystemStaffManagement = () => {
 
 
 
-            id: s.staffId || s.id,
+            id: s.staffId ?? s.id,
 
 
 
@@ -219,7 +208,7 @@ const SystemStaffManagement = () => {
 
 
 
-            status: codeToStaffStatus(s.status),
+            status: s.status,
 
 
 
@@ -267,7 +256,11 @@ const SystemStaffManagement = () => {
 
 
 
-  };
+  }, [searchTerm]);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
 
 
@@ -307,30 +300,6 @@ const SystemStaffManagement = () => {
 
 
 
-    const matchesSearch = 
-
-
-
-      String(emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-
-
-
-      String(emp.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-
-
-
-      String(emp.role || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-
-
-
-      String(emp.phone || '').includes(searchTerm);
-
-
-
-    
-
-
-
     const matchesCinema = selectedCinemaFilter === '' || String(emp.cinemaId) === String(selectedCinemaFilter);
 
 
@@ -339,7 +308,7 @@ const SystemStaffManagement = () => {
 
 
 
-    return matchesSearch && matchesCinema;
+    return matchesCinema;
 
 
 
@@ -774,7 +743,7 @@ const SystemStaffManagement = () => {
 
 
 
-                          {codeToStaffStatus(emp.status)}
+                          {staffStatusLabel(emp.status)}
 
 
 
@@ -806,7 +775,7 @@ const SystemStaffManagement = () => {
 
 
 
-                          <button className="admin-btn admin-btn-sm admin-btn-primary" title="Sửa" onClick={() => navigate('/super-admin/system-staff/create', { state: { editId: emp.id } })}>
+                          <button className="admin-btn admin-btn-sm admin-btn-primary" title="Sửa" onClick={() => navigate(`/super-admin/system-staff/edit/${emp.id}`)}>
 
 
 
@@ -969,11 +938,15 @@ const SystemStaffManagement = () => {
 
 
 
-                  <p className="mb-1"><strong>Ngày sinh:</strong> {selectedItem.birthday || '—'}</p>
+                  <p className="mb-1"><strong>Ngày sinh:</strong> {formatDate(selectedItem.birthday, { fallback: '—' })}</p>
 
 
 
                   <p className="mb-1"><strong>Vai trò:</strong> {selectedItem.role}</p>
+
+
+
+                  <p className="mb-1"><strong>Trạng thái:</strong> {staffStatusLabel(selectedItem.status)}</p>
 
 
 

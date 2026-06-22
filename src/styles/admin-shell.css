@@ -162,6 +162,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  background: transparent;
   color: #cbd5e1;
   text-decoration: none;
   border: 1px solid transparent;
@@ -169,8 +171,11 @@
   border-radius: 12px;
   margin-bottom: 6px;
   transition: 0.2s ease;
+  text-align: left;
   font-weight: 600;
   font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .app-shell-nav-link:hover {

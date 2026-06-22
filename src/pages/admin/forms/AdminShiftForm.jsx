@@ -6,6 +6,7 @@ import { getAccessToken, getStoredStaff } from "../../../utils/authStorage";
 import { SuperAdminCinemaContext } from "../../../components/layout/SuperAdminCinemaContext";
 import { apiUrl } from "../../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../../constants/apiEndpoints";
+import { MESSAGES } from "../../../utils/uiMessages";
 
 export default function AdminShiftForm({ mode = "add" }) {
   const location = useLocation();
@@ -57,10 +58,12 @@ export default function AdminShiftForm({ mode = "add" }) {
       staff_phucvu: "",
     };
   });
+  const [originalFormData, setOriginalFormData] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error === MESSAGES.noChanges) setError("");
   };
 
   const handleSubmit = async (e) => {
@@ -96,6 +99,20 @@ export default function AdminShiftForm({ mode = "add" }) {
         staffSoatVeId: Number(formData.staff_soatve),
         staffPhucVuId: Number(formData.staff_phucvu),
       };
+      if (isEdit && originalFormData) {
+        const originalPayload = {
+          date: originalFormData.date,
+          shiftType: originalFormData.shiftType,
+          staffBanveId: Number(originalFormData.staff_banve),
+          staffSoatVeId: Number(originalFormData.staff_soatve),
+          staffPhucVuId: Number(originalFormData.staff_phucvu),
+        };
+        if (JSON.stringify(payload) === JSON.stringify(originalPayload)) {
+          setError(MESSAGES.noChanges);
+          setSubmitting(false);
+          return;
+        }
+      }
 
       const url = isEdit ? apiUrl(SHIFTS.BY_ID(id)) : apiUrl(SHIFTS.LIST);
 
@@ -201,14 +218,18 @@ export default function AdminShiftForm({ mode = "add" }) {
           return;
         }
 
-        setFormData((prev) => ({
-          ...prev,
+        const nextFormData = {
           date: data.date ? data.date.toString() : "",
           shiftType: data.shiftType ?? "Ca 1",
           staff_banve: data.staffBanveId != null ? String(data.staffBanveId) : "",
           staff_soatve: data.staffSoatVeId != null ? String(data.staffSoatVeId) : "",
           staff_phucvu: data.staffPhucVuId != null ? String(data.staffPhucVuId) : "",
-        }));
+        };
+        setFormData((prev) => {
+          const merged = { ...prev, ...nextFormData };
+          setOriginalFormData(merged);
+          return merged;
+        });
       } catch {
         if (!mounted) return;
         setError("Không thể kết nối tới server");

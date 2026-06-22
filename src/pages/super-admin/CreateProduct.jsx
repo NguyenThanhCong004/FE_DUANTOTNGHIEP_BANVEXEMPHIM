@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
+import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiFetch } from '../../utils/apiClient';
 import { PRODUCTS, PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
 import { fileToDataUrl, IMAGE_FILE_ACCEPT } from '../../utils/mediaFiles';
@@ -12,6 +13,7 @@ const CreateProduct = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { showToast, ToastComponent } = useAdminToast();
   const imageInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -27,6 +29,7 @@ const CreateProduct = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [productList, setProductList] = useState([]);
+  const [originalProduct, setOriginalProduct] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
 
@@ -74,6 +77,14 @@ const CreateProduct = () => {
           status: codeToAdminStatus(p.status, { allowUpcoming: false }),
           category_id: p.categoryId != null ? String(p.categoryId) : '',
           image: null,
+        });
+        setOriginalProduct({
+          name: String(p.name ?? '').trim(),
+          description: p.description || '',
+          price: Number(p.price),
+          image: p.image || null,
+          status: Number(p.status),
+          categoryId: Number(p.categoryId),
         });
         if (p.image) setPreviewImage(p.image);
       } catch (error) {
@@ -151,6 +162,17 @@ const CreateProduct = () => {
       };
 
       const pid = editData?.id;
+      if (pid && originalProduct && !(formData.image instanceof File)) {
+        const comparableBody = {
+          ...body,
+          image: body.image || null,
+        };
+        if (JSON.stringify(comparableBody) === JSON.stringify(originalProduct)) {
+          showToast(MESSAGES.noChanges, 'warning');
+          setSubmitting(false);
+          return;
+        }
+      }
       const url = pid ? PRODUCTS.BY_ID(pid) : PRODUCTS.LIST;
       const res = await apiFetch(url, {
         method: pid ? 'PUT' : 'POST',
@@ -184,6 +206,7 @@ const CreateProduct = () => {
       description="Quản lý danh mục sản phẩm bắp nước, combo và quà tặng trên hệ thống."
       headerRight={<AdminFormListBack to="/super-admin/catalog-products" />}
     >
+      <ToastComponent />
       <div className="admin-form-page-wrap admin-form-compact">
       <form onSubmit={handleSubmit} noValidate>
         <div className="row g-4">

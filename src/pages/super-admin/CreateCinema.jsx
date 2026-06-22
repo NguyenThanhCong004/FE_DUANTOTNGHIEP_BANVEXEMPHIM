@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
+import { useAdminToast } from '../../components/admin/AdminToast';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
 import { apiFetch } from '../../utils/apiClient';
 import { CINEMAS } from '../../constants/apiEndpoints';
@@ -91,6 +92,7 @@ const CreateCinema = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { showToast, ToastComponent } = useAdminToast();
   const { refreshCinemas, setSelectedCinemaId } = useSuperAdminCinema();
 
   const [formData, setFormData] = useState({
@@ -231,8 +233,8 @@ const CreateCinema = () => {
         body.status === originalBody.status;
 
       if (isUnchanged) {
+        showToast(MESSAGES.noChanges, 'warning');
         setSubmitting(false);
-        // Không hiện thông báo, để BE xử lý
         return;
       }
 
@@ -292,6 +294,7 @@ const CreateCinema = () => {
       description="Quản lý thông tin cụm rạp và địa chỉ hoạt động trên hệ thống."
       headerRight={<AdminFormListBack to="/super-admin/cinemas" />}
     >
+      <ToastComponent />
       <div className="admin-form-page-wrap admin-form-compact">
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
