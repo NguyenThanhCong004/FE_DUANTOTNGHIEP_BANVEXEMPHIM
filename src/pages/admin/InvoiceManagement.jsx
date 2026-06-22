@@ -1,21 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Modal, Button, Spinner } from 'react-bootstrap';
 import { ReceiptText } from 'lucide-react';
-import { apiFetch } from '../../utils/apiClient';
+import { useLocation } from 'react-router-dom';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { ORDERS_ONLINE } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
 import { formatDateTime, formatVnd } from '../../utils/formatters';
 import { apiMessage, MESSAGES } from '../../utils/uiMessages';
 import AdminPagination from '../../components/admin/AdminPagination';
-
-function formatMoneyInvoice(v) {
-  return formatVnd(v);
-}
-
-function formatDtInvoice(iso) {
-  return formatDateTime(iso);
-}
+import InvoiceSummaryCard from '../../components/common/InvoiceSummaryCard';
 
 const InvoiceManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +21,8 @@ const InvoiceManagement = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOrder, setDetailOrder] = useState(null);
   const [detailErr, setDetailErr] = useState('');
+  const location = useLocation();
+  const isSuperAdmin = location.pathname.startsWith('/super-admin');
 
   const openOrderDetail = async (orderId) => {
     setShowDetailModal(true);
@@ -55,16 +51,24 @@ const InvoiceManagement = () => {
   };
 
   const staffSession = getStoredStaff();
-  const { selectedCinemaId } = useSuperAdminCinema();
-  const effectiveCinemaId = staffSession?.cinemaId ?? selectedCinemaId ?? null;
+  const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
+  const effectiveCinemaId = isSuperAdmin ? (selectedCinemaId ?? null) : (staffSession?.cinemaId ?? null);
+  const requiresCinemaSelection = effectiveCinemaId == null;
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
+      if (requiresCinemaSelection) {
+        setInvoices([]);
+        setLoading(false);
+        return;
+      }
       try {
-        const query = effectiveCinemaId ? `?cinemaId=${effectiveCinemaId}` : '';
-        const res = await apiFetch(`${ORDERS_ONLINE.LIST}${query}`);
+        const res = await apiFetch(withQuery(ORDERS_ONLINE.LIST, {
+          cinemaId: effectiveCinemaId,
+          search: searchTerm,
+        }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
@@ -102,24 +106,12 @@ const InvoiceManagement = () => {
     return () => {
       mounted = false;
     };
-  }, [effectiveCinemaId]);
+  }, [effectiveCinemaId, requiresCinemaSelection, searchTerm]);
 
   const filteredInvoices = useMemo(() => {
-    // Lọc theo rạp trước
-    const myInvoices = effectiveCinemaId 
-      ? invoices.filter(i => i.cinemaId != null && Number(i.cinemaId) === Number(effectiveCinemaId))
-      : invoices;
-
-    const q = searchTerm.toLowerCase();
-    return myInvoices
-      .filter(invoice =>
-        String(invoice.displayCode || '').toLowerCase().includes(q) ||
-        String(invoice.apiId || '').toLowerCase().includes(q) ||
-        String(invoice.customerName || '').toLowerCase().includes(q) ||
-        String(invoice.movieTitle || '').toLowerCase().includes(q)
-      )
+    return invoices
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  }, [invoices, searchTerm, effectiveCinemaId]);
+  }, [invoices]);
 
   // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -130,28 +122,23 @@ const InvoiceManagement = () => {
   // Reset to page 1 when searching
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, effectiveCinemaId]);
 
   const invoiceStats = useMemo(() => {
-    // Chỉ lấy đơn hàng thuộc rạp hiện tại nếu có effectiveCinemaId
-    const myInvoices = effectiveCinemaId 
-      ? invoices.filter(i => i.cinemaId != null && Number(i.cinemaId) === Number(effectiveCinemaId))
-      : invoices;
-
     // Chỉ cộng dồn doanh thu nếu trạng thái là 'completed'
-    const totalRev = myInvoices.reduce((a, i) => {
+    const totalRev = invoices.reduce((a, i) => {
       if (i.status === 'completed') {
         return a + (Number(i.total) || 0);
       }
       return a;
     }, 0);
     
-    const pending = myInvoices.filter((i) => i.status === 'pending').length;
-    const completed = myInvoices.filter((i) => i.status === 'completed').length;
-    const cancelled = myInvoices.filter((i) => i.status === 'cancelled').length;
+    const pending = invoices.filter((i) => i.status === 'pending').length;
+    const completed = invoices.filter((i) => i.status === 'completed').length;
+    const cancelled = invoices.filter((i) => i.status === 'cancelled').length;
     
     return { totalRev, pending, completed, cancelled };
-  }, [invoices, effectiveCinemaId]);
+  }, [invoices]);
   const getStatusBadge = (status) => {
     switch (status) {
       case 'completed':
@@ -201,7 +188,11 @@ const InvoiceManagement = () => {
               <i className="bi bi-receipt-cutoff me-3"></i>
               Quản lý Hóa đơn
             </h1>
-            <p className="lead">Theo dõi và quản lý hóa đơn vé phim</p>
+            <p className="lead">
+              {isSuperAdmin
+                ? `Theo dõi hóa đơn của ${selectedCinemaName || 'rạp đang chọn'}`
+                : 'Theo dõi hóa đơn của rạp đang đăng nhập'}
+            </p>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
@@ -278,8 +269,16 @@ const InvoiceManagement = () => {
                         <div className="admin-empty-icon">
                           <i className="bi bi-receipt"></i>
                         </div>
-                        <h5 className="mb-2">Không có hóa đơn</h5>
-                        <p className="mb-0">Chưa có hóa đơn nào trong hệ thống</p>
+                        <h5 className="mb-2">
+                          {requiresCinemaSelection ? 'Chưa chọn rạp' : 'Không có hóa đơn'}
+                        </h5>
+                        <p className="mb-0">
+                          {requiresCinemaSelection
+                            ? (isSuperAdmin
+                                ? 'Vui lòng chọn rạp trên header để xem hóa đơn của rạp đó.'
+                                : 'Tài khoản quản lý chưa được gán rạp, không thể tải hóa đơn.')
+                            : 'Chưa có hóa đơn nào trong rạp này'}
+                        </p>
                       </div>
                     </td>
                   </tr>
@@ -354,113 +353,7 @@ const InvoiceManagement = () => {
           ) : !detailOrder ? (
             <p className="text-muted mb-0">Không có dữ liệu</p>
           ) : (
-            <div className="invoice-detail-content">
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <h6 className="fw-bold border-bottom pb-2 mb-3">Thông tin chung</h6>
-                  <dl className="row mb-0 small">
-                    <dt className="col-5 text-muted">Mã đơn:</dt>
-                    <dd className="col-7 fw-semibold">{detailOrder.orderCode || `#${detailOrder.id}`}</dd>
-                    <dt className="col-5 text-muted">Thời gian đặt:</dt>
-                    <dd className="col-7">{formatDtInvoice(detailOrder.createdAt)}</dd>
-                    <dt className="col-5 text-muted">Rạp chiếu:</dt>
-                    <dd className="col-7 text-primary fw-bold">{detailOrder.cinemaName || '—'}</dd>
-                    <dt className="col-5 text-muted">Nhân viên:</dt>
-                    <dd className="col-7">{detailOrder.staffName || 'Đặt online'}</dd>
-                    <dt className="col-5 text-muted">Trạng thái:</dt>
-                    <dd className="col-7">{getStatusBadge(detailOrder.status === 0 ? 'pending' : detailOrder.status === 2 ? 'cancelled' : 'completed')}</dd>
-                  </dl>
-                </div>
-                <div className="col-md-6">
-                  <h6 className="fw-bold border-bottom pb-2 mb-3">Khách hàng</h6>
-                  <dl className="row mb-0 small">
-                    <dt className="col-5 text-muted">Họ tên:</dt>
-                    <dd className="col-7">{detailOrder.customerName || '—'}</dd>
-                    <dt className="col-5 text-muted">Email:</dt>
-                    <dd className="col-7 text-break">{detailOrder.customerEmail || '—'}</dd>
-                  </dl>
-                </div>
-
-                <div className="col-12">
-                  <h6 className="fw-bold border-bottom pb-2 mb-3 mt-2">Chi tiết vé phim</h6>
-                  {detailOrder.tickets && detailOrder.tickets.length > 0 ? (
-                    <div className="table-responsive">
-                      <table className="table table-sm table-bordered small">
-                        <thead className="bg-light">
-                          <tr>
-                            <th>Phim</th>
-                            <th>Suất chiếu</th>
-                            <th className="text-center">Ghế</th>
-                            <th className="text-end">Giá gốc</th>
-                            <th className="text-end">Khuyến mãi</th>
-                            <th className="text-end">Thành tiền</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {detailOrder.tickets.map((t, idx) => (
-                            <tr key={idx}>
-                              <td className="fw-semibold">{t.movieTitle}</td>
-                              <td>{formatDtInvoice(t.showtime)}</td>
-                              <td className="text-center"><span className="badge bg-secondary">{t.seatNumber}</span></td>
-                              <td className="text-end">{formatMoneyInvoice(t.originalPrice)}</td>
-                              <td className="text-end text-danger">-{formatMoneyInvoice(t.promotionDiscount)}</td>
-                              <td className="text-end fw-bold">{formatMoneyInvoice(t.price)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="small text-muted italic">Không có thông tin vé</p>
-                  )}
-                </div>
-
-                {detailOrder.foods && detailOrder.foods.length > 0 && (
-                  <div className="col-12">
-                    <h6 className="fw-bold border-bottom pb-2 mb-3 mt-2">Bắp nước / Combo</h6>
-                    <div className="table-responsive">
-                      <table className="table table-sm table-bordered small">
-                        <thead className="bg-light">
-                          <tr>
-                            <th>Sản phẩm</th>
-                            <th className="text-center">Số lượng</th>
-                            <th className="text-end">Đơn giá</th>
-                            <th className="text-end">Thành tiền</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {detailOrder.foods.map((f, idx) => (
-                            <tr key={idx}>
-                              <td>{f.productName}</td>
-                              <td className="text-center">{f.quantity}</td>
-                              <td className="text-end">{formatMoneyInvoice(f.price)}</td>
-                              <td className="text-end fw-bold">{formatMoneyInvoice(f.price * f.quantity)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                <div className="col-12 mt-3">
-                  <div className="bg-light p-3 rounded">
-                    <div className="d-flex justify-content-between mb-1 small">
-                      <span className="text-muted">Tổng tiền tạm tính:</span>
-                      <span>{formatMoneyInvoice(detailOrder.originalAmount)}</span>
-                    </div>
-                    <div className="d-flex justify-content-between mb-2 small">
-                      <span className="text-muted">Giảm giá / Voucher:</span>
-                      <span className="text-danger">-{formatMoneyInvoice(detailOrder.discountAmount)}</span>
-                    </div>
-                    <div className="d-flex justify-content-between border-top pt-2 fw-bold">
-                      <span>Tổng thanh toán:</span>
-                      <span className="text-success fs-5">{formatMoneyInvoice(detailOrder.finalAmount)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <InvoiceSummaryCard order={detailOrder} />
           )}
         </Modal.Body>
         <Modal.Footer className="border-0">

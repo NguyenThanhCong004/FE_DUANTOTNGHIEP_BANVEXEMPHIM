@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Card, Form, Button, Row, Col, Breadcrumb } from "react-bootstrap";
 import { ArrowLeft, Save, X, AlertCircle } from "lucide-react";
@@ -23,11 +23,13 @@ export default function AdminRoomForm({ mode = "add" }) {
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(isEdit);
+  const [submitting, setSubmitting] = useState(false);
+  const originalRoomRef = useRef(null);
   const [room, setRoom] = useState(() => {
     if (isEdit) {
       return { name: "", status: "" };
     }
-    return { name: "", status: "Hoạt động" };
+    return { name: "", status: "1" };
   });
 
   useEffect(() => {
@@ -44,11 +46,17 @@ export default function AdminRoomForm({ mode = "add" }) {
           setErrors({ name: apiMessage(json, "Không tải được phòng") });
           return;
         }
-        const statusLabel = isActiveStatus(data.status) ? "Hoạt động" : "Bảo trì";
-        setRoom({
+        const nextRoom = {
           name: data.name ?? "",
-          status: statusLabel,
-        });
+          status: isActiveStatus(data.status) ? "1" : "0",
+          cinemaId: data.cinemaId ?? null,
+        };
+        setRoom(nextRoom);
+        originalRoomRef.current = {
+          name: String(nextRoom.name ?? "").trim(),
+          status: Number(nextRoom.status),
+          cinemaId: nextRoom.cinemaId != null ? Number(nextRoom.cinemaId) : null,
+        };
       } catch {
         if (mounted) setErrors({ name: MESSAGES.loadFailed });
       } finally {
@@ -73,27 +81,47 @@ export default function AdminRoomForm({ mode = "add" }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    if (cinemaId == null) {
+    if (!isEdit && cinemaId == null) {
       setErrors({ name: isSuperAdmin ? "Vui lòng chọn rạp trước khi tạo phòng." : "Tài khoản chưa có cinemaId." });
       return;
     }
 
-    const statusInt = isActiveStatus(room.status) ? 1 : 0;
+    const roomCinemaId = isEdit ? (room.cinemaId ?? cinemaId ?? null) : cinemaId;
+    const statusInt = Number(room.status) === 1 ? 1 : 0;
     const body = {
       name: room.name.trim(),
       status: statusInt,
-      cinemaId,
+      cinemaId: roomCinemaId,
     };
+    let payload = body;
+    if (isEdit && originalRoomRef.current) {
+      const original = originalRoomRef.current;
+      const changedData = {};
+      const nextCinemaId = roomCinemaId != null ? Number(roomCinemaId) : null;
+
+      if (body.name !== original.name) changedData.name = body.name;
+      if (body.status !== original.status) changedData.status = body.status;
+      if (nextCinemaId !== original.cinemaId) changedData.cinemaId = nextCinemaId;
+
+      if (Object.keys(changedData).length === 0) {
+        setErrors({ form: MESSAGES.noChanges });
+        return;
+      }
+
+      payload = changedData;
+    }
     try {
+      setSubmitting(true);
       const url = isEdit ? ROOMS.BY_ID(id) : ROOMS.LIST;
       const res = await apiFetch(url, {
         method: isEdit ? "PUT" : "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
@@ -107,13 +135,15 @@ export default function AdminRoomForm({ mode = "add" }) {
           roomInfo: {
             id: nextId,
             name: room.name,
-            status: room.status,
-            cinemaId,
+            status: statusInt,
+            cinemaId: roomCinemaId,
           },
         },
       });
     } catch {
       setErrors({ name: MESSAGES.networkError });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -216,6 +246,12 @@ export default function AdminRoomForm({ mode = "add" }) {
             <div className={`p-1 ${isEdit ? "bg-warning" : "bg-primary"}`} />
             <Card.Body className="p-4 p-md-5">
               <Form onSubmit={handleSubmit} noValidate>
+                {errors.form ? (
+                  <div className="alert alert-warning border-0 py-2 small mb-4">
+                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                    {errors.form}
+                  </div>
+                ) : null}
                 <Row className="g-4">
                   <Col md={12}>
                     <Form.Group>
@@ -226,7 +262,7 @@ export default function AdminRoomForm({ mode = "add" }) {
                         value={room.name}
                         onChange={(e) => {
                           setRoom((prev) => ({ ...prev, name: e.target.value }));
-                          if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+                          if (errors.name || errors.form) setErrors((prev) => ({ ...prev, name: null, form: null }));
                         }}
                       />
                       {errors.name ? (
@@ -246,9 +282,12 @@ export default function AdminRoomForm({ mode = "add" }) {
                             type="radio"
                             id={activeRadioId}
                             name={roomStatusName}
-                            value="Hoạt động"
-                            checked={room.status === "Hoạt động"}
-                            onChange={(e) => setRoom((prev) => ({ ...prev, status: e.target.value }))}
+                            value="1"
+                            checked={String(room.status) === "1"}
+                            onChange={(e) => {
+                              setRoom((prev) => ({ ...prev, status: e.target.value }));
+                              if (errors.form) setErrors((prev) => ({ ...prev, form: null }));
+                            }}
                           />
                           <label htmlFor={activeRadioId} className="text-success">
                             Đang hoạt động
@@ -260,9 +299,12 @@ export default function AdminRoomForm({ mode = "add" }) {
                             type="radio"
                             id={maintenanceRadioId}
                             name={roomStatusName}
-                            value="Bảo trì"
-                            checked={room.status === "Bảo trì"}
-                            onChange={(e) => setRoom((prev) => ({ ...prev, status: e.target.value }))}
+                            value="0"
+                            checked={String(room.status) === "0"}
+                            onChange={(e) => {
+                              setRoom((prev) => ({ ...prev, status: e.target.value }));
+                              if (errors.form) setErrors((prev) => ({ ...prev, form: null }));
+                            }}
                           />
                           <label htmlFor={maintenanceRadioId} className="text-danger">
                             Đang bảo trì
@@ -278,18 +320,20 @@ export default function AdminRoomForm({ mode = "add" }) {
                       <Button
                         variant="light"
                         className="px-4 py-2 rounded-3 fw-bold border"
-                      onClick={() => navigate(`${prefix}/rooms`)}
+                        disabled={submitting}
+                        onClick={() => navigate(`${prefix}/rooms`)}
                       >
                         <X size={18} className="me-2" /> Hủy bỏ
                       </Button>
                       <Button
                         type="submit"
                         variant={isEdit ? "warning" : "primary"}
+                        disabled={submitting}
                         className={`px-4 py-2 rounded-3 fw-bold shadow-sm d-flex align-items-center ${
                           isEdit ? "text-dark" : ""
                         }`}
                       >
-                        <Save size={18} className="me-2" /> {isEdit ? "Cập nhật thay đổi" : "Lưu phòng chiếu"}
+                        <Save size={18} className="me-2" /> {submitting ? "Đang lưu..." : isEdit ? "Cập nhật thay đổi" : "Lưu phòng chiếu"}
                       </Button>
                     </div>
                   </Col>

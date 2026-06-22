@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { MOVIES } from '../../constants/apiEndpoints';
 import { useAdminToast } from '../../components/admin/AdminToast';
 import { codeToAdminStatus } from '../../utils/statusFormat';
@@ -41,7 +41,7 @@ const MovieManagement = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(MOVIES.LIST);
+        const res = await apiFetch(withQuery(MOVIES.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
@@ -89,15 +89,13 @@ const MovieManagement = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [searchTerm]);
 
   // Logic lọc, tìm kiếm và sắp xếp
   const filteredMovies = allMovies
     .filter(movie => {
-      const matchesSearch = String(movie.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           String(movie.author || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'All' || movie.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesStatus;
     })
     .sort((a, b) => new Date(b.release_date) - new Date(a.release_date));
 
@@ -115,7 +113,7 @@ const MovieManagement = () => {
       if (res.ok) {
         showToast('Xóa phim thành công');
         // Refresh danh sách
-        const refreshRes = await apiFetch(MOVIES.LIST);
+        const refreshRes = await apiFetch(withQuery(MOVIES.LIST, { search: searchTerm }));
         const json = await refreshRes.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];

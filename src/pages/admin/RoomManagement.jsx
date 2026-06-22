@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAdminToast } from '../../components/admin/AdminToast';
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { ROOMS } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
@@ -32,8 +32,10 @@ const RoomManagement = () => {
     (async () => {
       setLoading(true);
       try {
-        const q = effectiveCinemaId != null ? `?cinemaId=${effectiveCinemaId}` : '';
-        const res = await apiFetch(`${ROOMS.LIST}${q}`);
+        const res = await apiFetch(withQuery(ROOMS.LIST, {
+          cinemaId: effectiveCinemaId,
+          search: searchTerm,
+        }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         if (!mounted) return;
@@ -54,10 +56,9 @@ const RoomManagement = () => {
     return () => {
       mounted = false;
     };
-  }, [effectiveCinemaId]);
+  }, [effectiveCinemaId, searchTerm]);
 
   const filteredRooms = roomsFromStore
-    .filter(r => String(r.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;

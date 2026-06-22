@@ -26,14 +26,17 @@ export default function StaffFloorGuard({ children }) {
   const [currentActiveShift, setCurrentActiveShift] = useState(getActiveShift());
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkActiveShift = async () => {
       if (!authSession.isAuthenticated || role !== "STAFF") {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
         return;
       }
 
       try {
         const result = await apiJson(SHIFTS.ACTIVE);
+        if (cancelled) return;
         if (result.ok && result.data) {
           setActiveShift(result.data);
           setCurrentActiveShift(result.data);
@@ -44,12 +47,17 @@ export default function StaffFloorGuard({ children }) {
       } catch (err) {
         console.error("Lỗi kiểm tra ca làm trong Guard:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     checkActiveShift();
-  }, [authSession.isAuthenticated, role, location.pathname]);
+    const interval = setInterval(checkActiveShift, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [authSession.isAuthenticated, role]);
 
   if (!authSession.isAuthenticated || !staff || !role) {
     return <Navigate to="/staff/login" replace />;

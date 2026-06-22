@@ -4,7 +4,7 @@ import Layout from '../../components/layout/Layout';
 import { Container, Row, Col, Button, Modal, Form, InputGroup, Spinner } from "react-bootstrap";
 import { getStoredUser, getAccessToken } from '../../utils/authStorage';
 import { getUserIdFromToken } from '../../utils/jwt';
-import { apiFetch, apiUrl } from '../../utils/apiClient';
+import { apiFetch, apiUrl, withQuery } from '../../utils/apiClient';
 import { VOUCHERS as VOUCHERS_API, ME, USERS } from '../../constants/apiEndpoints';
 import { formatDate, formatNumber, formatVnd } from '../../utils/formatters';
 
@@ -72,7 +72,7 @@ export default function VoucherExchange() {
     (async () => {
       setLoading(true);
       try {
-        const vr = await apiFetch(VOUCHERS_API.LIST);
+        const vr = await apiFetch(withQuery(VOUCHERS_API.LIST, { search }));
         const vj = await vr.json().catch(() => null);
         if (!cancelled && vr.ok && Array.isArray(vj?.data)) {
           const rows = vj.data
@@ -97,7 +97,7 @@ export default function VoucherExchange() {
       }
     })();
     return () => { cancelled = true; };
-  }, [loadWallet]);
+  }, [loadWallet, search]);
 
   const filtered = useMemo(() => catalog.filter((v) => {
     const matchFilter =
@@ -105,12 +105,8 @@ export default function VoucherExchange() {
       (filter === "active"  && v.status === "active")  ||
       (filter === "expired" && v.status === "expired") ||
       (filter === "mine"    && redeemedIds.includes(v.Vouchers_id));
-    const matchSearch =
-      String(v.Code || "").toLowerCase().includes(search.toLowerCase()) ||
-      (v.discount_type === "fixed" ? fmt(v.value) : `${v.value}%`)
-        .toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
-  }), [catalog, filter, search, redeemedIds]);
+    return matchFilter;
+  }), [catalog, filter, redeemedIds]);
 
   const handleRedeem = async () => {
     if (!selected) return;

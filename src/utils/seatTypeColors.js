@@ -54,7 +54,7 @@ export function isCoupleTypeName(type) {
 
 const NORMAL_SEAT_NAME_RE = /^(thường|thuong|standard|regular|normal|economy)$/i;
 
-/** Cùng gam Bootstrap: Thường (primary), VIP (warning), Đôi (danger). */
+/** Gợi ý màu theo tên loại ghế khi API chưa truyền màu. */
 const SEAT_HEX_THUONG = "#0d6efd";
 const SEAT_HEX_VIP = "#ffc107";
 const SEAT_HEX_DOI = "#dc3545";

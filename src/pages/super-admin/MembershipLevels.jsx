@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { MEMBERSHIP_RANKS } from "../../constants/apiEndpoints";
 import { isActiveStatus } from "../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
@@ -35,7 +35,7 @@ const MembershipLevelManagement = () => {
   const fetchLevels = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(MEMBERSHIP_RANKS.LIST);
+      const res = await apiFetch(withQuery(MEMBERSHIP_RANKS.LIST, { search: searchTerm }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -60,10 +60,9 @@ const MembershipLevelManagement = () => {
 
   useEffect(() => {
     fetchLevels();
-  }, []);
+  }, [searchTerm]);
 
   const filteredLevels = levels
-    .filter((level) => String(level.rank_name || "").toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => {
       if (a.is_default) return 1;
       if (b.is_default) return -1;

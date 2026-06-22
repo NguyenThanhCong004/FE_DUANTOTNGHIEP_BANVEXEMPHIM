@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Modal, Button, Badge, Spinner, Row, Col } from 'react-bootstrap';
 import { useAdminToast } from '../../components/admin/AdminToast';
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { PROMOTIONS } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
@@ -39,7 +39,10 @@ const PromotionManagement = () => {
       return;
     }
     try {
-      const res = await apiFetch(`${PROMOTIONS.LIST}?cinemaId=${effectiveCinemaId}`);
+      const res = await apiFetch(withQuery(PROMOTIONS.LIST, {
+        cinemaId: effectiveCinemaId,
+        search: searchTerm,
+      }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -65,7 +68,7 @@ const PromotionManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [effectiveCinemaId]);
+  }, [effectiveCinemaId, searchTerm]);
 
   useEffect(() => {
     loadPromotions();
@@ -108,7 +111,6 @@ const PromotionManagement = () => {
   };
 
   const filteredPromotions = promotions
-    .filter(p => String(p.title || '').toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -203,7 +205,7 @@ const PromotionManagement = () => {
                       <div className="admin-empty">
                         <div className="admin-empty-icon"><i className="bi bi-building"></i></div>
                         <h5 className="mb-2">Chưa chọn rạp</h5>
-                        <p className="mb-0">{isSuperAdmin ? 'Vui lòng chọn rạp ở thanh sidebar.' : 'Tài khoản chưa được gán rạp.'}</p>
+                        <p className="mb-0">{isSuperAdmin ? 'Vui lòng chọn rạp trên header.' : 'Tài khoản chưa được gán rạp.'}</p>
                       </div>
                     </td>
                   </tr>

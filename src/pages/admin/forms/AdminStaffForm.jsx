@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { STRONG_PASSWORD_REGEX, PASSWORD_RULE_MESSAGE } from "../../../utils/passwordValidation";
 
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -18,7 +18,7 @@ import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCin
 import { useAdminToast } from "../../../components/admin/AdminToast";
 
 import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../../utils/mediaFiles";
-import { codeToStaffStatus, staffStatusToCode } from "../../../utils/statusFormat";
+import { staffStatusToCode } from "../../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../../utils/uiMessages";
 
 
@@ -62,7 +62,8 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
     birthDate: "",
 
-    status: "Hoạt động",
+    status: "1",
+    role: "STAFF",
 
     avatar: null,
 
@@ -79,6 +80,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
   const [staff, setStaff] = useState(initialStaffState);
 
   const [initialStaff, setInitialStaff] = useState(null);
+  const originalDataRef = useRef(null);
 
   const [errors, setErrors] = useState({});
 
@@ -188,9 +190,21 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
 
 
-    if (isEdit && initialStaff) {
+    if (isEdit && originalDataRef.current) {
 
-      const isUnchanged = JSON.stringify(staff) === JSON.stringify(initialStaff);
+      const current = {
+        fullname: String(staff.name || "").trim(),
+        username: String(staff.username || "").trim(),
+        email: String(staff.email || "").trim(),
+        phone: String(staff.phone || "").trim(),
+        birthday: staff.birthDate || "",
+        status: Number(staff.status),
+        avatar: staff.imagePreview || "",
+        cinemaId: staff.cinemaId ? Number(staff.cinemaId) : null,
+      };
+      const isUnchanged = Object.entries(current).every(
+        ([key, value]) => value === originalDataRef.current[key]
+      ) && !(staff.image instanceof File) && !staff.password?.trim();
 
       if (isUnchanged) tempErrors.form = MESSAGES.noChanges;
 
@@ -278,7 +292,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
         form: isSuperAdmin
 
-          ? "Vui lòng chọn rạp (sidebar) trước khi thêm nhân viên."
+          ? "Vui lòng chọn rạp trên header trước khi thêm nhân viên."
 
           : "Không xác định được rạp (cinemaId).",
 
@@ -306,21 +320,23 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
       }
 
+      const submitCinemaId = isEdit ? (staff.cinemaId ?? null) : effectiveCinemaId;
+
       const data = {
         fullname: staff.name.trim(),
         username: staff.username.trim(),
         email: staff.email.trim(),
         phone: staff.phone.trim(),
         birthday: staff.birthDate,
-        status: staffStatusToCode(staff.status),
+        status: Number(staff.status),
         avatar: avatarUrl,
-        cinemaId: effectiveCinemaId ?? staff.cinemaId ?? null,
+        cinemaId: submitCinemaId ?? null,
         /** 
          * Lấy role hiện tại nếu đang sửa, mặc định STAFF nếu thêm mới.
          * Super Admin tạo quản trị viên rạp nên dùng trang Quản trị hệ thống (nếu có) 
          * hoặc trang này sẽ giữ nguyên role ADMIN của họ.
          */
-        role: isEdit ? (initialStaff?.role ?? "STAFF") : "STAFF",
+        role: isEdit ? (initialStaff?.role ?? staff.role ?? "STAFF") : "STAFF",
       };
 
 
@@ -341,19 +357,55 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
       }
 
+      let payload = data;
+
+      if (isEdit && originalDataRef.current) {
+        const original = originalDataRef.current;
+        const changedData = {};
+
+        if (data.fullname !== original.fullname) changedData.fullname = data.fullname;
+        if (data.username !== original.username) changedData.username = data.username;
+        if (data.email !== original.email) changedData.email = data.email;
+        if (data.phone !== original.phone) changedData.phone = data.phone;
+        if (data.birthday !== original.birthday) changedData.birthday = data.birthday;
+        if (data.status !== original.status) changedData.status = data.status;
+        if (data.avatar !== original.avatar) changedData.avatar = data.avatar;
+        if (data.cinemaId !== original.cinemaId) changedData.cinemaId = data.cinemaId;
+        if (staff.password?.trim()) changedData.password = staff.password.trim();
+
+        if (Object.keys(changedData).length === 0) {
+          setErrors({ form: MESSAGES.noChanges });
+          return;
+        }
+
+        payload = changedData;
+      }
+
       const url = isEdit ? STAFF.BY_ID(id) : STAFF.LIST;
 
       const res = await apiFetch(url, {
 
         method: isEdit ? "PUT" : "POST",
 
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
 
       });
 
       const json = await res.json().catch(() => null);
 
       if (!res.ok) {
+
+        if (res.status === 413) {
+
+          const message = "Ảnh quá lớn. Vui lòng chọn ảnh JPG/PNG nhỏ hơn 5MB.";
+
+          setErrors({ avatar: message });
+
+          showToast(message, "danger");
+
+          return;
+
+        }
 
         // Xử lý lỗi trùng từ BE thành validation error
 
@@ -461,8 +513,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
           : "";
 
-        const statusLabel = codeToStaffStatus(found.status);
-
         const next = {
 
           name: found.fullname ?? found.name ?? "",
@@ -477,7 +527,8 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
           birthDate: birth,
 
-          status: statusLabel,
+          status: String(staffStatusToCode(found.status)),
+          role: String(found.role || "STAFF").replace(/^ROLE_/i, "").toUpperCase(),
 
           avatar: found.avatar ?? null,
 
@@ -492,6 +543,16 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
         setStaff(next);
 
         setInitialStaff(next);
+        originalDataRef.current = {
+          fullname: String(next.name || "").trim(),
+          username: String(next.username || "").trim(),
+          email: String(next.email || "").trim(),
+          phone: String(next.phone || "").trim(),
+          birthday: next.birthDate || "",
+          status: Number(next.status),
+          avatar: next.imagePreview || "",
+          cinemaId: next.cinemaId ? Number(next.cinemaId) : null,
+        };
 
       } catch {
 
@@ -921,9 +982,9 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
                       >
 
-                        <option value="Hoạt động">Đang làm việc</option>
+                        <option value="1">Đang làm việc</option>
 
-                        <option value="Khóa">Tạm nghỉ / Khóa</option>
+                        <option value="0">Tạm nghỉ / Khóa</option>
 
                       </Form.Select>
 

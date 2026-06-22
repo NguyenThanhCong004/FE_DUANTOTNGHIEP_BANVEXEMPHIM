@@ -38,7 +38,7 @@ export function statusToCode(value, { allowUpcoming = true } = {}) {
   if (allowUpcoming && ["upcoming", "scheduled", "sap chieu", "sap khai truong", "cho phat hanh"].includes(text)) {
     return STATUS_CODES.UPCOMING;
   }
-  if (["active", "hoat dong", "dang hoat dong", "dang chieu", "dang ban", "cong khai", "dang phat hanh"].includes(text)) {
+  if (["active", "hoat dong", "dang hoat dong", "dang lam viec", "lam viec", "dang chieu", "dang ban", "cong khai", "dang phat hanh"].includes(text)) {
     return STATUS_CODES.ACTIVE;
   }
   return STATUS_CODES.INACTIVE;

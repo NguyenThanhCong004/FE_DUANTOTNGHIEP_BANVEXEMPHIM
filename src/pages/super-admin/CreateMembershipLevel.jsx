@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
+import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiFetch } from '../../utils/apiClient';
 import { MEMBERSHIP_RANKS } from '../../constants/apiEndpoints';
 import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
@@ -10,6 +11,7 @@ const CreateMembershipLevel = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { showToast, ToastComponent } = useAdminToast();
 
   const [formData, setFormData] = useState({
     rank_name: '',
@@ -85,6 +87,21 @@ const CreateMembershipLevel = () => {
       status: parseInt(formData.status, 10),
     };
     const rid = editData?.id;
+    if (rid) {
+      const originalBody = {
+        rankName: String(editData.rank_name ?? editData.rankName ?? '').trim(),
+        minSpending: parseFloat(editData.min_spending ?? editData.minSpending ?? 0),
+        description: editData.description || '',
+        discountPercent: parseFloat(editData.discount_percent ?? editData.discountPercent ?? 0),
+        bonusPoint: parseInt(editData.bonus_point ?? editData.bonusPoint ?? 0, 10),
+        status: parseInt(editData.status ?? 1, 10),
+      };
+      if (JSON.stringify(body) === JSON.stringify(originalBody)) {
+        showToast(MESSAGES.noChanges, 'warning');
+        setSubmitting(false);
+        return;
+      }
+    }
     const url = rid ? MEMBERSHIP_RANKS.BY_ID(rid) : MEMBERSHIP_RANKS.LIST;
     try {
       const res = await apiFetch(url, {
@@ -127,6 +144,7 @@ const CreateMembershipLevel = () => {
       description="Thiết lập các mốc chi tiêu và ưu đãi đặc quyền cho khách hàng thân thiết."
       headerRight={<AdminFormListBack to="/super-admin/membership-levels" />}
     >
+      <ToastComponent />
       <div className="admin-form-page-wrap admin-form-compact">
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">

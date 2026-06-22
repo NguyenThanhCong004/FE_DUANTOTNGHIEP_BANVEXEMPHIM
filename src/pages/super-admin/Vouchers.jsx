@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { VOUCHERS } from "../../constants/apiEndpoints";
 import { formatDate, formatVnd } from "../../utils/formatters";
 import AdminPagination from "../../components/admin/AdminPagination";
@@ -56,7 +56,7 @@ const VoucherManagement = () => {
   const fetchVouchers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(VOUCHERS.LIST);
+      const res = await apiFetch(withQuery(VOUCHERS.LIST, { search: searchTerm }));
       const json = await res.json().catch(() => null);
       
       const list = json?.data ?? json ?? [];
@@ -69,14 +69,13 @@ const VoucherManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [mapVoucher]);
+  }, [mapVoucher, searchTerm]);
 
   useEffect(() => {
     fetchVouchers();
   }, [fetchVouchers]);
 
   const filteredVouchers = vouchers
-    .filter((v) => String(v.code || "").toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;

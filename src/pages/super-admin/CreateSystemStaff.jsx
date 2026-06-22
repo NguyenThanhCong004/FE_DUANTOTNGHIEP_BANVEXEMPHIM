@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { Form, Button, Row, Col, Card, Alert } from "react-bootstrap";
 import { apiFetch } from "../../utils/apiClient";
 import { STAFF, CINEMAS } from "../../constants/apiEndpoints";
 import { useAdminToast } from "../../components/admin/AdminToast";
 import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../utils/mediaFiles";
-import { codeToStaffStatus, staffStatusToCode } from "../../utils/statusFormat";
+import { staffStatusToCode } from "../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 
 const initialForm = {
@@ -14,25 +14,32 @@ const initialForm = {
   email: "",
   phone: "",
   birthDate: "",
-  status: "Hoạt động",
+  status: "1",
   role: "STAFF",
   avatar: null,
   image: null,
-  imagePreview: "https://via.placeholder.com/150",
+  imagePreview: "",
   cinemaId: "",
 };
+
+function buildDefaultAvatarUrl(staff) {
+  const label = staff.name?.trim() || staff.username?.trim() || staff.email?.trim() || "Staff";
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(label)}&background=1f2937&color=fff&size=256`;
+}
 
 const CreateSystemStaff = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const editId = location.state?.editId;
+  const { id: routeEditId } = useParams();
+  const editId = routeEditId ?? location.state?.editId;
+  const isEdit = Boolean(editId);
   const { showToast, ToastComponent } = useAdminToast();
 
   const [staff, setStaff] = useState(initialForm);
   const [cinemas, setCinemas] = useState([]);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(!!editId);
+  const [loading, setLoading] = useState(isEdit);
   const originalDataRef = useRef(null);
 
   const backPath = "/super-admin/system-staff";
@@ -72,18 +79,17 @@ const CreateSystemStaff = () => {
         const birth = found.birthday
           ? (typeof found.birthday === "string" ? found.birthday.slice(0, 10) : "")
           : "";
-        const statusLabel = codeToStaffStatus(found.status);
         const next = {
           name: found.fullname ?? "",
           username: found.username ?? "",
           email: found.email ?? "",
           phone: found.phone ?? "",
           birthDate: birth,
-          status: statusLabel,
+          status: String(staffStatusToCode(found.status)),
           role: String(found.role || "STAFF").toUpperCase() === "ADMIN" ? "ADMIN" : "STAFF",
           avatar: found.avatar ?? null,
           image: null,
-          imagePreview: found.avatar ?? "https://via.placeholder.com/150",
+          imagePreview: found.avatar ?? "",
           cinemaId: found.cinemaId ?? "",
         };
         setStaff(next);
@@ -93,9 +99,9 @@ const CreateSystemStaff = () => {
           email: String(next.email || "").trim(),
           phone: String(next.phone || "").trim(),
           birthday: next.birthDate || "",
-          status: staffStatusToCode(next.status),
+          status: Number(next.status),
           avatar: next.imagePreview || "",
-          cinemaId: next.cinemaId || null,
+          cinemaId: next.cinemaId ? Number(next.cinemaId) : null,
           role: next.role === "ADMIN" ? "ADMIN" : "STAFF",
         };
       } catch {
@@ -152,13 +158,6 @@ const CreateSystemStaff = () => {
       tempErrors.cinemaId = "Vui lòng chọn rạp chiếu";
     }
 
-    const hasRealAvatar =
-      staff.image instanceof File ||
-      (staff.imagePreview && !String(staff.imagePreview).includes("via.placeholder.com"));
-    if (!hasRealAvatar) {
-      tempErrors.avatar = "Hình ảnh không được để trống";
-    }
-
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
   };
@@ -196,10 +195,8 @@ const CreateSystemStaff = () => {
       if (staff.image instanceof File) {
         avatarUrl = await fileToDataUrl(staff.image);
       }
-      if (!avatarUrl || !String(avatarUrl).trim()) {
-        setErrors({ avatar: "Ảnh đại diện không được để trống" });
-        setSubmitting(false);
-        return;
+      if (!editId && (!avatarUrl || !String(avatarUrl).trim())) {
+        avatarUrl = buildDefaultAvatarUrl(staff);
       }
 
       const data = {
@@ -208,38 +205,52 @@ const CreateSystemStaff = () => {
         email: staff.email.trim(),
         phone: staff.phone.trim(),
         birthday: staff.birthDate,
-        status: staffStatusToCode(staff.status),
+        status: Number(staff.status),
         avatar: avatarUrl,
         cinemaId: staff.cinemaId ? parseInt(staff.cinemaId) : null,
         role: staff.role === "ADMIN" ? "ADMIN" : "STAFF",
       };
 
+      let payload = data;
+
       if (editId && originalDataRef.current) {
         const original = originalDataRef.current;
-        const isUnchanged =
-          data.fullname === original.fullname &&
-          data.username === original.username &&
-          data.email === original.email &&
-          data.phone === original.phone &&
-          data.birthday === original.birthday &&
-          data.status === original.status &&
-          data.avatar === original.avatar &&
-          data.cinemaId === original.cinemaId &&
-          data.role === original.role;
-        if (isUnchanged) {
+        const changedData = {};
+
+        if (data.fullname !== original.fullname) changedData.fullname = data.fullname;
+        if (data.username !== original.username) changedData.username = data.username;
+        if (data.email !== original.email) changedData.email = data.email;
+        if (data.phone !== original.phone) changedData.phone = data.phone;
+        if (data.birthday !== original.birthday) changedData.birthday = data.birthday;
+        if (data.status !== original.status) changedData.status = data.status;
+        if (data.avatar !== original.avatar) changedData.avatar = data.avatar;
+        if (data.cinemaId !== original.cinemaId) changedData.cinemaId = data.cinemaId;
+        if (data.role !== original.role) changedData.role = data.role;
+
+        if ((changedData.status != null || changedData.role != null) && changedData.cinemaId == null) {
+          changedData.cinemaId = data.cinemaId;
+        }
+
+        if (Object.keys(changedData).length === 0) {
           setSubmitting(false);
           showToast(MESSAGES.noChanges, "warning");
           return;
         }
+
+        payload = changedData;
       }
 
       const url = editId ? STAFF.BY_ID(editId) : STAFF.LIST;
       const res = await apiFetch(url, {
         method: editId ? "PUT" : "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
+        if (res.status === 413) {
+          setErrors({ avatar: "Ảnh quá lớn. Vui lòng chọn ảnh JPG/PNG nhỏ hơn 5MB." });
+          return;
+        }
         const message = apiMessage(json, "Lưu nhân sự thất bại");
         if (message.includes("Email đã tồn tại")) {
           setErrors({ email: message });
@@ -376,7 +387,7 @@ const CreateSystemStaff = () => {
                   disabled={submitting}
                 />
                 <p className="text-muted small text-center px-4" style={{ marginBottom: 0 }}>
-                  Nên chọn ảnh vuông để hiển thị đẹp hơn.
+                  Có thể bỏ trống, hệ thống sẽ tự tạo avatar theo tên nhân sự.
                 </p>
                 {errors.avatar ? (
                   <div className="text-danger small fw-bold mt-2 text-center">{errors.avatar}</div>
@@ -515,8 +526,8 @@ const CreateSystemStaff = () => {
                         onChange={handleInputChange}
                         disabled={submitting}
                       >
-                        <option value="Hoạt động">Đang làm việc</option>
-                        <option value="Khóa">Tạm nghỉ / Khóa</option>
+                        <option value="1">Đang làm việc</option>
+                        <option value="0">Tạm nghỉ / Khóa</option>
                       </Form.Select>
                     </Form.Group>
                   </Col>

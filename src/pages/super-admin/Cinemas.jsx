@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { useAdminToast } from '../../components/admin/AdminToast';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { CINEMAS } from '../../constants/apiEndpoints';
 import { codeToAdminStatus } from '../../utils/statusFormat';
 import AdminPagination from '../../components/admin/AdminPagination';
@@ -36,7 +36,7 @@ const CinemaManagement = () => {
   const fetchCinemas = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(CINEMAS.LIST);
+      const res = await apiFetch(withQuery(CINEMAS.LIST, { search: searchTerm }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -57,7 +57,7 @@ const CinemaManagement = () => {
 
   useEffect(() => {
     fetchCinemas();
-  }, []);
+  }, [searchTerm]);
 
   const handleDeleteCinema = async (cinema) => {
     try {
@@ -109,10 +109,6 @@ const CinemaManagement = () => {
   };
 
   const filteredCinemas = cinemas
-    .filter(cinema =>
-      String(cinema.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(cinema.address || '').toLowerCase().includes(searchTerm.toLowerCase())
-    )
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;

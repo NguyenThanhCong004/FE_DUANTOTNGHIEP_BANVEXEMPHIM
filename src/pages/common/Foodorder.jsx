@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import { Container, Row, Col, Spinner, Form, Alert } from "react-bootstrap";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { CINEMAS, FOOD_ORDERS } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { isDisplayableImageSrc } from "../../utils/mediaFiles";
@@ -118,7 +118,7 @@ export function FoodOrderContent({ embedded = false }) {
     setLoadingMenu(true);
     setMenuError(null);
     try {
-      const res = await apiFetch(CINEMAS.PRODUCT_MENU(id));
+      const res = await apiFetch(withQuery(CINEMAS.PRODUCT_MENU(id), { search }));
       const body = await res.json().catch(() => null);
       if (!res.ok) { setMenuError(body?.message || "Không tải được menu"); setProducts([]); return; }
       const onSale = Array.isArray(body?.data?.onSale) ? body.data.onSale : [];
@@ -129,7 +129,7 @@ export function FoodOrderContent({ embedded = false }) {
     } finally {
       setLoadingMenu(false);
     }
-  }, []);
+  }, [search]);
 
   useEffect(() => { if (cinemaId) loadMenu(cinemaId); }, [cinemaId, loadMenu]);
 
@@ -140,13 +140,11 @@ export function FoodOrderContent({ embedded = false }) {
   }, [products]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     return products.filter((p) => {
       const catOk = activeCategory === "Tất cả" || p.categoryName === activeCategory;
-      const searchOk = !q || p.name.toLowerCase().includes(q);
-      return catOk && searchOk;
+      return catOk;
     });
-  }, [products, activeCategory, search]);
+  }, [products, activeCategory]);
 
   const addItem    = (productId) => setCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
   const removeItem = (productId) => setCart((c) => {

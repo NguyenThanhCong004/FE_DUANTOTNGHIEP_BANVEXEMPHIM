@@ -5,7 +5,7 @@ import { Spinner } from "react-bootstrap";
 import { ArrowRight, CalendarDays, Newspaper, Search } from "lucide-react";
 import EventCard from "../../components/common/EventCard";
 import EmptyState from "../../components/common/EmptyState";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { NEWS } from "../../constants/apiEndpoints";
 
 function toDate(value) {
@@ -80,7 +80,7 @@ const Events = () => {
       setLoading(true);
       setLoadError(null);
       try {
-        const res = await apiFetch(NEWS.LIST);
+        const res = await apiFetch(withQuery(NEWS.LIST, { search: keyword }));
         const body = await res.json().catch(() => null);
         if (c) return;
         if (!res.ok) {
@@ -98,21 +98,14 @@ const Events = () => {
       }
     })();
     return () => { c = true; };
-  }, []);
+  }, [keyword]);
 
   const events = useMemo(
     () => [...raw].sort((a, b) => (b.sortTime || 0) - (a.sortTime || 0) || Number(b.id || 0) - Number(a.id || 0)),
     [raw]
   );
 
-  const filtered = useMemo(() => {
-    const q = keyword.trim().toLowerCase();
-    if (!q) return events;
-    return events.filter((e) => {
-      const haystack = `${e.title ?? ""} ${e.excerpt ?? ""}`.toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [events, keyword]);
+  const filtered = events;
 
   const featured = filtered[0] ?? null;
   const remaining = featured ? filtered.slice(1) : filtered;

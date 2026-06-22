@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { getAccessToken, getRefreshToken, getStoredUser, setAuthSession, getStoredStaff, getAuthSession } from "../../utils/authStorage";
 import { getUserIdFromToken } from "../../utils/jwt";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { USERS, ME, MEMBERSHIP_RANKS } from "../../constants/apiEndpoints";
 import { mapFavoriteRowToFavCard, mapMeTransactionToFe, mapUserVoucherRow } from "../../utils/customerMeApi";
 import { isDisplayableImageSrc } from "../../utils/mediaFiles";
@@ -282,6 +282,18 @@ function TabInfo({ user, setUser, showToast }) {
         phone: draft.phone.trim().replace(/\s/g, ""), status: user.status ?? 1,
         birthday: draft.birthday || null,
       };
+      const originalBody = {
+        fullname: String(user.fullname ?? "").trim(),
+        email: String(user.email ?? "").trim(),
+        phone: String(user.phone ?? "").trim().replace(/\s/g, ""),
+        status: user.status ?? 1,
+        birthday: toDateInputValue(user.birthday) || null,
+      };
+      if (JSON.stringify(body) === JSON.stringify(originalBody)) {
+        showToast(MESSAGES.noChanges, "error");
+        setSaving(false);
+        return;
+      }
       const res = await apiFetch(USERS.BY_ID(userId), { method: "PUT", body: JSON.stringify(body) });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.data) { showToast(apiMessage(json, "Cập nhật thất bại"), "error"); return; }
@@ -444,22 +456,16 @@ function TabPoints({ user, pointRows, loading }) {
 /* ─────────────────────────────────────────
    Tab: Lịch sử giao dịch
 ───────────────────────────────────────── */
-function TabTransactions({ transactions, loading }) {
+function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) {
   const [filter, setFilter] = useState("all");
-  const [keyword, setKeyword] = useState("");
   const [openId, setOpenId] = useState(null);
 
   const filtered = useMemo(() => {
-    const q = keyword.trim().toLowerCase();
     return transactions.filter((tx) => {
       const matchFilter = filter === "all" || tx.type === filter || tx.status === filter;
-      const matchKeyword =
-        !q ||
-        String(tx.order_code || "").toLowerCase().includes(q) ||
-        tx.items?.some((item) => String(item.label || "").toLowerCase().includes(q));
-      return matchFilter && matchKeyword;
+      return matchFilter;
     });
-  }, [transactions, filter, keyword]);
+  }, [transactions, filter]);
 
   if (loading) return <LoadingSpinner text="Đang tải lịch sử giao dịch..." />;
 
@@ -488,8 +494,8 @@ function TabTransactions({ transactions, loading }) {
         <input
           className="pf-search-input"
           placeholder="Tìm mã đơn hoặc món..."
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
 
@@ -840,6 +846,7 @@ export default function UserProfile() {
   const setActiveTab = (key) => setSearchParams({ tab: key }, { replace: true });
 
   const [transactions, setTransactions] = useState([]);
+  const [txSearch,     setTxSearch]     = useState("");
   const [pointRows,    setPointRows]    = useState([]);
   const [favorites,    setFavorites]    = useState([]);
   const [vouchers,     setVouchers]     = useState([]);
@@ -895,11 +902,12 @@ export default function UserProfile() {
     if (!token || !user) return;
     let c = false;
 
-    if (activeTab === "transactions" && transactions.length === 0) {
+    if (activeTab === "transactions") {
       setLoadingTx(true);
-      apiFetch(ME.TRANSACTIONS).then(r => r.json().catch(() => null)).then(body => {
+      apiFetch(withQuery(ME.TRANSACTIONS, { search: txSearch })).then(r => r.json().catch(() => null)).then(body => {
         if (c) return;
         if (body?.data && Array.isArray(body.data)) setTransactions(body.data.map(mapMeTransactionToFe));
+        else setTransactions([]);
       }).catch(() => {}).finally(() => { if (!c) setLoadingTx(false); });
     }
 
@@ -946,7 +954,7 @@ export default function UserProfile() {
 
     return () => { c = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, user]);
+  }, [activeTab, user, txSearch]);
 
   const token = getAuthSession().accessToken;
 
@@ -1253,7 +1261,7 @@ export default function UserProfile() {
           {activeTab === "transactions" && (
             <div className="pf-card">
               <div className="pf-card-title"><span>📋</span> LỊCH SỬ <span>GIAO DỊCH</span></div>
-              <TabTransactions transactions={transactions} loading={loadingTx} />
+              <TabTransactions transactions={transactions} loading={loadingTx} searchTerm={txSearch} onSearchChange={setTxSearch} />
             </div>
           )}
           {activeTab === "points"   && <TabPoints user={user} pointRows={pointRows} loading={loadingPts} />}

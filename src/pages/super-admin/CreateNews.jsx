@@ -31,7 +31,7 @@ const CreateNews = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
-  const { ToastComponent } = useAdminToast();
+  const { showToast, ToastComponent } = useAdminToast();
   const imageInputRef = useRef(null);
   const quillMountRef = useRef(null);
   const quillRef = useRef(null);
@@ -211,6 +211,23 @@ const CreateNews = () => {
       };
 
       const nid = editData?.id;
+      if (nid && !(formData.image instanceof File)) {
+        const originalBody = {
+          title: String(editData.title ?? "").trim(),
+          content: sanitizeHtml(editData.content || "").trim(),
+          image: editData.image || null,
+          status: adminStatusToCode(editData.status, { allowUpcoming: false }),
+        };
+        const comparableBody = {
+          ...body,
+          image: body.image || null,
+        };
+        if (JSON.stringify(comparableBody) === JSON.stringify(originalBody)) {
+          showToast(MESSAGES.noChanges, "warning");
+          setSubmitting(false);
+          return;
+        }
+      }
       const url = nid ? NEWS.BY_ID(nid) : NEWS.LIST;
       const res = await apiFetch(url, {
         method: nid ? "PUT" : "POST",

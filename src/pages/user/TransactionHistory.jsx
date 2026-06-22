@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import CustomerPageShell from "../../components/common/CustomerPageShell";
 import { Container, Row, Col } from "react-bootstrap";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { mapMeTransactionToFe } from "../../utils/customerMeApi";
@@ -130,7 +130,7 @@ export default function TransactionHistory() {
       setLoading(true);
       setLoadError(null);
       try {
-        const res = await apiFetch(ME.TRANSACTIONS);
+        const res = await apiFetch(withQuery(ME.TRANSACTIONS, { search }));
         const body = await res.json().catch(() => null);
         if (cancelled) return;
         if (res.status === 401) {
@@ -151,16 +151,12 @@ export default function TransactionHistory() {
       }
     })();
     return () => { cancelled = true; };
-  }, [navigate]);
+  }, [navigate, search]);
 
   const filtered = transactions.filter(tx => {
     const matchType   = filterType   === "all" || tx.type   === filterType;
     const matchStatus = filterStatus === "all" || tx.status === filterStatus;
-    const code = String(tx.order_code || "").toLowerCase();
-    const q = search.toLowerCase();
-    const matchSearch = code.includes(q) ||
-                        tx.items.some(i => String(i.label || "").toLowerCase().includes(q));
-    return matchType && matchStatus && matchSearch;
+    return matchType && matchStatus;
   });
 
   const totalSpent  = transactions.filter(t => t.status === "completed" && t.type !== "points").reduce((a, t) => a + t.final_amount, 0);

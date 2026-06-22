@@ -17,7 +17,8 @@ const AdminToast = ({
   type = 'success', 
   duration = 3000, 
   show = false, 
-  onClose 
+  onClose,
+  position = 'bottom-end'
 }) => {
   const [visible, setVisible] = useState(show);
   const normalizedType = normalizeToastType(type);
@@ -38,6 +39,8 @@ const AdminToast = ({
 
   if (!visible || !message) return null;
 
+  const positionClass = position === 'top-end' ? 'top-0 end-0' : 'bottom-0 end-0';
+
   const getIcon = () => {
     switch (normalizedType) {
       case 'success':
@@ -55,7 +58,7 @@ const AdminToast = ({
 
   return (
     <div
-      className={`position-fixed bottom-0 end-0 m-4 admin-slide-up z-3 alert alert-${normalizedType} border-0 shadow-lg d-flex align-items-center gap-2`}
+      className={`position-fixed ${positionClass} m-4 admin-slide-up z-3 alert alert-${normalizedType} border-0 shadow-lg d-flex align-items-center gap-2`}
       style={{ minWidth: '300px', maxWidth: '500px' }}
     >
       <i className={`bi ${getIcon()} fs-5`}></i>
@@ -76,7 +79,7 @@ const AdminToast = ({
 /**
  * Hook sê dîng AdminToast trong các component
  */
-export const useAdminToast = () => {
+export const useAdminToast = (options = {}) => {
   const [toast, setToast] = useState({
     show: false,
     message: '',
@@ -112,9 +115,10 @@ export const useAdminToast = () => {
       message={toast.message}
       type={toast.type}
       show={toast.show}
+      position={options.position}
       onClose={hideToast}
     />
-  ), [hideToast, toast.key, toast.message, toast.show, toast.type]);
+  ), [hideToast, options.position, toast.key, toast.message, toast.show, toast.type]);
 
   return { showToast, hideToast, ToastComponent, toast };
 };

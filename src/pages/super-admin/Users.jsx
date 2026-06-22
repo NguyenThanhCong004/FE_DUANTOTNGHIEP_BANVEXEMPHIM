@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import { getAccessToken } from "../../utils/authStorage";
-
-import { apiUrl } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 
 import { USERS } from "../../constants/apiEndpoints";
 
@@ -48,13 +46,7 @@ const UserManagement = () => {
 
       try {
 
-        const token = getAccessToken();
-
-        const res = await fetch(apiUrl(USERS.LIST), {
-
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-
-        });
+        const res = await apiFetch(withQuery(USERS.LIST, { search: searchTerm }));
 
         const json = await res.json().catch(() => null);
 
@@ -80,33 +72,15 @@ const UserManagement = () => {
 
     };
 
-  }, []);
+  }, [searchTerm]);
 
 
 
   const filteredUsers = useMemo(() => {
 
-    const q = searchTerm.trim().toLowerCase();
+    return [...allUsers].sort((a, b) => (Number(b.userId ?? b.id) || 0) - (Number(a.userId ?? a.id) || 0));
 
-    const filtered = q
-      ? allUsers.filter((user) => {
-
-          const fullname = String(user.fullname ?? "").toLowerCase();
-
-          const username = String(user.username ?? "").toLowerCase();
-
-          const email = String(user.email ?? "").toLowerCase();
-
-          const phone = String(user.phone ?? "");
-
-          return fullname.includes(q) || username.includes(q) || email.includes(q) || phone.includes(q);
-
-        })
-      : allUsers;
-
-    return [...filtered].sort((a, b) => (Number(b.userId ?? b.id) || 0) - (Number(a.userId ?? a.id) || 0));
-
-  }, [allUsers, searchTerm]);
+  }, [allUsers]);
 
 
 

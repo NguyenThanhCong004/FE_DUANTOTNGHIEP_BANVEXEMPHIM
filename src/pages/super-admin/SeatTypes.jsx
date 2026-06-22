@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Badge } from "react-bootstrap";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { SEAT_TYPES } from "../../constants/apiEndpoints";
 import { hexColorForSeatTypeName, normalizeHex } from "../../utils/seatTypeColors";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
@@ -36,7 +36,7 @@ const SeatTypeManagement = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(SEAT_TYPES.LIST);
+        const res = await apiFetch(withQuery(SEAT_TYPES.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
@@ -59,10 +59,9 @@ const SeatTypeManagement = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [searchTerm]);
 
   const filteredTypes = seatTypes
-    .filter((type) => type.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -84,7 +83,7 @@ const SeatTypeManagement = () => {
       }
 
       // Refresh the list
-      const listRes = await apiFetch(SEAT_TYPES.LIST);
+      const listRes = await apiFetch(withQuery(SEAT_TYPES.LIST, { search: searchTerm }));
       const json = await listRes.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];

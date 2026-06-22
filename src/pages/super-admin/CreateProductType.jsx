@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
+import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiFetch } from '../../utils/apiClient';
 import { PRODUCT_CATEGORIES } from '../../constants/apiEndpoints';
 import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
@@ -10,6 +11,7 @@ const CreateProductType = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const { showToast, ToastComponent } = useAdminToast();
   const [typeName, setTypeName] = useState('');
   const [productTypes, setProductTypes] = useState([]);
   const [errors, setErrors] = useState({});
@@ -72,6 +74,11 @@ const CreateProductType = () => {
     setSubmitting(true);
     setServerError('');
     const tid = editData?.id;
+    if (tid && typeName.trim() === String(editData.name || '').trim()) {
+      showToast(MESSAGES.noChanges, 'warning');
+      setSubmitting(false);
+      return;
+    }
     const url = tid ? PRODUCT_CATEGORIES.BY_ID(tid) : PRODUCT_CATEGORIES.LIST;
     try {
       const res = await apiFetch(url, {
@@ -105,6 +112,7 @@ const CreateProductType = () => {
       description="Quản lý các nhóm danh mục sản phẩm như Bắp, Nước, Combo..."
       headerRight={<AdminFormListBack to="/super-admin/product-types" />}
     >
+      <ToastComponent />
       <div className="admin-form-page-wrap admin-form-compact">
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">

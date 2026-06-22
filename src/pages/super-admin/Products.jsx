@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { PRODUCTS, PRODUCT_CATEGORIES } from "../../constants/apiEndpoints";
 import { codeToAdminStatus } from "../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
@@ -38,7 +38,10 @@ const ProductManagement = () => {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(PRODUCTS.LIST);
+      const res = await apiFetch(withQuery(PRODUCTS.LIST, {
+        search: searchTerm,
+        categoryId: categoryFilter === "All" ? undefined : categoryFilter,
+      }));
       const json = await res.json().catch(() => null);
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
@@ -74,15 +77,15 @@ const ProductManagement = () => {
 
   useEffect(() => {
     fetchProducts();
+  }, [searchTerm, categoryFilter]);
+
+  useEffect(() => {
     fetchCategories();
   }, []);
 
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = String(p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         String(p.description || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "All" || p.status === statusFilter;
-    const matchesCategory = categoryFilter === "All" || String(p.categoryId) === categoryFilter;
-    return matchesSearch && matchesStatus && matchesCategory;
+    return matchesStatus;
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;

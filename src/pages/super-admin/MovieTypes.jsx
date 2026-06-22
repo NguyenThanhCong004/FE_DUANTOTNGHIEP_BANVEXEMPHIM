@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { GENRES } from "../../constants/apiEndpoints";
 import { useAdminToast } from "../../components/admin/AdminToast";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
@@ -36,7 +36,7 @@ const MovieTypeManagement = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch(GENRES.LIST);
+        const res = await apiFetch(withQuery(GENRES.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         if (!mounted) return;
@@ -56,10 +56,9 @@ const MovieTypeManagement = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [searchTerm]);
 
   const filteredGenres = genres
-    .filter((genre) => String(genre.name || "").toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -75,7 +74,7 @@ const MovieTypeManagement = () => {
       
       if (res.ok) {
         // Refresh danh sách
-        const refreshRes = await apiFetch(GENRES.LIST);
+        const refreshRes = await apiFetch(withQuery(GENRES.LIST, { search: searchTerm }));
         const json = await refreshRes.json().catch(() => null);
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];

@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { Badge, Button, Card, Row, Col, Spinner } from "react-bootstrap";
 import { Users, GripVertical, Search, Clock, Calendar, Save, Trash2, UserPlus, ShieldCheck, Brush, ChevronLeft, ChevronRight } from "lucide-react";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
@@ -110,11 +110,11 @@ export default function ShiftManagement() {
     if (!effectiveCinemaId) return;
     setLoading(true);
     try {
-      const qStaff = `?cinemaId=${effectiveCinemaId}`;
+      const staffPath = withQuery(STAFF.LIST, { cinemaId: effectiveCinemaId, search: searchTerm });
       const qShifts = `?cinemaId=${effectiveCinemaId}&startDate=${toIso(weekDays[0])}&endDate=${toIso(weekDays[6])}`;
 
       const [staffRes, shiftRes] = await Promise.all([
-        apiFetch(`${STAFF.LIST}${qStaff}`),
+        apiFetch(staffPath),
         apiFetch(`${SHIFTS.LIST}${qShifts}`),
       ]);
       
@@ -132,7 +132,7 @@ export default function ShiftManagement() {
         startTime: s.startTime,
         endTime: s.endTime,
         role: s.role,
-        staffId: null, // Backend không trả staffId, chỉ có staffName
+        staffId: s.staffId ?? null,
         staffName: s.staffName || "Không tên",
         dirty: false
       }));
@@ -144,7 +144,7 @@ export default function ShiftManagement() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveCinemaId, weekDays]);
+  }, [effectiveCinemaId, weekDays, searchTerm]);
 
   useEffect(() => {
     loadData();
@@ -158,9 +158,8 @@ export default function ShiftManagement() {
 
         const role = (s.role || "").toLowerCase();
         return !role.includes("admin") && !role.includes("super");
-      })
-      .filter(s => (s.fullname || s.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [staffList, searchTerm]);
+      });
+  }, [staffList]);
 
   const getShiftsInCell = (date, shiftName, role) => {
     return shifts.filter(s => s.date === date && s.shiftType === shiftName && s.role === role);
@@ -296,7 +295,7 @@ export default function ShiftManagement() {
       <AdminPanelPage icon="calendar-check" title="Quản lý Ca làm việc" description="Chọn rạp để phân lịch">
         <div className="alert alert-warning border-0 shadow-sm mb-0">
           <i className="bi bi-exclamation-triangle-fill me-2"></i>
-          <strong>Chưa chọn rạp.</strong> {isSuperAdmin ? "Vui lòng chọn rạp từ thanh sidebar để quản lý ca làm việc." : "Tài khoản của bạn chưa được gán cho rạp nào."}
+          <strong>Chưa chọn rạp.</strong> {isSuperAdmin ? "Vui lòng chọn rạp trên header để quản lý ca làm việc." : "Tài khoản của bạn chưa được gán cho rạp nào."}
         </div>
       </AdminPanelPage>
     );
