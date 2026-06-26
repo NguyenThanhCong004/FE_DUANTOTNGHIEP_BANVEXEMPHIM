@@ -255,6 +255,7 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
               Hóa đơn này không kèm vé xem phim.
             </div>
           )}
+
         </section>
 
         <section style={sectionStyle}>

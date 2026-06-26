@@ -6,6 +6,16 @@ export function mapMeTransactionToFe(row) {
     price: Number(i.price ?? 0),
     qty: Number(i.qty ?? 1),
     icon: i.icon || "🎫",
+    ticket_id: i.ticketId ?? null,
+    ticket_code: i.ticketCode ?? "",
+    qr_token: i.qrToken ?? "",
+    qr_image_path: i.qrImagePath ?? "",
+    movie_poster: i.moviePoster ?? "",
+    show_date: i.showDate ?? "",
+    show_time: i.showTime ?? "",
+    seat_label: i.seatLabel ?? "",
+    room_name: i.roomName ?? "",
+    cinema_name: i.cinemaName ?? "",
   }));
   const createdAt = row.createdAt;
   let created = createdAt;
@@ -61,6 +71,7 @@ export function mapFavoriteRowToFavCard(row) {
 export function mapUserVoucherRow(uv) {
   const v = uv.voucher;
   return {
+    id: uv.userVoucherId,
     userVoucherId: uv.userVoucherId,
     status: uv.status,
     voucher: v
@@ -72,6 +83,7 @@ export function mapUserVoucherRow(uv) {
           discount_type: (v.discountType || "").toLowerCase(),
           value: v.value,
           minOrderValue: v.minOrderValue,
+          maxDiscountAmount: v.maxDiscountAmount,
           startDate: v.startDate,
           endDate: v.endDate,
           pointVoucher: v.pointVoucher,

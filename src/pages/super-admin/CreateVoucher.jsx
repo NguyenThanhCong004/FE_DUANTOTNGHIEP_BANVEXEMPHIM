@@ -63,7 +63,7 @@ const CreateVoucher = () => {
         maxDiscountAmount: editData.max_discount_amount || editData.maxDiscountAmount || '',
         startDate: editData.start_date || editData.startDate || '',
         endDate: editData.end_date || editData.endDate || '',
-        pointVoucher: editData.point_voucher || editData.pointVoucher || '',
+        pointVoucher: editData.point_voucher ?? editData.pointVoucher ?? '',
         status: statusMap[editData.status] || 'Active'
       });
     }
@@ -330,9 +330,10 @@ const CreateVoucher = () => {
                 <label className="admin-form-label">Điểm đổi voucher <span className="text-danger">*</span></label>
                 <input 
                   type="number" name="pointVoucher" className={`admin-search-input w-100 ${errors.pointVoucher ? 'border-danger' : ''}`}
-                  placeholder="Số điểm tích lũy cần để đổi..." min="0" max={MAX_POINT_VOUCHER} step="1" value={formData.pointVoucher} onChange={handleChange}
+                  placeholder="Nhập 0 nếu là voucher không cần điểm" min="0" max={MAX_POINT_VOUCHER} step="1" value={formData.pointVoucher} onChange={handleChange}
                 />
                 {errors.pointVoucher && <small className="text-danger fw-medium">{errors.pointVoucher}</small>}
+                <small className="text-muted d-block mt-1">Nhập <b>0</b> để khách hàng nhận voucher miễn phí, không trừ điểm.</small>
               </div>
 
               <div className="col-md-6 mb-4">

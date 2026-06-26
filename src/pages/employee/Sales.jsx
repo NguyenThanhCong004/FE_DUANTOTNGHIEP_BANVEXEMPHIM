@@ -46,6 +46,28 @@ const rowLetterForGridRow = (grid, r) => {
   return SEAT_LETTERS[i] ?? "?";
 };
 
+const getSeatGridBounds = (grid) => {
+  let minRow = ROWS;
+  let maxRow = -1;
+  let minCol = COLS;
+  let maxCol = -1;
+
+  for (let i = 0; i < grid.length; i++) {
+    const cell = grid[i];
+    if (!isPlacedSeat(cell) && cell?.type !== "OccupiedByDouble") continue;
+    minRow = Math.min(minRow, cell.rowIdx);
+    maxRow = Math.max(maxRow, cell.rowIdx);
+    minCol = Math.min(minCol, cell.colIdx);
+    maxCol = Math.max(maxCol, cell.colIdx);
+  }
+
+  if (maxRow < minRow || maxCol < minCol) {
+    return { minRow: 0, maxRow: ROWS - 1, minCol: 0, maxCol: COLS - 1 };
+  }
+
+  return { minRow, maxRow, minCol, maxCol };
+};
+
 // Xây dựng grid từ danh sách ghế
 function buildSeatGrid(seats, seatTypesData = []) {
   if (!seats || seats.length === 0) return [];
@@ -177,6 +199,7 @@ const Sales = () => {
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const [timeLeft, setTimeLeft] = useState(0); // Đếm ngược giây
   const [seatZoom, setSeatZoom] = useState(1);
+  const [paymentQrImageUrl, setPaymentQrImageUrl] = useState(null);
 
   // Giỏ hàng
   const [selectedSeats, setSelectedSeats] = useState([]);
@@ -244,6 +267,47 @@ const Sales = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [orderSuccess]);
+
+  useEffect(() => {
+    const qrCode = orderSuccess?.paymentMethod === 'TRANSFER' && orderSuccess?.orderCode === 'PENDING'
+      ? orderSuccess?.qrCode
+      : null;
+
+    if (!qrCode) {
+      setPaymentQrImageUrl(null);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let objectUrl = null;
+    setPaymentQrImageUrl(null);
+
+    fetch(apiUrl(COUNTER_ORDERS.PAYMENT_QR(qrCode)), {
+      method: "GET",
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Không tạo được QR thanh toán (${res.status})`);
+        return res.blob();
+      })
+      .then((blob) => {
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPaymentQrImageUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) {
+          console.error("Lỗi tải QR thanh toán:", err);
+          setPaymentQrImageUrl(null);
+        }
+      });
+
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [orderSuccess?.paymentMethod, orderSuccess?.orderCode, orderSuccess?.qrCode, token]);
 
   const handleCancelPayment = useCallback(async () => {
     if (orderSuccess?.orderCode && paymentData?.orderCode) {
@@ -454,7 +518,9 @@ const Sales = () => {
         try {
           const res = await fetch(apiUrl(CINEMAS.PRODUCT_MENU(cinemaId)));
           const json = await res.json();
-          if (json?.data?.onSale) setProducts(json.data.onSale);
+          if (json?.data?.onSale) {
+            setProducts(json.data.onSale.filter((product) => product?.isActive !== false));
+          }
         } catch (err) { console.error("Lỗi lấy bắp nước:", err); }
       };
       fetchProducts();
@@ -498,6 +564,8 @@ const Sales = () => {
     
     if (isSelected) {
       nextSelected = selectedSeats.filter(s => Number(s.seatId) !== id);
+      setSelectedSeats(nextSelected);
+      return;
     } else {
       nextSelected = [...selectedSeats, seat];
     }
@@ -559,6 +627,9 @@ const Sales = () => {
   const generateTicketPreview = useCallback((order, movie, showtime, seats, products) => {
     try {
       const now = new Date().toLocaleString('vi-VN');
+      const branchName = order?.cinema?.name || staff?.cinemaName || 'Hệ thống rạp chiếu phim';
+      const branchAddress = order?.cinema?.address || '—';
+      const receiptBarcodeUrl = order?.receiptToken ? apiUrl(COUNTER_ORDERS.RECEIPT_BARCODE(order.receiptToken)) : null;
       const seatRowsHtml = seats.map(s => `
         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">
           <span>${getFullSeatLabel(s, seats, seatTypes)} (${s.seatTypeName || 'Chưa có loại'})</span>
@@ -578,7 +649,8 @@ const Sales = () => {
         <div style="width:320px;padding:25px;font-family:'Courier New',Courier,monospace;background:#fff;color:#000;border:2px solid #000;position:relative;">
           <div style="text-align:center;border-bottom:2px dashed #000;padding-bottom:15px;margin-bottom:15px;">
             <h1 style="margin:0;font-size:24px;letter-spacing:2px;">FPOLY CINEMA</h1>
-            <div style="font-size:12px;margin-top:5px;">${staff?.cinemaName || 'Hệ thống rạp chiếu phim'}</div>
+            <div style="font-size:12px;margin-top:5px;"><b>Chi nhánh:</b> ${branchName}</div>
+            <div style="font-size:10px;margin-top:3px;">${branchAddress}</div>
           </div>
           ${showtime ? `
           <div style="margin-bottom:20px;">
@@ -604,8 +676,8 @@ const Sales = () => {
             </div>
           </div>
           <div style="margin-top:30px;text-align:center;">
-            <div style="font-size:30px;font-family:'Libre Barcode 39',cursive;line-height:1;margin-bottom:5px;">|||| || | |||| | ||| ||</div>
-            <div style="font-size:10px;letter-spacing:3px;">${order.orderCode}</div>
+            ${receiptBarcodeUrl ? `<img src="${receiptBarcodeUrl}" alt="Mã vạch hóa đơn bảo mật" style="display:block;width:100%;height:70px;object-fit:fill;margin:0 auto 7px;" />` : ''}
+            <div style="font-size:10px;letter-spacing:2px;">Mã đơn: ${order.orderCode}</div>
             <div style="font-size:9px;margin-top:15px;opacity:0.7;">NV: ${staff?.fullName || 'Staff'} - ${now}<br/>Vui lòng giữ vé để soát lỗi. Chúc bạn xem phim vui vẻ!</div>
           </div>
           <div style="position:absolute;width:20px;height:20px;background:#f0f0f0;border-radius:50%;left:-12px;top:110px;"></div>
@@ -767,9 +839,12 @@ const Sales = () => {
     if (!seats.length) return <div className="p-5 text-white-50 text-center w-100">Đang tải sơ đồ ghế...</div>;
     
     const seatGrid = buildSeatGrid(seats, seatTypes);
+    const bounds = getSeatGridBounds(seatGrid);
+    const visibleRows = bounds.maxRow - bounds.minRow + 1;
+    const visibleCols = bounds.maxCol - bounds.minCol + 1;
     const seatSize = Math.round(24 * seatZoom);
     const doubleSeatSize = Math.round(53 * seatZoom);
-    const gapSize = Math.max(4, Math.round(4 * seatZoom));
+    const gapSize = Math.max(3, Math.round(3 * seatZoom));
     const fontSize = Math.max(8, Math.round(8 * seatZoom));
     const labelFontSize = Math.max(9, Math.round(9 * seatZoom));
 
@@ -811,22 +886,25 @@ const Sales = () => {
             
             <div style={{
               display: 'grid',
-              gridTemplateColumns: `30px repeat(${COLS}, ${seatSize}px)`,
+              gridTemplateColumns: `30px repeat(${visibleCols}, ${seatSize}px)`,
               gap: `${gapSize}px`,
               padding: '10px',
               minWidth: 'fit-content',
             }}>
               <div />
-              {[...Array(COLS)].map((_, c) => (
-                <div key={`col-${c}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `${labelFontSize}px`, fontWeight: '800', color: '#64748b' }}>{c + 1}</div>
+              {[...Array(visibleCols)].map((_, c) => (
+                <div key={`col-${c}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: `${labelFontSize}px`, fontWeight: '800', color: '#64748b' }}>{bounds.minCol + c + 1}</div>
               ))}
 
-              {[...Array(ROWS)].map((_, r) => (
+              {[...Array(visibleRows)].map((_, rowOffset) => {
+                const r = bounds.minRow + rowOffset;
+                return (
                 <React.Fragment key={`row-${r}`}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '900', color: '#38bdf8' }}>
-                    {r + 1}
+                    {rowLetterForGridRow(seatGrid, r)}
                   </div>
-                  {[...Array(COLS)].map((_, c) => {
+                  {[...Array(visibleCols)].map((_, colOffset) => {
+                    const c = bounds.minCol + colOffset;
                     const idx = r * COLS + c;
                     const cell = seatGrid[idx];
                     
@@ -872,7 +950,8 @@ const Sales = () => {
                     );
                   })}
                 </React.Fragment>
-              ))}
+              );
+              })}
             </div>
           </div>
         </div>
@@ -951,7 +1030,6 @@ const Sales = () => {
                 {sortedShowtimes.map(st => (
                   <button key={`st-${st.id}`} className={`st-btn ${selectedShowtime?.id === st.id ? 'active' : ''}`} onClick={() => handleSelectShowtime(st)}>
                     <div className="st-time-range">{st.time} - {st.endTime || '??:??'}</div>
-                    <div className="st-room-name">{st.room_name || st.roomName || 'N/A'}</div>
                   </button>
                 ))}
                 {selectedMovie && showtimes.length === 0 && <p className="text-white-50">Không có suất chiếu hôm nay.</p>}
@@ -986,7 +1064,7 @@ const Sales = () => {
           {selectedSeats.length > 0 && (
             <div className="cart-section">
               <div className="cart-movie-title">{selectedMovie?.title}</div>
-              <div className="cart-showtime-info">{selectedShowtime?.time} · {selectedShowtime?.room_name || selectedShowtime?.roomName}</div>
+              <div className="cart-showtime-info">{selectedShowtime?.time}</div>
               
               {/* Nhóm ghế theo loại */}
               {Object.entries(
@@ -1073,7 +1151,7 @@ const Sales = () => {
                 <div className="text-dark small fw-bold text-uppercase opacity-50">Phim & Suất chiếu</div>
                 <div className="text-dark fw-bold">{selectedShowtime ? selectedMovie?.title : "Đơn bắp nước riêng"}</div>
                 {selectedShowtime ? (
-                  <div className="text-primary small fw-bold">{selectedShowtime?.time} · {selectedShowtime?.room_name || selectedShowtime?.roomName}</div>
+                  <div className="text-primary small fw-bold">{selectedShowtime?.time}</div>
                 ) : (
                   <div className="text-primary small fw-bold">Không kèm vé xem phim</div>
                 )}
@@ -1132,12 +1210,19 @@ const Sales = () => {
               <>
                 <div className="qr-container mb-4">
                   <h5 className="fw-bold mb-3 text-white">Quét mã thanh toán</h5>
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(orderSuccess.qrCode || "")}`} 
-                    alt="PayOS QR" 
-                    className="qr-image" 
-                    style={{ width: '240px', height: '240px', borderRadius: '12px', background: '#fff', padding: '10px', objectFit: 'contain' }} 
-                  />
+                  {paymentQrImageUrl ? (
+                    <img
+                      src={paymentQrImageUrl}
+                      alt="PayOS QR"
+                      className="qr-image"
+                      style={{ width: '240px', height: '240px', borderRadius: '12px', background: '#fff', padding: '10px', objectFit: 'contain' }}
+                    />
+                  ) : (
+                    <div className="qr-image d-flex align-items-center justify-content-center text-center text-white-50"
+                      style={{ width: '240px', height: '240px', borderRadius: '12px', background: 'rgba(255,255,255,0.08)', padding: '18px' }}>
+                      {orderSuccess.qrCode ? 'Đang tạo QR thanh toán...' : 'Chưa nhận được dữ liệu QR thanh toán từ PayOS'}
+                    </div>
+                  )}
                   <p className="mt-3 text-white-50 small px-4">Vui lòng yêu cầu khách quét mã QR để thanh toán <b>{orderSuccess.finalAmount?.toLocaleString()}đ</b></p>
                   <div className="mt-2 py-1 px-3 bg-danger-subtle text-danger rounded-pill d-inline-block small fw-bold">
                     Hết hạn sau: {formatTime(timeLeft)}

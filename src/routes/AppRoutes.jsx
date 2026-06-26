@@ -60,6 +60,8 @@ const CreateNews = lazy(() => import('../pages/super-admin/CreateNews'));
 const CreateCinema = lazy(() => import('../pages/super-admin/CreateCinema'));
 const SuperAdminProfile = lazy(() => import('../pages/super-admin/SuperAdminProfile'));
 const GlobalInvoiceManagement = lazy(() => import('../pages/super-admin/InvoiceManagement'));
+const MovieReferenceManagement = lazy(() => import('../pages/super-admin/MovieReferenceManagement'));
+const MovieReferenceForm = lazy(() => import('../pages/super-admin/MovieReferenceForm'));
 
 // --- Lazy Loaded Admin Pages ---
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -83,6 +85,7 @@ const AdminProfile = lazy(() => import('../pages/admin/AdminProfile'));
 const MyShifts = lazy(() => import('../pages/employee/MyShifts'));
 const EmployeeDashboard = lazy(() => import('../pages/employee/Dashboard'));
 const Sales = lazy(() => import('../pages/employee/Sales'));
+const EmployeeProfile = lazy(() => import('../pages/employee/Profile'));
 
 
 const AppRoutes = () => {
@@ -107,6 +110,7 @@ const AppRoutes = () => {
           <Route path="dashboard" element={<EmployeeDashboard />} />
           <Route path="sales" element={<Sales />} />
           <Route path="ca-lam" element={<MyShifts />} />
+          <Route path="profile" element={<EmployeeProfile />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Route>
         
@@ -183,6 +187,12 @@ const AppRoutes = () => {
           <Route path="movies/create" element={<CreateMovie />} />
           <Route path="movie-types" element={<SuperMovieTypes />} />
           <Route path="movie-types/create" element={<CreateMovieType />} />
+          <Route path="authors" element={<MovieReferenceManagement type="author" />} />
+          <Route path="authors/create" element={<MovieReferenceForm type="author" />} />
+          <Route path="authors/edit/:id" element={<MovieReferenceForm type="author" />} />
+          <Route path="nations" element={<MovieReferenceManagement type="nation" />} />
+          <Route path="nations/create" element={<MovieReferenceForm type="nation" />} />
+          <Route path="nations/edit/:id" element={<MovieReferenceForm type="nation" />} />
           <Route path="seat-types" element={<SuperSeatTypes />} />
           <Route path="seat-types/create" element={<CreateSeatType />} />
           <Route path="product-types" element={<SuperProductTypes />} />

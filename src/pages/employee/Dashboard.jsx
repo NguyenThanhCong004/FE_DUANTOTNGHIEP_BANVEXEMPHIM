@@ -4,6 +4,7 @@ import { getAccessToken, getStoredStaff } from '../../utils/authStorage';
 import { apiUrl, withQuery } from '../../utils/apiClient';
 import { STAFF_DASHBOARD } from '../../constants/apiEndpoints';
 import InvoiceSummaryCard from '../../components/common/InvoiceSummaryCard';
+import { formatDate, formatTime } from '../../utils/formatters';
 
 const EmployeeDashboard = () => {
   const [stats, setStats] = useState({
@@ -35,6 +36,7 @@ const EmployeeDashboard = () => {
     try {
       const now = new Date().toLocaleString('vi-VN');
       const movieInfo = order.tickets[0]; // Lấy thông tin phim từ vé đầu tiên
+      const showtimeValue = movieInfo.showtime || movieInfo.showtimeStart || movieInfo.startTime;
       
       const htmlContent = `
         <div style="width: 320px; padding: 25px; font-family: 'Courier New', Courier, monospace; background: #fff; color: #000; border: 2px solid #000; position: relative;">
@@ -52,11 +54,11 @@ const EmployeeDashboard = () => {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
             <div>
               <div style="font-size: 10px; text-transform: uppercase; color: #666;">Ngày / Date</div>
-              <div style="font-size: 14px; font-weight: bold;">${order.createdAt?.split(' ')[0] || ''}</div>
+              <div style="font-size: 14px; font-weight: bold;">${formatDate(showtimeValue)}</div>
             </div>
             <div>
               <div style="font-size: 10px; text-transform: uppercase; color: #666;">Suất / Time</div>
-              <div style="font-size: 14px; font-weight: bold;">${movieInfo.showtime || ''}</div>
+              <div style="font-size: 14px; font-weight: bold;">${formatTime(showtimeValue)}</div>
             </div>
             <div>
               <div style="font-size: 10px; text-transform: uppercase; color: #666;">Phòng / Room</div>
@@ -272,9 +274,9 @@ const EmployeeDashboard = () => {
                     <div className="order-main">
                       <div className="order-code">{order.orderCode}</div>
                       <div className="order-time">
-                        {new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(order.createdAt)}
                         {" - "}
-                        {new Date(order.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                        {formatDate(order.createdAt)}
                       </div>
                     </div>
                     <div className="order-meta">

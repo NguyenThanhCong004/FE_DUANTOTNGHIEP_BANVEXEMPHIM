@@ -12,10 +12,10 @@ import {
 } from "lucide-react";
 import { getAccessToken, getRefreshToken, getStoredUser, setAuthSession, getStoredStaff, getAuthSession } from "../../utils/authStorage";
 import { getUserIdFromToken } from "../../utils/jwt";
-import { apiFetch, withQuery } from "../../utils/apiClient";
-import { USERS, ME, MEMBERSHIP_RANKS } from "../../constants/apiEndpoints";
+import { apiFetch, apiUrl, withQuery } from "../../utils/apiClient";
+import { USERS, ME, MEMBERSHIP_RANKS, TICKET_ORDERS } from "../../constants/apiEndpoints";
 import { mapFavoriteRowToFavCard, mapMeTransactionToFe, mapUserVoucherRow } from "../../utils/customerMeApi";
-import { isDisplayableImageSrc } from "../../utils/mediaFiles";
+import { fileToDataUrl, IMAGE_FILE_ACCEPT, isDisplayableImageSrc } from "../../utils/mediaFiles";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 import { formatDate, formatDateTime, formatNumber, formatVnd as fmtVnd, toDateInputValue } from "../../utils/formatters";
 import { Link, useSearchParams } from "react-router-dom";
@@ -73,8 +73,24 @@ function formatVoucherDiscount(v) {
   if (!v) return "";
   const dt = String(v.discountType || "").toLowerCase();
   if (dt === "fixed" || dt === "amount") return fmtVnd(v.value);
-  if (dt === "percent" || dt === "percentage") return `${Number(v.value ?? 0)}%`;
-  return fmtVnd(v.value);
+  if (dt === "percent" || dt === "percentage" || dt === "%") return `${Number(v.value ?? 0)}%`;
+  return `${Number(v.value ?? 0)}%`;
+}
+
+function voucherIsExpired(v) {
+  if (!v) return true;
+  const status = Number(v.status);
+  if (status === 0 || status === 3) return true;
+  const end = v.endDate ? new Date(`${String(v.endDate).slice(0, 10)}T23:59:59`) : null;
+  return Boolean(end && end < new Date());
+}
+
+function voucherIsScheduled(v) {
+  if (!v) return false;
+  const status = Number(v.status);
+  if (status === 2) return true;
+  const start = v.startDate ? new Date(`${String(v.startDate).slice(0, 10)}T00:00:00`) : null;
+  return Boolean(start && start > new Date());
 }
 
 const TX_TYPE = {
@@ -87,6 +103,11 @@ const TX_STATUS = {
   cancelled: { label: "Đã hủy",     color: "#e57373", bg: "rgba(244,67,54,0.13)" },
   pending:   { label: "Chờ xử lý",  color: "#d4e219", bg: "rgba(212,226,25,0.13)" },
 };
+
+function ticketQrSrc(item) {
+  const token = item?.qr_token || item?.qrToken;
+  return token ? apiUrl(TICKET_ORDERS.QR(token)) : "";
+}
 
 /* ─────────────────────────────────────────
    Avatar
@@ -252,9 +273,11 @@ function TabInfo({ user, setUser, showToast }) {
   const [errors,  setErrors]  = useState({});
   const [saving,  setSaving]  = useState(false);
   const [pwModal, setPwModal] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
 
-  const startEdit  = () => { setDraft({ ...user }); setEditing(true); setErrors({}); };
-  const cancelEdit = () => { setEditing(false); setErrors({}); };
+  const startEdit  = () => { setDraft({ ...user }); setAvatarFile(null); setAvatarPreview(user.avatar || ""); setEditing(true); setErrors({}); };
+  const cancelEdit = () => { setEditing(false); setAvatarFile(null); setAvatarPreview(""); setErrors({}); };
   const handleChange = (e) => {
     setDraft(d => ({ ...d, [e.target.name]: e.target.value }));
     setErrors(er => ({ ...er, [e.target.name]: "" }));
@@ -277,10 +300,12 @@ function TabInfo({ user, setUser, showToast }) {
     if (!token || !userId) { showToast("Bạn cần đăng nhập", "error"); return; }
     setSaving(true);
     try {
+      const avatar = avatarFile ? await fileToDataUrl(avatarFile) : (draft.avatar || user.avatar || "");
       const body = {
         fullname: draft.fullname.trim(), email: draft.email.trim(),
         phone: draft.phone.trim().replace(/\s/g, ""), status: user.status ?? 1,
         birthday: draft.birthday || null,
+        avatar,
       };
       const originalBody = {
         fullname: String(user.fullname ?? "").trim(),
@@ -288,6 +313,7 @@ function TabInfo({ user, setUser, showToast }) {
         phone: String(user.phone ?? "").trim().replace(/\s/g, ""),
         status: user.status ?? 1,
         birthday: toDateInputValue(user.birthday) || null,
+        avatar: user.avatar || "",
       };
       if (JSON.stringify(body) === JSON.stringify(originalBody)) {
         showToast(MESSAGES.noChanges, "error");
@@ -301,6 +327,8 @@ function TabInfo({ user, setUser, showToast }) {
       if (n) setUser(n);
       setAuthSession({ accessToken: getAccessToken(), refreshToken: getRefreshToken(), user: json.data, staff: getStoredStaff() });
       setEditing(false);
+      setAvatarFile(null);
+      setAvatarPreview("");
       showToast("Cập nhật thông tin thành công");
     } catch { showToast(MESSAGES.networkError, "error"); }
     finally { setSaving(false); }
@@ -323,6 +351,29 @@ function TabInfo({ user, setUser, showToast }) {
             {editing ? (
               <>
                 <Row className="g-2">
+                  <Col xs={12}>
+                    <label className="pf-label">Ảnh đại diện</label>
+                    <div className="d-flex align-items-center gap-3 mb-2">
+                      <Avatar name={draft.fullname} avatarUrl={avatarPreview || draft.avatar} size={64} />
+                      <div style={{ flex: 1 }}>
+                        <input
+                          className="pf-input"
+                          type="file"
+                          accept={IMAGE_FILE_ACCEPT}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            if (!file) return;
+                            if (!file.type.startsWith("image/")) { setErrors((er) => ({ ...er, avatar: "Vui lòng chọn tệp ảnh" })); return; }
+                            setAvatarFile(file);
+                            setAvatarPreview(URL.createObjectURL(file));
+                            setErrors((er) => ({ ...er, avatar: "" }));
+                          }}
+                        />
+                        <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 5 }}>Chọn ảnh JPG, PNG hoặc WebP. Ảnh sẽ được lưu khi bấm cập nhật.</div>
+                        {errors.avatar && <p className="pf-field-err">{errors.avatar}</p>}
+                      </div>
+                    </div>
+                  </Col>
                   <Col xs={12} md={6}><Field label="Họ và tên" name="fullname" value={draft.fullname} onChange={handleChange} error={errors.fullname} placeholder="Nhập họ và tên" /></Col>
                   <Col xs={12} md={6}><Field label="Email" name="email" type="email" value={draft.email} onChange={handleChange} error={errors.email} placeholder="email@example.com" /></Col>
                   <Col xs={12} md={6}><Field label="Số điện thoại" name="phone" value={draft.phone} onChange={handleChange} error={errors.phone} placeholder="0123456789" /></Col>
@@ -507,6 +558,9 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
             const type = TX_TYPE[tx.type] || { label: "Giao dịch", color: "#b39ddb", bg: "rgba(123,31,162,0.14)", icon: "🧾" };
             const status = TX_STATUS[tx.status] || { label: tx.status || "—", color: "rgba(255,255,255,0.55)", bg: "rgba(255,255,255,0.08)" };
             const isOpen = openId === tx.id;
+            const qrItems = (tx.items || []).filter((item) => ticketQrSrc(item));
+            const qrLeadItem = qrItems[0] || null;
+            const qrSeatLabels = [...new Set(qrItems.map((item) => item.seat_label || item.sub).filter(Boolean))];
             return (
               <div key={tx.id} className={`pf-tx-row${isOpen ? " open" : ""}`}>
                 <button
@@ -553,12 +607,60 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
                             {item.sub && <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 11, fontWeight: 600 }}>{item.sub}</div>}
+                            {item.ticket_code && <div style={{ color: "rgba(212,226,25,0.65)", fontSize: 10, fontWeight: 800, marginTop: 2 }}>Mã vé: {item.ticket_code}</div>}
                           </div>
                           <div style={{ color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap" }}>x{item.qty}</div>
                           <div style={{ color: "var(--yellow)", whiteSpace: "nowrap" }}>{fmtVnd(item.price)}</div>
                         </div>
                       ))}
                     </div>
+                    {tx.type === "ticket_online" && qrLeadItem && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ color: "#fff", fontSize: 12, fontWeight: 900, marginBottom: 10, letterSpacing: 0.4 }}>
+                          Mã QR vé
+                        </div>
+                        <div
+                          style={{
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            borderRadius: 14,
+                            padding: 12,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 14,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <img
+                            src={ticketQrSrc(qrLeadItem)}
+                            alt={`QR vé ${qrLeadItem.ticket_code || tx.order_code || ""}`}
+                            style={{
+                              width: 128,
+                              height: 128,
+                              objectFit: "contain",
+                              background: "#fff",
+                              borderRadius: 12,
+                              padding: 8,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div style={{ minWidth: 180, flex: 1 }}>
+                            <div style={{ color: "var(--yellow)", fontSize: 12, fontWeight: 900, wordBreak: "break-all" }}>
+                              {tx.order_code || qrLeadItem.ticket_code || "Vé"}
+                            </div>
+                            <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: 800, marginTop: 6 }}>
+                              Ghế: {qrSeatLabels.length ? qrSeatLabels.join(", ") : "—"}
+                            </div>
+                            <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 11, fontWeight: 700, marginTop: 6 }}>
+                              1 QR dùng cho toàn bộ ghế trong đơn này.
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 700, marginTop: 10 }}>
+                          QR này là token đã mã hóa từ BE; nhân viên quét sẽ thấy toàn bộ ghế của đơn.
+                        </div>
+                      </div>
+                    )}
                     <div style={{ display: "grid", gap: 6, color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 700 }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}><span>Tạm tính</span><span>{fmtVnd(tx.original_amount)}</span></div>
                       {tx.discount_amount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Giảm giá {tx.voucher_code ? `(${tx.voucher_code})` : ""}</span><span>-{fmtVnd(tx.discount_amount)}</span></div>}
@@ -583,9 +685,9 @@ function TabVouchers({ vouchers, loading }) {
   const [selected, setSelected] = useState(null);
 
   const filtered = useMemo(() => vouchers.filter(uv => {
-    const isExpired = uv.voucher?.status === 0;
+    const isExpired = voucherIsExpired(uv.voucher);
     const isUsed    = uv.status === 0;
-    const isActive  = !isExpired && !isUsed;
+    const isActive  = !isExpired && !isUsed && !voucherIsScheduled(uv.voucher);
     if (filter === "active") return isActive;
     if (filter === "used")   return isUsed || isExpired;
     return true;
@@ -610,7 +712,14 @@ function TabVouchers({ vouchers, loading }) {
               </div>
             )}
             <Row className="g-2" style={{ marginBottom: 20 }}>
-              {[["Bắt đầu", fmtDate(selected.voucher?.startDate)], ["Kết thúc", fmtDate(selected.voucher?.endDate)]].map(([k, v]) => (
+              {[
+                ["Đơn tối thiểu", fmtVnd(selected.voucher?.minOrderValue ?? 0)],
+                ["Giảm tối đa", fmtVnd(selected.voucher?.maxDiscountAmount ?? 0)],
+                ["Điểm đổi", Number(selected.voucher?.pointVoucher ?? 0) > 0 ? `${formatNumber(selected.voucher.pointVoucher)} điểm` : "Miễn phí"],
+                ["Trạng thái", selected.status === 0 ? "Đã dùng" : voucherIsExpired(selected.voucher) ? "Hết hạn" : voucherIsScheduled(selected.voucher) ? "Chờ hiệu lực" : "Đang hoạt động"],
+                ["Bắt đầu", fmtDate(selected.voucher?.startDate)],
+                ["Kết thúc", fmtDate(selected.voucher?.endDate)],
+              ].map(([k, v]) => (
                 <Col key={k} xs={6}>
                   <div style={{ padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 10 }}>
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>{k}</div>
@@ -627,8 +736,8 @@ function TabVouchers({ vouchers, loading }) {
       <Row className="g-2" style={{ marginBottom: 20 }}>
         {[
           { label: "Tổng",            val: vouchers.length,                                                     color: "#fff" },
-          { label: "Đang hoạt động",  val: vouchers.filter(uv => uv.voucher?.status !== 0 && uv.status !== 0).length, color: "#81c784" },
-          { label: "Đã sử dụng",     val: vouchers.filter(uv => uv.voucher?.status === 0 || uv.status === 0).length, color: "var(--yellow)" },
+          { label: "Đang hoạt động",  val: vouchers.filter(uv => !voucherIsExpired(uv.voucher) && !voucherIsScheduled(uv.voucher) && uv.status !== 0).length, color: "#81c784" },
+          { label: "Đã sử dụng",     val: vouchers.filter(uv => voucherIsExpired(uv.voucher) || uv.status === 0).length, color: "var(--yellow)" },
         ].map(({ label, val, color }) => (
           <Col key={label} xs={4}>
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 16px" }}>
@@ -653,27 +762,32 @@ function TabVouchers({ vouchers, loading }) {
         <Row className="g-3">
           {filtered.map(uv => {
             const voucher   = uv.voucher;
-            const isExpired = voucher?.status === 0;
+            const isExpired = voucherIsExpired(voucher);
+            const isScheduled = voucherIsScheduled(voucher);
             const isUsed    = uv.status === 0;
-            const isActive  = !isExpired && !isUsed;
-            const statusColor = isActive ? "#81c784" : isUsed ? "rgba(255,255,255,0.25)" : "#e57373";
-            const statusLabel = isActive ? "Hoạt động" : isUsed ? "Đã dùng" : "Hết hạn";
+            const isActive  = !isExpired && !isUsed && !isScheduled;
+            const statusColor = isActive ? "#81c784" : isScheduled ? "#d4e219" : isUsed ? "rgba(255,255,255,0.25)" : "#e57373";
+            const statusLabel = isActive ? "Còn hạn" : isScheduled ? "Chờ hiệu lực" : isUsed ? "Đã dùng" : "Hết hạn";
+            const pointCost = Number(voucher?.pointVoucher ?? 0);
             return (
               <Col key={uv.id} xs={12} md={6} lg={4}>
-                <div className="pf-voucher-card" onClick={() => setSelected(uv)}>
-                  <div style={{ height: 3, background: statusColor, borderRadius: "2px 2px 0 0", margin: "-1px -1px 14px" }} />
+                <div className={`pf-voucher-card${!isActive ? " muted" : ""}`} onClick={() => setSelected(uv)}>
+                  <div className="pf-voucher-stripe" style={{ background: isActive ? "linear-gradient(180deg, var(--purple), var(--pink))" : statusColor }} />
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                    <div style={{ fontFamily: "monospace", fontSize: 11, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", padding: "3px 8px", borderRadius: 6, color: "rgba(255,255,255,0.7)" }}>{voucher?.code}</div>
-                    <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44`, fontWeight: 700 }}>{statusLabel}</span>
+                    <div className="pf-voucher-code">{voucher?.code}</div>
+                    <span className="pf-voucher-status" style={{ background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>{statusLabel}</span>
                   </div>
-                  <div style={{ textAlign: "center", marginBottom: 10 }}>
-                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 32, letterSpacing: 2, color: "var(--yellow)" }}>{formatVoucherDiscount(voucher)}</div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Giảm giá</div>
+                  <div className="pf-voucher-main">
+                    <div className="pf-voucher-discount">{formatVoucherDiscount(voucher)}</div>
+                    <div className="pf-voucher-unit">GIẢM GIÁ</div>
                   </div>
                   {voucher?.description && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginBottom: 10, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{voucher.description}</p>}
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "rgba(255,255,255,0.25)", fontWeight: 700 }}>
-                    <span>🗓 {fmtDate(voucher?.startDate)}</span>
-                    <span>⏰ {fmtDate(voucher?.endDate)}</span>
+                  <div className="pf-voucher-divider" />
+                  <div className="pf-voucher-meta">
+                    <div>🛒 Đơn tối thiểu: <strong>{fmtVnd(voucher?.minOrderValue ?? 0)}</strong></div>
+                    <div>💸 Giảm tối đa: <strong>{fmtVnd(voucher?.maxDiscountAmount ?? 0)}</strong></div>
+                    <div>⭐ Điểm đổi: <strong>{pointCost > 0 ? `${formatNumber(pointCost)} điểm` : "Miễn phí"}</strong></div>
+                    <div>📅 <strong>{fmtDate(voucher?.startDate)}</strong> – <strong>{fmtDate(voucher?.endDate)}</strong></div>
                   </div>
                 </div>
               </Col>
@@ -1140,8 +1254,85 @@ export default function UserProfile() {
         .pf-current-tag { font-size: 9px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; background: var(--yellow); color: #0f102a; padding: 2px 8px; border-radius: 4px; }
 
         /* VOUCHER CARD */
-        .pf-voucher-card { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 16px; cursor: pointer; transition: border-color 0.2s, transform 0.15s; height: 100%; }
-        .pf-voucher-card:hover { border-color: rgba(212,226,25,0.25); transform: translateY(-2px); }
+        .pf-voucher-card {
+          background: rgba(20,22,50,0.92);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 16px;
+          padding: 20px 20px 20px 24px;
+          cursor: pointer;
+          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+          height: 100%;
+          position: relative;
+          overflow: hidden;
+        }
+        .pf-voucher-card:hover {
+          border-color: rgba(212,226,25,0.25);
+          box-shadow: 0 16px 48px rgba(0,0,0,0.35);
+          transform: translateY(-4px);
+        }
+        .pf-voucher-card.muted {
+          opacity: 0.68;
+          filter: grayscale(0.25);
+        }
+        .pf-voucher-stripe {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+        }
+        .pf-voucher-code {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 14px;
+          letter-spacing: 3px;
+          background: rgba(255,255,255,0.06);
+          border: 1px dashed rgba(255,255,255,0.2);
+          color: rgba(255,255,255,0.72);
+          padding: 4px 12px;
+          border-radius: 6px;
+          display: inline-block;
+        }
+        .pf-voucher-status {
+          font-size: 10px;
+          padding: 3px 10px;
+          border-radius: 999px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+          text-transform: uppercase;
+        }
+        .pf-voucher-main { margin-bottom: 8px; }
+        .pf-voucher-discount {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 42px;
+          line-height: 1;
+          letter-spacing: 1px;
+          background: linear-gradient(135deg, #e91e8c, #7b1fa2);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .pf-voucher-unit {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 14px;
+          color: rgba(255,255,255,0.5);
+          letter-spacing: 1.5px;
+        }
+        .pf-voucher-divider {
+          height: 1px;
+          background: rgba(255,255,255,0.05);
+          margin: 12px 0;
+        }
+        .pf-voucher-meta {
+          display: grid;
+          gap: 6px;
+          font-size: 11.5px;
+          color: rgba(255,255,255,0.42);
+          font-weight: 700;
+          letter-spacing: 0.2px;
+        }
+        .pf-voucher-meta strong {
+          color: rgba(255,255,255,0.72);
+        }
         .pf-fav-card { position: relative; height: 100%; }
         .pf-review-badge { position: absolute; top: 8px; right: 8px; z-index: 3; background: rgba(212,226,25,0.92); color: #0f102a; border-radius: 8px; padding: 3px 8px; font-size: 11px; font-weight: 900; box-shadow: 0 0 14px rgba(212,226,25,0.35); }
 

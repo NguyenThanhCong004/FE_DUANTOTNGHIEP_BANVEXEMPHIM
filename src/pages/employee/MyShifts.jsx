@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Calendar, Clock, RefreshCw, ChevronRight, CheckCircle2, History } from "lucide-react";
 import { apiFetch } from "../../utils/apiClient";
 import { SHIFTS } from "../../constants/apiEndpoints";
@@ -10,7 +10,7 @@ export default function MyShifts() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [clockTick, setClockTick] = useState(0);
+  const [, setClockTick] = useState(0);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -50,7 +50,7 @@ export default function MyShifts() {
     return () => clearInterval(interval);
   }, [load]);
 
-  const { upcomingShifts, pastShifts } = useMemo(() => {
+  const { upcomingShifts, pastShifts } = (() => {
     const now = new Date();
     // Lấy ngày local YYYY-MM-DD
     const yyyy = now.getFullYear();
@@ -64,9 +64,18 @@ export default function MyShifts() {
     const past = [];
 
     rows.forEach(r => {
-      // Logic xác định trạng thái dựa trên thời gian tuyệt đối (hỗ trợ ca xuyên đêm)
-      const start = r.rawStartTime ? new Date(r.rawStartTime) : null;
-      const end = r.rawEndTime ? new Date(r.rawEndTime) : null;
+      // Không parse ISO không có timezone bằng new Date(string): trình duyệt có thể hiểu UTC.
+      // Tạo Date theo giờ địa phương Việt Nam từ date + HH:mm, đồng thời hỗ trợ ca qua nửa đêm.
+      const makeLocalTime = (date, time) => {
+        if (!date || !time) return null;
+        const [year, month, day] = String(date).split('-').map(Number);
+        const [hour, minute] = String(time).split(':').map(Number);
+        if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+        return new Date(year, month - 1, day, hour, minute, 0, 0);
+      };
+      const start = makeLocalTime(r.date, r.startTime);
+      let end = makeLocalTime(r.date, r.endTime);
+      if (start && end && end < start) end.setDate(end.getDate() + 1);
       
       let status = 'UPCOMING';
       if (start && end) {
@@ -102,7 +111,7 @@ export default function MyShifts() {
     past.sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime));
 
     return { upcomingShifts: upcoming, pastShifts: past };
-  }, [rows, clockTick]);
+  })();
 
   const ShiftCard = ({ shift, isPast }) => (
     <div className={`shift-card ${isPast ? 'past' : ''} ${shift.status === 'WORKING' ? 'working' : ''}`}>
