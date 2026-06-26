@@ -564,6 +564,14 @@
   transition: var(--admin-transition);
   border: none;
   cursor: pointer;
+  /* Link dùng làm nút Thêm/Tạo không được hiện gạch chân mặc định của thẻ <a>. */
+  text-decoration: none;
+}
+
+.admin-btn:hover,
+.admin-btn:focus,
+.admin-btn:visited {
+  text-decoration: none;
 }
 
 .admin-header .admin-btn {

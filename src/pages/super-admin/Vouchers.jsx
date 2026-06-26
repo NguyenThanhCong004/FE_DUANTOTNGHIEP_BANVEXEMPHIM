@@ -28,7 +28,7 @@ const VoucherManagement = () => {
       showToast(location.state.message, location.state.type || 'success');
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
   // Mapping trạng thái sang text và màu sắc
   const getStatusInfo = (status) => {
@@ -205,7 +205,9 @@ const VoucherManagement = () => {
                           <div>Từ: {formatDate(voucher.startDate)}</div>
                           <div>Đến: {formatDate(voucher.endDate)}</div>
                         </td>
-                        <td className="text-center fw-semibold">{voucher.pointVoucher} điểm</td>
+                        <td className="text-center fw-semibold">
+                          {Number(voucher.pointVoucher) > 0 ? `${voucher.pointVoucher} điểm` : "Miễn phí"}
+                        </td>
                         <td className="text-center">
                           <span className={`admin-badge ${statusInfo.class}`}>
                             {statusInfo.label}
@@ -288,7 +290,9 @@ const VoucherManagement = () => {
                   <p className="admin-form-label mb-1 text-muted">Đơn tối thiểu</p>
                   <p className="fw-semibold mb-3">{formatVnd(selectedItem.minOrderValue)}</p>
                   <p className="admin-form-label mb-1 text-muted">Điểm cần đổi</p>
-                  <p className="fw-semibold mb-3">{selectedItem.pointVoucher} điểm</p>
+                  <p className="fw-semibold mb-3">
+                    {Number(selectedItem.pointVoucher) > 0 ? `${selectedItem.pointVoucher} điểm` : "Miễn phí / không cần điểm"}
+                  </p>
                   <p className="admin-form-label mb-1 text-muted">Thời gian hiệu lực</p>
                   <div className="mb-3 small">
                     Từ: <b>{formatDate(selectedItem.startDate)}</b><br />

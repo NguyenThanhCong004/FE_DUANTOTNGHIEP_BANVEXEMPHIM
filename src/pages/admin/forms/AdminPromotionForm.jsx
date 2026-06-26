@@ -91,11 +91,14 @@ export default function AdminPromotionForm({ mode = "add" }) {
     return () => { mounted = false; };
   }, [id, isEdit]);
 
+  const normalizeMovieId = (value) => Number(value);
+
   // 2. Load danh sách phim PHÙ HỢP theo cinemaId và thời gian
   useEffect(() => {
     let mounted = true;
     if (!cinemaId || !formData.start_date || !formData.end_date) {
       setMovies([]);
+      setFormData((prev) => ({ ...prev, selectedMovieIds: [] }));
       return;
     }
 
@@ -105,24 +108,40 @@ export default function AdminPromotionForm({ mode = "add" }) {
         const query = `?cinemaId=${cinemaId}&startDate=${formData.start_date}&endDate=${formData.end_date}`;
         const res = await apiFetch(`${MOVIES.LIST}/promotion-eligible${query}`);
         const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(json?.message || "Không tải được danh sách phim áp dụng");
+        }
         const list = Array.isArray(json?.data) ? json.data : [];
         if (mounted) {
-          setMovies(list.map(m => ({
-            id: m.id,
+          const eligibleMovies = list.map(m => ({
+            id: normalizeMovieId(m.id),
             title: m.title,
             genre: m.genre,
             duration: m.duration
-          })));
+          }));
+          const eligibleIds = new Set(eligibleMovies.map((m) => m.id));
+          setMovies(eligibleMovies);
+          setFormData((prev) => ({
+            ...prev,
+            selectedMovieIds: prev.selectedMovieIds
+              .map(normalizeMovieId)
+              .filter((movieId) => eligibleIds.has(movieId)),
+          }));
         }
       } catch (err) {
         console.error("Lỗi tải phim phù hợp:", err);
+        if (mounted) {
+          setMovies([]);
+          setFormData((prev) => ({ ...prev, selectedMovieIds: [] }));
+          showToast(err.message || "Không tải được danh sách phim áp dụng", "danger");
+        }
       } finally {
         if (mounted) setMoviesLoading(false);
       }
     })();
 
     return () => { mounted = false; };
-  }, [cinemaId, formData.start_date, formData.end_date]);
+  }, [cinemaId, formData.start_date, formData.end_date, showToast]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -131,11 +150,13 @@ export default function AdminPromotionForm({ mode = "add" }) {
   };
 
   const toggleMovieSelection = (movieId) => {
+    const normalizedMovieId = normalizeMovieId(movieId);
     setFormData((prev) => {
-      const isSelected = prev.selectedMovieIds.includes(movieId);
+      const currentIds = prev.selectedMovieIds.map(normalizeMovieId);
+      const isSelected = currentIds.includes(normalizedMovieId);
       const nextSelected = isSelected
-        ? prev.selectedMovieIds.filter((id2) => id2 !== movieId)
-        : [...prev.selectedMovieIds, movieId];
+        ? currentIds.filter((id2) => id2 !== normalizedMovieId)
+        : [...currentIds, normalizedMovieId];
       return { ...prev, selectedMovieIds: nextSelected };
     });
     if (errors.movies) setErrors((prev) => ({ ...prev, movies: "" }));
@@ -144,7 +165,8 @@ export default function AdminPromotionForm({ mode = "add" }) {
   const selectAllMovies = () => {
     setFormData((prev) => {
       const allIds = movies.map((m) => m.id);
-      const isAllSelected = prev.selectedMovieIds.length === allIds.length;
+      const selectedEligibleCount = prev.selectedMovieIds.filter((id2) => allIds.includes(normalizeMovieId(id2))).length;
+      const isAllSelected = movies.length > 0 && selectedEligibleCount === allIds.length;
       return { ...prev, selectedMovieIds: isAllSelected ? [] : allIds };
     });
   };
@@ -350,7 +372,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
                     ) : (
                       <div className="d-flex flex-wrap gap-2">
                         {movies.map((movie) => {
-                          const selected = formData.selectedMovieIds.includes(movie.id);
+                          const selected = formData.selectedMovieIds.map(normalizeMovieId).includes(movie.id);
                           return (
                             <Badge
                               key={movie.id}
@@ -374,7 +396,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
                     <div className="d-flex flex-wrap gap-1">
                       {formData.selectedMovieIds.length > 0 ? (
                         formData.selectedMovieIds.map((mid) => (
-                          <Badge key={mid} bg="primary" className="fw-normal">{movies.find((m) => m.id === mid)?.title}</Badge>
+                          <Badge key={mid} bg="primary" className="fw-normal">{movies.find((m) => m.id === normalizeMovieId(mid))?.title}</Badge>
                         ))
                       ) : (
                         <span className="text-muted small italic">Chưa có phim nào được chọn</span>
