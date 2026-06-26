@@ -5,10 +5,25 @@ import { clearAuthSession, getStoredStaff, getActiveShift } from "../../utils/au
 import { formatDate, formatTime } from "../../utils/formatters";
 import "../../styles/admin-shell.css";
 
+function normalizeText(value) {
+  return (value ?? "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isSalesShift(shift) {
+  const role = normalizeText(shift?.role);
+  return role === "ban ve" || role === "ban hang" || role === "sales" || role === "cashier";
+}
+
 export default function EmployeeSelfServiceLayout() {
   const navigate = useNavigate();
   const staff = getStoredStaff();
   const activeShift = getActiveShift();
+  const canUsePosSales = isSalesShift(activeShift);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -74,10 +89,12 @@ export default function EmployeeSelfServiceLayout() {
                   <div className="dropdown-header">Chức năng hệ thống</div>
                   {activeShift && (
                     <>
-                      <NavLink to="/staff/sales" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
-                        <ShoppingCart size={16} />
-                        <span>Bán hàng POS</span>
-                      </NavLink>
+                      {canUsePosSales && (
+                        <NavLink to="/staff/sales" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
+                          <ShoppingCart size={16} />
+                          <span>Bán hàng POS</span>
+                        </NavLink>
+                      )}
                       <NavLink to="/staff/dashboard" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
                         <LayoutDashboard size={16} />
                         <span>Bàn làm việc</span>
@@ -87,6 +104,10 @@ export default function EmployeeSelfServiceLayout() {
                   <NavLink to="/staff/ca-lam" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
                     <Calendar size={16} />
                     <span>Lịch ca làm</span>
+                  </NavLink>
+                  <NavLink to="/staff/profile" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
+                    <User size={16} />
+                    <span>Hồ sơ & mật khẩu</span>
                   </NavLink>
                   <div className="dropdown-divider" />
                   <button className="dropdown-item-custom text-danger" onClick={logout}>

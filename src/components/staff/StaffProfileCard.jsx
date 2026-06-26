@@ -87,7 +87,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
     }
     setLoading(true);
     try {
-      const res = await apiFetch(STAFF.BY_ID(staffId));
+      const res = await apiFetch(STAFF.ME);
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.data) {
         showToast(apiMessage(json, "Không tải được hồ sơ"), "danger");
@@ -203,7 +203,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
         setSaving(false);
         return;
       }
-      const res = await apiFetch(STAFF.BY_ID(model.staffId), {
+      const res = await apiFetch(STAFF.ME, {
         method: "PUT",
         body: JSON.stringify(body),
       });
@@ -249,7 +249,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
 
     setPwSaving(true);
     try {
-      const res = await apiFetch(STAFF.PASSWORD(model.staffId), {
+      const res = await apiFetch(STAFF.ME_PASSWORD, {
         method: "PUT",
         body: JSON.stringify({
           currentPassword: pw.current,

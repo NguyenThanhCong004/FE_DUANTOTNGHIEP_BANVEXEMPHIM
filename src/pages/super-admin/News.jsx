@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { useAdminToast } from '../../components/admin/AdminToast';
@@ -33,9 +33,9 @@ const NewsManagement = () => {
       showToast(location.state.message, location.state.type || 'success');
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
-  const fetchNews = async () => {
+  const fetchNews = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch(withQuery(NEWS.LIST, { search: searchTerm }));
@@ -57,11 +57,11 @@ const NewsManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchNews();
-  }, [searchTerm]);
+  }, [fetchNews]);
 
   const handleDeleteNews = async (news) => {
     if (deleting) return;

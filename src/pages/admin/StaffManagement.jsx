@@ -351,7 +351,7 @@ const StaffManagement = () => {
 
     }
 
-  }, [location.state]);
+  }, [location.state, showToast]);
 
 
 

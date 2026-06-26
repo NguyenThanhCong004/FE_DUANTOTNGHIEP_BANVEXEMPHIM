@@ -12,6 +12,8 @@ import {
   Search,
 } from "lucide-react";
 import { AUTH_SESSION_CHANGED, clearAuthSession, getAuthSession } from "../../utils/authStorage";
+import { apiUrl } from "../../utils/apiClient";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
 
 const NAV_LINKS = [
   { to: "/",          label: "Trang chủ",        end: true },
@@ -33,11 +35,21 @@ function staffPortalPath(role) {
   return "/staff/ca-lam";
 }
 
+function resolveAvatarSrc(value) {
+  const src = String(value || "").trim();
+  if (!isDisplayableImageSrc(src)) return "";
+  if (src.startsWith("http") || src.startsWith("data:image") || src.startsWith("./") || src.startsWith("../")) {
+    return src;
+  }
+  return apiUrl(src);
+}
+
 export default function CinemaNavbar() {
   const [scrolled, setScrolled]         = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchValue, setSearchValue]   = useState("");
+  const [avatarBroken, setAvatarBroken] = useState(false);
 
   const location   = useLocation();
   const navigate   = useNavigate();
@@ -50,11 +62,17 @@ export default function CinemaNavbar() {
   const isLoggedIn     = authSession.isAuthenticated;
   const isStaffSession = Boolean(staff);
   const displayName    = staff?.fullname || user?.fullname || user?.username || "Tài khoản";
+  const avatarRaw      = staff?.avatar || user?.avatar || "";
+  const avatarSrc      = useMemo(() => resolveAvatarSrc(avatarRaw), [avatarRaw]);
 
   const staffPortal = useMemo(() => {
     if (!staff?.role) return null;
     return staffPortalPath(staff.role);
   }, [staff]);
+
+  useEffect(() => {
+    setAvatarBroken(false);
+  }, [avatarSrc]);
 
   /* scroll listener */
   useEffect(() => {
@@ -96,8 +114,8 @@ export default function CinemaNavbar() {
 
   /* close menus on route change */
   useEffect(() => {
-    setAuthSessionState(getAuthSession());
     const frame = requestAnimationFrame(() => {
+      setAuthSessionState(getAuthSession());
       setMobileMenuOpen(false);
       setDropdownOpen(false);
     });
@@ -382,6 +400,13 @@ export default function CinemaNavbar() {
           justify-content: center;
           color: #fff;
           flex-shrink: 0;
+          overflow: hidden;
+        }
+        .cn-user-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
         }
         .cn-user-name {
           overflow: hidden;
@@ -643,7 +668,16 @@ export default function CinemaNavbar() {
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                   >
                     <div className="cn-user-avatar">
-                      <UserRound size={14} />
+                      {avatarSrc && !avatarBroken ? (
+                        <img
+                          className="cn-user-avatar-img"
+                          src={avatarSrc}
+                          alt={displayName}
+                          onError={() => setAvatarBroken(true)}
+                        />
+                      ) : (
+                        <UserRound size={14} />
+                      )}
                     </div>
                     <span className="cn-user-name">{displayName}</span>
                     <ChevronDown size={14} className={`cn-chevron${dropdownOpen ? " open" : ""}`} />

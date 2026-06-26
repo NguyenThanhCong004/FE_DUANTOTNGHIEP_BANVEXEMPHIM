@@ -12,6 +12,20 @@ function normalizeStaffRole(staff) {
     .replace(/^ROLE_/, "");
 }
 
+function normalizeText(value) {
+  return (value ?? "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isSalesShift(shift) {
+  const role = normalizeText(shift?.role);
+  return role === "ban ve" || role === "ban hang" || role === "sales" || role === "cashier";
+}
+
 /**
  * Khu vực nhân viên sàn: xem ca làm cá nhân.
  * ADMIN / SUPER_ADMIN được chuyển về trang quản trị tương ứng.
@@ -78,6 +92,11 @@ export default function StaffFloorGuard({ children }) {
   const isViewingShifts = location.pathname.includes("/staff/ca-lam");
   if (!currentActiveShift && !isViewingShifts) {
     return <Navigate to="/staff/ca-lam" replace />;
+  }
+
+  const isViewingSales = location.pathname.includes("/staff/sales");
+  if (isViewingSales && !isSalesShift(currentActiveShift)) {
+    return <Navigate to="/staff/dashboard" replace />;
   }
 
   return children;

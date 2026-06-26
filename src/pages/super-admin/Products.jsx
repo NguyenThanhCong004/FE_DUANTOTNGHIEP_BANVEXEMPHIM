@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
@@ -33,9 +33,9 @@ const ProductManagement = () => {
       showToast(location.state.message, location.state.type || 'success');
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch(withQuery(PRODUCTS.LIST, {
@@ -62,9 +62,9 @@ const ProductManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryFilter, searchTerm]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const res = await apiFetch(PRODUCT_CATEGORIES.LIST);
       const json = await res.json().catch(() => null);
@@ -73,15 +73,15 @@ const ProductManagement = () => {
     } catch (err) {
       console.error("Failed to fetch categories", err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
-  }, [searchTerm, categoryFilter]);
+  }, [fetchProducts]);
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   const filteredProducts = products.filter((p) => {
     const matchesStatus = statusFilter === "All" || p.status === statusFilter;
