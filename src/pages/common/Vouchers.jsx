@@ -19,19 +19,32 @@ function normalizeCatalogVoucher(v) {
   if (v.status === 0) statusStr = "expired";
   else if (end && end < now) statusStr = "expired";
   else if (start && start > now) statusStr = "expired";
-  const dt = String(v.discountType || "").toLowerCase();
-  const discount_type = dt.includes("percent") ? "percent" : "fixed";
+  const dt = String(v.discountType || "percent").toLowerCase();
+  const discount_type = dt.includes("fixed") || dt.includes("amount") || dt.includes("money") ? "fixed" : "percent";
   return {
     Vouchers_id: v.id,
     Code: v.code,
+    description: v.description || "",
     discount_type,
     value: Number(v.value ?? 0),
     min_order_value: Number(v.minOrderValue ?? 0),
+    max_discount_amount: Number(v.maxDiscountAmount ?? 0),
     start_date: v.startDate,
     end_date: v.endDate,
     point_voucher: Number(v.pointVoucher ?? 0),
     status: statusStr,
   };
+}
+
+function formatVoucherDiscount(v) {
+  if (!v) return "";
+  if (v.discount_type === "fixed") return fmt(Number(v.value ?? 0));
+  return `${Number(v.value ?? 0)}%`;
+}
+
+function formatMaxDiscount(value) {
+  const amount = Number(value ?? 0);
+  return amount > 0 ? fmt(amount) : "Không giới hạn";
 }
 
 export default function VoucherExchange() {
@@ -77,7 +90,7 @@ export default function VoucherExchange() {
         if (!cancelled && vr.ok && Array.isArray(vj?.data)) {
           const rows = vj.data
             .map(normalizeCatalogVoucher)
-            .filter((x) => x.point_voucher > 0);
+            .filter((x) => x.point_voucher >= 0 && x.status === "active");
           setCatalog(rows);
         } else if (!cancelled) {
           setCatalog([]);
@@ -103,7 +116,6 @@ export default function VoucherExchange() {
     const matchFilter =
       filter === "all" ||
       (filter === "active"  && v.status === "active")  ||
-      (filter === "expired" && v.status === "expired") ||
       (filter === "mine"    && redeemedIds.includes(v.Vouchers_id));
     return matchFilter;
   }), [catalog, filter, redeemedIds]);
@@ -131,7 +143,7 @@ export default function VoucherExchange() {
         return;
       }
       setRedeemedIds((r) => [...new Set([...r, selected.Vouchers_id])]);
-      setUserPoints((p) => Math.max(0, p - selected.point_voucher));
+      setUserPoints((p) => Math.max(0, p - Math.max(0, selected.point_voucher)));
       setSuccessCode(selected.Code);
       setShowModal(false);
       setSelected(null);
@@ -193,12 +205,13 @@ export default function VoucherExchange() {
         .card-body-inner { padding:20px 20px 20px 24px; }
 
         .discount-value { font-family:'Bebas Neue',sans-serif; font-size:42px; line-height:1; letter-spacing:1px; background:linear-gradient(135deg,#e91e8c,#7b1fa2); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-        .discount-unit { font-family:'Bebas Neue',sans-serif; font-size:18px; color:rgba(255,255,255,0.5); letter-spacing:1px; }
+        .discount-unit { font-family:'Bebas Neue',sans-serif; font-size:14px; color:rgba(255,255,255,0.5); letter-spacing:1.5px; }
 
         .code-chip { font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:3px; background:rgba(255,255,255,0.06); border:1px dashed rgba(255,255,255,0.2); color:rgba(255,255,255,0.7); padding:4px 12px; border-radius:6px; display:inline-block; }
 
-        .meta-row { font-size:11.5px; color:rgba(255,255,255,0.4); font-weight:600; letter-spacing:0.3px; }
-        .meta-row strong { color:rgba(255,255,255,0.65); }
+        .voucher-description { font-size:11px; color:rgba(255,255,255,0.35); font-weight:600; margin-bottom:10px; min-height:30px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+        .voucher-meta { display:grid; gap:6px; font-size:11.5px; color:rgba(255,255,255,0.42); font-weight:700; letter-spacing:0.2px; }
+        .voucher-meta strong { color:rgba(255,255,255,0.72); }
 
         .point-cost { display:inline-flex; align-items:center; gap:5px; background:rgba(212,226,25,0.1); border:1px solid rgba(212,226,25,0.25); border-radius:8px; padding:5px 12px; font-family:'Bebas Neue',sans-serif; font-size:18px; color:#d4e219; letter-spacing:1.5px; }
         .point-cost.not-enough { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.1); color:rgba(255,255,255,0.25); }
@@ -270,9 +283,9 @@ export default function VoucherExchange() {
           <Row className="align-items-end mb-4 gy-3">
             <Col>
               <p style={{ color:"rgba(255,255,255,0.4)", fontSize:12, fontWeight:700, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>
-                🎟 Đổi điểm lấy ưu đãi
+                🎟 Nhận voucher & đổi điểm lấy ưu đãi
               </p>
-              <h1 className="page-title mb-0">ĐỔI <span>VOUCHER</span></h1>
+              <h1 className="page-title mb-0">KHO <span>VOUCHER</span></h1>
             </Col>
             <Col xs="auto">
               <div className="points-badge">
@@ -293,7 +306,6 @@ export default function VoucherExchange() {
                 {[
                   { key:"all",     label:"Tất cả" },
                   { key:"active",  label:"Còn hạn" },
-                  { key:"expired", label:"Hết hạn" },
                   { key:"mine",    label:`Đã đổi (${redeemedIds.length})` },
                 ].map(({ key, label }) => (
                   <button key={key} className={`filter-btn${filter===key?" active":""}`} onClick={() => setFilter(key)}>
@@ -320,7 +332,7 @@ export default function VoucherExchange() {
           {successCode && (
             <div className="mb-4 p-3" style={{ background:"rgba(212,226,25,0.08)", border:"1.5px solid rgba(212,226,25,0.3)", borderRadius:12, display:"flex", alignItems:"center", gap:12, color:"#d4e219", fontWeight:700, fontSize:14 }}>
               <span style={{ fontSize:22 }}>🎉</span>
-              Đổi thành công! Mã <span style={{ fontFamily:"'Bebas Neue'", letterSpacing:2, fontSize:16, margin:"0 6px" }}>{successCode}</span> đã được thêm vào tài khoản.
+              Nhận thành công! Mã <span style={{ fontFamily:"'Bebas Neue'", letterSpacing:2, fontSize:16, margin:"0 6px" }}>{successCode}</span> đã được thêm vào tài khoản.
               <button onClick={() => setSuccessCode(null)} style={{ marginLeft:"auto", background:"none", border:"none", color:"rgba(212,226,25,0.5)", cursor:"pointer", fontSize:18 }}>×</button>
             </div>
           )}
@@ -350,14 +362,17 @@ export default function VoucherExchange() {
                           </span>
                         </div>
                         <div className="d-flex align-items-baseline gap-2 mb-1">
-                          <span className="discount-value">
-                            {v.discount_type==="fixed" ? (v.value/1000).toFixed(0)+"K" : v.value+"%"}
-                          </span>
-                          <span className="discount-unit">GIẢM</span>
+                          <span className="discount-value">{formatVoucherDiscount(v)}</span>
+                          <span className="discount-unit">GIẢM GIÁ</span>
                         </div>
+                        {v.description && <p className="voucher-description">{v.description}</p>}
                         <div className="card-divider" />
-                        <div className="meta-row mb-1">🛒 Đơn tối thiểu: <strong>{fmt(v.min_order_value)}</strong></div>
-                        <div className="meta-row mb-3">📅 <strong>{fmtDate(v.start_date)}</strong> – <strong>{fmtDate(v.end_date)}</strong></div>
+                        <div className="voucher-meta mb-3">
+                          <div>🛒 Đơn tối thiểu: <strong>{fmt(v.min_order_value)}</strong></div>
+                          <div>💸 Giảm tối đa: <strong>{formatMaxDiscount(v.max_discount_amount)}</strong></div>
+                          <div>⭐ Điểm đổi: <strong>{v.point_voucher > 0 ? `${formatNumber(v.point_voucher)} điểm` : "Miễn phí"}</strong></div>
+                          <div>📅 <strong>{fmtDate(v.start_date)}</strong> – <strong>{fmtDate(v.end_date)}</strong></div>
+                        </div>
                         <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                           {isFree
                             ? <span style={{ fontSize:12, fontWeight:700, color:"#81c784" }}>🎁 Miễn phí</span>
@@ -393,7 +408,7 @@ export default function VoucherExchange() {
       {/* CONFIRM MODAL */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>XÁC NHẬN ĐỔI VOUCHER</Modal.Title>
+          <Modal.Title>{selected?.point_voucher > 0 ? "XÁC NHẬN ĐỔI VOUCHER" : "XÁC NHẬN NHẬN VOUCHER"}</Modal.Title>
         </Modal.Header>
 
         {selected && (
@@ -403,18 +418,27 @@ export default function VoucherExchange() {
                 className="c-gradient"
                 style={{ fontFamily:"'Bebas Neue'", fontSize:32, letterSpacing:2 }}
               >
-                {selected.discount_type==="fixed" ? `Giảm ${fmt(selected.value)}` : `Giảm ${selected.value}%`}
+                Giảm {formatVoucherDiscount(selected)}
               </div>
               <div className="c-muted" style={{ fontFamily:"'Bebas Neue'", fontSize:16, letterSpacing:3, marginTop:4 }}>
                 MÃ: {selected.Code}
               </div>
+              {selected.description && (
+                <div className="c-muted" style={{ fontSize:12, fontWeight:600, marginTop:10, lineHeight:1.6 }}>
+                  {selected.description}
+                </div>
+              )}
             </div>
 
             <div style={{ fontSize:13, lineHeight:2, fontWeight:600 }}>
               <div>🛒 Đơn tối thiểu: <span className="c-white">{fmt(selected.min_order_value)}</span></div>
+              <div>💸 Giảm tối đa: <span className="c-white">{formatMaxDiscount(selected.max_discount_amount)}</span></div>
               <div>📅 Hết hạn: <span className="c-white">{fmtDate(selected.end_date)}</span></div>
               {selected.point_voucher > 0 && (
                 <div>⭐ Chi phí: <span className="c-yellow">{formatNumber(selected.point_voucher)} điểm</span></div>
+              )}
+              {selected.point_voucher <= 0 && (
+                <div>🎁 Chi phí: <span className="c-yellow">0 điểm — nhận miễn phí</span></div>
               )}
             </div>
 
@@ -438,7 +462,7 @@ export default function VoucherExchange() {
             Hủy
           </Button>
           <Button className="btn-redeem" disabled={redeemBusy} onClick={handleRedeem}>
-            {redeemBusy ? "…" : "✓ Xác nhận đổi"}
+            {redeemBusy ? "…" : selected?.point_voucher > 0 ? "✓ Xác nhận đổi" : "✓ Nhận miễn phí"}
           </Button>
         </Modal.Footer>
       </Modal>

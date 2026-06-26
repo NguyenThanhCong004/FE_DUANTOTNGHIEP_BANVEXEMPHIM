@@ -155,7 +155,7 @@ export default function ProductManagement() {
         setOnSale(prev => [{ ...inNotOnSale, isActive: true }, ...prev]);
         showToast(`Đã thêm "${inNotOnSale.name}" vào menu rạp.`, "success");
       } else {
-        showToast(selling ? "Đã cập nhật: Còn hàng" : "Đã cập nhật: Hết hàng", "success");
+        showToast(selling ? "Đã cập nhật: Còn hàng" : "Đã cập nhật: Hết hàng — hệ thống sẽ tự bật lại lúc 7h sáng mai.", "success");
       }
     } catch {
       showToast(MESSAGES.networkError, "danger");
@@ -179,7 +179,7 @@ export default function ProductManagement() {
 
       const item = onSale.find(p => p.productId === productId) || notOnSale.find(p => p.productId === productId);
       setOnSale(prev => prev.filter(p => p.productId !== productId));
-      setNotOnSale(prev => [{ ...item, isActive: false }, ...prev]);
+      setNotOnSale(prev => [{ ...item, cinemaProductId: null, isActive: null }, ...prev]);
       showToast(`Đã gỡ "${item?.name}" khỏi menu rạp.`, "warning");
     } catch {
       showToast(MESSAGES.networkError, "danger");
@@ -268,11 +268,9 @@ export default function ProductManagement() {
                             title={inStock ? "Đang còn hàng" : "Đã hết hàng"}
                           />
                           {!inStock && (
-                            <Badge bg="danger" style={{ fontSize: '0.6rem' }}>Ngừng bán</Badge>
+                            <Badge bg="warning" text="dark" style={{ fontSize: '0.6rem' }}>Hết hàng</Badge>
                           )}
                         </div>
-                      ) : r.isActive === false ? (
-                        <Badge bg="danger" style={{ fontSize: '0.6rem' }}>Ngừng bán</Badge>
                       ) : (
                         <span className="text-muted small">—</span>
                       )}
@@ -296,12 +294,12 @@ export default function ProductManagement() {
                           <Button
                             variant="light"
                             size="sm"
-                            className={r.isActive === false ? "text-warning border shadow-sm" : "text-success border shadow-sm"}
+                            className="text-success border shadow-sm"
                             disabled={busyId === id}
                             onClick={() => toggleSelling(id, true)}
-                            title={r.isActive === false ? "Bật lại & đưa vào menu" : "Thêm vào rạp"}
+                            title="Thêm vào rạp"
                           >
-                            {busyId === id ? <Spinner animation="border" size="sm" /> : <i className={r.isActive === false ? "bi bi-arrow-counterclockwise" : "bi bi-plus-circle"} />}
+                            {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
                           </Button>
                         )}
                       </div>

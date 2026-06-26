@@ -36,7 +36,10 @@ export function SuperAdminCinemaProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    refreshCinemas();
+    const frame = requestAnimationFrame(() => {
+      void refreshCinemas();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [refreshCinemas]);
 
   const setSelectedCinemaId = useCallback((id) => {

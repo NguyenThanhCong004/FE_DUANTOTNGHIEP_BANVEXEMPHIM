@@ -3,25 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
-import { MOVIES, GENRES } from '../../constants/apiEndpoints';
+import { MOVIES, GENRES, AUTHORS, NATIONS } from '../../constants/apiEndpoints';
 import { useAdminToast } from '../../components/admin/AdminToast';
 import { fileToDataUrl, IMAGE_FILE_ACCEPT } from '../../utils/mediaFiles';
 import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
 import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
-
-const FAMOUS_NATIONS = [
-  { value: 'Việt Nam', label: 'Việt Nam' },
-  { value: 'Mỹ', label: 'Mỹ (USA)' },
-  { value: 'Hàn Quốc', label: 'Hàn Quốc' },
-  { value: 'Nhật Bản', label: 'Nhật Bản' },
-  { value: 'Trung Quốc', label: 'Trung Quốc' },
-  { value: 'Thái Lan', label: 'Thái Lan' },
-  { value: 'Pháp', label: 'Pháp' },
-  { value: 'Anh', label: 'Anh' },
-  { value: 'Ấn Độ', label: 'Ấn Độ' },
-  { value: 'Đài Loan', label: 'Đài Loan' },
-  { value: 'Hong Kong', label: 'Hong Kong' },
-];
 
 const CreateMovie = () => {
   const navigate = useNavigate();
@@ -52,12 +38,15 @@ const CreateMovie = () => {
   const [previewPoster, setPreviewPoster] = useState(null);
   const [previewBanner, setPreviewBanner] = useState(null);
   const [genreOptions, setGenreOptions] = useState([]);
+  const [authorOptions, setAuthorOptions] = useState([]);
+  const [nationOptions, setNationOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [originalDate, setOriginalDate] = useState('');
   const [originalData, setOriginalData] = useState(null);
 
   useEffect(() => {
     fetchGenres();
+    fetchMovieReferences();
   }, []);
 
   const fetchGenres = async () => {
@@ -68,6 +57,20 @@ const CreateMovie = () => {
       setGenreOptions(Array.isArray(list) ? list : []);
     } catch {
       setGenreOptions([]);
+    }
+  };
+
+  const fetchMovieReferences = async () => {
+    try {
+      const [authorRes, nationRes] = await Promise.all([apiFetch(AUTHORS.LIST), apiFetch(NATIONS.LIST)]);
+      const [authorJson, nationJson] = await Promise.all([
+        authorRes.json().catch(() => null), nationRes.json().catch(() => null),
+      ]);
+      setAuthorOptions(Array.isArray(authorJson?.data) ? authorJson.data : []);
+      setNationOptions(Array.isArray(nationJson?.data) ? nationJson.data : []);
+    } catch {
+      setAuthorOptions([]);
+      setNationOptions([]);
     }
   };
 
@@ -393,11 +396,12 @@ const CreateMovie = () => {
                     {errors.title && <small className="text-danger fw-medium">{errors.title}</small>}
                   </div>
                   <div className="col-md-4 mb-4">
-                    <label className="admin-form-label">Đạo diễn</label>
-                    <input 
-                      type="text" name="author" className="admin-search-input w-100"
-                      placeholder="Tên đạo diễn" value={formData.author} onChange={handleChange} 
-                    />
+                    <label className="admin-form-label">Tác giả / Đạo diễn</label>
+                    <select name="author" className="admin-search-input w-100" value={formData.author} onChange={handleChange}>
+                      <option value="">-- Chọn tác giả --</option>
+                      {formData.author && !authorOptions.some((a) => a.name === formData.author) && <option value={formData.author}>{formData.author}</option>}
+                      {authorOptions.filter((a) => a.status === 1).map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
+                    </select>
                   </div>
                   <div className="col-md-4 mb-4">
                     <label className="admin-form-label">Thời lượng (phút) <span className="text-danger">*</span></label>
@@ -410,10 +414,8 @@ const CreateMovie = () => {
                   <div className="col-md-4 mb-4">
                     <label className="admin-form-label">Quốc gia</label>
                     <select name="nation" className="admin-search-input w-100" value={formData.nation} onChange={handleChange}>
-                      {FAMOUS_NATIONS.map((n) => (
-                        <option key={n.value} value={n.value}>{n.label}</option>
-                      ))}
-                      <option value="Khác">Khác</option>
+                      {formData.nation && !nationOptions.some((n) => n.name === formData.nation) && <option value={formData.nation}>{formData.nation}</option>}
+                      {nationOptions.filter((n) => n.status === 1).map((n) => <option key={n.id} value={n.name}>{n.name}</option>)}
                     </select>
                   </div>
                   <div className="col-md-4 mb-4">

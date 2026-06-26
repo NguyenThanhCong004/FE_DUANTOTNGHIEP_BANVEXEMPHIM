@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
@@ -30,9 +30,9 @@ const MembershipLevelManagement = () => {
       showToast(location.state.message, location.state.type || 'success');
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
-  const fetchLevels = async () => {
+  const fetchLevels = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch(withQuery(MEMBERSHIP_RANKS.LIST, { search: searchTerm }));
@@ -56,11 +56,11 @@ const MembershipLevelManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchLevels();
-  }, [searchTerm]);
+  }, [fetchLevels]);
 
   const filteredLevels = levels
     .sort((a, b) => {

@@ -24,6 +24,8 @@ export const USERS = {
 
 export const STAFF = {
   LIST: `${API_V1}/staff`,
+  ME: `${API_V1}/staff/me`,
+  ME_PASSWORD: `${API_V1}/staff/me/password`,
   SUPER_ADMIN_VIEW: `${API_V1}/staff/super-admin-view`,
   BY_ID: (id) => `${API_V1}/staff/${id}`,
   /** PUT body: { currentPassword, newPassword } — chỉ đổi mật khẩu của chính mình */
@@ -58,6 +60,16 @@ export const MOVIES = {
   REVIEWS: (id) => `${API_V1}/movies/${id}/reviews`,
   /** GET — danh sách URL ảnh banner (phim đang chiếu, ưu tiên doanh thu vé) */
   HOME_BANNERS: `${API_V1}/movies/home-banners`,
+};
+
+export const AUTHORS = {
+  LIST: `${API_V1}/authors`,
+  BY_ID: (id) => `${API_V1}/authors/${id}`,
+};
+
+export const NATIONS = {
+  LIST: `${API_V1}/nations`,
+  BY_ID: (id) => `${API_V1}/nations/${id}`,
 };
 
 export const SHOWTIMES = {
@@ -112,6 +124,7 @@ export const TICKET_ORDERS = {
   CHECKOUT: `${API_V1}/ticket-orders/checkout`,
   CONFIRM_PAYOS: `${API_V1}/ticket-orders/confirm-payos`,
   CANCEL_PENDING: `${API_V1}/ticket-orders/cancel-pending`,
+  QR: (qrToken) => `${API_V1}/ticket-orders/qr/${encodeURIComponent(qrToken || "")}`,
 };
 
 /** Đặt bắp nước riêng — JWT khách, PayOS */
@@ -127,6 +140,8 @@ export const COUNTER_ORDERS = {
   CHECK_STATUS: (orderCode) => `${API_V1}/counter-orders/${orderCode}/status`,
   CONFIRM_PAID: (orderCode) => `${API_V1}/counter-orders/${orderCode}/confirm-paid`,
   CANCEL: (orderCode) => `${API_V1}/counter-orders/${orderCode}/cancel`,
+  RECEIPT_BARCODE: (receiptToken) => `${API_V1}/counter-orders/receipt-barcode/${encodeURIComponent(receiptToken)}`,
+  PAYMENT_QR: (qrCode) => `${API_V1}/counter-orders/payment-qr?data=${encodeURIComponent(qrCode || "")}`,
 };
 
 export const VOUCHERS = {

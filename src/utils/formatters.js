@@ -38,7 +38,7 @@ export function formatPercent(value, fallback = EMPTY_TEXT) {
 export function formatDate(value, options = {}) {
   const date = toValidDate(value);
   if (!date) return options.fallback ?? EMPTY_TEXT;
-  const { fallback, ...dateOptions } = options;
+  const { fallback: _fallback, ...dateOptions } = options;
   if (Object.keys(dateOptions).length === 0) {
     const dd = String(date.getDate()).padStart(2, "0");
     const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -50,7 +50,7 @@ export function formatDate(value, options = {}) {
 export function formatDateTime(value, options = {}) {
   const date = toValidDate(value);
   if (!date) return options.fallback ?? EMPTY_TEXT;
-  const { fallback, ...dateOptions } = options;
+  const { fallback: _fallback, ...dateOptions } = options;
   if (Object.keys(dateOptions).length === 0) {
     const dd = String(date.getDate()).padStart(2, "0");
     const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -65,7 +65,7 @@ export function formatDateTime(value, options = {}) {
 export function formatTime(value, options = {}) {
   const date = toValidDate(value);
   if (!date) return options.fallback ?? EMPTY_TEXT;
-  const { fallback, ...timeOptions } = options;
+  const { fallback: _fallback, ...timeOptions } = options;
   return date.toLocaleTimeString(VI_LOCALE, {
     hour: "2-digit",
     minute: "2-digit",

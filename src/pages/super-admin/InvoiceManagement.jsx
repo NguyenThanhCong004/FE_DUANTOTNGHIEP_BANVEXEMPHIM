@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch, withQuery } from "../../utils/apiClient";
 import { ORDERS_ONLINE } from "../../constants/apiEndpoints";
@@ -46,7 +46,7 @@ const GlobalInvoiceManagement = () => {
   };
 
   // Fetch dữ liệu và sắp xếp mới nhất lên đầu
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch(withQuery(ORDERS_ONLINE.LIST, { search: searchTerm }));
@@ -63,11 +63,11 @@ const GlobalInvoiceManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchOrders();
-  }, [searchTerm]);
+  }, [fetchOrders]);
 
   // Xử lý xuất PDF trực tiếp có lề 15mm
   const handleDownloadPDF = async () => {

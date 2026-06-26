@@ -29,7 +29,7 @@ const SeatTypeManagement = () => {
       showToast(location.state.message, location.state.type || "success");
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
   useEffect(() => {
     let mounted = true;

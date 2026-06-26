@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Spinner } from "react-bootstrap";
+import { Button, Modal, Spinner } from "react-bootstrap";
 import Layout from "../../components/layout/Layout";
 import { apiFetch } from "../../utils/apiClient";
 import { SHOWTIMES, SEATS, TICKET_ORDERS, CINEMAS, SHOWTIME_SEAT_HOLDS, SEAT_TYPES, ME } from "../../constants/apiEndpoints";
@@ -218,6 +218,7 @@ const Booking = () => {
   const [selectedSeatIds, setSelectedSeatIds] = useState([]);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState(null);
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [seatSelectionError, setSeatSelectionError] = useState(null);
   const [snackProducts, setSnackProducts] = useState([]);
   const [snackMenuError, setSnackMenuError] = useState(null);
@@ -261,7 +262,7 @@ const Booking = () => {
     let minRow = ROWS, maxRow = 0, minCol = COLS, maxCol = 0;
     for (let i = 0; i < seatGrid.length; i++) {
       const cell = seatGrid[i];
-      if (isPlacedSeat(cell)) {
+      if (isPlacedSeat(cell) || cell?.type === "OccupiedByDouble") {
         if (cell.rowIdx < minRow) minRow = cell.rowIdx;
         if (cell.rowIdx > maxRow) maxRow = cell.rowIdx;
         if (cell.colIdx < minCol) minCol = cell.colIdx;
@@ -303,8 +304,8 @@ const Booking = () => {
   // Calculate dynamic sizes based on zoom
   const seatSize = Math.round(32 * zoomLevel);
   const doubleSeatSize = Math.round(68 * zoomLevel);
-  const gapSize = Math.round(4 * zoomLevel);
-  const paddingSize = Math.round(20 * zoomLevel);
+  const gapSize = Math.max(3, Math.round(3 * zoomLevel));
+  const paddingSize = Math.round(14 * zoomLevel);
   const fontSize = Math.round(10 * zoomLevel);
 
   const peerHeldSet = useMemo(() => {
@@ -535,7 +536,14 @@ const Booking = () => {
     if (peerHeldSet.has(id)) return;
     if (seat.status === "locked" || seat.status === "maintenance") return; // Không cho chọn ghế bị khóa/bảo trì
 
-    const nextSelected = selectedSeatIds.includes(id) ? selectedSeatIds.filter((x) => x !== id) : [...selectedSeatIds, id];
+    const alreadySelected = selectedSeatIds.includes(id);
+    const nextSelected = alreadySelected ? selectedSeatIds.filter((x) => x !== id) : [...selectedSeatIds, id];
+    if (alreadySelected) {
+      setSeatSelectionError(null);
+      setPayError(null);
+      setSelectedSeatIds(nextSelected);
+      return;
+    }
     const blocked = new Set([...bookedSet, ...peerHeldSet, ...nextSelected]);
     const check = checkNoSingleSeatOrphanInRows(seats, blocked);
     if (!check.ok) {
@@ -585,6 +593,8 @@ const Booking = () => {
   const grandTotal = quote?.finalAmount != null
     ? Number(quote.finalAmount || 0)
     : (computedSubtotalFallback - voucherDiscount);
+  const payableAmount = Math.max(0, Math.round(Number(grandTotal || 0)));
+  const isFreeCheckout = payableAmount <= 0;
   const ticketSummaryTotal = quote?.ticketTotal != null
     ? Number(quote.ticketTotal || 0)
     : seatPriceTotal;
@@ -655,6 +665,19 @@ const Booking = () => {
   // Load user vouchers when logged in
   useEffect(() => {
     if (!getAccessToken()) return;
+
+    const isVoucherUsable = (row) => {
+      if (row?.status !== 1) return false;
+      const voucher = row.voucher || {};
+      const voucherStatus = Number(voucher.status ?? 1);
+      if (voucherStatus === 0 || voucherStatus === 3) return false;
+      const now = new Date();
+      const start = voucher.startDate ? new Date(`${String(voucher.startDate).slice(0, 10)}T00:00:00`) : null;
+      const end = voucher.endDate ? new Date(`${String(voucher.endDate).slice(0, 10)}T23:59:59`) : null;
+      if (start && start > now) return false;
+      if (end && end < now) return false;
+      return true;
+    };
     
     const loadVouchers = async () => {
       setVoucherLoading(true);
@@ -662,8 +685,8 @@ const Booking = () => {
         const res = await apiFetch(ME.VOUCHERS);
         const json = await res.json().catch(() => null);
         if (res.ok && json?.data) {
-          // Filter only unused vouchers (status === 1)
-          const available = json.data.filter(v => v.status === 1);
+          // Chỉ hiện voucher chưa dùng và còn hiệu lực.
+          const available = json.data.filter(isVoucherUsable);
           setUserVouchers(available);
         }
       } catch (err) {
@@ -822,6 +845,20 @@ const Booking = () => {
 
   const movieLink = showtime?.movieId ? `/movie/${showtime.movieId}` : "/movies";
 
+  const handleOpenPaymentConfirm = () => {
+    if (selectedSeatIds.length === 0 || showEnded) return;
+    setPayError(null);
+    if (!getAccessToken()) {
+      navigate("/login", { state: { from: `/booking/${showtimeId}` } });
+      return;
+    }
+    if (quoteLoading) {
+      setPayError("Hệ thống đang tính lại giá, vui lòng chờ một chút.");
+      return;
+    }
+    setShowPaymentConfirm(true);
+  };
+
   const handleCheckoutPayOS = async () => {
     if (selectedSeatIds.length === 0 || showEnded) return;
     setPayError(null);
@@ -829,6 +866,7 @@ const Booking = () => {
       navigate("/login", { state: { from: `/booking/${showtimeId}` } });
       return;
     }
+    setShowPaymentConfirm(false);
     setPaying(true);
     const origin = window.location.origin;
     try {
@@ -863,6 +901,21 @@ const Booking = () => {
       }
       if (!res.ok) {
         setPayError(body?.message || "Không tạo được link thanh toán");
+        return;
+      }
+      if (Number(body?.data?.amountVnd ?? payableAmount) <= 0) {
+        try {
+          sessionStorage.removeItem("payos_pending_order_code");
+          sessionStorage.removeItem("payos_pending_kind");
+        } catch {
+          /* ignore */
+        }
+        const orderId = body?.data?.orderOnlineId;
+        const orderCode = body?.data?.payosOrderCode;
+        const query = new URLSearchParams({ free: "1" });
+        if (orderId != null) query.set("orderId", String(orderId));
+        if (orderCode != null) query.set("orderCode", String(orderCode));
+        navigate(`/payment/success?${query.toString()}`, { replace: true });
         return;
       }
       const checkoutUrl = body?.data?.payos?.checkoutUrl;
@@ -1499,7 +1552,7 @@ const Booking = () => {
                           <option value="">Không dùng voucher</option>
                           {userVouchers.map((v) => (
                             <option key={v.userVoucherId} value={v.userVoucherId}>
-                              {v.voucher?.code || "Voucher"} - {v.voucher?.discountType === "PERCENT" || v.voucher?.discountType === "%"
+                              {v.voucher?.code || "Voucher"} - {String(v.voucher?.discountType || "PERCENT").toUpperCase() !== "FIXED"
                                 ? `Giảm ${v.voucher?.value}%`
                                 : `Giảm ${formatVnd(v.voucher?.value)}`}
                               {v.voucher?.minOrderValue > 0 && `, đơn từ ${formatVnd(v.voucher.minOrderValue)}`}
@@ -1546,19 +1599,25 @@ const Booking = () => {
                 {payError ? <div className="alert alert-warning small py-2 mb-3 border-0">{payError}</div> : null}
                 <button
                   type="button"
-                  disabled={selectedSeatIds.length === 0 || showEnded || paying}
+                  disabled={selectedSeatIds.length === 0 || showEnded || paying || quoteLoading}
                   className={`btn btn-gradient w-100 rounded-pill py-3 fw-bold shadow-lg ${selectedSeatIds.length === 0 || showEnded ? "disabled opacity-50" : ""}`}
-                  onClick={handleCheckoutPayOS}
+                  onClick={handleOpenPaymentConfirm}
                 >
                   {paying ? (
                     <>
                       <Spinner animation="border" size="sm" className="me-2" />
-                      Đang tạo link...
+                      {isFreeCheckout ? "Đang hoàn tất..." : "Đang tạo link..."}
                     </>
+                  ) : quoteLoading ? (
+                    "Đang tính lại giá..."
                   ) : showEnded ? (
                     "Suất chiếu đã kết thúc"
                   ) : selectedSeatIds.length === 0 ? (
                     "Chọn ghế để tiếp tục"
+                  ) : isFreeCheckout ? (
+                    <>
+                      Xác nhận đặt vé 0đ <i className="fas fa-check-circle ms-2" />
+                    </>
                   ) : (
                     <>
                       Thanh toán PayOS <i className="fas fa-qrcode ms-2" />
@@ -1568,6 +1627,82 @@ const Booking = () => {
                 <p className="small text-white-50 text-center mt-2 mb-0">
                   Vé và bắp nước được thanh toán chung trong một giao dịch.
                 </p>
+
+                <Modal
+                  show={showPaymentConfirm}
+                  onHide={() => !paying && setShowPaymentConfirm(false)}
+                  centered
+                  contentClassName="border-0 rounded-4 overflow-hidden"
+                >
+                  <Modal.Header closeButton style={{ background: "#12133a", color: "#fff", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                    <Modal.Title className="fw-bold">
+                      Xác nhận đặt vé
+                    </Modal.Title>
+                  </Modal.Header>
+                  <Modal.Body style={{ background: "#12133a", color: "rgba(255,255,255,0.82)" }}>
+                    <div className="d-flex flex-column gap-3">
+                      <div className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <div className="small text-white-50 mb-1">Phim</div>
+                        <div className="fw-bold text-white">{showtime?.movieTitle || "Suất chiếu đã chọn"}</div>
+                        <div className="small mt-1" style={{ color: "rgba(255,255,255,0.62)" }}>
+                          {showtime?.cinemaName ? `${showtime.cinemaName} • ` : ""}
+                          {showtime?.roomName ? `${showtime.roomName} • ` : ""}
+                          {showtime?.startTime ? new Date(showtime.startTime).toLocaleString("vi-VN") : ""}
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-4" style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <div className="d-flex justify-content-between gap-3 small mb-2">
+                          <span>Ghế</span>
+                          <strong className="text-white">{selectedSeatSummaries.map((s) => s.label).join(", ")}</strong>
+                        </div>
+                        <div className="d-flex justify-content-between gap-3 small mb-2">
+                          <span>Tổng vé + bắp nước</span>
+                          <strong className="text-white">{formatVnd(summarySubtotal)}</strong>
+                        </div>
+                        {selectedVoucher ? (
+                          <div className="d-flex justify-content-between gap-3 small mb-2" style={{ color: "#8ee6a8" }}>
+                            <span>Voucher {selectedVoucher.voucher?.code ? `(${selectedVoucher.voucher.code})` : ""}</span>
+                            <strong>-{formatVnd(voucherDiscount)}</strong>
+                          </div>
+                        ) : null}
+                        <div className="d-flex justify-content-between align-items-end gap-3 pt-3 border-top border-white border-opacity-10">
+                          <span className="fw-bold text-white">Cần thanh toán</span>
+                          <h4 className="m-0 fw-black" style={{ color: isFreeCheckout ? "#8ee6a8" : "#ff4d6d" }}>
+                            {formatVnd(payableAmount)}
+                          </h4>
+                        </div>
+                      </div>
+
+                      {isFreeCheckout ? (
+                        <div className="small rounded-3 p-3" style={{ background: "rgba(142,230,168,0.1)", color: "#9fe6b8", border: "1px solid rgba(142,230,168,0.22)" }}>
+                          Tổng tiền còn 0đ nên hệ thống sẽ hoàn tất đặt vé ngay, không chuyển sang PayOS.
+                        </div>
+                      ) : (
+                        <div className="small rounded-3 p-3" style={{ background: "rgba(255,209,102,0.1)", color: "#ffd166", border: "1px solid rgba(255,209,102,0.22)" }}>
+                          Sau khi xác nhận, bạn sẽ được chuyển sang PayOS để thanh toán.
+                        </div>
+                      )}
+                    </div>
+                  </Modal.Body>
+                  <Modal.Footer style={{ background: "#12133a", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                    <Button variant="link" className="text-white-50 text-decoration-none fw-bold" disabled={paying} onClick={() => setShowPaymentConfirm(false)}>
+                      Kiểm tra lại
+                    </Button>
+                    <Button className="btn-gradient rounded-pill px-4 fw-bold border-0" disabled={paying} onClick={handleCheckoutPayOS}>
+                      {paying ? (
+                        <>
+                          <Spinner animation="border" size="sm" className="me-2" />
+                          Đang xử lý...
+                        </>
+                      ) : isFreeCheckout ? (
+                        "Hoàn tất đặt vé"
+                      ) : (
+                        "Xác nhận thanh toán"
+                      )}
+                    </Button>
+                  </Modal.Footer>
+                </Modal>
               </div>
             </div>
           </div>

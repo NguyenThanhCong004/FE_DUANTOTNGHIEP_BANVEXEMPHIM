@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import { useAdminToast } from '../../components/admin/AdminToast';
@@ -31,9 +31,9 @@ const CinemaManagement = () => {
       showToast(location.state.message, location.state.type || 'success');
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, showToast]);
 
-  const fetchCinemas = async () => {
+  const fetchCinemas = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiFetch(withQuery(CINEMAS.LIST, { search: searchTerm }));
@@ -53,11 +53,11 @@ const CinemaManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchCinemas();
-  }, [searchTerm]);
+  }, [fetchCinemas]);
 
   const handleDeleteCinema = async (cinema) => {
     try {
