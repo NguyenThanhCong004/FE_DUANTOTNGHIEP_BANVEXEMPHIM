@@ -1,19 +1,19 @@
 import React, { useEffect, useMemo } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  Armchair,
+  LayoutDashboard,
+  UserRound,
   CalendarClock,
   DoorOpen,
+  Armchair,
   Film,
-  LayoutDashboard,
-  LogOut,
-  Megaphone,
   Package,
+  Megaphone,
   ReceiptText,
-  UserCircle,
-  UserRound,
   Users,
+  UserCircle,
 } from "lucide-react";
+
 import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "./useSuperAdminCinema";
 import CinemaPicker from "./CinemaPicker";
@@ -150,7 +150,7 @@ export default function AdminLayout() {
         <div className="app-shell-brand">
           <div className="app-shell-brand-dot" />
           <div>
-            <div className="app-shell-brand-title">ERROR404</div>
+            <div className="app-shell-brand-title">MovieZone</div>
             <div className="app-shell-brand-sub">Quản trị rạp</div>
           </div>
         </div>
@@ -197,7 +197,6 @@ export default function AdminLayout() {
               className="app-shell-logout-btn app-shell-logout-btn--header"
               onClick={handleLogout}
             >
-              <LogOut size={16} />
               <span>Đăng xuất</span>
             </button>
           </div>

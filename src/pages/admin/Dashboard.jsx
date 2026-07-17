@@ -221,7 +221,6 @@ const AdminDashboard = () => {
                 }}
               >
                 <div className="admin-stat-icon">
-                  <i className={`bi ${stat.icon}`}></i>
                 </div>
                 <div className="admin-stat-value">{stat.value}</div>
                 <div className="admin-stat-label">{stat.subtitle}</div>
@@ -238,7 +237,6 @@ const AdminDashboard = () => {
               <div className="admin-card admin-slide-up">
                 <div className="admin-card-header">
                   <h4>
-                    <i className="bi bi-lightning-charge me-2 text-warning"></i>
                     Truy cập nhanh
                   </h4>
                 </div>
@@ -250,7 +248,6 @@ const AdminDashboard = () => {
                           to={q.to}
                           className="admin-btn admin-btn-outline w-100 d-flex align-items-center justify-content-center gap-2 py-3 text-decoration-none"
                         >
-                          <i className={`bi ${q.icon}`}></i>
                           <span>{q.label}</span>
                         </Link>
                       </Col>
@@ -263,7 +260,6 @@ const AdminDashboard = () => {
               <div className="admin-card">
                 <div className="admin-card-header">
                   <h4>
-                    <i className="bi bi-tags me-2 text-info"></i>
                     Khuyến mãi tại rạp
                   </h4>
                 </div>

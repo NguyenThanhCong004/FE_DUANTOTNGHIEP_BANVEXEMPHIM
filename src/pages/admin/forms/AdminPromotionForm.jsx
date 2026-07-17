@@ -1,15 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Form, Button, Row, Col, Card, Badge, InputGroup, Alert, Spinner } from "react-bootstrap";
-import {
-  ArrowLeft,
-  Film,
-  Calendar,
-  Percent,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-} from "lucide-react";
+
 import { getStoredStaff } from "../../../utils/authStorage";
 import { apiFetch } from "../../../utils/apiClient";
 import { MOVIES, PROMOTIONS } from "../../../constants/apiEndpoints";
@@ -116,7 +108,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
           const eligibleMovies = list.map(m => ({
             id: normalizeMovieId(m.id),
             title: m.title,
-            genre: m.genre,
+            genres: m.genres,
             duration: m.duration
           }));
           const eligibleIds = new Set(eligibleMovies.map((m) => m.id));
@@ -266,7 +258,6 @@ export default function AdminPromotionForm({ mode = "add" }) {
 
       <div className="d-flex align-items-center gap-3 mb-4">
         <Button variant="light" className="rounded-circle p-2 shadow-sm" onClick={() => navigate(`${prefix}/promotions`)}>
-          <ArrowLeft size={20} />
         </Button>
         <div>
           <h3 className="mb-0 fw-bold">{isEdit ? `Chỉnh sửa khuyến mãi #${id}` : "Tạo khuyến mãi rạp"}</h3>
@@ -281,7 +272,6 @@ export default function AdminPromotionForm({ mode = "add" }) {
               <Row>
                 <Col md={5} className="border-end pe-md-4">
                   <div className="d-flex align-items-center gap-2 mb-3 text-primary">
-                    <Info size={20} />
                     <h5 className="fw-bold mb-0">Thông tin ưu đãi</h5>
                   </div>
 
@@ -308,13 +298,12 @@ export default function AdminPromotionForm({ mode = "add" }) {
                         value={formData.discount_percent}
                         onChange={handleInputChange}
                       />
-                      <InputGroup.Text className="bg-light border-start-0 rounded-end-3"><Percent size={16} /></InputGroup.Text>
+                      <InputGroup.Text className="bg-light border-start-0 rounded-end-3"></InputGroup.Text>
                     </InputGroup>
                     {errors.discount_percent && <div className="text-danger" style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold' }}>{errors.discount_percent}</div>}
                   </Form.Group>
 
                   <div className="d-flex align-items-center gap-2 mb-3 text-primary">
-                    <Calendar size={20} />
                     <h5 className="fw-bold mb-0">Thời hạn áp dụng</h5>
                   </div>
 
@@ -352,7 +341,6 @@ export default function AdminPromotionForm({ mode = "add" }) {
                 <Col md={7} className="ps-md-4 mt-4 mt-md-0">
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <div className="d-flex align-items-center gap-2 text-primary">
-                      <Film size={20} />
                       <h5 className="fw-bold mb-0">Chọn phim áp dụng</h5>
                     </div>
                     {movies.length > 0 && (
@@ -381,7 +369,6 @@ export default function AdminPromotionForm({ mode = "add" }) {
                               className={`movie-badge-item px-3 py-2 rounded-pill fw-normal d-flex align-items-center gap-2 ${selected ? "selected" : ""}`}
                               onClick={() => toggleMovieSelection(movie.id)}
                             >
-                              {selected && <CheckCircle2 size={14} />}
                               {movie.title}
                             </Badge>
                           );

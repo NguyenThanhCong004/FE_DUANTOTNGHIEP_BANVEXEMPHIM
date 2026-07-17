@@ -42,7 +42,6 @@ const AdminPagination = ({
           disabled={currentPage === 1}
           aria-label="Trang trước"
         >
-          <i className="bi bi-chevron-left"></i>
         </button>
         {pages.map((page, idx) =>
           page === "..." ? (
@@ -71,7 +70,6 @@ const AdminPagination = ({
           disabled={currentPage === totalPages}
           aria-label="Trang sau"
         >
-          <i className="bi bi-chevron-right"></i>
         </button>
       </div>
     </div>

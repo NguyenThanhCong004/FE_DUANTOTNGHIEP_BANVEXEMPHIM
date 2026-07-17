@@ -105,7 +105,6 @@ export default function EditUser() {
     <div className="text-dark">
       <div className="d-flex align-items-center gap-3 mb-4">
         <Button variant="link" className="p-0 text-dark" onClick={() => navigate(`${prefix}/users`)}>
-          <i className="bi bi-arrow-left fs-4"></i>
         </Button>
         <h2 className="mb-0 fw-bold">Cập nhật thông tin khách hàng</h2>
       </div>
@@ -113,7 +112,6 @@ export default function EditUser() {
       <Card className="border-0 shadow-sm p-4" style={{ borderRadius: 18 }}>
         <Form onSubmit={submit}>
           <div className="alert alert-info py-2 px-3 small border-0 mb-4 shadow-xs">
-            <i className="bi bi-info-circle-fill me-2"></i>
             Thông tin cá nhân của khách hàng chỉ được xem ở chế độ đọc. Bạn chỉ có quyền thay đổi trạng thái hoạt động của tài khoản.
           </div>
 

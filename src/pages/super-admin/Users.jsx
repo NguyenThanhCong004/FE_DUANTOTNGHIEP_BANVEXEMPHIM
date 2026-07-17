@@ -120,8 +120,6 @@ const UserManagement = () => {
 
           <h4 className="mb-0 d-flex align-items-center gap-2">
 
-            <i className="bi bi-list-ul text-primary"></i>
-
             Danh sách khách hàng
 
           </h4>
@@ -133,8 +131,6 @@ const UserManagement = () => {
         <div className="admin-card-body">
 
           <div className="admin-search-wrapper mb-4" style={{ maxWidth: 420 }}>
-
-            <i className="bi bi-search admin-search-icon"></i>
 
             <input
 
@@ -248,9 +244,9 @@ const UserManagement = () => {
 
                           <div className="small">
 
-                            <div><i className="bi bi-envelope me-1"></i> {user.email}</div>
+                            <div> {user.email}</div>
 
-                            <div><i className="bi bi-telephone me-1"></i> {user.phone || 'N/A'}</div>
+                            <div> {user.phone || 'N/A'}</div>
 
                           </div>
 
@@ -278,8 +274,6 @@ const UserManagement = () => {
 
                             >
 
-                              <i className="bi bi-eye"></i>
-
                             </button>
 
                             <button
@@ -289,8 +283,6 @@ const UserManagement = () => {
                               onClick={() => handleEditUser(user)}
 
                             >
-
-                              <i className="bi bi-pencil"></i>
 
                             </button>
 
@@ -339,9 +331,9 @@ const UserManagement = () => {
 
             <div className="admin-modal-header">
 
-              <h3><i className="bi bi-person-badge me-2 text-primary"></i>Chi tiết khách hàng</h3>
+              <h3>Chi tiết khách hàng</h3>
 
-              <button className="admin-modal-close" onClick={() => setShowModal(false)}><i className="bi bi-x-lg"></i></button>
+              <button className="admin-modal-close" onClick={() => setShowModal(false)}></button>
 
             </div>
 
@@ -382,8 +374,6 @@ const UserManagement = () => {
                     <div className="small text-muted mb-1">Hạng thành viên</div>
 
                     <div className="fw-bold text-primary">
-
-                      <i className="bi bi-star-fill me-1 text-warning"></i>
 
                       {selectedItem.rankName || "Hạng đồng"}
 
@@ -491,9 +481,7 @@ const UserManagement = () => {
 
                 }}
 
-              >
-
-                <i className="bi bi-pencil-square me-2"></i>Chỉnh sửa
+              >Chỉnh sửa
 
               </button>
 

@@ -4,7 +4,7 @@ import { Spinner } from "react-bootstrap";
 import Layout from "../../components/layout/Layout";
 import EmptyState from "../../components/common/EmptyState";
 import { apiFetch } from "../../utils/apiClient";
-import { MOVIES, CINEMAS, SHOWTIMES, ME } from "../../constants/apiEndpoints";
+import { MOVIES, CINEMAS, SHOWTIMES, SEATS, ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { releaseDateToYmd } from "../../utils/movieApiMap";
 
@@ -26,6 +26,7 @@ function normalizeShowtime(st) {
   return {
     id, date: st.date, time: st.time, movieId,
     movieTitle: st.movie_title ?? st.movieTitle,
+    roomId: st.room_id ?? st.roomId,
     roomName: st.room_name ?? st.roomName,
     status: st.status,
     price: st.price != null ? Number(st.price) : null,
@@ -301,16 +302,64 @@ const MovieDetail = () => {
     });
   }, [showtimes, selectedDateYmd, todayYmd, maxDateYmd]);
 
+  // Gộp các suất chiếu trùng giờ (khác phòng) thành 1 ô — khách không thấy số phòng.
+  const showtimeSlots = useMemo(() => {
+    const byTime = new Map();
+    for (const s of showtimesForSelectedDate) {
+      const key = String(s.time || "").slice(0, 5);
+      if (!byTime.has(key)) byTime.set(key, []);
+      byTime.get(key).push(s);
+    }
+    return [...byTime.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([time, group]) => ({ time, group }));
+  }, [showtimesForSelectedDate]);
+
+  const [resolvingSlotTime, setResolvingSlotTime] = useState(null);
+
+  const handleBookSlot = async (slot) => {
+    // Chỉ 1 suất trong ô này — đặt vé thẳng như cũ.
+    if (slot.group.length === 1) {
+      navigate(`/booking/${slot.group[0].id}`);
+      return;
+    }
+    // Nhiều phòng cùng giờ — tự tìm phòng đầu tiên còn ghế trống, khách không cần biết là phòng nào.
+    setResolvingSlotTime(slot.time);
+    try {
+      for (const candidate of slot.group) {
+        try {
+          const [stRes, seatRes] = await Promise.all([
+            apiFetch(SHOWTIMES.BY_ID(candidate.id)),
+            apiFetch(SEATS.BY_ROOM(candidate.roomId)),
+          ]);
+          if (!stRes.ok || !seatRes.ok) continue;
+          const stBody = await stRes.json().catch(() => null);
+          const seatBody = await seatRes.json().catch(() => null);
+          const bookedIds = Array.isArray(stBody?.data?.bookedSeatIds) ? stBody.data.bookedSeatIds : [];
+          const totalSeats = Array.isArray(seatBody?.data) ? seatBody.data.length : 0;
+          if (totalSeats > 0 && bookedIds.length < totalSeats) {
+            navigate(`/booking/${candidate.id}`);
+            return;
+          }
+        } catch {
+          // thử phòng kế tiếp
+        }
+      }
+      alert("Suất chiếu này đã hết ghế ở tất cả các phòng, vui lòng chọn suất khác.");
+    } finally {
+      setResolvingSlotTime(null);
+    }
+  };
+
   const poster = movie?.posterUrl || movie?.poster || "";
   const isStopped = movie && movie.status !== 1;
 
   const metaLine = useMemo(() => {
     if (!movie) return "";
     const parts = [];
-    if (movie.genre) parts.push(movie.genre);
+    if (movie.genres?.length) parts.push(movie.genres.join(", "));
     if (movie.duration) parts.push(`${movie.duration} phút`);
     if (movie.ageLimit != null) parts.push(`T${movie.ageLimit}`);
-    if (movie.nation) parts.push(movie.nation);
     return parts.join(" · ");
   }, [movie]);
 
@@ -930,12 +979,6 @@ const MovieDetail = () => {
                     <span className="md-info-label">Khởi chiếu:</span>
                     <span className="md-info-value accent">{formatReleaseLabel(movie.releaseDate)}</span>
                   </div>
-                  {movie.author && (
-                    <div className="md-info-row">
-                      <span className="md-info-label">Đạo diễn:</span>
-                      <span className="md-info-value">{movie.author}</span>
-                    </div>
-                  )}
                   {movie.description && (
                     <div style={{ marginBottom: 16 }}>
                       <p className="md-section-label">Giới thiệu</p>
@@ -1030,24 +1073,29 @@ const MovieDetail = () => {
                         <span className="md-step-label">Bước 3 — Suất chiếu</span>
                         {!selectedDateYmd ? (
                           <p className="md-hint-text">Chọn một ngày ở trên.</p>
-                        ) : showtimesForSelectedDate.length === 0 ? (
+                        ) : showtimeSlots.length === 0 ? (
                           <p className="md-hint-text">Không có suất trong ngày này.</p>
                         ) : (
                           <div className="md-slots-grid">
-                            {showtimesForSelectedDate.map((s) => {
-                              const ended = s.status === "Đã chiếu";
+                            {showtimeSlots.map((slot) => {
+                              const isMerged = slot.group.length > 1;
+                              const anyActive = slot.group.some((s) => s.status !== "Đã chiếu");
+                              const resolving = resolvingSlotTime === slot.time;
                               return (
-                                <div key={s.id} className={`md-slot-card${ended ? " ended" : ""}`}>
-                                  <div className="md-slot-time">{s.time || "—"}</div>
-                                  <div className="md-slot-room">{s.roomName || "Phòng"}</div>
-                                  {/* Ẩn trạng thái */}
-                                  {/* <span className={`md-slot-badge ${badgeClass}`}>{s.status || "—"}</span> */}
-                                  {ended
+                                <div key={slot.time} className={`md-slot-card${!anyActive ? " ended" : ""}`}>
+                                  <div className="md-slot-time">{slot.time || "—"}</div>
+                                  {!isMerged && <div className="md-slot-room">{slot.group[0].roomName || "Phòng"}</div>}
+                                  {!anyActive
                                     ? <p className="md-hint-text" style={{ marginTop: "auto" }}>Hết suất</p>
                                     : (
-                                      <Link to={`/booking/${s.id}`} className="md-book-btn">
-                                        Đặt vé
-                                      </Link>
+                                      <button
+                                        type="button"
+                                        className="md-book-btn"
+                                        disabled={resolving}
+                                        onClick={() => handleBookSlot(slot)}
+                                      >
+                                        {resolving ? "Đang kiểm tra..." : "Đặt vé"}
+                                      </button>
                                     )
                                   }
                                 </div>

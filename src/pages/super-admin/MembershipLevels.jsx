@@ -114,7 +114,6 @@ const MembershipLevelManagement = () => {
           style={{ background: "white", color: "#6366f1" }}
           onClick={() => navigate("/super-admin/membership-levels/create")}
         >
-          <i className="bi bi-plus-lg me-2"></i>
           Thêm mức độ mới
         </button>
       }
@@ -123,7 +122,6 @@ const MembershipLevelManagement = () => {
         {/* Search Bar */}
         <div className="d-flex flex-wrap gap-3 mb-4">
           <div className="admin-search-wrapper" style={{ maxWidth: '400px', flex: '1' }}>
-            <i className="bi bi-search admin-search-icon"></i>
             <input 
               type="text" 
               className="admin-search-input"
@@ -143,7 +141,6 @@ const MembershipLevelManagement = () => {
           </div>
         ) : currentItems.length === 0 ? (
           <div className="admin-empty">
-            <i className="bi bi-award admin-empty-icon"></i>
             <p>Chưa có hạng thành viên nào</p>
           </div>
         ) : (
@@ -204,9 +201,7 @@ const MembershipLevelManagement = () => {
                               setShowModal(true);
                             }}
                             title="Xem chi tiết"
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
+                          >Xem</button>
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-primary"
                             onClick={() => navigate("/super-admin/membership-levels/create", { state: { editData: level } })}
@@ -214,7 +209,6 @@ const MembershipLevelManagement = () => {
                             disabled={level.is_default}
                             style={level.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                           >
-                            <i className="bi bi-pencil"></i>
                           </button>
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-danger"
@@ -227,7 +221,6 @@ const MembershipLevelManagement = () => {
                             disabled={level.is_default}
                             style={level.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                           >
-                            <i className="bi bi-trash"></i>
                           </button>
                         </div>
                       </td>
@@ -255,11 +248,9 @@ const MembershipLevelManagement = () => {
           <div className="admin-modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>
-                <i className="bi bi-award me-2"></i>
                 Chi tiết hạng thành viên
               </h3>
               <button className="admin-modal-close" onClick={() => setShowModal(false)}>
-                <i className="bi bi-x-lg"></i>
               </button>
             </div>
             <div className="admin-modal-body">
@@ -321,7 +312,6 @@ const MembershipLevelManagement = () => {
                 style={selectedItem.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                 title={selectedItem.is_default ? "Không thể sửa hạng mặc định" : "Chỉnh sửa hạng"}
               >
-                <i className="bi bi-pencil me-2"></i>
                 Chỉnh sửa hạng
               </button>
             </div>
@@ -335,7 +325,6 @@ const MembershipLevelManagement = () => {
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa hạng
               </h3>
               <button type="button" className="admin-modal-close" onClick={closeDeleteModal}>
@@ -350,12 +339,10 @@ const MembershipLevelManagement = () => {
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}
               <p className="text-muted small mb-0">
-                <i className="bi bi-info-circle me-1"></i>
                 Hành động này có thể ảnh hưởng đến hạng hội viên của khách hàng hiện tại. Cân nhắc kỹ trước khi thực hiện.
               </p>
             </div>
@@ -372,7 +359,6 @@ const MembershipLevelManagement = () => {
                 className="admin-btn admin-btn-danger"
                 onClick={() => handleDelete(itemToDelete.id)}
               >
-                <i className="bi bi-trash me-2"></i>
                 Xác nhận xóa
               </button>
             </div>

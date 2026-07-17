@@ -530,6 +530,10 @@ const Booking = () => {
 
   const toggleSeat = (seat) => {
     if (showEnded) return;
+    if (!getAccessToken()) {
+      navigate("/login", { state: { from: `/booking/${showtimeId}` } });
+      return;
+    }
     const id = Number(seat.seatId);
     if (!Number.isFinite(id)) return;
     if (bookedSet.has(id)) return;
@@ -538,18 +542,6 @@ const Booking = () => {
 
     const alreadySelected = selectedSeatIds.includes(id);
     const nextSelected = alreadySelected ? selectedSeatIds.filter((x) => x !== id) : [...selectedSeatIds, id];
-    if (alreadySelected) {
-      setSeatSelectionError(null);
-      setPayError(null);
-      setSelectedSeatIds(nextSelected);
-      return;
-    }
-    const blocked = new Set([...bookedSet, ...peerHeldSet, ...nextSelected]);
-    const check = checkNoSingleSeatOrphanInRows(seats, blocked);
-    if (!check.ok) {
-      setSeatSelectionError(check.message);
-      return;
-    }
     setSeatSelectionError(null);
     setPayError(null);
     setSelectedSeatIds(nextSelected);
@@ -856,6 +848,13 @@ const Booking = () => {
       setPayError("Hệ thống đang tính lại giá, vui lòng chờ một chút.");
       return;
     }
+    const blocked = new Set([...bookedSet, ...peerHeldSet, ...selectedSeatIds]);
+    const check = checkNoSingleSeatOrphanInRows(seats, blocked);
+    if (!check.ok) {
+      setSeatSelectionError(check.message);
+      return;
+    }
+    setSeatSelectionError(null);
     setShowPaymentConfirm(true);
   };
 
@@ -1678,11 +1677,7 @@ const Booking = () => {
                         <div className="small rounded-3 p-3" style={{ background: "rgba(142,230,168,0.1)", color: "#9fe6b8", border: "1px solid rgba(142,230,168,0.22)" }}>
                           Tổng tiền còn 0đ nên hệ thống sẽ hoàn tất đặt vé ngay, không chuyển sang PayOS.
                         </div>
-                      ) : (
-                        <div className="small rounded-3 p-3" style={{ background: "rgba(255,209,102,0.1)", color: "#ffd166", border: "1px solid rgba(255,209,102,0.22)" }}>
-                          Sau khi xác nhận, bạn sẽ được chuyển sang PayOS để thanh toán.
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   </Modal.Body>
                   <Modal.Footer style={{ background: "#12133a", borderTop: "1px solid rgba(255,255,255,0.08)" }}>

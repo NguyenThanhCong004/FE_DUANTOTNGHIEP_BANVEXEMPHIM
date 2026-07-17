@@ -108,7 +108,7 @@ const CreateProductType = () => {
   return (
     <AdminPanelPage 
       icon={editData ? "bi-grid-fill" : "bi-grid-plus"} 
-      title={editData ? 'Cập nhật loại sản phẩm' : 'Thêm loại sản phẩm mới'} 
+      title={editData ? 'Cập nhật loại sản phẩm' : 'Thêm loại sản phẩm mới'}
       description="Quản lý các nhóm danh mục sản phẩm như Bắp, Nước, Combo..."
       headerRight={<AdminFormListBack to="/super-admin/product-types" />}
     >
@@ -117,12 +117,11 @@ const CreateProductType = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4 className="mb-0">
-            <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
             Thông tin loại sản phẩm
           </h4>
         </div>
         <div className="admin-card-body p-4">
-          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
+          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4">{serverError}</div>}
           
           <form onSubmit={handleSubmit} noValidate>
             <div className="mb-4">
@@ -140,7 +139,7 @@ const CreateProductType = () => {
 
             <div className="mt-4 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '180px' }} disabled={submitting}>
-                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                {submitting && <span className="spinner-border spinner-border-sm me-2"></span>}
                 {editData ? 'Cập nhật' : 'Lưu loại'}
               </button>
             </div>

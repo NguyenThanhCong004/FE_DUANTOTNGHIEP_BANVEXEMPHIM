@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { Badge, Button, Card, Form } from "react-bootstrap";
 
-import { Lock, LockOpen, Save } from "lucide-react";
+
 
 import { apiFetch } from "../../utils/apiClient";
 
@@ -1357,33 +1357,23 @@ export default function SeatManagement() {
 
       description={
 
-        <>
+        <p className="lead mb-2">
 
-          <p className="lead mb-2">
+          {selectedRoom?.name ? (
 
-            {selectedRoom?.name ? (
+            <>
 
-              <>
+              Đang chỉnh: <strong>{selectedRoom.name}</strong>
 
-                Đang chỉnh: <strong>{selectedRoom.name}</strong>
+            </>
 
-              </>
+          ) : (
 
-            ) : (
+            "Chọn phòng để thiết kế lưới ghế."
 
-              "Chọn phòng để thiết kế lưới ghế."
+          )}
 
-            )}
-
-          </p>
-
-          <p className="mb-0 small" style={{ opacity: 0.92 }}>
-
-            Tên ghế: chữ hàng + số thứ tự trong hàng (vd A1, A2, B1). Mỗi hàng phải có số ghế chẵn mới được lưu. Chuột phải xoay theo các loại ghế trên hệ thống. Ghế đôi chỉ neo cột nhãn lẻ (1, 3, 5…), ô phải trống, nằm sau mọi ghế đơn trên cùng hàng, và không đặt ở hàng phía trên (gần màn hình hơn) bất kỳ hàng nào có ghế đơn. Kéo thả vào ô trống; click ô trống tạo ghế; click ghế bật/tắt.
-
-          </p>
-
-        </>
+        </p>
 
       }
 
@@ -1427,13 +1417,11 @@ export default function SeatManagement() {
 
           >
 
-            {isLocked ? <Lock size={18} /> : <LockOpen size={18} />}
+            {isLocked ? "Mở khóa" : "Khóa"}
 
           </Button>
 
-          <Button variant="light" className="fw-semibold text-primary" disabled={!selectedRoomId || isLocked || saving} onClick={handleSave}>
-
-            <Save size={16} className="me-1" /> {saving ? "Đang lưu…" : "Lưu sơ đồ"}
+          <Button variant="light" className="fw-semibold text-primary" disabled={!selectedRoomId || isLocked || saving} onClick={handleSave}> {saving ? "Đang lưu…" : "Lưu sơ đồ"}
 
           </Button>
 
@@ -1443,7 +1431,6 @@ export default function SeatManagement() {
             style={{ background: "white", color: "#4f46e5" }}
             onClick={() => navigate(`${prefix}/rooms`)}
           >
-            <i className="bi bi-list-ul me-1" aria-hidden />
             Danh sách phòng
           </button>
 

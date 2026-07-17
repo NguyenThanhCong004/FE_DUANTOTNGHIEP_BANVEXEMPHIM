@@ -356,7 +356,6 @@ const CreateSystemStaff = () => {
 
       {errors.form ? (
         <Alert variant="warning" className="border-0 shadow-sm mb-4 fw-bold" style={{ borderRadius: "12px" }}>
-          <i className="fas fa-exclamation-triangle me-2" />
           {errors.form}
         </Alert>
       ) : null}
@@ -373,7 +372,6 @@ const CreateSystemStaff = () => {
                     <img src={staff.imagePreview} alt="Preview" />
                   ) : (
                     <div className="text-muted text-center">
-                      <i className="fas fa-camera fs-1 mb-2" />
                       <small className="d-block">Tải ảnh lên</small>
                     </div>
                   )}

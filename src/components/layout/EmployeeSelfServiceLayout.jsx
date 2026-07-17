@@ -46,9 +46,9 @@ export default function EmployeeSelfServiceLayout() {
       <header className="employee-self-header">
         <div className="header-left">
           <div className="brand-logo">
-            <div className="logo-icon">C</div>
+            <div className="logo-icon">M</div>
             <div className="logo-text">
-              <span className="brand-name">CINETOON</span>
+              <span className="brand-name">MOVIEZONE</span>
               <span className="brand-tag">STAFF</span>
             </div>
           </div>

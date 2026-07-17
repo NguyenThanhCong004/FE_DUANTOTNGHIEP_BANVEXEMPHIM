@@ -230,7 +230,7 @@ const SuperAdminDashboard = () => {
 
 const StatCard = ({ title, value, color, icon }) => (
   <div className="admin-stat-card" style={{ '--stat-color': color, '--icon-bg': `${color}15` }}>
-    <div className="admin-stat-icon"><i className={`bi ${icon}`}></i></div>
+    <div className="admin-stat-icon"></div>
     <div className="admin-stat-value" style={{ fontSize: '1.2rem' }}>{value || 0}</div>
     <div className="admin-stat-label">{title}</div>
   </div>

@@ -62,16 +62,6 @@ export const MOVIES = {
   HOME_BANNERS: `${API_V1}/movies/home-banners`,
 };
 
-export const AUTHORS = {
-  LIST: `${API_V1}/authors`,
-  BY_ID: (id) => `${API_V1}/authors/${id}`,
-};
-
-export const NATIONS = {
-  LIST: `${API_V1}/nations`,
-  BY_ID: (id) => `${API_V1}/nations/${id}`,
-};
-
 export const SHOWTIMES = {
   LIST: `${API_V1}/showtimes`,
   BY_ID: (id) => `${API_V1}/showtimes/${id}`,

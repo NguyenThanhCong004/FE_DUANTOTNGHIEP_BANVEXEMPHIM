@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Card, Form, Button, Row, Col, Breadcrumb } from "react-bootstrap";
-import { ArrowLeft, Save, X, AlertCircle } from "lucide-react";
+
 import { getStoredStaff } from "../../../utils/authStorage";
 import { apiFetch } from "../../../utils/apiClient";
 import { ROOMS } from "../../../constants/apiEndpoints";
@@ -232,7 +232,6 @@ export default function AdminRoomForm({ mode = "add" }) {
             className="rounded-circle p-2 shadow-sm border"
             onClick={() => navigate(`${prefix}/rooms`)}
           >
-            <ArrowLeft size={20} />
           </Button>
           <h2 className="fw-bold mb-0">
             {isEdit ? `Chỉnh sửa: ${room.name}` : "Thêm phòng chiếu mới"}
@@ -248,7 +247,6 @@ export default function AdminRoomForm({ mode = "add" }) {
               <Form onSubmit={handleSubmit} noValidate>
                 {errors.form ? (
                   <div className="alert alert-warning border-0 py-2 small mb-4">
-                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
                     {errors.form}
                   </div>
                 ) : null}
@@ -266,8 +264,7 @@ export default function AdminRoomForm({ mode = "add" }) {
                         }}
                       />
                       {errors.name ? (
-                        <div className="text-danger small mt-1 d-flex align-items-center gap-1">
-                          <AlertCircle size={14} /> {errors.name}
+                        <div className="text-danger small mt-1 d-flex align-items-center gap-1"> {errors.name}
                         </div>
                       ) : null}
                     </Form.Group>
@@ -322,8 +319,7 @@ export default function AdminRoomForm({ mode = "add" }) {
                         className="px-4 py-2 rounded-3 fw-bold border"
                         disabled={submitting}
                         onClick={() => navigate(`${prefix}/rooms`)}
-                      >
-                        <X size={18} className="me-2" /> Hủy bỏ
+                      > Hủy bỏ
                       </Button>
                       <Button
                         type="submit"
@@ -332,8 +328,7 @@ export default function AdminRoomForm({ mode = "add" }) {
                         className={`px-4 py-2 rounded-3 fw-bold shadow-sm d-flex align-items-center ${
                           isEdit ? "text-dark" : ""
                         }`}
-                      >
-                        <Save size={18} className="me-2" /> {submitting ? "Đang lưu..." : isEdit ? "Cập nhật thay đổi" : "Lưu phòng chiếu"}
+                      > {submitting ? "Đang lưu..." : isEdit ? "Cập nhật thay đổi" : "Lưu phòng chiếu"}
                       </Button>
                     </div>
                   </Col>

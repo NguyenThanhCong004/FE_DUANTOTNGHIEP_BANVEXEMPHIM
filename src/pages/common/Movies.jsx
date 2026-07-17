@@ -52,7 +52,7 @@ const Movies = () => {
 
   const filteredMovies = useMemo(() => {
     const list = allMovies.filter((movie) => {
-      const matchGenre   = filter.genre === "" || movie.genre === filter.genre;
+      const matchGenre   = filter.genre === "" || (movie.genres || []).includes(filter.genre);
       const matchStatus  =
         filter.status === "all" ||
         (filter.status === "now"  && movie.type === "now") ||

@@ -629,7 +629,7 @@ export default function CinemaNavbar() {
               <div className="cn-logo-icon">
                 <Film size={22} strokeWidth={2.5} />
               </div>
-              <span className="cn-logo-wordmark">ERROR<span>404</span></span>
+              <span className="cn-logo-wordmark">MOVIE<span>ZONE</span></span>
             </Link>
 
             {/* Quick actions */}
@@ -645,7 +645,7 @@ export default function CinemaNavbar() {
             <div className="cn-search">
               <input
                 className="cn-search-input"
-                placeholder="Tìm phim, diễn viên..."
+                placeholder="Tìm theo tên phim..."
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 onKeyDown={handleSearch}

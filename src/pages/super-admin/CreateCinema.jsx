@@ -47,7 +47,6 @@ const SearchableSelect = ({ label, options, value, onChange, placeholder, disabl
           <span className={!value ? 'text-muted' : 'text-dark fw-bold'}>
             {value || placeholder}
           </span>
-          <i className={`bi bi-chevron-${isOpen ? 'up' : 'down'} text-muted`}></i>
         </div>
 
         {isOpen && (
@@ -290,7 +289,7 @@ const CreateCinema = () => {
   return (
     <AdminPanelPage 
       icon={editData ? "bi-building-gear" : "bi-building-add"} 
-      title={editData ? 'Cập nhật rạp' : 'Thêm rạp mới'} 
+      title={editData ? 'Cập nhật rạp' : 'Thêm rạp mới'}
       description="Quản lý thông tin cụm rạp và địa chỉ hoạt động trên hệ thống."
       headerRight={<AdminFormListBack to="/super-admin/cinemas" />}
     >
@@ -299,12 +298,11 @@ const CreateCinema = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4 className="mb-0">
-            <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
             Thông tin rạp
           </h4>
         </div>
         <div className="admin-card-body p-4">
-          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
+          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4">{serverError}</div>}
           
           <form onSubmit={handleSubmit} noValidate>
             <div className="row">
@@ -386,7 +384,7 @@ const CreateCinema = () => {
 
             <div className="mt-3 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '180px' }} disabled={submitting}>
-                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                {submitting && <span className="spinner-border spinner-border-sm me-2"></span>}
                 {editData ? 'Cập nhật' : 'Lưu rạp'}
               </button>
             </div>

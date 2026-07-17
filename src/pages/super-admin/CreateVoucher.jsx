@@ -252,7 +252,7 @@ const CreateVoucher = () => {
   return (
     <AdminPanelPage 
       icon={editData ? "bi-ticket-perforated-fill" : "bi-ticket-perforated"} 
-      title={editData ? 'Cập nhật voucher' : 'Tạo voucher mới'} 
+      title={editData ? 'Cập nhật voucher' : 'Tạo voucher mới'}
       description="Thiết lập các mã giảm giá, chương trình ưu đãi và điểm đổi thưởng cho khách hàng."
       headerRight={<AdminFormListBack to="/super-admin/vouchers" />}
     >
@@ -261,12 +261,11 @@ const CreateVoucher = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4 className="mb-0">
-            <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
             Thông tin chương trình Voucher
           </h4>
         </div>
         <div className="admin-card-body p-4">
-          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
+          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4">{serverError}</div>}
           
           <form onSubmit={handleSubmit} noValidate>
             <div className="row">
@@ -355,7 +354,7 @@ const CreateVoucher = () => {
 
             <div className="mt-3 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
-                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                {submitting && <span className="spinner-border spinner-border-sm me-2"></span>}
                 {editData ? 'Cập nhật voucher' : 'Lưu voucher'}
               </button>
             </div>

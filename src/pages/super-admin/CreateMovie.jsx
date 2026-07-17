@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import AdminPanelPage from '../../components/admin/AdminPanelPage';
 import AdminFormListBack from '../../components/admin/AdminFormListBack';
 import { apiFetch } from '../../utils/apiClient';
-import { MOVIES, GENRES, AUTHORS, NATIONS } from '../../constants/apiEndpoints';
+import { MOVIES, GENRES } from '../../constants/apiEndpoints';
 import { useAdminToast } from '../../components/admin/AdminToast';
 import { fileToDataUrl, IMAGE_FILE_ACCEPT } from '../../utils/mediaFiles';
 import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
@@ -20,11 +20,8 @@ const CreateMovie = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    describe: '',
     duration: '',
-    author: '',
-    nation: 'Việt Nam',
-    genre_id: '',
+    genre_ids: [],
     release_date: '',
     age_limit: '',
     base_price: '',
@@ -38,15 +35,12 @@ const CreateMovie = () => {
   const [previewPoster, setPreviewPoster] = useState(null);
   const [previewBanner, setPreviewBanner] = useState(null);
   const [genreOptions, setGenreOptions] = useState([]);
-  const [authorOptions, setAuthorOptions] = useState([]);
-  const [nationOptions, setNationOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [originalDate, setOriginalDate] = useState('');
   const [originalData, setOriginalData] = useState(null);
 
   useEffect(() => {
     fetchGenres();
-    fetchMovieReferences();
   }, []);
 
   const fetchGenres = async () => {
@@ -57,20 +51,6 @@ const CreateMovie = () => {
       setGenreOptions(Array.isArray(list) ? list : []);
     } catch {
       setGenreOptions([]);
-    }
-  };
-
-  const fetchMovieReferences = async () => {
-    try {
-      const [authorRes, nationRes] = await Promise.all([apiFetch(AUTHORS.LIST), apiFetch(NATIONS.LIST)]);
-      const [authorJson, nationJson] = await Promise.all([
-        authorRes.json().catch(() => null), nationRes.json().catch(() => null),
-      ]);
-      setAuthorOptions(Array.isArray(authorJson?.data) ? authorJson.data : []);
-      setNationOptions(Array.isArray(nationJson?.data) ? nationJson.data : []);
-    } catch {
-      setAuthorOptions([]);
-      setNationOptions([]);
     }
   };
 
@@ -86,19 +66,17 @@ const CreateMovie = () => {
         const m = json?.data ?? json;
         if (!res.ok || !m) return;
         
-        const gid = genreOptions.find((g) => g.name === m.genre)?.genreId;
+        const movieGenreNames = Array.isArray(m.genres) ? m.genres : [];
+        const gids = genreOptions.filter((g) => movieGenreNames.includes(g.name)).map((g) => g.genreId);
         const rd = m.releaseDate ? String(m.releaseDate).slice(0, 10) : "";
         setOriginalDate(rd);
-        setOriginalData({ ...m, genreId: gid });
-        
+        setOriginalData({ ...m, genreIds: [...gids].sort((a, b) => a - b) });
+
         setFormData({
           title: m.title || "",
-          description: m.description || "",
-          describe: m.content || "",
+          description: m.description || m.content || "",
           duration: m.duration != null ? String(m.duration) : "",
-          author: m.author || "",
-          nation: m.nation || "Việt Nam",
-          genre_id: gid != null ? String(gid) : "",
+          genre_ids: gids.map(String),
           release_date: rd,
           age_limit: m.ageLimit != null ? String(m.ageLimit) : "",
           base_price: m.basePrice != null ? String(m.basePrice) : "",
@@ -148,10 +126,10 @@ const CreateMovie = () => {
     } else if (parseInt(formData.duration, 10) <= 0) {
       newErrors.duration = 'Thời lượng phải là số dương';
     }
-    if (!formData.genre_id) {
-      newErrors.genre_id = genreOptions.length === 0
+    if (formData.genre_ids.length === 0) {
+      newErrors.genre_ids = genreOptions.length === 0
         ? 'Chưa có thể loại phim. Hệ thống sẽ tạo thể loại mặc định sau khi chạy lại Docker.'
-        : 'Vui lòng chọn thể loại';
+        : 'Vui lòng chọn ít nhất một thể loại';
     }
     
     if (!formData.release_date) {
@@ -197,6 +175,17 @@ const CreateMovie = () => {
     if (name === 'status' && errors.status) setErrors(prev => ({ ...prev, status: '' }));
   };
 
+  const handleGenreToggle = (genreId) => {
+    const id = String(genreId);
+    setFormData(prev => ({
+      ...prev,
+      genre_ids: prev.genre_ids.includes(id)
+        ? prev.genre_ids.filter((g) => g !== id)
+        : [...prev.genre_ids, id],
+    }));
+    if (errors.genre_ids) setErrors(prev => ({ ...prev, genre_ids: '' }));
+  };
+
   const handleFileChange = (e) => {
     const { name, files } = e.target;
     const file = files[0];
@@ -229,8 +218,9 @@ const CreateMovie = () => {
         bannerBase64 = await fileToDataUrl(formData.banner);
       }
 
+      const genreIds = [...new Set(formData.genre_ids.map(Number))].sort((a, b) => a - b);
       const body = {
-        genreId: Number(formData.genre_id),
+        genreIds,
         title: formData.title.trim(),
         description: formData.description || "",
         duration: Number(formData.duration),
@@ -239,9 +229,6 @@ const CreateMovie = () => {
         poster: posterBase64,
         status: adminStatusToCode(formData.status, { allowUpcoming: true }),
         basePrice: Number(formData.base_price),
-        author: formData.author?.trim() || null,
-        nation: formData.nation?.trim() || null,
-        content: formData.describe?.trim() || null,
         banner: bannerBase64,
       };
 
@@ -250,8 +237,11 @@ const CreateMovie = () => {
 
       if (movieId && originalData) {
         payload = {};
-        
-        if (body.genreId !== originalData.genreId) payload.genreId = body.genreId;
+
+        const sameGenres = originalData.genreIds
+          && body.genreIds.length === originalData.genreIds.length
+          && body.genreIds.every((id, i) => id === originalData.genreIds[i]);
+        if (!sameGenres) payload.genreIds = body.genreIds;
         if (body.title !== originalData.title) payload.title = body.title;
         if (body.description !== originalData.description) payload.description = body.description;
         if (body.duration !== originalData.duration) payload.duration = body.duration;
@@ -260,9 +250,6 @@ const CreateMovie = () => {
         if (body.poster !== originalData.posterUrl) payload.poster = body.poster;
         if (body.status !== originalData.status) payload.status = body.status;
         if (body.basePrice !== originalData.basePrice) payload.basePrice = body.basePrice;
-        if (body.author !== originalData.author) payload.author = body.author;
-        if (body.nation !== originalData.nation) payload.nation = body.nation;
-        if (body.content !== originalData.content) payload.content = body.content;
         if (body.banner !== originalData.banner) payload.banner = body.banner;
 
         if (Object.keys(payload).length === 0) {
@@ -272,7 +259,7 @@ const CreateMovie = () => {
         }
       } else {
         payload = {};
-        if (body.genreId != null) payload.genreId = body.genreId;
+        if (body.genreIds.length > 0) payload.genreIds = body.genreIds;
         if (body.title != null && body.title.trim() !== "") payload.title = body.title;
         if (body.description != null && body.description.trim() !== "") payload.description = body.description;
         if (body.duration != null) payload.duration = body.duration;
@@ -281,9 +268,6 @@ const CreateMovie = () => {
         if (body.poster != null) payload.poster = body.poster;
         if (body.status != null) payload.status = body.status;
         if (body.basePrice != null) payload.basePrice = body.basePrice;
-        if (body.author != null && body.author.trim() !== "") payload.author = body.author;
-        if (body.nation != null && body.nation.trim() !== "") payload.nation = body.nation;
-        if (body.content != null && body.content.trim() !== "") payload.content = body.content;
         if (body.banner != null) payload.banner = body.banner;
       }
 
@@ -333,22 +317,21 @@ const CreateMovie = () => {
           <div className="col-12">
             <div className="admin-card admin-slide-up">
               <div className="admin-card-header">
-                <h4 className="mb-0"><i className="bi bi-image-fill text-primary me-2"></i>Hình ảnh phim (Poster & Banner)</h4>
+                <h4 className="mb-0">Hình ảnh phim (Poster & Banner)</h4>
               </div>
-              <div className="admin-card-body p-4">
-                <div className="row g-4 align-items-center">
-                  <div className="col-md-4 text-center">
+              <div className="admin-card-body p-3">
+                <div className="row g-3 align-items-center">
+                  <div className="col-md-3 text-center">
                     <label className="admin-form-label d-block mb-2">Poster phim (2:3)</label>
-                    <div 
+                    <div
                       className={`mx-auto mb-2 border-2 d-flex align-items-center justify-content-center overflow-hidden ${errors.poster ? 'border-danger' : 'border-light'}`}
-                      style={{ width: '100%', maxWidth: '200px', aspectRatio: '2/3', cursor: 'pointer', background: '#f8fafc', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      style={{ width: '100%', maxWidth: '120px', aspectRatio: '2/3', cursor: 'pointer', background: '#f8fafc', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                       onClick={() => posterInputRef.current.click()}
                     >
                       {previewPoster ? (
                         <img src={previewPoster} alt="Poster" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
                         <div className="text-muted text-center">
-                          <i className="bi bi-plus-lg fs-1"></i>
                           <div className="small fw-bold mt-2">POSTER</div>
                         </div>
                       )}
@@ -356,18 +339,17 @@ const CreateMovie = () => {
                     <input type="file" ref={posterInputRef} hidden accept={IMAGE_FILE_ACCEPT} name="poster" onChange={handleFileChange} />
                     {errors.poster && <div className="text-danger small fw-bold">{errors.poster}</div>}
                   </div>
-                  <div className="col-md-8 text-center">
+                  <div className="col-md-9 text-center">
                     <label className="admin-form-label d-block mb-2">Banner phim (16:9)</label>
-                    <div 
+                    <div
                       className="mx-auto mb-2 border-2 d-flex align-items-center justify-content-center overflow-hidden"
-                      style={{ width: '100%', aspectRatio: '16/9', cursor: 'pointer', background: '#f8fafc', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      style={{ width: '100%', maxWidth: '360px', aspectRatio: '16/9', cursor: 'pointer', background: '#f8fafc', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                       onClick={() => bannerInputRef.current.click()}
                     >
                       {previewBanner ? (
                         <img src={previewBanner} alt="Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
                         <div className="text-muted text-center">
-                          <i className="bi bi-plus-lg fs-1"></i>
                           <div className="small fw-bold mt-2">TẢI BANNER</div>
                         </div>
                       )}
@@ -383,7 +365,7 @@ const CreateMovie = () => {
           <div className="col-12">
             <div className="admin-card admin-slide-up">
               <div className="admin-card-header">
-                <h4 className="mb-0"><i className="bi bi-info-circle-fill text-primary me-2"></i>Thông tin cơ bản</h4>
+                <h4 className="mb-0">Thông tin cơ bản</h4>
               </div>
               <div className="admin-card-body p-4">
                 <div className="row">
@@ -396,37 +378,42 @@ const CreateMovie = () => {
                     {errors.title && <small className="text-danger fw-medium">{errors.title}</small>}
                   </div>
                   <div className="col-md-4 mb-4">
-                    <label className="admin-form-label">Tác giả / Đạo diễn</label>
-                    <select name="author" className="admin-search-input w-100" value={formData.author} onChange={handleChange}>
-                      <option value="">-- Chọn tác giả --</option>
-                      {formData.author && !authorOptions.some((a) => a.name === formData.author) && <option value={formData.author}>{formData.author}</option>}
-                      {authorOptions.filter((a) => a.status === 1).map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-md-4 mb-4">
                     <label className="admin-form-label">Thời lượng (phút) <span className="text-danger">*</span></label>
-                    <input 
+                    <input
                       type="number" name="duration" className={`admin-search-input w-100 ${errors.duration ? 'border-danger' : ''}`}
-                      placeholder="120" value={formData.duration} onChange={handleChange} 
+                      placeholder="120" value={formData.duration} onChange={handleChange}
                     />
                     {errors.duration && <small className="text-danger fw-medium">{errors.duration}</small>}
                   </div>
-                  <div className="col-md-4 mb-4">
-                    <label className="admin-form-label">Quốc gia</label>
-                    <select name="nation" className="admin-search-input w-100" value={formData.nation} onChange={handleChange}>
-                      {formData.nation && !nationOptions.some((n) => n.name === formData.nation) && <option value={formData.nation}>{formData.nation}</option>}
-                      {nationOptions.filter((n) => n.status === 1).map((n) => <option key={n.id} value={n.name}>{n.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-md-4 mb-4">
+                  <div className="col-md-8 mb-4">
                     <label className="admin-form-label">Thể loại <span className="text-danger">*</span></label>
-                    <select name="genre_id" className={`admin-search-input w-100 ${errors.genre_id ? 'border-danger' : ''}`} value={formData.genre_id} onChange={handleChange}>
-                      <option value="">-- Chọn thể loại --</option>
-                      {genreOptions.map((g) => (
-                        <option key={g.genreId} value={g.genreId}>{g.name}</option>
-                      ))}
-                    </select>
-                    {errors.genre_id && <small className="text-danger fw-medium">{errors.genre_id}</small>}
+                    <div
+                      className={`w-100 rounded ${errors.genre_ids ? 'border border-danger' : 'border'}`}
+                      style={{ padding: '10px 14px' }}
+                    >
+                      {genreOptions.length === 0 && <span className="text-muted small">Chưa có thể loại nào.</span>}
+                      <div className="d-flex flex-wrap" style={{ columnGap: 24, rowGap: 8 }}>
+                        {genreOptions.map((g) => {
+                          const id = String(g.genreId);
+                          const checked = formData.genre_ids.includes(id);
+                          return (
+                            <div className="form-check" key={g.genreId}>
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                id={`genre-${g.genreId}`}
+                                checked={checked}
+                                onChange={() => handleGenreToggle(g.genreId)}
+                              />
+                              <label className="form-check-label" htmlFor={`genre-${g.genreId}`}>
+                                {g.name}
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {errors.genre_ids && <small className="text-danger fw-medium">{errors.genre_ids}</small>}
                   </div>
                   <div className="col-md-4 mb-4">
                     <label className="admin-form-label">Ngày khởi chiếu <span className="text-danger">*</span></label>
@@ -466,21 +453,14 @@ const CreateMovie = () => {
           <div className="col-12">
             <div className="admin-card admin-slide-up">
               <div className="admin-card-header">
-                <h4 className="mb-0"><i className="bi bi-justify-left text-primary me-2"></i>Mô tả & Nội dung</h4>
+                <h4 className="mb-0">Mô tả & Nội dung</h4>
               </div>
               <div className="admin-card-body p-4">
-                <div className="mb-4">
-                  <label className="admin-form-label">Tóm tắt ngắn</label>
-                  <textarea 
-                    name="description" className="admin-search-input w-100" style={{ height: 'auto', minHeight: '80px', paddingTop: '10px' }}
-                    placeholder="Một đoạn mô tả ngắn gọn về nội dung phim..." value={formData.description} onChange={handleChange}
-                  ></textarea>
-                </div>
                 <div className="mb-0">
-                  <label className="admin-form-label">Nội dung chi tiết</label>
-                  <textarea 
-                    name="describe" className="admin-search-input w-100" style={{ height: 'auto', minHeight: '160px', paddingTop: '10px' }}
-                    rows="5" placeholder="Nội dung đầy đủ cốt truyện và thông tin phim..." value={formData.describe} onChange={handleChange}
+                  <label className="admin-form-label">Mô tả phim</label>
+                  <textarea
+                    name="description" className="admin-search-input w-100" style={{ height: 'auto', minHeight: '140px', paddingTop: '10px' }}
+                    rows="5" placeholder="Mô tả nội dung, cốt truyện của phim..." value={formData.description} onChange={handleChange}
                   ></textarea>
                 </div>
               </div>
@@ -490,7 +470,7 @@ const CreateMovie = () => {
           <div className="col-12 mt-2">
             <div className="d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '220px' }} disabled={submitting}>
-                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                {submitting && <span className="spinner-border spinner-border-sm me-2"></span>}
                 {editData ? 'Cập nhật phim' : 'Lưu phim mới'}
               </button>
             </div>
