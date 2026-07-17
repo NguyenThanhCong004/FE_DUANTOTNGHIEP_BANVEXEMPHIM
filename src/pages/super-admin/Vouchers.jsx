@@ -131,7 +131,6 @@ const VoucherManagement = () => {
           style={{ background: "white", color: "#6366f1" }}
           onClick={() => navigate("/super-admin/vouchers/create")}
         >
-          <i className="bi bi-plus-lg me-2"></i>
           Tạo Voucher mới
         </button>
       }
@@ -139,14 +138,12 @@ const VoucherManagement = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
-            <i className="bi bi-list-ul text-primary"></i>
             Danh sách voucher
           </h4>
           <span className="text-muted small">Tổng: {filteredVouchers.length}</span>
         </div>
         <div className="admin-card-body">
           <div className="admin-search-wrapper mb-3" style={{ maxWidth: 420 }}>
-            <i className="bi bi-search admin-search-icon" aria-hidden />
             <input
               type="search"
               className="admin-search-input"
@@ -223,25 +220,19 @@ const VoucherManagement = () => {
                                 setShowModal(true);
                               }}
                               title="Xem chi tiết"
-                            >
-                              <i className="bi bi-eye"></i>
-                            </button>
+                            >Xem</button>
                             <button
                               type="button"
                               className="admin-btn admin-btn-sm admin-btn-primary"
                               onClick={() => navigate("/super-admin/vouchers/create", { state: { editData: voucher } })}
                               title="Sửa voucher"
-                            >
-                              <i className="bi bi-pencil"></i>
-                            </button>
+                            >Sửa</button>
                             <button
                               type="button"
                               className="admin-btn admin-btn-sm admin-btn-danger"
                               onClick={() => openDeleteModal(voucher)}
                               title="Xóa voucher"
-                            >
-                              <i className="bi bi-trash"></i>
-                            </button>
+                            >Xóa</button>
                           </div>
                         </td>
                       </tr>
@@ -324,7 +315,7 @@ const VoucherManagement = () => {
         <div className="admin-modal-overlay" onClick={closeDeleteModal}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
-              <h3 className="text-danger mb-0"><i className="bi bi-exclamation-triangle me-2"></i>Xác nhận xóa</h3>
+              <h3 className="text-danger mb-0">Xác nhận xóa</h3>
               <button type="button" className="admin-modal-close" onClick={closeDeleteModal}>×</button>
             </div>
             <div className="admin-modal-body text-center py-4">
@@ -332,7 +323,6 @@ const VoucherManagement = () => {
               <div className="alert alert-warning py-2 small">Hành động này không thể hoàn tác.</div>
               {deleteError && (
                 <div className="alert alert-danger mb-0 mt-3 text-start">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}

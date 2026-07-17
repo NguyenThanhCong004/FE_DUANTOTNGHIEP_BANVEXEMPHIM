@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { LogOut } from "lucide-react";
+
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import SuperAdminSidebar from "./SuperAdminSidebar";
@@ -25,9 +25,7 @@ export default function SuperAdminLayout({ children }) {
       <main className="app-shell-main">
         <header className="app-shell-header">
           <div className="app-shell-header-title d-none d-md-block">
-            <span className="app-shell-header-kicker">
-              Super Admin · Dữ liệu theo rạp: chọn <strong>cinemaId</strong> trên header
-            </span>
+            <span className="app-shell-header-kicker">Super Admin</span>
           </div>
 
           <div className="app-shell-header-actions">
@@ -54,7 +52,6 @@ export default function SuperAdminLayout({ children }) {
               className="app-shell-logout-btn app-shell-logout-btn--header"
               onClick={handleLogout}
             >
-              <LogOut size={16} />
               <span>Đăng xuất</span>
             </button>
           </div>

@@ -150,7 +150,6 @@ const GlobalInvoiceManagement = () => {
       <div className="admin-table-container">
         <div className="d-flex flex-wrap gap-3 mb-4">
           <div className="admin-search-wrapper" style={{ maxWidth: '500px', flex: '1' }}>
-            <i className="bi bi-search admin-search-icon"></i>
             <input 
               type="text" 
               className="admin-search-input"
@@ -162,8 +161,7 @@ const GlobalInvoiceManagement = () => {
               }}
             />
           </div>
-          <button className="admin-btn admin-btn-outline" onClick={fetchOrders}>
-            <i className="bi bi-arrow-clockwise me-2"></i> Làm mới
+          <button className="admin-btn admin-btn-outline" onClick={fetchOrders}> Làm mới
           </button>
         </div>
 
@@ -174,7 +172,6 @@ const GlobalInvoiceManagement = () => {
           </div>
         ) : orders.length === 0 ? (
           <div className="admin-empty">
-            <i className="bi bi-receipt admin-empty-icon"></i>
             <p>Không tìm thấy hóa đơn nào</p>
           </div>
         ) : (
@@ -218,8 +215,7 @@ const GlobalInvoiceManagement = () => {
                         <button 
                           className="admin-btn admin-btn-sm admin-btn-primary"
                           onClick={() => openOrderDetail(order)}
-                        >
-                          <i className="bi bi-eye me-1"></i> Chi tiết
+                        > Chi tiết
                         </button>
                       </td>
                     </tr>
@@ -245,11 +241,9 @@ const GlobalInvoiceManagement = () => {
           <div className="admin-modal" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>
-                <i className="bi bi-receipt me-2"></i>
                 Chi tiết hóa đơn #{selectedOrder.orderCode}
               </h3>
               <button className="admin-modal-close" onClick={closeOrderDetail}>
-                <i className="bi bi-x-lg"></i>
               </button>
             </div>
             <div className="admin-modal-body invoice-print-area">
@@ -267,8 +261,7 @@ const GlobalInvoiceManagement = () => {
               <button className="admin-btn admin-btn-outline" onClick={closeOrderDetail}>
                 Đóng cửa sổ
               </button>
-              <button className="admin-btn admin-btn-primary btn-pdf-download" onClick={handleDownloadPDF} disabled={detailLoading || !!detailError}>
-                <i className="bi bi-printer me-2"></i> In hóa đơn (PDF)
+              <button className="admin-btn admin-btn-primary btn-pdf-download" onClick={handleDownloadPDF} disabled={detailLoading || !!detailError}> In hóa đơn (PDF)
               </button>
             </div>
           </div>

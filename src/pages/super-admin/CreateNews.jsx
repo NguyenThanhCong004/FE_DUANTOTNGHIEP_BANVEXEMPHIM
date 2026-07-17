@@ -270,8 +270,7 @@ const CreateNews = () => {
           <div className="col-12">
             <div className="admin-card admin-slide-up">
               <div className="admin-card-header">
-                <h4 className="mb-0">
-                  <i className="bi bi-image-fill text-primary me-2"></i>Ảnh minh họa bài viết
+                <h4 className="mb-0">Ảnh minh họa bài viết
                 </h4>
               </div>
               <div className="admin-card-body p-4 text-center">
@@ -294,7 +293,6 @@ const CreateNews = () => {
                     <img src={previewImage} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
                     <div className="text-muted text-center">
-                      <i className="bi bi-cloud-arrow-up fs-1"></i>
                       <div className="small fw-bold mt-2">CHỌN ẢNH NGANG (16:9)</div>
                     </div>
                   )}
@@ -308,14 +306,12 @@ const CreateNews = () => {
           <div className="col-12">
             <div className="admin-card admin-slide-up">
               <div className="admin-card-header">
-                <h4 className="mb-0">
-                  <i className="bi bi-pencil-square text-primary me-2"></i>Nội dung tin tức
+                <h4 className="mb-0">Nội dung tin tức
                 </h4>
               </div>
               <div className="admin-card-body p-4">
                 {serverError && (
                   <div className="alert alert-danger border-0 py-2 small mb-4">
-                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
                     {serverError}
                   </div>
                 )}
@@ -370,7 +366,7 @@ const CreateNews = () => {
 
                 <div className="mt-3 d-flex justify-content-end">
                   <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: "200px" }} disabled={submitting}>
-                    {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                    {submitting && <span className="spinner-border spinner-border-sm me-2"></span>}
                     {editData ? "Cập nhật tin" : "Đăng tin tức"}
                   </button>
                 </div>

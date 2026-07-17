@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Badge, Button, Card, Row, Col, Spinner } from "react-bootstrap";
-import { Users, GripVertical, Search, Clock, Calendar, Save, Trash2, UserPlus, ShieldCheck, Brush, ChevronLeft, ChevronRight } from "lucide-react";
+
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch, withQuery } from "../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../constants/apiEndpoints";
@@ -18,9 +18,9 @@ const SHIFT_TYPES = [
   { id: 3, name: "Ca 3", range: "19:00 - 01:00", start: "19:00", end: "01:00" },
 ];
 const POSITIONS = [
-  { id: "banve", name: "Bán vé", icon: <UserPlus size={14} />, role: "Bán vé" },
-  { id: "checkve", name: "Check vé", icon: <ShieldCheck size={14} />, role: "Soát vé" },
-  { id: "donphong", name: "Dọn phòng", icon: <Brush size={14} />, role: "Phục vụ" },
+  { id: "banve", name: "Bán vé", role: "Bán vé" },
+  { id: "checkve", name: "Check vé", role: "Soát vé" },
+  { id: "donphong", name: "Dọn phòng", role: "Phục vụ" },
 ];
 
 const getWeekStart = (date) => {
@@ -66,6 +66,7 @@ export default function ShiftManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dragData, setDragData] = useState(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
+  const [pickerCell, setPickerCell] = useState(null); // { date, shiftName, posId }
 
   // Auto-scroll logic when dragging
   useEffect(() => {
@@ -165,21 +166,17 @@ export default function ShiftManagement() {
     return shifts.filter(s => s.date === date && s.shiftType === shiftName && s.role === role);
   };
 
-  const onDropStaff = (date, shiftObj, posObj) => {
-    if (!dragData) return;
-    
-    // Chặn kéo thả vào ngày quá khứ
+  const assignStaffToCell = (date, shiftObj, posObj, staffId, staffName) => {
+    // Chặn thay đổi vào ngày quá khứ
     const todayStr = toIso(new Date());
     if (date < todayStr) {
       showToast("Không thể thay đổi lịch làm việc của ngày đã qua.", "warning");
       return;
     }
 
-    const { staffId, staffName } = dragData;
-    
     // Kiểm tra xem nhân viên này đã có mặt trong CA này chưa (bất kể vị trí nào)
     const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
-    
+
     if (alreadyInShift) {
       showToast(`Nhân viên ${staffName} đã có lịch làm trong ${shiftObj.name} (vị trí: ${alreadyInShift.role}).`, "warning");
       return;
@@ -199,6 +196,11 @@ export default function ShiftManagement() {
       dirty: true // Đánh dấu là mới/thay đổi để lưu
     };
     setShifts(prev => [...prev, newShift]);
+  };
+
+  const onDropStaff = (date, shiftObj, posObj) => {
+    if (!dragData) return;
+    assignStaffToCell(date, shiftObj, posObj, dragData.staffId, dragData.staffName);
     setDragData(null);
   };
 
@@ -294,7 +296,6 @@ export default function ShiftManagement() {
     return (
       <AdminPanelPage icon="calendar-check" title="Quản lý Ca làm việc" description="Chọn rạp để phân lịch">
         <div className="alert alert-warning border-0 shadow-sm mb-0">
-          <i className="bi bi-exclamation-triangle-fill me-2"></i>
           <strong>Chưa chọn rạp.</strong> {isSuperAdmin ? "Vui lòng chọn rạp trên header để quản lý ca làm việc." : "Tài khoản của bạn chưa được gán cho rạp nào."}
         </div>
       </AdminPanelPage>
@@ -324,7 +325,6 @@ export default function ShiftManagement() {
               onClick={() => navigateWeek(-1)}
               title="Tuần trước"
             >
-              <ChevronLeft size={16} />
             </Button>
             <div className="px-2 fw-bold text-primary small" style={{ minWidth: "160px", textAlign: "center", fontSize: '0.8rem' }}>
               {weekRangeStr}
@@ -336,7 +336,6 @@ export default function ShiftManagement() {
               onClick={() => navigateWeek(1)}
               title="Tuần sau"
             >
-              <ChevronRight size={16} />
             </Button>
             <div className="position-relative ms-2">
               <input
@@ -346,13 +345,13 @@ export default function ShiftManagement() {
                 onChange={handleDateChange}
                 title="Chọn ngày để xem lịch"
               />
-              <Button 
-                variant="link" 
-                size="sm" 
-                className="p-1 text-primary" 
+              <Button
+                variant="link"
+                size="sm"
+                className="p-1 text-primary"
                 title="Chọn ngày để xem lịch"
               >
-                <Calendar size={14} />
+                Lịch
               </Button>
             </div>
           </div>
@@ -364,7 +363,7 @@ export default function ShiftManagement() {
             onClick={handleSave}
             style={{ height: '38px' }}
           >
-            {saving ? <Spinner animation="border" size="sm" className="me-2" /> : <Save size={18} className="me-2" />}
+            {saving && <Spinner animation="border" size="sm" className="me-2" />}
             Lưu lịch làm việc
           </Button>
         </div>
@@ -374,12 +373,10 @@ export default function ShiftManagement() {
       <Card className="admin-card border-0 shadow-sm mb-4">
         <Card.Header className="bg-white py-3 border-0 d-flex align-items-center justify-content-between">
           <h6 className="mb-0 fw-bold d-flex align-items-center">
-            <Users size={18} className="me-2 text-primary" />
             Nhân viên sẵn sàng
           </h6>
           <div className="input-group input-group-sm shadow-xs" style={{ maxWidth: '250px' }}>
-            <span className="input-group-text bg-white border-end-0"><Search size={14} /></span>
-            <input 
+            <input
               type="text" 
               className="form-control border-start-0" 
               placeholder="Tìm nhân viên..." 
@@ -401,7 +398,6 @@ export default function ShiftManagement() {
                 style={{ minWidth: '180px', cursor: 'grab' }}
               >
                 <div className="bg-primary bg-opacity-10 text-primary rounded p-1 me-2">
-                  <GripVertical size={14} />
                 </div>
                 <div className="flex-grow-1 overflow-hidden">
                   <div className="fw-bold text-truncate" style={{ fontSize: '0.8rem' }}>{staff.fullname || staff.fullName || staff.name}</div>
@@ -446,21 +442,26 @@ export default function ShiftManagement() {
                             {POSITIONS.map(pos => {
                               const assignments = getShiftsInCell(dateStr, shift.name, pos.role);
                               const hasAssignments = assignments.length > 0;
+                              const isPickerOpen = pickerCell
+                                && pickerCell.date === dateStr
+                                && pickerCell.shiftName === shift.name
+                                && pickerCell.posId === pos.id;
                               return (
-                                <div 
+                                <div
                                   key={pos.id}
                                   onDragOver={(e) => !isPast && e.preventDefault()}
                                   onDrop={() => !isPast && onDropStaff(dateStr, shift, pos)}
+                                  onClick={() => !isPast && setPickerCell(isPickerOpen ? null : { date: dateStr, shiftName: shift.name, posId: pos.id })}
                                   className={`position-slot-v2 p-2 rounded ${
-                                    isPast 
+                                    isPast
                                       ? (hasAssignments ? 'border-past-v2 bg-past-assigned' : 'bg-past-empty border-dashed-past')
                                       : (hasAssignments ? 'border-solid-v2 bg-white shadow-xs' : 'bg-light bg-opacity-50')
                                   } ${isPast ? 'past-no-hover' : ''}`}
-                                  style={{ cursor: isPast ? 'not-allowed' : 'default', minHeight: '60px' }}
+                                  style={{ cursor: isPast ? 'not-allowed' : 'pointer', minHeight: '60px', position: 'relative' }}
                                 >
                                   <div className="d-flex align-items-center justify-content-between mb-2">
                                     <div className={`d-flex align-items-center gap-1 fw-bold ${isPast ? 'text-muted opacity-50' : 'text-primary opacity-75'}`} style={{ fontSize: '0.6rem' }}>
-                                      {pos.icon} {pos.name}
+                                      {pos.name}
                                     </div>
                                     {hasAssignments && (
                                       <Badge bg={isPast ? "secondary" : "primary"} className="rounded-pill" style={{ fontSize: '0.55rem' }}>
@@ -468,7 +469,39 @@ export default function ShiftManagement() {
                                       </Badge>
                                     )}
                                   </div>
-                                  
+                                  {isPickerOpen && (() => {
+                                    const assignedIdsInShift = new Set(
+                                      shifts.filter(s => s.date === dateStr && s.shiftType === shift.name).map(s => s.staffId)
+                                    );
+                                    const pickerStaffOptions = filteredStaff.filter(
+                                      staff => !assignedIdsInShift.has(staff.staffId || staff.id)
+                                    );
+                                    return (
+                                    <div
+                                      className="bg-white border rounded shadow-lg"
+                                      style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, maxHeight: 220, overflowY: 'auto' }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {pickerStaffOptions.length === 0 ? (
+                                        <div className="text-muted small p-2 text-center">Không còn nhân viên trống ca này</div>
+                                      ) : pickerStaffOptions.map((staff) => (
+                                        <button
+                                          key={staff.staffId || staff.id}
+                                          type="button"
+                                          className="btn btn-light w-100 text-start rounded-0 border-0 py-2 px-3"
+                                          style={{ fontSize: '0.75rem' }}
+                                          onClick={() => {
+                                            assignStaffToCell(dateStr, shift, pos, staff.staffId || staff.id, staff.fullname || staff.fullName || staff.name || "Không tên");
+                                            setPickerCell(null);
+                                          }}
+                                        >
+                                          {staff.fullname || staff.fullName || staff.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    );
+                                  })()}
+
                                   <div className="d-flex flex-column gap-2">
                                     {hasAssignments ? (
                                       assignments.map((assignment, idx) => (
@@ -489,23 +522,19 @@ export default function ShiftManagement() {
                                             )}
                                           </div>
                                           {!isPast && (
-                                            <button 
+                                            <button
                                               className="btn btn-link btn-sm p-0 text-danger opacity-50 hover-opacity-100 flex-shrink-0"
-                                              onClick={() => handleRemoveShift(assignment)}
+                                              onClick={(e) => { e.stopPropagation(); handleRemoveShift(assignment); }}
+                                              title="Bỏ phân công"
                                             >
-                                              <Trash2 size={12} />
+                                              ×
                                             </button>
                                           )}
                                         </div>
                                       ))
                                     ) : (
                                       <div className="text-muted text-center py-2" style={{ fontSize: '0.6rem', opacity: isPast ? 0.3 : 0.5 }}>
-                                        {isPast ? '—' : (
-                                          <>
-                                            <div className="mb-1 small">👥</div>
-                                            <div>Kéo vào đây</div>
-                                          </>
-                                        )}
+                                        {isPast ? '—' : 'Bấm hoặc kéo vào đây'}
                                       </div>
                                     )}
                                   </div>

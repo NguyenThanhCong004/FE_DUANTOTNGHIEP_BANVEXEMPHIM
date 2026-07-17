@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
-import { FOOD_ORDERS, TICKET_ORDERS } from "../../constants/apiEndpoints";
-import { apiFetch } from "../../utils/apiClient";
+import { FOOD_ORDERS, TICKET_ORDERS, ME } from "../../constants/apiEndpoints";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { getAccessToken } from "../../utils/authStorage";
+import { mapMeTransactionToFe } from "../../utils/customerMeApi";
+import TicketPopup from "../../components/common/TicketPopup";
 
 /**
  * PayOS redirect về đây — query thường có orderCode (tuỳ bản PayOS).
@@ -18,80 +20,117 @@ const PaymentSuccess = () => {
     null;
   const [displayOrderCode, setDisplayOrderCode] = useState(queryOrderCode);
   const [confirmNote, setConfirmNote] = useState("Đang xác nhận thanh toán với PayOS...");
+  const [confirmDone, setConfirmDone] = useState(false);
+  const [ticketTx, setTicketTx] = useState(null);
+  const [showTicketPopup, setShowTicketPopup] = useState(false);
+  const queryOrderId = params.get("orderId") || null;
 
   useEffect(() => {
     let alive = true;
 
     (async () => {
-      let storedCode = null;
-      let kind = "ticket";
       try {
-        storedCode = sessionStorage.getItem("payos_pending_order_code");
-        kind = sessionStorage.getItem("payos_pending_kind") || "ticket";
-      } catch {
-        /* ignore */
-      }
-
-      const codeStr = storedCode || queryOrderCode;
-      if (alive) setDisplayOrderCode(codeStr || null);
-      if (!codeStr) {
-        if (alive) {
-          setConfirmNote("Không tìm thấy mã PayOS để xác nhận tự động.");
+        let storedCode = null;
+        let kind = "ticket";
+        try {
+          storedCode = sessionStorage.getItem("payos_pending_order_code");
+          kind = sessionStorage.getItem("payos_pending_kind") || "ticket";
+        } catch {
+          /* ignore */
         }
-        return;
-      }
 
-      const code = Number(codeStr);
-      if (!Number.isFinite(code) || code <= 0) {
-        if (alive) {
-          setConfirmNote("Mã PayOS không hợp lệ, vui lòng kiểm tra lại lịch sử giao dịch.");
-        }
-        return;
-      }
-
-      if (!getAccessToken()) {
-        if (alive) {
-          setConfirmNote("Bạn chưa đăng nhập nên hệ thống chưa thể xác nhận và cộng điểm tự động.");
-        }
-        return;
-      }
-
-      const path = kind === "food" ? FOOD_ORDERS.CONFIRM_PAYOS : TICKET_ORDERS.CONFIRM_PAYOS;
-      let clearPendingStorage = false;
-      try {
-        const res = await apiFetch(path, {
-          method: "POST",
-          body: JSON.stringify({ payosOrderCode: code }),
-        });
-        const body = await res.json().catch(() => null);
-        if (alive) {
-          if (res.ok) {
-            clearPendingStorage = true;
-            setConfirmNote("Đã xác nhận thanh toán và cộng điểm cho tài khoản.");
-          } else {
-            setConfirmNote(body?.message || "Chưa xác nhận được thanh toán. Vui lòng thử lại sau vài giây.");
+        const codeStr = storedCode || queryOrderCode;
+        if (alive) setDisplayOrderCode(codeStr || null);
+        if (!codeStr) {
+          if (alive) {
+            setConfirmNote(params.get("free") ? "Đơn miễn phí đã được xác nhận." : "Không tìm thấy mã PayOS để xác nhận tự động.");
           }
+          return;
         }
-      } catch {
-        if (alive) {
-          setConfirmNote("Không kết nối được máy chủ để xác nhận thanh toán.");
+
+        const code = Number(codeStr);
+        if (!Number.isFinite(code) || code <= 0) {
+          if (alive) {
+            setConfirmNote("Mã PayOS không hợp lệ, vui lòng kiểm tra lại lịch sử giao dịch.");
+          }
+          return;
+        }
+
+        if (!getAccessToken()) {
+          if (alive) {
+            setConfirmNote("Bạn chưa đăng nhập nên hệ thống chưa thể xác nhận và cộng điểm tự động.");
+          }
+          return;
+        }
+
+        const path = kind === "food" ? FOOD_ORDERS.CONFIRM_PAYOS : TICKET_ORDERS.CONFIRM_PAYOS;
+        let clearPendingStorage = false;
+        try {
+          const res = await apiFetch(path, {
+            method: "POST",
+            body: JSON.stringify({ payosOrderCode: code }),
+          });
+          const body = await res.json().catch(() => null);
+          if (alive) {
+            if (res.ok) {
+              clearPendingStorage = true;
+              setConfirmNote("Đã xác nhận thanh toán và cộng điểm cho tài khoản.");
+            } else {
+              setConfirmNote(body?.message || "Chưa xác nhận được thanh toán. Vui lòng thử lại sau vài giây.");
+            }
+          }
+        } catch {
+          if (alive) {
+            setConfirmNote("Không kết nối được máy chủ để xác nhận thanh toán.");
+          }
+        } finally {
+          if (clearPendingStorage) {
+            try {
+              sessionStorage.removeItem("payos_pending_order_code");
+              sessionStorage.removeItem("payos_pending_kind");
+            } catch {
+              /* ignore */
+            }
+          }
         }
       } finally {
-        if (clearPendingStorage) {
-          try {
-            sessionStorage.removeItem("payos_pending_order_code");
-            sessionStorage.removeItem("payos_pending_kind");
-          } catch {
-            /* ignore */
-          }
-        }
+        if (alive) setConfirmDone(true);
       }
     })();
 
     return () => {
       alive = false;
     };
-  }, [queryOrderCode]);
+  }, [queryOrderCode, params]);
+
+  // Sau khi xác nhận xong, lấy vé vừa mua để hiện popup vé.
+  useEffect(() => {
+    if (!confirmDone || !getAccessToken()) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await apiFetch(withQuery(ME.TRANSACTIONS, { search: displayOrderCode || "" }));
+        const body = await res.json().catch(() => null);
+        if (!alive || !res.ok) return;
+        const list = Array.isArray(body?.data) ? body.data : [];
+        const match =
+          (queryOrderId && list.find((row) => String(row.id) === String(queryOrderId))) ||
+          (displayOrderCode && list.find((row) => String(row.orderCode) === String(displayOrderCode))) ||
+          list[0] ||
+          null;
+        if (match) setTicketTx(mapMeTransactionToFe(match));
+      } catch {
+        /* ignore — vé vẫn xem được trong lịch sử giao dịch */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [confirmDone, displayOrderCode, queryOrderId]);
+
+  useEffect(() => {
+    if (ticketTx) setShowTicketPopup(true);
+  }, [ticketTx]);
 
   return (
     <Layout>
@@ -120,15 +159,31 @@ const PaymentSuccess = () => {
             </div>
           ) : null}
           <div className="d-grid gap-2">
-            <Link to="/" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
-              VỀ TRANG CHỦ
-            </Link>
+            {ticketTx ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-gradient rounded-pill py-3 fw-bold shadow"
+                  onClick={() => setShowTicketPopup(true)}
+                >
+                  XEM VÉ CỦA TÔI
+                </button>
+                <Link to="/" className="btn btn-outline-secondary rounded-pill py-2 fw-bold border-0">
+                  Về trang chủ
+                </Link>
+              </>
+            ) : (
+              <Link to="/" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+                VỀ TRANG CHỦ
+              </Link>
+            )}
             <Link to="/profile" className="btn btn-outline-secondary rounded-pill py-2 fw-bold border-0">
               Hồ sơ
             </Link>
           </div>
         </div>
       </div>
+      <TicketPopup show={showTicketPopup} onHide={() => setShowTicketPopup(false)} transaction={ticketTx} />
     </Layout>
   );
 };

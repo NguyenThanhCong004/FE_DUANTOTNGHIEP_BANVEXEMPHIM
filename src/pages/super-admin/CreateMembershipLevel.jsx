@@ -140,7 +140,7 @@ const CreateMembershipLevel = () => {
   return (
     <AdminPanelPage 
       icon={editData ? "bi-award-fill" : "bi-award"} 
-      title={editData ? 'Cập nhật hạng hội viên' : 'Thêm hạng hội viên'} 
+      title={editData ? 'Cập nhật hạng hội viên' : 'Thêm hạng hội viên'}
       description="Thiết lập các mốc chi tiêu và ưu đãi đặc quyền cho khách hàng thân thiết."
       headerRight={<AdminFormListBack to="/super-admin/membership-levels" />}
     >
@@ -149,12 +149,11 @@ const CreateMembershipLevel = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4 className="mb-0">
-            <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-plus-circle-fill'} text-primary me-2`}></i>
             Thông tin hạng thành viên
           </h4>
         </div>
         <div className="admin-card-body p-4">
-          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
+          {serverError && <div className="alert alert-danger border-0 py-2 small mb-4">{serverError}</div>}
           
           <form onSubmit={handleSubmit} noValidate>
             <div className="row">
@@ -219,7 +218,7 @@ const CreateMembershipLevel = () => {
 
             <div className="mt-3 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
-                {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                {submitting && <span className="spinner-border spinner-border-sm me-2"></span>}
                 {editData ? 'Cập nhật hạng' : 'Lưu mức độ'}
               </button>
             </div>

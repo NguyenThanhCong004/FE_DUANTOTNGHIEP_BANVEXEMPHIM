@@ -61,7 +61,6 @@ const AdminToast = ({
       className={`position-fixed ${positionClass} m-4 admin-slide-up z-3 alert alert-${normalizedType} border-0 shadow-lg d-flex align-items-center gap-2`}
       style={{ minWidth: '300px', maxWidth: '500px' }}
     >
-      <i className={`bi ${getIcon()} fs-5`}></i>
       <div className="fw-bold flex-grow-1">{message}</div>
       <button
         type="button"

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Badge, Button, Form, Spinner, Table, Row, Col, Pagination } from "react-bootstrap";
-import { ArrowDownLeft, ArrowUpRight, Search } from "lucide-react";
+
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { useAdminToast } from "../../components/admin/AdminToast";
 import { apiFetch, withQuery } from "../../utils/apiClient";
@@ -59,7 +59,6 @@ function ProductThumb({ product }) {
           fontSize: 18,
         }}
       >
-        <i className="bi bi-image" />
       </div>
     </div>
   );
@@ -231,7 +230,6 @@ export default function ProductManagement() {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center text-muted py-5">
-                  <i className="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i>
                   Không có mục nào
                 </td>
               </tr>
@@ -287,7 +285,7 @@ export default function ProductManagement() {
                               onClick={() => removeFromMenu(id)}
                               title="Gỡ khỏi rạp"
                             >
-                              {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-trash3" />}
+                              {busyId === id ? <Spinner animation="border" size="sm" /> : "Gỡ"}
                             </Button>
                           </>
                         ) : (
@@ -299,7 +297,7 @@ export default function ProductManagement() {
                             onClick={() => toggleSelling(id, true)}
                             title="Thêm vào rạp"
                           >
-                            {busyId === id ? <Spinner animation="border" size="sm" /> : <i className="bi bi-plus-circle" />}
+                            {busyId === id ? <Spinner animation="border" size="sm" /> : "Thêm"}
                           </Button>
                         )}
                       </div>
@@ -352,7 +350,6 @@ export default function ProductManagement() {
         <div className="d-flex align-items-center gap-2 flex-wrap mt-2">
           {cinemaLabel ? (
             <Badge bg="primary" className="px-3 py-2 shadow-sm">
-              <i className="bi bi-geo-alt-fill me-1" />
               {cinemaLabel}
             </Badge>
           ) : null}
@@ -415,13 +412,11 @@ export default function ProductManagement() {
               <div className="pm-header">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h5 className="mb-0 fw-bold text-secondary d-flex align-items-center gap-2">
-                    <ArrowDownLeft size={20} />
                     Chưa bán tại rạp
                     <Badge bg="secondary" pill className="ms-1">{notOnSale.length}</Badge>
                   </h5>
                 </div>
                 <div className="pm-search-wrapper">
-                  <Search size={16} className="pm-search-icon" />
                   <Form.Control
                     className="pm-search-input"
                     placeholder="Tìm sản phẩm chưa bán..."
@@ -439,13 +434,11 @@ export default function ProductManagement() {
               <div className="pm-header">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h5 className="mb-0 fw-bold text-success d-flex align-items-center gap-2">
-                    <ArrowUpRight size={20} />
                     Đang bán tại rạp
                     <Badge bg="success" pill className="ms-1">{onSale.length}</Badge>
                   </h5>
                 </div>
                 <div className="pm-search-wrapper">
-                  <Search size={16} className="pm-search-icon" />
                   <Form.Control
                     className="pm-search-input"
                     placeholder="Tìm sản phẩm đang bán..."

@@ -11,12 +11,14 @@ export function mapMovieForCard(m) {
   const releaseLabel = ymd ? formatDate(ymd, { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
   // Phân loại dựa vào status: 1=Đang chiếu, 2=Sắp chiếu
   const type = m.status === 2 ? "soon" : "now";
+  const genres = Array.isArray(m.genres) ? m.genres : [];
   return {
     id: m.id,
     title: m.title ?? "",
     posterUrl: m.posterUrl || m.poster || "",
     banner: m.banner || null,
-    genre: m.genre ?? "",
+    genre: genres.join(", "),
+    genres,
     ageLimit: m.ageLimit ?? 0,
     releaseDate: releaseLabel,
     /** Phân loại danh sách */

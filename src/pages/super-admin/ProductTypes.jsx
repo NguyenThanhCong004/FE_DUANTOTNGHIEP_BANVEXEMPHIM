@@ -109,7 +109,6 @@ const ProductTypeManagement = () => {
           style={{ background: "white", color: "#6366f1" }}
           onClick={() => navigate("/super-admin/product-types/create")}
         >
-          <i className="bi bi-plus-lg me-2"></i>
           Thêm loại sản phẩm
         </button>
       }
@@ -117,14 +116,12 @@ const ProductTypeManagement = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
-            <i className="bi bi-list-ul text-primary"></i>
             Danh sách loại
           </h4>
           <span className="text-muted small">Tổng: {filteredTypes.length}</span>
         </div>
         <div className="admin-card-body">
           <div className="admin-search-wrapper mb-3" style={{ maxWidth: 420 }}>
-            <i className="bi bi-search admin-search-icon" aria-hidden />
             <input
               type="search"
               className="admin-search-input"
@@ -166,17 +163,13 @@ const ProductTypeManagement = () => {
                             className="admin-btn admin-btn-sm admin-btn-primary"
                             onClick={() => navigate("/super-admin/product-types/create", { state: { editData: type } })}
                             title="Sửa loại sản phẩm"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </button>
+                          >Sửa</button>
                           <button
                             type="button"
                             className="admin-btn admin-btn-sm admin-btn-danger"
                             onClick={() => openDeleteModal(type)}
                             title="Xóa loại sản phẩm"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
+                          >Xóa</button>
                         </div>
                       </td>
                     </tr>
@@ -203,7 +196,6 @@ const ProductTypeManagement = () => {
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa Loại sản phẩm
               </h3>
               <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
@@ -217,12 +209,10 @@ const ProductTypeManagement = () => {
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}
               <p className="text-muted small mb-0">
-                <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả sản phẩm thuộc loại này có thể bị ảnh hưởng.
               </p>
             </div>
@@ -232,7 +222,6 @@ const ProductTypeManagement = () => {
                 className="admin-btn admin-btn-outline-secondary"
                 onClick={closeDeleteModal}
               >
-                <i className="bi bi-x-circle me-2"></i>
                 Hủy
               </button>
               <button
@@ -240,7 +229,6 @@ const ProductTypeManagement = () => {
                 className="admin-btn admin-btn-danger"
                 onClick={() => handleDeleteProductType(typeToDelete)}
               >
-                <i className="bi bi-trash me-2"></i>
                 Xóa loại sản phẩm
               </button>
             </div>

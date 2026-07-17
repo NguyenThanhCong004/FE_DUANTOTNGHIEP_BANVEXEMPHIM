@@ -718,7 +718,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
         >
 
-          <i className="fas fa-arrow-left fs-4"></i>
+          Quay lại
 
         </Button>
 
@@ -735,8 +735,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
       {errors.form ? (
 
         <Alert variant="warning" className="border-0 shadow-sm mb-4 fw-bold" style={{ borderRadius: "12px" }}>
-
-          <i className="fas fa-exclamation-triangle me-2" />
 
           {errors.form}
 
@@ -767,8 +765,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
                   ) : (
 
                     <div className="text-muted text-center">
-
-                      <i className="fas fa-camera fs-1 mb-2" />
 
                       <small className="d-block">Tải ảnh lên</small>
 

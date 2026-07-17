@@ -125,7 +125,6 @@ const NewsManagement = () => {
           style={{ background: "white", color: "#6366f1" }}
           onClick={() => navigate('/super-admin/news/create')}
         >
-          <i className="bi bi-plus-lg me-2"></i>
           Viết tin mới
         </button>
       }
@@ -134,7 +133,6 @@ const NewsManagement = () => {
         {/* Search & Filter Bar */}
         <div className="d-flex flex-wrap gap-3 mb-4">
           <div className="admin-search-wrapper" style={{ maxWidth: '400px', flex: '1' }}>
-            <i className="bi bi-search admin-search-icon"></i>
             <input 
               type="text" 
               className="admin-search-input"
@@ -170,7 +168,6 @@ const NewsManagement = () => {
           </div>
         ) : currentItems.length === 0 ? (
           <div className="admin-empty">
-            <i className="bi bi-newspaper admin-empty-icon"></i>
             <p>Không tìm thấy tin tức nào</p>
           </div>
         ) : (
@@ -222,23 +219,17 @@ const NewsManagement = () => {
                               setShowModal(true);
                             }}
                             title="Xem chi tiết"
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
+                          >Xem</button>
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-primary"
                             onClick={() => navigate('/super-admin/news/create', { state: { editData: news } })}
                             title="Sửa tin tức"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </button>
+                          >Sửa</button>
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-danger"
                             onClick={() => openDeleteModal(news)}
                             title="Xóa tin tức"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
+                          >Xóa</button>
                         </div>
                       </td>
                     </tr>
@@ -265,11 +256,9 @@ const NewsManagement = () => {
           <div className="admin-modal" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>
-                <i className="bi bi-newspaper me-2"></i>
                 Chi tiết tin tức
               </h3>
               <button className="admin-modal-close" onClick={() => setShowModal(false)}>
-                <i className="bi bi-x-lg"></i>
               </button>
             </div>
             <div className="admin-modal-body">
@@ -285,7 +274,6 @@ const NewsManagement = () => {
                   {selectedItem.status === 'Active' ? 'Công khai' : 'Tạm ẩn'}
                 </span>
                 <span className="text-muted small">
-                  <i className="bi bi-calendar3 me-2"></i>
                   Ngày đăng: {formatDate(selectedItem.date)}
                 </span>
               </div>
@@ -306,7 +294,6 @@ const NewsManagement = () => {
                   navigate('/super-admin/news/create', { state: { editData: selectedItem } });
                 }}
               >
-                <i className="bi bi-pencil me-2"></i>
                 Chỉnh sửa bài viết
               </button>
             </div>
@@ -320,7 +307,6 @@ const NewsManagement = () => {
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa tin tức
               </h3>
               <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
@@ -344,12 +330,10 @@ const NewsManagement = () => {
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}
               <p className="text-muted small mb-0">
-                <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Bài viết sẽ bị gỡ khỏi trang chủ và ứng dụng khách hàng.
               </p>
             </div>
@@ -359,7 +343,6 @@ const NewsManagement = () => {
                 className="admin-btn admin-btn-outline-secondary"
                 onClick={closeDeleteModal}
               >
-                <i className="bi bi-x-circle me-2"></i>
                 Hủy
               </button>
               <button
@@ -368,7 +351,6 @@ const NewsManagement = () => {
                 disabled={deleting}
                 onClick={() => handleDeleteNews(newsToDelete)}
               >
-                <i className="bi bi-trash me-2"></i>
                 {deleting ? "Đang xóa..." : "Xóa bài viết"}
               </button>
             </div>

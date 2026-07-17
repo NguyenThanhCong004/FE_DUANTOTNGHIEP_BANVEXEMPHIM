@@ -366,7 +366,7 @@ function Step3({ resetSessionToken, onDone, busy, onBusy }) {
 /* ══════════════════════════════════════════
    SUCCESS
 ══════════════════════════════════════════ */
-function SuccessView() {
+function SuccessView({ loginPath }) {
   const navigate = useNavigate();
   return (
     <div className="fp-body" style={{ textAlign: "center", paddingTop: 20 }}>
@@ -383,7 +383,7 @@ function SuccessView() {
       </div>
       <h3 className="fp-success-title">ĐỔI MẬT KHẨU THÀNH CÔNG!</h3>
       <p className="fp-success-desc">Mật khẩu của bạn đã được cập nhật. Vui lòng đăng nhập lại.</p>
-      <button className="fp-btn" onClick={() => navigate("/login")}>
+      <button className="fp-btn" onClick={() => navigate(loginPath)}>
         Đăng Nhập Ngay
       </button>
     </div>
@@ -393,7 +393,8 @@ function SuccessView() {
 /* ══════════════════════════════════════════
    MAIN PAGE
 ══════════════════════════════════════════ */
-export default function ForgotPassword() {
+export default function ForgotPassword({ mode = "customer" }) {
+  const loginPath = mode === "staff" ? "/staff/login" : "/login";
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -736,11 +737,14 @@ export default function ForgotPassword() {
           <h2 className="fp-card-title">
             QUÊN <span>MẬT KHẨU</span>
           </h2>
+          {mode === "staff" && (
+            <p className="fp-desc" style={{ textAlign: "center", marginTop: -16 }}>Dành cho tài khoản nhân viên</p>
+          )}
 
           {!done && <StepIndicator current={step} />}
 
           {done ? (
-            <SuccessView />
+            <SuccessView loginPath={loginPath} />
           ) : step === 1 ? (
             <Step1
               onContinue={(payload) => {
@@ -767,7 +771,7 @@ export default function ForgotPassword() {
 
           {!done && (
             <p className="fp-back">
-              Nhớ mật khẩu rồi? <Link to="/login">Đăng nhập</Link>
+              Nhớ mật khẩu rồi? <Link to={loginPath}>Đăng nhập</Link>
             </p>
           )}
         </div>

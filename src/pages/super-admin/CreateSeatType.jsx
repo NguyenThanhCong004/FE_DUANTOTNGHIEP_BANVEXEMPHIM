@@ -217,7 +217,6 @@ const CreateSeatType = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
           <h4 className="mb-0">
-            <i className={`bi ${editData ? "bi-pencil-square" : "bi-plus-circle-fill"} text-primary me-2`} />
             Thông tin loại ghế
           </h4>
           <div className="d-flex align-items-center gap-2 small text-muted">
@@ -237,7 +236,6 @@ const CreateSeatType = () => {
         <div className="admin-card-body p-4">
           {serverError ? (
             <Alert variant="danger" className="py-2 small mb-4">
-              <i className="bi bi-exclamation-triangle-fill me-2" />
               {serverError}
             </Alert>
           ) : null}
@@ -310,7 +308,6 @@ const CreateSeatType = () => {
               {errors.name ? <Form.Text className="text-danger d-block">{errors.name}</Form.Text> : null}
               {nameSuggestsCouple && !formData.coupleSeat ? (
                 <Form.Text className="text-warning d-block mt-1">
-                  <i className="bi bi-lightbulb me-1" />
                   Tên có vẻ là ghế đôi — nên bật «Ghế đôi» bên dưới nếu đúng ý định.
                 </Form.Text>
               ) : null}
@@ -333,7 +330,6 @@ const CreateSeatType = () => {
               />
               {errors.surcharge ? <Form.Text className="text-danger d-block">{errors.surcharge}</Form.Text> : null}
               <Form.Text className="text-muted d-block mt-2">
-                <i className="bi bi-info-circle me-1" />
                 Số tiền cộng thêm (chỉ chấp nhận số tròn nghìn, VD: 1000, 5000, 100000).
               </Form.Text>
             </Form.Group>
@@ -354,7 +350,7 @@ const CreateSeatType = () => {
 
             <div className="mt-3 d-flex flex-wrap justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: 180 }} disabled={submitting}>
-                {submitting ? <span className="spinner-border spinner-border-sm me-2" role="status" /> : <i className="bi bi-check-circle me-2" />}
+                {submitting && <span className="spinner-border spinner-border-sm me-2" role="status" />}
                 {editData ? "Cập nhật" : "Lưu loại ghế"}
               </button>
             </div>

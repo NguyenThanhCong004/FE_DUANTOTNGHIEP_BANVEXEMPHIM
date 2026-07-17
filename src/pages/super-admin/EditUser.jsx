@@ -190,8 +190,6 @@ export default function EditUser() {
 
           <h4 className="mb-0">
 
-            <i className="bi bi-shield-lock text-primary me-2"></i>
-
             Quản lý trạng thái & Hạng
 
           </h4>
@@ -204,7 +202,6 @@ export default function EditUser() {
 
           {serverError && (
             <div className="alert alert-danger border-0 py-2 small mb-4">
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
               {serverError}
             </div>
           )}
@@ -222,8 +219,6 @@ export default function EditUser() {
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
 
-                  <i className="bi bi-person admin-search-icon" style={{ left: '15px' }}></i>
-
                   <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.fullname} disabled />
 
                 </div>
@@ -237,8 +232,6 @@ export default function EditUser() {
                 <label className="admin-form-label">Tên đăng nhập</label>
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
-
-                  <i className="bi bi-at admin-search-icon" style={{ left: '15px' }}></i>
 
                   <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.username} disabled />
 
@@ -254,8 +247,6 @@ export default function EditUser() {
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
 
-                  <i className="bi bi-cash-stack admin-search-icon" style={{ left: '15px' }}></i>
-
                   <input type="text" className="admin-search-input w-100 fw-bold text-success" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formatVnd(formData.totalSpending, { compact: true })} disabled />
 
                 </div>
@@ -269,8 +260,6 @@ export default function EditUser() {
                 <label className="admin-form-label">Hạng hiện tại (Tự động)</label>
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
-
-                  <i className="bi bi-star-fill admin-search-icon text-warning" style={{ left: '15px' }}></i>
 
                   <input type="text" className="admin-search-input w-100 fw-bold text-primary" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.rankName} disabled />
 
@@ -324,8 +313,6 @@ export default function EditUser() {
 
                     <p className="small text-muted mt-2">
 
-                      <i className="bi bi-info-circle me-1"></i>
-
                       Khóa tài khoản sẽ ngăn người dùng đăng nhập vào hệ thống.
 
                     </p>
@@ -356,8 +343,6 @@ export default function EditUser() {
 
               >
 
-                <i className="bi bi-x-circle me-2"></i>
-
                 Hủy bỏ
 
               </button>
@@ -387,8 +372,6 @@ export default function EditUser() {
                 ) : (
 
                   <>
-
-                    <i className="bi bi-check2-circle me-2"></i>
 
                     Cập nhật trạng thái
 

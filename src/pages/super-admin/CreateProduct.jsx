@@ -202,7 +202,7 @@ const CreateProduct = () => {
   return (
     <AdminPanelPage 
       icon={editData ? "bi-box-seam-fill" : "bi-box-seam"} 
-      title={editData ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'} 
+      title={editData ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'}
       description="Quản lý danh mục sản phẩm bắp nước, combo và quà tặng trên hệ thống."
       headerRight={<AdminFormListBack to="/super-admin/catalog-products" />}
     >
@@ -213,7 +213,7 @@ const CreateProduct = () => {
           <div className="col-md-4">
             <div className="admin-card admin-slide-up">
               <div className="admin-card-header">
-                <h4 className="mb-0"><i className="bi bi-image text-primary me-2"></i>Ảnh sản phẩm</h4>
+                <h4 className="mb-0">Ảnh sản phẩm</h4>
               </div>
               <div className="admin-card-body p-4 text-center">
                 <div 
@@ -225,7 +225,6 @@ const CreateProduct = () => {
                     <img src={previewImage} alt="Product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div className="text-muted text-center">
-                      <i className="bi bi-cloud-arrow-up fs-1"></i>
                       <div className="small fw-bold mt-2">TẢI ẢNH (1:1)</div>
                     </div>
                   )}
@@ -239,10 +238,10 @@ const CreateProduct = () => {
           <div className="col-md-8">
             <div className="admin-card admin-slide-up h-100">
               <div className="admin-card-header">
-                <h4 className="mb-0"><i className="bi bi-info-circle text-primary me-2"></i>Thông tin chi tiết</h4>
+                <h4 className="mb-0">Thông tin chi tiết</h4>
               </div>
               <div className="admin-card-body p-4">
-                {serverError && <div className="alert alert-danger border-0 py-2 small mb-4"><i className="bi bi-exclamation-triangle-fill me-2"></i>{serverError}</div>}
+                {serverError && <div className="alert alert-danger border-0 py-2 small mb-4">{serverError}</div>}
                 
                 <div className="row">
                   <div className="col-md-8 mb-4">
@@ -294,7 +293,7 @@ const CreateProduct = () => {
 
                 <div className="mt-2 d-flex justify-content-end">
                   <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
-                    {submitting ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-check-circle me-2"></i>}
+                    {submitting && <span className="spinner-border spinner-border-sm me-2"></span>}
                     {editData ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm'}
                   </button>
                 </div>

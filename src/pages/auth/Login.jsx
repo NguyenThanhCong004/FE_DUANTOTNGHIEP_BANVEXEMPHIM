@@ -122,7 +122,7 @@ const Login = ({ mode = "user" }) => {
           staff: null,
         });
         const redirectTo = location.state?.from;
-        navigate(typeof redirectTo === "string" && redirectTo.startsWith("/") ? redirectTo : "/profile", {
+        navigate(typeof redirectTo === "string" && redirectTo.startsWith("/") ? redirectTo : "/", {
           replace: true,
         });
         return;
@@ -391,7 +391,7 @@ const Login = ({ mode = "user" }) => {
               </div>
             </div>
 
-            {!isStaffLogin && <Link to="/forgetPassword" className="auth-forgot">Quên mật khẩu?</Link>}
+            <Link to={isStaffLogin ? "/staff/forgetPassword" : "/forgetPassword"} className="auth-forgot">Quên mật khẩu?</Link>
 
             {error && <div className="auth-error">{error}</div>}
 

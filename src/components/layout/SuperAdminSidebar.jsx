@@ -27,8 +27,6 @@ const menuSections = [
     items: [
       { path: "/super-admin/movies", icon: "bi-film", label: "Kho phim" },
       { path: "/super-admin/movie-types", icon: "bi-tags", label: "Thể loại phim" },
-      { path: "/super-admin/authors", icon: "bi-person-vcard", label: "Quản lý tác giả" },
-      { path: "/super-admin/nations", icon: "bi-globe2", label: "Quản lý quốc gia" },
       { path: "/super-admin/news", icon: "bi-newspaper", label: "Tin tức" },
       { path: "/super-admin/vouchers", icon: "bi-ticket-perforated", label: "Voucher" },
       { path: "/super-admin/seat-types", icon: "bi-grid-3x3-gap", label: "Loại ghế" },
@@ -64,7 +62,7 @@ export default function SuperAdminSidebar() {
       <div className="app-shell-brand">
         <div className="app-shell-brand-dot" />
         <div>
-          <div className="app-shell-brand-title">ERROR404</div>
+          <div className="app-shell-brand-title">MovieZone</div>
           <div className="app-shell-brand-sub">SUPER ADMIN</div>
         </div>
       </div>
@@ -136,7 +134,6 @@ function BiNavLink({ to, end, locked, icon, label, currentPath, onNavigate }) {
         aria-disabled="true"
         title="Chọn rạp để truy cập"
       >
-        <i className={`bi ${icon}`} />
         <span>{label}</span>
       </span>
     );
@@ -148,7 +145,6 @@ function BiNavLink({ to, end, locked, icon, label, currentPath, onNavigate }) {
       className={`app-shell-nav-link ${active ? "active" : ""}`}
       onClick={() => onNavigate(to)}
     >
-      <i className={`bi ${icon}`} />
       <span>{label}</span>
     </button>
   );
