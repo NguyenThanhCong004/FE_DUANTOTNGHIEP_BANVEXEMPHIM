@@ -52,7 +52,7 @@ const Login = ({ mode = "user" }) => {
       const res = await fetch(apiUrl(isStaffLogin ? AUTH.STAFF_LOGIN : AUTH.LOGIN), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account: loginName, password }),
+        body: JSON.stringify({ username: loginName, account: loginName, password }),
       });
 
       const json = await res.json().catch(() => null);
