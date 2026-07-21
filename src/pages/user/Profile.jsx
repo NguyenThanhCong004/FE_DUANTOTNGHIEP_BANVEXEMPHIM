@@ -1102,7 +1102,9 @@ export default function UserProfile() {
             #0f102a;
           font-family: 'Syne', sans-serif;
           padding: 20px 0 40px;
+          overflow-x: hidden;
         }
+        .pf-page *, .pf-page *::before, .pf-page *::after { box-sizing: border-box; }
 
         .pf-header {
           margin-bottom: 12px;
@@ -1155,22 +1157,52 @@ export default function UserProfile() {
         .pf-hs-num { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; color: var(--yellow); line-height: 1; }
         .pf-hs-lbl { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 
-        /* TABS — thanh cố định khi cuộn */
-        .pf-tabs-bar {
+        /* MENU TAI KHOAN */
+        .pf-profile-layout {
+          display: grid;
+          grid-template-columns: 230px minmax(0, 1fr);
+          gap: 16px;
+          align-items: start;
+        }
+        .pf-sidebar {
           position: sticky;
-          top: 0;
-          z-index: 20;
-          background: rgba(15,16,42,0.94);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          padding: 10px 0;
-          margin-bottom: 16px;
+          top: 14px;
+          z-index: 10;
+          background: var(--card);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 14px;
+          padding: 12px;
+        }
+        .pf-sidebar-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 13px;
+          letter-spacing: 2px;
+          color: rgba(255,255,255,0.75);
+          margin: 0 0 10px;
+          padding: 0 4px 10px;
           border-bottom: 1px solid rgba(255,255,255,0.07);
         }
-        .pf-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 4px; overflow-x: auto; width: fit-content; max-width: 100%; }
-        .pf-tab { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; padding: 7px 14px; border-radius: 8px; border: none; background: transparent; color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .pf-profile-content { min-width: 0; }
+        .pf-tabs { display: flex; flex-direction: column; gap: 6px; }
+        .pf-tab {
+          width: 100%;
+          font-family: 'Syne', sans-serif;
+          font-weight: 700;
+          font-size: 11px;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+          text-align: left;
+          padding: 10px 12px;
+          border-radius: 8px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: rgba(255,255,255,0.45);
+          cursor: pointer;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
         .pf-tab.active { background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; box-shadow: 0 0 14px rgba(233,30,140,0.3); }
-        .pf-tab:hover:not(.active) { color: rgba(255,255,255,0.7); }
+        .pf-tab:hover:not(.active) { color: rgba(255,255,255,0.78); border-color: rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); }
 
         /* CARD */
         .pf-card { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 16px; height: 100%; }
@@ -1218,6 +1250,8 @@ export default function UserProfile() {
         .pf-rank-req  { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); margin-top: 2px; }
         .pf-rank-perks { display: flex; flex-direction: column; gap: 3px; text-align: right; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.4); flex-shrink: 0; }
         .pf-current-tag { font-size: 9px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; background: var(--yellow); color: #0f102a; padding: 2px 8px; border-radius: 4px; }
+        .pf-progress-bar { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,0.08); }
+        .pf-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow)); }
 
         /* VOUCHER CARD */
         .pf-voucher-card {
@@ -1341,10 +1375,224 @@ export default function UserProfile() {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 767px) {
-          .pf-hero { flex-direction: column; align-items: flex-start; }
-          .pf-hero-stats { width: 100%; }
-          .pf-hs { flex: 1; min-width: 0; }
-          .pf-tabs { width: 100%; }
+          .pf-page {
+            padding: 14px 0 28px;
+          }
+          .pf-page .container-xl {
+            padding-left: 12px;
+            padding-right: 12px;
+          }
+          .pf-header {
+            margin-bottom: 10px;
+          }
+          .pf-title {
+            font-size: 24px;
+          }
+          .pf-hero {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 14px;
+            border-radius: 12px;
+          }
+          .pf-hero-right,
+          .pf-fullname,
+          .pf-username {
+            width: 100%;
+            min-width: 0;
+          }
+          .pf-fullname,
+          .pf-username,
+          .pf-info-value {
+            overflow-wrap: anywhere;
+          }
+          .pf-rank-badge {
+            max-width: 100%;
+            white-space: normal;
+          }
+          .pf-hero-stats {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .pf-hs {
+            min-width: 0;
+            padding: 8px 10px;
+          }
+          .pf-hs-num {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .pf-profile-layout {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .pf-sidebar {
+            position: static;
+            padding: 10px;
+            border-radius: 12px;
+          }
+          .pf-sidebar-title { display: none; }
+          .pf-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+          .pf-tab {
+            width: 100%;
+            min-height: 42px;
+            padding: 9px 8px;
+            text-align: center;
+            white-space: normal;
+            line-height: 1.25;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .pf-card {
+            padding: 14px;
+            border-radius: 12px;
+          }
+          .pf-card-title {
+            flex-wrap: wrap;
+            line-height: 1.25;
+            row-gap: 8px;
+          }
+          .pf-card-title .pf-btn-yellow,
+          .pf-security-block .pf-btn-primary {
+            width: 100%;
+          }
+          .pf-card-title .pf-btn-yellow {
+            margin-left: 0 !important;
+          }
+          .pf-field,
+          .pf-input,
+          .pf-pw-wrap {
+            min-width: 0;
+          }
+          .pf-search-input {
+            width: 100%;
+            min-width: 0;
+            margin-left: 0;
+            flex: 1 1 100%;
+          }
+          .pf-filter-btn {
+            flex: 1 1 auto;
+            min-height: 38px;
+            text-align: center;
+          }
+          .pf-activity-item {
+            align-items: flex-start;
+          }
+          .pf-activity-item > div:nth-child(2) {
+            min-width: 0;
+          }
+          .pf-tx-row > button {
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+            padding: 14px !important;
+          }
+          .pf-tx-row > button > div:nth-child(2),
+          .pf-tx-row > button > div:last-child {
+            min-width: 0;
+          }
+          .pf-tx-row > button > div:last-child {
+            flex: 1 1 100%;
+            text-align: left !important;
+            padding-left: 16px;
+          }
+          .pf-rank-card {
+            align-items: flex-start;
+          }
+          .pf-rank-info {
+            min-width: 0;
+          }
+          .pf-rank-perks {
+            text-align: left;
+            align-items: flex-start;
+          }
+          .pf-voucher-card {
+            min-width: 0;
+          }
+          .pf-voucher-code,
+          .pf-voucher-meta {
+            overflow-wrap: anywhere;
+          }
+          .pf-voucher-code {
+            letter-spacing: 2px;
+          }
+          .pf-voucher-status {
+            text-align: center;
+          }
+          .pf-modal-overlay {
+            align-items: flex-end;
+            padding: 10px;
+          }
+          .pf-modal {
+            max-width: 100%;
+            max-height: calc(100dvh - 20px);
+            overflow-y: auto;
+            border-radius: 14px;
+          }
+          .pf-toast {
+            left: 12px;
+            right: 12px;
+            bottom: 14px;
+            transform: none;
+            white-space: normal;
+            text-align: center;
+            justify-content: center;
+            animation: pfToastMobile 0.3s ease;
+          }
+          @keyframes pfToastMobile {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        }
+
+        @media (max-width: 420px) {
+          .pf-page .container-xl {
+            padding-left: 10px;
+            padding-right: 10px;
+          }
+          .pf-card,
+          .pf-sidebar,
+          .pf-hero {
+            border-radius: 10px;
+          }
+          .pf-hero-stats {
+            grid-template-columns: 1fr;
+          }
+          .pf-tx-row > button {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+          .pf-tx-row > button > div:first-child {
+            width: 100% !important;
+            height: 4px;
+            align-self: stretch !important;
+          }
+          .pf-tx-row > button > div:last-child {
+            width: 100%;
+            padding-left: 0;
+          }
+          .pf-rank-card {
+            flex-direction: column;
+          }
+          .pf-rank-perks {
+            flex-direction: row;
+            flex-wrap: wrap;
+          }
+          .pf-voucher-discount {
+            font-size: 26px;
+          }
+        }
+
+        @media (max-width: 340px) {
+          .pf-tabs {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
 
@@ -1385,16 +1633,20 @@ export default function UserProfile() {
             </div>
           </div>
 
-          {/* TABS — cố định khi cuộn */}
-          <div className="pf-tabs-bar">
-            <div className="pf-tabs">
+          {/* MENU TAI KHOAN */}
+          <div className="pf-profile-layout">
+            <aside className="pf-sidebar">
+              <div className="pf-sidebar-title">Mục tài khoản</div>
+              <div className="pf-tabs">
               {TABS.map(({ key, label }) => (
                 <button key={key} className={`pf-tab${activeTab === key ? " active" : ""}`} onClick={() => setActiveTab(key)}>
                   {label}
                 </button>
               ))}
-            </div>
-          </div>
+              </div>
+            </aside>
+
+            <section className="pf-profile-content">
 
           {/* TAB PANELS */}
           {activeTab === "info"         && <TabInfo user={user} setUser={setUser} showToast={showToast} />}
@@ -1412,7 +1664,9 @@ export default function UserProfile() {
               <TabVouchers vouchers={vouchers} loading={loadingVou} />
             </div>
           )}
-          {activeTab === "rank"     && <TabRank user={user} ranks={ranks} loading={loadingRnk} />}
+              {activeTab === "rank"     && <TabRank user={user} ranks={ranks} loading={loadingRnk} />}
+            </section>
+          </div>
 
         </Container>
       </div>
