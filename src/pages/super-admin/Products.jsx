@@ -224,9 +224,6 @@ const ProductManagement = () => {
                           />
                           <div>
                             <div className="fw-semibold">{product.name}</div>
-                            <small className="text-muted line-clamp-1" style={{ maxWidth: '250px' }}>
-                              {product.description || "Không có mô tả"}
-                            </small>
                           </div>
                         </div>
                       </td>
@@ -319,13 +316,6 @@ const ProductManagement = () => {
                     <div className="col-12">
                       <p className="mb-2"><strong className="text-muted">Loại sản phẩm:</strong> {selectedItem.categoryName}</p>
                       <p className="mb-2"><strong className="text-muted">Giá niêm yết:</strong> <span className="text-success fw-bold fs-5">{formatVnd(selectedItem.price)}</span></p>
-                    </div>
-                    <div className="col-12">
-                      <hr className="my-2" />
-                      <p className="mb-2"><strong className="text-muted">Mô tả sản phẩm:</strong></p>
-                      <div className="p-3 bg-light rounded-4 text-dark" style={{ lineHeight: '1.6' }}>
-                        {selectedItem.description || "Sản phẩm này chưa có mô tả chi tiết."}
-                      </div>
                     </div>
                   </div>
                 </div>

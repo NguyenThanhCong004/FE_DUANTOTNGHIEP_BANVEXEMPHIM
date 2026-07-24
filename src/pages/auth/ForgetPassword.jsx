@@ -95,10 +95,15 @@ function RuleRow({ pass, text }) {
 /* ══════════════════════════════════════════
    STEP 1 – Nhập tài khoản
 ══════════════════════════════════════════ */
-function Step1({ onContinue }) {
+function Step1({ mode, onContinue }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const isStaff = mode === "staff";
+  const helperText = isStaff
+    ? "Vui lòng nhập username, email hoặc số điện thoại nhân viên"
+    : "Vui lòng nhập email hoặc số điện thoại đã đăng ký";
+  const placeholder = isStaff ? "Username / Email / Số điện thoại" : "Email / Số điện thoại";
 
   const handleSubmit = async () => {
     if (!value.trim()) { setError("Tài khoản không được để trống"); return; }
@@ -126,11 +131,11 @@ function Step1({ onContinue }) {
 
   return (
     <div className="fp-body">
-      <p className="fp-desc">Vui lòng nhập tài khoản cần tìm lại mật khẩu</p>
+      <p className="fp-desc">{helperText}</p>
       <div className={`fp-input-wrap ${error ? "has-error" : ""}`}>
         <input
           className="fp-input"
-          placeholder="Tên Người Dùng / Email"
+          placeholder={placeholder}
           value={value}
           disabled={loading}
           onChange={(e) => { setValue(e.target.value); setError(""); }}
@@ -747,6 +752,7 @@ export default function ForgotPassword({ mode = "customer" }) {
             <SuccessView loginPath={loginPath} />
           ) : step === 1 ? (
             <Step1
+              mode={mode}
               onContinue={(payload) => {
                 setFp((s) => ({ ...s, ...payload }));
                 setStep(2);

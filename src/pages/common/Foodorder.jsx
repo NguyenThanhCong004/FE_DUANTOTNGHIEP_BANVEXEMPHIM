@@ -49,10 +49,6 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
       <div className="fd-card-inner">
         {img}
         <h6 className="fd-name" title={product.name}>{product.name}</h6>
-        <p className="fd-desc">
-          {(product.description || "").slice(0, 80)}
-          {(product.description || "").length > 80 ? "…" : ""}
-        </p>
         <div className="fd-price-row">
           <span className="fd-price">{fmt(product.price)}</span>
         </div>
@@ -330,16 +326,7 @@ export function FoodOrderContent({ embedded = false }) {
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .fd-desc {
-          font-size: 11px;
-          color: rgba(255,255,255,0.35);
-          font-weight: 600;
-          margin-bottom: 10px;
-          line-height: 1.4;
-          min-height: 30px;
-          flex: 1;
-        }
-        .fd-price-row { margin-bottom: 12px; }
+        .fd-price-row { margin-top: auto; margin-bottom: 12px; }
         .fd-price {
           font-family: 'Bebas Neue', sans-serif;
           font-size: 20px;
