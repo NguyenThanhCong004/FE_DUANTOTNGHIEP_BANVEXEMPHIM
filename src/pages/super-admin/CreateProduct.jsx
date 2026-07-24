@@ -282,13 +282,6 @@ const CreateProduct = () => {
                     </select>
                   </div>
 
-                  <div className="col-12 mb-4">
-                    <label className="admin-form-label">Mô tả sản phẩm</label>
-                    <textarea 
-                      name="description" className="admin-search-input w-100" style={{ height: 'auto', minHeight: '80px', paddingTop: '10px' }}
-                      placeholder="Nhập mô tả ngắn gọn về sản phẩm..." value={formData.description} onChange={handleChange}
-                    ></textarea>
-                  </div>
                 </div>
 
                 <div className="mt-2 d-flex justify-content-end">

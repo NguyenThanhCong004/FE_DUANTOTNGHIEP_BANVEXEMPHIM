@@ -1,37 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
-import { vi } from 'date-fns/locale/vi';
 import { apiUrl } from '../../utils/apiClient';
 import { AUTH } from '../../constants/apiEndpoints';
-import { toDateInputValue } from '../../utils/formatters';
 import { STRONG_PASSWORD_REGEX, PASSWORD_RULE_MESSAGE } from '../../utils/passwordValidation';
-
-function formatLocalDate(date) {
-  return toDateInputValue(date) || null;
-}
-
-const BirthdayInput = React.forwardRef(({ value, onClick, onChange, placeholder, className }, ref) => (
-  <input
-    ref={ref}
-    type="text"
-    className={className}
-    value={value || ""}
-    placeholder={placeholder || "Chọn ngày sinh"}
-    onClick={onClick}
-    onChange={onChange}
-    readOnly
-    autoComplete="off"
-  />
-));
-BirthdayInput.displayName = "BirthdayInput";
 
 const Register = () => {
   const navigate = useNavigate();
-  const [startDate, setStartDate] = useState(null);
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [fullname, setFullname] = useState("");
@@ -45,14 +20,6 @@ const Register = () => {
     setFieldErrors({});
 
     const errors = {};
-
-    if (!username || !username.trim()) {
-      errors.username = "Tên đăng nhập không được để trống";
-    } else if (username.length < 6) {
-      errors.username = "Tên đăng nhập phải từ 6 đến 50 ký tự";
-    } else if (username.length > 50) {
-      errors.username = "Tên đăng nhập phải từ 6 đến 50 ký tự";
-    }
 
     if (!password || !password.trim()) {
       errors.password = "Mật khẩu không được để trống";
@@ -78,27 +45,21 @@ const Register = () => {
       errors.phone = "Số điện thoại phải có 10 chữ số";
     }
 
-    if (!startDate) {
-      errors.birthday = "Vui lòng chọn ngày sinh";
-    }
-
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
     }
 
     try {
-      const birthday = formatLocalDate(startDate);
       const res = await fetch(apiUrl(AUTH.REGISTER), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: username.trim(),
           password: password.trim(),
           fullname: fullname.trim(),
           email: email.trim(),
           phone: phone.replace(/\s/g, ""),
-          birthday,
+          birthday: null,
           avatar: null,
         }),
       });
@@ -107,13 +68,7 @@ const Register = () => {
       if (!res.ok) {
         const message = json?.message || "Đăng ký thất bại";
 
-        if (message.includes("Tên đăng nhập không được để trống")) {
-          setFieldErrors({ username: "Tên đăng nhập không được để trống" });
-        } else if (message.includes("Tên đăng nhập phải từ 6 đến 50 ký tự")) {
-          setFieldErrors({ username: "Tên đăng nhập phải từ 6 đến 50 ký tự" });
-        } else if (message.includes("Tên đăng nhập đã tồn tại")) {
-          setFieldErrors({ username: "Tên đăng nhập đã tồn tại" });
-        } else if (message.includes("Mật khẩu không được để trống")) {
+        if (message.includes("Mật khẩu không được để trống")) {
           setFieldErrors({ password: "Mật khẩu không được để trống" });
         } else if (message.includes("Mật khẩu phải có ít nhất")
             || message.includes("Mật khẩu phải chứa")) {
@@ -130,8 +85,6 @@ const Register = () => {
           setFieldErrors({ phone: "Số điện thoại đã tồn tại" });
         } else if (message.includes("Số điện thoại không hợp lệ")) {
           setFieldErrors({ phone: "Số điện thoại không hợp lệ" });
-        } else if (message.includes("Tên đăng nhập không hợp lệ")) {
-          setFieldErrors({ username: "Tên đăng nhập không hợp lệ" });
         } else {
           setError(message);
         }
@@ -153,7 +106,6 @@ const Register = () => {
     }
     if (error) setError('');
     switch (field) {
-      case 'username': setUsername(value); break;
       case 'password': setPassword(value); break;
       case 'fullname': setFullname(value); break;
       case 'email':    setEmail(value);    break;
@@ -186,7 +138,7 @@ const Register = () => {
 
         .auth-card {
           width: 100%;
-          max-width: 680px;
+          max-width: 520px;
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(212,255,0,0.15);
           border-radius: 20px;
@@ -325,13 +277,12 @@ const Register = () => {
 
         .auth-row {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
+          grid-template-columns: 1fr;
+          gap: 0;
           align-items: start;
         }
 
         @media (max-width: 560px) {
-          .auth-row { grid-template-columns: 1fr; }
           .auth-card { padding: 28px 20px; }
         }
 
@@ -388,38 +339,6 @@ const Register = () => {
           color: var(--pink);
         }
 
-        /* DatePicker overrides */
-        .auth-datepicker-wrapper { flex: 1; height: 100%; min-width: 0; }
-        .auth-datepicker-wrapper .react-datepicker-wrapper,
-        .auth-datepicker-wrapper .react-datepicker__input-container {
-          width: 100%;
-          height: 100%;
-          display: block;
-        }
-        .auth-datepicker-input {
-          width: 100%;
-          height: 100%;
-          background: rgba(255,255,255,0.05) !important;
-          border: none !important;
-          outline: none !important;
-          color: var(--off-white) !important;
-          font-family: 'Syne', sans-serif !important;
-          font-size: 14px !important;
-          padding: 11px 14px !important;
-          box-shadow: none !important;
-          border-radius: 0 !important;
-          box-sizing: border-box !important;
-          cursor: pointer;
-        }
-        .auth-datepicker-input::placeholder { color: rgba(240,240,255,0.25) !important; }
-        .react-datepicker { background-color: #0d0d2b !important; border: 1px solid rgba(212,255,0,0.2) !important; border-radius: 12px !important; overflow: hidden; font-family: 'Syne', sans-serif !important; }
-        .react-datepicker__header { background-color: rgba(13,13,43,0.98) !important; border-bottom: 1px solid rgba(212,255,0,0.12) !important; }
-        .react-datepicker__current-month, .react-datepicker__day-name { color: var(--off-white) !important; font-family: 'Syne', sans-serif !important; font-weight: 700 !important; }
-        .react-datepicker__day { color: rgba(240,240,255,0.7) !important; font-family: 'Syne', sans-serif !important; }
-        .react-datepicker__day:hover { background-color: rgba(212,255,0,0.12) !important; color: var(--yellow) !important; border-radius: 50% !important; }
-        .react-datepicker__day--selected { background-color: var(--pink) !important; color: #fff !important; border-radius: 50% !important; }
-        .react-datepicker__navigation-icon::before { border-color: rgba(240,240,255,0.5) !important; }
-        .react-datepicker__year-select, .react-datepicker__month-select { background: #0d0d2b !important; color: var(--off-white) !important; border: 1px solid rgba(212,255,0,0.2) !important; border-radius: 6px !important; font-family: 'Syne', sans-serif !important; }
       `}</style>
 
       <div className="auth-page-wrapper">
@@ -429,47 +348,6 @@ const Register = () => {
           <p className="auth-subtitle">Đăng ký để nhận nhiều ưu đãi hấp dẫn</p>
 
           <form onSubmit={(e) => { e.preventDefault(); handleRegister(); }}>
-            <div className="auth-row">
-              <div className="auth-field">
-                <label className="auth-label">Tên đăng nhập <span className="req">*</span></label>
-                <div className={`auth-input-group${fieldErrors.username ? ' has-error' : ''}`}>
-                  <span className="auth-input-icon"><i className="fas fa-user" /></span>
-                  <input
-                    type="text"
-                    className="auth-input"
-                    placeholder="Nhập tên đăng nhập"
-                    value={username}
-                    onChange={(e) => handleFieldChange('username', e.target.value)}
-                  />
-                </div>
-                {fieldErrors.username && <span className="auth-field-error">{fieldErrors.username}</span>}
-              </div>
-
-              <div className="auth-field">
-                <label className="auth-label">Mật khẩu <span className="req">*</span></label>
-                <div className={`auth-input-group${fieldErrors.password ? ' has-error' : ''}`}>
-                  <span className="auth-input-icon"><i className="fas fa-lock" /></span>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    className="auth-input"
-                    placeholder="••••••"
-                    value={password}
-                    onChange={(e) => handleFieldChange('password', e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="auth-eye-btn"
-                    onClick={() => setShowPassword((s) => !s)}
-                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                  >
-                    <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`} />
-                  </button>
-                </div>
-                {fieldErrors.password && <span className="auth-field-error">{fieldErrors.password}</span>}
-              </div>
-            </div>
-
             <div className="auth-row">
               <div className="auth-field">
                 <label className="auth-label">Họ và tên <span className="req">*</span></label>
@@ -518,32 +396,31 @@ const Register = () => {
                 {fieldErrors.phone && <span className="auth-field-error">{fieldErrors.phone}</span>}
               </div>
 
+            </div>
+
+            <div className="auth-row">
               <div className="auth-field">
-                <label className="auth-label">Ngày sinh <span className="req">*</span></label>
-                <div className={`auth-input-group${fieldErrors.birthday ? ' has-error' : ''}`}>
-                  <span className="auth-input-icon"><i className="fas fa-calendar-alt" /></span>
-                  <div className="auth-datepicker-wrapper">
-                    <DatePicker
-                      selected={startDate}
-                      onChange={(date) => {
-                        setStartDate(date);
-                        if (fieldErrors.birthday) setFieldErrors(prev => ({ ...prev, birthday: '' }));
-                        if (error) setError('');
-                      }}
-                      locale={vi}
-                      dateFormat="dd/MM/yyyy"
-                      placeholderText="Chọn ngày sinh"
-                      className="auth-datepicker-input"
-                      customInput={<BirthdayInput />}
-                      autoComplete="off"
-                      maxDate={new Date()}
-                      showYearDropdown
-                      scrollableYearDropdown
-                      yearDropdownItemNumber={100}
-                    />
-                  </div>
+                <label className="auth-label">Mật khẩu <span className="req">*</span></label>
+                <div className={`auth-input-group${fieldErrors.password ? ' has-error' : ''}`}>
+                  <span className="auth-input-icon"><i className="fas fa-lock" /></span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    className="auth-input"
+                    placeholder="••••••"
+                    value={password}
+                    onChange={(e) => handleFieldChange('password', e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="auth-eye-btn"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  >
+                    <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`} />
+                  </button>
                 </div>
-                {fieldErrors.birthday && <span className="auth-field-error">{fieldErrors.birthday}</span>}
+                {fieldErrors.password && <span className="auth-field-error">{fieldErrors.password}</span>}
               </div>
             </div>
 

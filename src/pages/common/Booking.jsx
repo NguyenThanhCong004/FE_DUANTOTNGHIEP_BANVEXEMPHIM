@@ -1336,20 +1336,6 @@ const Booking = () => {
                           </div>
                           <div className="flex-grow-1 min-width-0">
                             <div className="fw-bold small text-truncate" style={{ color: '#fff' }}>{p.name}</div>
-                            <div
-                              className="small"
-                              title={p.description || "Chưa có mô tả"}
-                              style={{
-                                color: "rgba(255,255,255,0.62)",
-                                lineHeight: 1.35,
-                                display: "-webkit-box",
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden",
-                              }}
-                            >
-                              {p.description || "Chưa có mô tả"}
-                            </div>
                             <div className="text-danger fw-bold small">{formatVnd(p.price)}</div>
                           </div>
                           <div className="d-flex align-items-center gap-1">
