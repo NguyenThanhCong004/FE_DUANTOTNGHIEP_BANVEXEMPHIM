@@ -28,7 +28,6 @@ const menuSections = [
       { path: "/super-admin/movies", icon: "bi-film", label: "Kho phim" },
       { path: "/super-admin/movie-types", icon: "bi-tags", label: "Thể loại phim" },
       { path: "/super-admin/news", icon: "bi-newspaper", label: "Tin tức" },
-      { path: "/super-admin/vouchers", icon: "bi-ticket-perforated", label: "Voucher" },
       { path: "/super-admin/seat-types", icon: "bi-grid-3x3-gap", label: "Loại ghế" },
       { path: "/super-admin/product-types", icon: "bi-box-seam", label: "Loại sản phẩm" },
       { path: "/super-admin/catalog-products", icon: "bi-bag", label: "Sản phẩm" },
@@ -40,6 +39,7 @@ const menuSections = [
     requiresCinema: true,
     items: [
       { path: "/super-admin/staff", icon: "bi-person-gear", label: "Nhân viên rạp" },
+      { path: "/super-admin/vouchers", icon: "bi-ticket-perforated", label: "Voucher" },
       { path: "/super-admin/promotions", icon: "bi-megaphone", label: "Khuyến mãi" },
       { path: "/super-admin/shifts", icon: "bi-calendar-check", label: "Ca làm" },
       { path: "/super-admin/rooms", icon: "bi-door-open", label: "Phòng chiếu" },
