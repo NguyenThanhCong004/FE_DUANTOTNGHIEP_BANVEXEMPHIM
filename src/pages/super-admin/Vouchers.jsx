@@ -22,6 +22,7 @@ const VoucherManagement = () => {
   const { showToast, ToastComponent } = useAdminToast();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const basePath = location.pathname.startsWith("/admin") ? "/admin" : "/super-admin";
 
   useEffect(() => {
     if (location.state?.message) {
@@ -129,7 +130,7 @@ const VoucherManagement = () => {
           type="button"
           className="admin-btn"
           style={{ background: "white", color: "#6366f1" }}
-          onClick={() => navigate("/super-admin/vouchers/create")}
+          onClick={() => navigate(`${basePath}/vouchers/create`)}
         >
           Tạo Voucher mới
         </button>
@@ -224,7 +225,7 @@ const VoucherManagement = () => {
                             <button
                               type="button"
                               className="admin-btn admin-btn-sm admin-btn-primary"
-                              onClick={() => navigate("/super-admin/vouchers/create", { state: { editData: voucher } })}
+                              onClick={() => navigate(`${basePath}/vouchers/create`, { state: { editData: voucher } })}
                               title="Sửa voucher"
                             >Sửa</button>
                             <button
@@ -303,7 +304,7 @@ const VoucherManagement = () => {
                 className="admin-btn admin-btn-primary"
                 onClick={() => {
                   setShowModal(false);
-                  navigate("/super-admin/vouchers/create", { state: { editData: selectedItem } });
+                  navigate(`${basePath}/vouchers/create`, { state: { editData: selectedItem } });
                 }}
               >Sửa Voucher</button>
             </div>

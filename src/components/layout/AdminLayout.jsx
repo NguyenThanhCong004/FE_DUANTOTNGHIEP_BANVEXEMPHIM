@@ -12,6 +12,7 @@ import {
   ReceiptText,
   Users,
   UserCircle,
+  Ticket,
 } from "lucide-react";
 
 import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
@@ -41,6 +42,7 @@ const sectionsCinema = [
       { path: "/admin/seats", label: "Sơ đồ ghế", icon: Armchair },
       { path: "/admin/showtimes", label: "Suất chiếu", icon: Film },
       { path: "/admin/products", label: "Sản phẩm", icon: Package },
+      { path: "/admin/vouchers", label: "Voucher", icon: Ticket },
       { path: "/admin/promotions", label: "Khuyến mãi", icon: Megaphone },
       { path: "/admin/invoices", label: "Hóa đơn", icon: ReceiptText },
     ],

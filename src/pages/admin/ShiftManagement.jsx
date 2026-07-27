@@ -463,11 +463,27 @@ export default function ShiftManagement() {
                                     <div className={`d-flex align-items-center gap-1 fw-bold ${isPast ? 'text-muted opacity-50' : 'text-primary opacity-75'}`} style={{ fontSize: '0.6rem' }}>
                                       {pos.name}
                                     </div>
-                                    {hasAssignments && (
-                                      <Badge bg={isPast ? "secondary" : "primary"} className="rounded-pill" style={{ fontSize: '0.55rem' }}>
-                                        {assignments.length} người
-                                      </Badge>
-                                    )}
+                                    <div className="d-flex align-items-center gap-1">
+                                      {hasAssignments && (
+                                        <Badge bg={isPast ? "secondary" : "primary"} className="rounded-pill" style={{ fontSize: '0.55rem' }}>
+                                          {assignments.length} người
+                                        </Badge>
+                                      )}
+                                      {!isPast && (
+                                        <button
+                                          type="button"
+                                          className="add-staff-btn-v2 btn btn-primary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                          style={{ width: '18px', height: '18px', fontSize: '0.75rem', lineHeight: 1, padding: 0 }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPickerCell(isPickerOpen ? null : { date: dateStr, shiftName: shift.name, posId: pos.id });
+                                          }}
+                                          title="Thêm nhân viên vào ca này"
+                                        >
+                                          +
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   {isPickerOpen && (() => {
                                     const assignedIdsInShift = new Set(
@@ -609,6 +625,13 @@ export default function ShiftManagement() {
         }
         .shift-management-v2 .hover-opacity-100:hover {
           opacity: 1 !important;
+        }
+        .add-staff-btn-v2 {
+          border: none;
+          transition: transform 0.15s;
+        }
+        .add-staff-btn-v2:hover {
+          transform: scale(1.15);
         }
         .shadow-xs {
           box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;

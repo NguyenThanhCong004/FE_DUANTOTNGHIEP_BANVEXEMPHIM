@@ -15,6 +15,7 @@ const CreateVoucher = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData;
+  const basePath = location.pathname.startsWith("/admin") ? "/admin" : "/super-admin";
   const { showToast, ToastComponent } = useAdminToast();
 
   const [formData, setFormData] = useState({
@@ -231,7 +232,7 @@ const CreateVoucher = () => {
         const message = apiMessage(json, vid ? 'Cập nhật voucher thành công' : 'Thêm voucher mới thành công');
         const messageType = resultToastType(message);
 
-        navigate('/super-admin/vouchers', {
+        navigate(`${basePath}/vouchers`, {
           state: {
             message: message,
             type: messageType
@@ -254,7 +255,7 @@ const CreateVoucher = () => {
       icon={editData ? "bi-ticket-perforated-fill" : "bi-ticket-perforated"} 
       title={editData ? 'Cập nhật voucher' : 'Tạo voucher mới'}
       description="Thiết lập các mã giảm giá, chương trình ưu đãi và điểm đổi thưởng cho khách hàng."
-      headerRight={<AdminFormListBack to="/super-admin/vouchers" />}
+      headerRight={<AdminFormListBack to={`${basePath}/vouchers`} />}
     >
       <ToastComponent />
       <div className="admin-form-page-wrap admin-form-compact">
