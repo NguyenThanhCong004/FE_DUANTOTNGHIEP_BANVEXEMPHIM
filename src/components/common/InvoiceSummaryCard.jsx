@@ -75,11 +75,11 @@ const sectionStyle = {
 const labelStyle = { color: "#64748b" };
 const textStyle = { color: "#0f172a" };
 
-function InfoRow({ label, value, valueClassName = "" }) {
+function InfoRow({ label, value, valueClassName = "", valueStyle = {}, leftAlign = false }) {
   return (
-    <div className="d-flex justify-content-between gap-3 small">
-      <span style={labelStyle}>{label}</span>
-      <span className={`fw-semibold text-end ${valueClassName}`} style={textStyle}>
+    <div className={`d-flex gap-3 small${leftAlign ? "" : " justify-content-between"}`}>
+      <span style={{ ...labelStyle, ...(leftAlign ? { minWidth: 110, flexShrink: 0 } : {}) }}>{label}</span>
+      <span className={`fw-semibold${leftAlign ? "" : " text-end"} ${valueClassName}`} style={{ ...textStyle, ...valueStyle }}>
         {value || emptyText}
       </span>
     </div>
@@ -162,16 +162,10 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
 
         <section style={sectionStyle}>
           <div className="fw-bold mb-3" style={textStyle}>Thông tin khách hàng</div>
-          <div className="row g-3">
-            <div className="col-md-4">
-              <InfoRow label="Khách hàng" value={data.customerName} />
-            </div>
-            <div className="col-md-4">
-              <InfoRow label="Email" value={data.customerEmail} />
-            </div>
-            <div className="col-md-4">
-              <InfoRow label="Số điện thoại" value={data.customerPhone} />
-            </div>
+          <div className="d-flex flex-column gap-2">
+            <InfoRow label="Khách hàng" value={data.customerName} leftAlign />
+            <InfoRow label="Email" value={data.customerEmail} valueStyle={{ wordBreak: 'break-all' }} leftAlign />
+            <InfoRow label="Số điện thoại" value={data.customerPhone} leftAlign />
           </div>
         </section>
 

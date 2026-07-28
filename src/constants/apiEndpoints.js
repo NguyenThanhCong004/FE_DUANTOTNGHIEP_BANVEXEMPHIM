@@ -253,4 +253,6 @@ export const STAFF_DASHBOARD = {
   ORDER_DETAIL: (orderCode) => `${API_V1}/staff/dashboard-stats/orders/${orderCode}`,
   PRODUCTS_BREAKDOWN: `${API_V1}/staff/dashboard-stats/products-breakdown`,
   REVENUE_BREAKDOWN: `${API_V1}/staff/dashboard-stats/revenue-breakdown`,
+  CUSTOMER_BY_PHONE: (phone) => `${API_V1}/staff/dashboard-stats/customer-by-phone?phone=${encodeURIComponent(phone)}`,
+  CREATE_GUEST: (phone) => `${API_V1}/staff/dashboard-stats/create-guest?phone=${encodeURIComponent(phone)}`,
 };
