@@ -7,6 +7,8 @@ import { VOUCHERS } from '../../constants/apiEndpoints';
 import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
 import { formatNumber, formatVnd } from '../../utils/formatters';
+import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
+import { getStoredStaff } from '../../utils/authStorage';
 
 const MAX_POINT_VOUCHER = 10000000;
 const MAX_MONEY_VALUE = 1000000000;
@@ -16,7 +18,15 @@ const CreateVoucher = () => {
   const location = useLocation();
   const editData = location.state?.editData;
   const basePath = location.pathname.startsWith("/admin") ? "/admin" : "/super-admin";
+  const isSuperAdmin = basePath === "/super-admin";
   const { showToast, ToastComponent } = useAdminToast();
+  const staff = getStoredStaff();
+  const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
+  const activeCinemaId = isSuperAdmin ? selectedCinemaId : staff?.cinemaId ?? null;
+  const activeCinemaName = isSuperAdmin ? selectedCinemaName : staff?.cinemaName ?? null;
+  const cinemaForDisplay = editData
+    ? (editData.cinemaName || activeCinemaName)
+    : activeCinemaName;
 
   const [formData, setFormData] = useState({
     code: '',
@@ -181,6 +191,10 @@ const CreateVoucher = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
+    if (!editData?.id && !activeCinemaId) {
+      setServerError('Vui lòng chọn rạp ở góc trên (header) trước khi tạo voucher.');
+      return;
+    }
 
     setSubmitting(true);
     setServerError('');
@@ -202,6 +216,9 @@ const CreateVoucher = () => {
       pointVoucher: Number(formData.pointVoucher),
       status: statusMap[formData.status],
     };
+    if (!editData?.id) {
+      body.cinemaId = activeCinemaId;
+    }
 
     const vid = editData?.id;
     if (vid) {
@@ -254,7 +271,6 @@ const CreateVoucher = () => {
     <AdminPanelPage 
       icon={editData ? "bi-ticket-perforated-fill" : "bi-ticket-perforated"} 
       title={editData ? 'Cập nhật voucher' : 'Tạo voucher mới'}
-      description="Thiết lập các mã giảm giá, chương trình ưu đãi và điểm đổi thưởng cho khách hàng."
       headerRight={<AdminFormListBack to={`${basePath}/vouchers`} />}
     >
       <ToastComponent />
@@ -267,7 +283,14 @@ const CreateVoucher = () => {
         </div>
         <div className="admin-card-body p-4">
           {serverError && <div className="alert alert-danger border-0 py-2 small mb-4">{serverError}</div>}
-          
+
+          <div className="alert alert-info border-0 py-2 small mb-4 d-flex align-items-center gap-2">
+            <i className="bi bi-building"></i>
+            {cinemaForDisplay
+              ? <span>Voucher này áp dụng cho rạp <b>{cinemaForDisplay}</b>{editData ? '' : ' (theo rạp đang chọn ở header)'}.</span>
+              : <span>Chưa chọn rạp — vui lòng chọn rạp ở góc trên (header) trước khi tạo voucher.</span>}
+          </div>
+
           <form onSubmit={handleSubmit} noValidate>
             <div className="row">
               <div className="col-md-6 mb-4">

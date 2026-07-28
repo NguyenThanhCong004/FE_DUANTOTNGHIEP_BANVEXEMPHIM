@@ -124,7 +124,6 @@ const ProductManagement = () => {
     <AdminPanelPage
       icon="package"
       title="Danh mục sản phẩm"
-      description="Quản lý kho sản phẩm bắp nước dùng chung cho toàn hệ thống rạp."
       headerRight={
         <button
           type="button"

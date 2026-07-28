@@ -101,7 +101,6 @@ const ProductTypeManagement = () => {
     <AdminPanelPage
       icon="tags"
       title="Loại sản phẩm"
-      description="Danh mục loại đồ ăn / nước / combo trong hệ thống."
       headerRight={
         <button
           type="button"

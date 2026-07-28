@@ -148,7 +148,6 @@ const PromotionManagement = () => {
             <h1>
               Chương trình Khuyến mãi
             </h1>
-            <p className="lead">Quản lý khuyến mãi và ưu đãi đặc biệt</p>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
@@ -240,20 +239,20 @@ const PromotionManagement = () => {
                       </Badge>
                     </td>
                     <td>
-                      <div className="admin-table-action-group justify-content-center">
+                      <div className="d-flex justify-content-center gap-2">
                         <button
                           onClick={() => handleOpenView(promo.id)}
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem chi tiết"
                         >Xem</button>
                         <Link
                           to={`${prefix}/promotions/edit/${promo.id}`}
-                          className="admin-table-action-btn admin-table-action-btn--edit"
+                          className="admin-btn admin-btn-sm admin-btn-primary"
                           title="Chỉnh sửa"
                         >Sửa</Link>
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--danger"
+                          className="admin-btn admin-btn-sm admin-btn-danger"
                           title={promo.status === 'active' ? 'Không thể xóa khi khuyến mãi đang diễn ra' : 'Xóa'}
                           disabled={promo.status === 'active'}
                           style={promo.status === 'active' ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}

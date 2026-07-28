@@ -290,7 +290,6 @@ const CreateCinema = () => {
     <AdminPanelPage 
       icon={editData ? "bi-building-gear" : "bi-building-add"} 
       title={editData ? 'Cập nhật rạp' : 'Thêm rạp mới'}
-      description="Quản lý thông tin cụm rạp và địa chỉ hoạt động trên hệ thống."
       headerRight={<AdminFormListBack to="/super-admin/cinemas" />}
     >
       <ToastComponent />

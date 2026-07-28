@@ -8,6 +8,7 @@ import { codeToAdminStatus } from '../../utils/statusFormat';
 import { apiMessage, MESSAGES } from '../../utils/uiMessages';
 import { formatDate, formatVnd } from '../../utils/formatters';
 import AdminPagination from '../../components/admin/AdminPagination';
+import sanitizeHtml from '../../utils/sanitizeHtml';
 
 const PLACEHOLDER_POSTER = 'https://placehold.co/120x180?text=Poster';
 
@@ -177,7 +178,6 @@ const MovieManagement = () => {
       <AdminPanelPage
       icon="film"
       title="Quản lý phim"
-      description="Kho phim toàn hệ thống — poster, giá, trạng thái chiếu."
       headerRight={
         <button
           type="button"
@@ -372,9 +372,8 @@ const MovieManagement = () => {
                     </div>
                     <div className="col-12">
                       <p className="mb-2"><strong className="text-muted">Giá vé cơ bản:</strong> <span className="text-success fw-bold">{formatVnd(selectedItem.base_price)}</span></p>
-                      <p className="mb-2"><strong className="text-muted">Mô tả:</strong> {selectedItem.description}</p>
-                      <p className="mb-1"><strong className="text-muted">Nội dung chi tiết:</strong></p>
-                      <p>{selectedItem.describe}</p>
+                      <p className="mb-1"><strong className="text-muted">Mô tả:</strong></p>
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedItem.description || "") }} />
                     </div>
                   </div>
                 </div>

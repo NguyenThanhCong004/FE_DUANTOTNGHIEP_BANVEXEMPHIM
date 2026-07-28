@@ -27,17 +27,19 @@ const CreateMembershipLevel = () => {
   const [serverError, setServerError] = useState('');
 
   useEffect(() => {
-    if (editData) {
-      setFormData({
-        rank_name: editData.rank_name || '',
-        min_spending: editData.min_spending || '',
-        description: editData.description || '',
-        discount_percent: editData.discount_percent || '',
-        bonus_point: editData.bonus_point || '',
-        status: String(editData.status ?? 1)
-      });
+    if (!editData) {
+      navigate('/super-admin/membership-levels', { replace: true });
+      return;
     }
-  }, [editData]);
+    setFormData({
+      rank_name: editData.rank_name || '',
+      min_spending: editData.min_spending || '',
+      description: editData.description || '',
+      discount_percent: editData.discount_percent || '',
+      bonus_point: editData.bonus_point || '',
+      status: String(editData.status ?? 1)
+    });
+  }, [editData, navigate]);
 
   const validateForm = () => {
     let newErrors = {};
@@ -74,6 +76,8 @@ const CreateMembershipLevel = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const rid = editData?.id;
+    if (!rid) return;
     if (!validateForm()) return;
 
     setSubmitting(true);
@@ -86,31 +90,27 @@ const CreateMembershipLevel = () => {
       bonusPoint: parseInt(formData.bonus_point, 10),
       status: parseInt(formData.status, 10),
     };
-    const rid = editData?.id;
-    if (rid) {
-      const originalBody = {
-        rankName: String(editData.rank_name ?? editData.rankName ?? '').trim(),
-        minSpending: parseFloat(editData.min_spending ?? editData.minSpending ?? 0),
-        description: editData.description || '',
-        discountPercent: parseFloat(editData.discount_percent ?? editData.discountPercent ?? 0),
-        bonusPoint: parseInt(editData.bonus_point ?? editData.bonusPoint ?? 0, 10),
-        status: parseInt(editData.status ?? 1, 10),
-      };
-      if (JSON.stringify(body) === JSON.stringify(originalBody)) {
-        showToast(MESSAGES.noChanges, 'warning');
-        setSubmitting(false);
-        return;
-      }
+    const originalBody = {
+      rankName: String(editData.rank_name ?? editData.rankName ?? '').trim(),
+      minSpending: parseFloat(editData.min_spending ?? editData.minSpending ?? 0),
+      description: editData.description || '',
+      discountPercent: parseFloat(editData.discount_percent ?? editData.discountPercent ?? 0),
+      bonusPoint: parseInt(editData.bonus_point ?? editData.bonusPoint ?? 0, 10),
+      status: parseInt(editData.status ?? 1, 10),
+    };
+    if (JSON.stringify(body) === JSON.stringify(originalBody)) {
+      showToast(MESSAGES.noChanges, 'warning');
+      setSubmitting(false);
+      return;
     }
-    const url = rid ? MEMBERSHIP_RANKS.BY_ID(rid) : MEMBERSHIP_RANKS.LIST;
     try {
-      const res = await apiFetch(url, {
-        method: rid ? 'PUT' : 'POST',
+      const res = await apiFetch(MEMBERSHIP_RANKS.BY_ID(rid), {
+        method: 'PUT',
         body: JSON.stringify(body),
       });
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const message = apiMessage(json, rid ? 'Cập nhật hạng hội viên thành công' : 'Thêm hạng hội viên thành công');
+        const message = apiMessage(json, 'Cập nhật hạng hội viên thành công');
         navigate('/super-admin/membership-levels', {
           state: {
             message,
@@ -137,11 +137,12 @@ const CreateMembershipLevel = () => {
     }
   };
 
+  if (!editData) return null;
+
   return (
-    <AdminPanelPage 
-      icon={editData ? "bi-award-fill" : "bi-award"} 
-      title={editData ? 'Cập nhật hạng hội viên' : 'Thêm hạng hội viên'}
-      description="Thiết lập các mốc chi tiêu và ưu đãi đặc quyền cho khách hàng thân thiết."
+    <AdminPanelPage
+      icon="bi-award-fill"
+      title="Cập nhật hạng hội viên"
       headerRight={<AdminFormListBack to="/super-admin/membership-levels" />}
     >
       <ToastComponent />
@@ -219,7 +220,7 @@ const CreateMembershipLevel = () => {
             <div className="mt-3 d-flex justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: '200px' }} disabled={submitting}>
                 {submitting && <span className="spinner-border spinner-border-sm me-2"></span>}
-                {editData ? 'Cập nhật hạng' : 'Lưu mức độ'}
+                Cập nhật hạng
               </button>
             </div>
           </form>

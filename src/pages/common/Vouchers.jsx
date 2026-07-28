@@ -5,7 +5,7 @@ import { Container, Row, Col, Button, Modal, Form, InputGroup, Spinner } from "r
 import { getStoredUser, getAccessToken } from '../../utils/authStorage';
 import { getUserIdFromToken } from '../../utils/jwt';
 import { apiFetch, apiUrl, withQuery } from '../../utils/apiClient';
-import { VOUCHERS as VOUCHERS_API, ME, USERS } from '../../constants/apiEndpoints';
+import { VOUCHERS as VOUCHERS_API, ME, USERS, CINEMAS } from '../../constants/apiEndpoints';
 import { formatDate, formatNumber, formatVnd } from '../../utils/formatters';
 
 const fmt = formatVnd;
@@ -33,6 +33,8 @@ function normalizeCatalogVoucher(v) {
     end_date: v.endDate,
     point_voucher: Number(v.pointVoucher ?? 0),
     status: statusStr,
+    cinema_id: v.cinemaId ?? null,
+    cinema_name: v.cinemaName || "",
   };
 }
 
@@ -53,13 +55,16 @@ export default function VoucherExchange() {
   const [catalog, setCatalog] = useState([]);
   const [redeemedIds, setRedeemedIds] = useState([]);
   const [userPoints, setUserPoints] = useState(Number(storedUser?.points ?? storedUser?.totalPoints ?? 0));
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [filter,      setFilter]      = useState("all");
   const [search,      setSearch]      = useState("");
   const [selected,    setSelected]    = useState(null);
   const [showModal,   setShowModal]   = useState(false);
   const [successCode, setSuccessCode] = useState(null);
   const [redeemBusy, setRedeemBusy] = useState(false);
+  const [cinemas, setCinemas] = useState([]);
+  const [cinemasLoading, setCinemasLoading] = useState(true);
+  const [selectedCinemaId, setSelectedCinemaId] = useState("");
 
   const loadWallet = useCallback(async () => {
     const token = getAccessToken();
@@ -80,12 +85,53 @@ export default function VoucherExchange() {
     }
   }, []);
 
+  // Danh sách rạp — khách chọn 1 rạp trước khi xem/đổi voucher của rạp đó.
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCinemasLoading(true);
+      try {
+        const res = await apiFetch(CINEMAS.LIST);
+        const body = await res.json().catch(() => null);
+        if (!cancelled) setCinemas(Array.isArray(body?.data) ? body.data : []);
+      } catch {
+        if (!cancelled) setCinemas([]);
+      } finally {
+        if (!cancelled) setCinemasLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Điểm + ví voucher đã đổi — không phụ thuộc rạp đang xem, tải 1 lần.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const token = getAccessToken();
+      const uid = token ? getUserIdFromToken(token) : null;
+      if (token && uid) {
+        const ur = await fetch(apiUrl(USERS.BY_ID(uid)), { headers: { Authorization: `Bearer ${token}` } });
+        const uj = await ur.json().catch(() => null);
+        if (!cancelled && ur.ok && uj?.data) {
+          setUserPoints(Number(uj.data.points ?? 0));
+        }
+        await loadWallet();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loadWallet]);
+
+  // Kho voucher — chỉ tải khi đã chọn rạp, lọc đúng rạp đó.
+  useEffect(() => {
+    if (!selectedCinemaId) {
+      setCatalog([]);
+      return undefined;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const vr = await apiFetch(withQuery(VOUCHERS_API.LIST, { search }));
+        const vr = await apiFetch(withQuery(VOUCHERS_API.LIST, { search, cinemaId: selectedCinemaId }));
         const vj = await vr.json().catch(() => null);
         if (!cancelled && vr.ok && Array.isArray(vj?.data)) {
           const rows = vj.data
@@ -95,22 +141,12 @@ export default function VoucherExchange() {
         } else if (!cancelled) {
           setCatalog([]);
         }
-        const token = getAccessToken();
-        const uid = token ? getUserIdFromToken(token) : null;
-        if (token && uid) {
-          const ur = await fetch(apiUrl(USERS.BY_ID(uid)), { headers: { Authorization: `Bearer ${token}` } });
-          const uj = await ur.json().catch(() => null);
-          if (!cancelled && ur.ok && uj?.data) {
-            setUserPoints(Number(uj.data.points ?? 0));
-          }
-          await loadWallet();
-        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [loadWallet, search]);
+  }, [search, selectedCinemaId]);
 
   const filtered = useMemo(() => catalog.filter((v) => {
     const matchFilter =
@@ -183,6 +219,12 @@ export default function VoucherExchange() {
         .points-badge { background:linear-gradient(135deg,#7b1fa2,#e91e8c); border-radius:14px; padding:14px 24px; display:inline-flex; align-items:center; gap:12px; box-shadow:0 0 32px rgba(233,30,140,0.3); }
         .points-badge .pts-num { font-family:'Bebas Neue',sans-serif; font-size:36px; color:#d4e219; line-height:1; letter-spacing:2px; }
         .points-badge .pts-label { font-size:11px; font-weight:700; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:1.5px; }
+
+        .cinema-pick-box { display:flex; align-items:center; gap:14px; flex-wrap:wrap; background:rgba(212,226,25,0.06); border:1.5px solid rgba(212,226,25,0.25); border-radius:12px; padding:14px 20px; }
+        .cinema-pick-label { font-family:'Syne',sans-serif; font-weight:700; font-size:13px; color:#d4e219; white-space:nowrap; }
+        .cinema-pick-select { flex:1; min-width:220px; background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.15); color:#fff; font-family:'Syne',sans-serif; font-size:13px; font-weight:600; border-radius:8px; padding:9px 14px; outline:none; }
+        .cinema-pick-select:focus { border-color:#d4e219; }
+        .cinema-pick-select option { background:#12133a; color:#fff; }
 
         .filter-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
         .filter-btn { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:1px; text-transform:uppercase; padding:8px 18px; border-radius:8px; border:1.5px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.45); cursor:pointer; transition:all 0.2s ease; }
@@ -299,6 +341,26 @@ export default function VoucherExchange() {
             </Col>
           </Row>
 
+          {/* CHỌN RẠP — voucher chỉ dùng được đúng rạp đã tạo ra nó */}
+          <Row className="mb-4">
+            <Col xs={12}>
+              <div className="cinema-pick-box">
+                <span className="cinema-pick-label">🎬 Chọn rạp để xem voucher</span>
+                <select
+                  className="cinema-pick-select"
+                  value={selectedCinemaId}
+                  disabled={cinemasLoading}
+                  onChange={(e) => setSelectedCinemaId(e.target.value)}
+                >
+                  <option value="">{cinemasLoading ? "Đang tải danh sách rạp..." : "-- Chọn rạp --"}</option>
+                  {cinemas.map((c) => (
+                    <option key={c.cinemaId ?? c.id} value={c.cinemaId ?? c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            </Col>
+          </Row>
+
           {/* FILTER + SEARCH */}
           <Row className="align-items-center mb-4 gy-2">
             <Col>
@@ -326,7 +388,7 @@ export default function VoucherExchange() {
             </Col>
           </Row>
 
-          <div className="result-count mb-3">{filtered.length} voucher</div>
+          {selectedCinemaId && <div className="result-count mb-3">{filtered.length} voucher</div>}
 
           {/* SUCCESS BANNER */}
           {successCode && (
@@ -338,7 +400,9 @@ export default function VoucherExchange() {
           )}
 
           {/* VOUCHER GRID */}
-          {filtered.length === 0 ? (
+          {!selectedCinemaId ? (
+            <div className="empty-state"><div className="empty-icon">🎬</div><p>Vui lòng chọn rạp ở trên để xem voucher</p></div>
+          ) : filtered.length === 0 ? (
             <div className="empty-state"><div className="empty-icon">🎟</div><p>Không tìm thấy voucher nào</p></div>
           ) : (
             <Row className="g-3">

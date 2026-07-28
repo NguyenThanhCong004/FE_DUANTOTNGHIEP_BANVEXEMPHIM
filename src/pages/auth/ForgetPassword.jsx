@@ -12,7 +12,7 @@ const maskEmail = (email) => {
   return user.slice(0, 2) + "****" + user.slice(-1) + "@" + domain;
 };
 
-/** Hiển thị bước 2: email đã che từ BE hoặc che username cục bộ. */
+/** Hiển thị bước 2: email đã che từ BE hoặc che số điện thoại cục bộ. */
 const maskIdentifier = (raw) => {
   if (!raw || !raw.trim()) return "—";
   const s = raw.trim();
@@ -101,9 +101,9 @@ function Step1({ mode, onContinue }) {
   const [loading, setLoading] = useState(false);
   const isStaff = mode === "staff";
   const helperText = isStaff
-    ? "Vui lòng nhập username, email hoặc số điện thoại nhân viên"
+    ? "Vui lòng nhập email hoặc số điện thoại nhân viên"
     : "Vui lòng nhập email hoặc số điện thoại đã đăng ký";
-  const placeholder = isStaff ? "Username / Email / Số điện thoại" : "Email / Số điện thoại";
+  const placeholder = "Email / Số điện thoại";
 
   const handleSubmit = async () => {
     if (!value.trim()) { setError("Tài khoản không được để trống"); return; }
@@ -112,7 +112,7 @@ function Step1({ mode, onContinue }) {
     try {
       const res = await apiJson(AUTH.FORGOT_PASSWORD, {
         method: "POST",
-        body: JSON.stringify({ usernameOrEmail: value.trim() }),
+        body: JSON.stringify({ account: value.trim() }),
       });
       if (!res.ok) {
         setError(firstApiErrorMessage(res));

@@ -654,15 +654,18 @@ const Booking = () => {
     };
   }, [showtimeId, showEnded, selectedSeatIds, snackCart, selectedVoucherId]);
 
-  // Load user vouchers when logged in
+  // Load user vouchers when logged in — chỉ hiện voucher đúng rạp của suất chiếu đang đặt.
   useEffect(() => {
     if (!getAccessToken()) return;
+    const bookingCinemaId = showtime?.cinemaId;
+    if (!bookingCinemaId) return;
 
     const isVoucherUsable = (row) => {
       if (row?.status !== 1) return false;
       const voucher = row.voucher || {};
       const voucherStatus = Number(voucher.status ?? 1);
       if (voucherStatus === 0 || voucherStatus === 3) return false;
+      if (voucher.cinemaId !== bookingCinemaId) return false;
       const now = new Date();
       const start = voucher.startDate ? new Date(`${String(voucher.startDate).slice(0, 10)}T00:00:00`) : null;
       const end = voucher.endDate ? new Date(`${String(voucher.endDate).slice(0, 10)}T23:59:59`) : null;
@@ -670,14 +673,14 @@ const Booking = () => {
       if (end && end < now) return false;
       return true;
     };
-    
+
     const loadVouchers = async () => {
       setVoucherLoading(true);
       try {
         const res = await apiFetch(ME.VOUCHERS);
         const json = await res.json().catch(() => null);
         if (res.ok && json?.data) {
-          // Chỉ hiện voucher chưa dùng và còn hiệu lực.
+          // Chỉ hiện voucher chưa dùng, còn hiệu lực và đúng rạp đang đặt vé.
           const available = json.data.filter(isVoucherUsable);
           setUserVouchers(available);
         }
@@ -687,9 +690,9 @@ const Booking = () => {
         setVoucherLoading(false);
       }
     };
-    
+
     loadVouchers();
-  }, []);
+  }, [showtime?.cinemaId]);
 
   const addSnack = (productId) => {
     setSnackCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));

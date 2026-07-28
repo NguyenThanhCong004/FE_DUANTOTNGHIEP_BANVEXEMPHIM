@@ -61,7 +61,7 @@ export default function CinemaNavbar() {
 
   const isLoggedIn     = authSession.isAuthenticated;
   const isStaffSession = Boolean(staff);
-  const displayName    = staff?.fullname || user?.fullname || user?.username || "Tài khoản";
+  const displayName    = staff?.fullname || user?.fullname || user?.email || "Tài khoản";
   const avatarRaw      = staff?.avatar || user?.avatar || "";
   const avatarSrc      = useMemo(() => resolveAvatarSrc(avatarRaw), [avatarRaw]);
 

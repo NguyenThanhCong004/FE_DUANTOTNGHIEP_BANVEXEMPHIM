@@ -7,7 +7,6 @@ export default function SuperAdminProfile() {
     <AdminPanelPage
       icon="person-circle"
       title="Hồ sơ Super Admin"
-      description="Điều hành toàn hệ thống — chỉnh sửa thông tin và đổi mật khẩu (API nhân viên)."
     >
       <StaffProfileCard variant="light" hideHeader title="" roleLabel="" />
     </AdminPanelPage>

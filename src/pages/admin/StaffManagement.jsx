@@ -107,8 +107,6 @@ const StaffManagement = () => {
 
           fullname: data.fullname,
 
-          username: data.username,
-
           email: data.email,
 
           phone: data.phone,
@@ -363,8 +361,6 @@ const StaffManagement = () => {
 
       name: s.fullname ?? "",
 
-      username: s.username ?? "",
-
       email: s.email ?? "",
 
       phone: s.phone ?? "",
@@ -410,8 +406,6 @@ const StaffManagement = () => {
               Quản lý nhân viên rạp
 
             </h1>
-
-            <p className="lead">Quản lý thông tin và phân công nhân viên</p>
 
           </div>
 
@@ -575,7 +569,7 @@ const StaffManagement = () => {
 
                             <div className="fw-semibold text-dark">{staff.name}</div>
 
-                            <small className="text-muted">@{staff.username}</small>
+                            <small className="text-muted">{staff.email}</small>
 
                           </div>
 
@@ -627,13 +621,13 @@ const StaffManagement = () => {
 
                       <td>
 
-                        <div className="admin-table-action-group">
+                        <div className="d-flex justify-content-center gap-2">
 
                           <button
 
                             type="button"
 
-                            className="admin-table-action-btn admin-table-action-btn--view"
+                            className="admin-btn admin-btn-sm admin-btn-outline"
 
                             title="Xem chi tiết"
 
@@ -645,7 +639,7 @@ const StaffManagement = () => {
 
                             to={editPath(staff.id)}
 
-                            className="admin-table-action-btn admin-table-action-btn--edit"
+                            className="admin-btn admin-btn-sm admin-btn-primary"
 
                             title="Chỉnh sửa"
 
@@ -655,7 +649,7 @@ const StaffManagement = () => {
 
                             type="button"
 
-                            className={`admin-table-action-btn ${isActiveStatus(staff.status) ? 'admin-table-action-btn--danger' : 'admin-table-action-btn--success'}`}
+                            className={`admin-btn admin-btn-sm ${isActiveStatus(staff.status) ? 'admin-btn-danger' : 'admin-btn-success'}`}
 
                             title={isActiveStatus(staff.status) ? "Khóa tài khoản" : "Mở khóa tài khoản"}
 
@@ -736,7 +730,7 @@ const StaffManagement = () => {
 
               <div className="alert alert-warning">
 
-                <strong>Nhân viên:</strong> {staffToToggle.name} ({staffToToggle.username})
+                <strong>Nhân viên:</strong> {staffToToggle.name} ({staffToToggle.email})
 
               </div>
 
@@ -871,14 +865,6 @@ const StaffManagement = () => {
                         <div className="small text-muted fw-bold text-uppercase">Vai trò</div>
 
                         <div className="fw-bold">{detailStaff.role ?? '—'}</div>
-
-                      </Col>
-
-                      <Col md={6}>
-
-                        <div className="small text-muted fw-bold text-uppercase">Username</div>
-
-                        <div className="fw-bold">{detailStaff.username ?? '—'}</div>
 
                       </Col>
 
