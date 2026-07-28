@@ -110,11 +110,11 @@ const Login = ({ mode = "user" }) => {
           if (activeShift) {
             navigate("/staff/sales");
           } else {
-            navigate("/staff/ca-lam");
+            navigate("/staff/shifts");
           }
         } catch (err) {
           console.error("Lỗi kiểm tra ca làm:", err);
-          navigate("/staff/ca-lam");
+          navigate("/staff/shifts");
         }
         return;
       }

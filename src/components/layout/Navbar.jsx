@@ -32,7 +32,7 @@ function staffPortalPath(role) {
   const r = (role || "").toUpperCase().replace(/^ROLE_/, "");
   if (r === "SUPER_ADMIN") return "/super-admin";
   if (r === "ADMIN") return "/admin";
-  return "/staff/ca-lam";
+  return "/staff/shifts";
 }
 
 function resolveAvatarSrc(value) {

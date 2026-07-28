@@ -105,12 +105,13 @@ const AppRoutes = () => {
             </StaffFloorGuard>
           }
         >
-          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route index element={<Navigate to="/staff/dashboard" replace />} />
           <Route path="dashboard" element={<EmployeeDashboard />} />
           <Route path="sales" element={<Sales />} />
-          <Route path="ca-lam" element={<MyShifts />} />
+          <Route path="shifts" element={<MyShifts />} />
+          <Route path="ca-lam" element={<Navigate to="/staff/shifts" replace />} />
           <Route path="profile" element={<EmployeeProfile />} />
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/staff/dashboard" replace />} />
         </Route>
         
         {/* General Public & User Routes */}
