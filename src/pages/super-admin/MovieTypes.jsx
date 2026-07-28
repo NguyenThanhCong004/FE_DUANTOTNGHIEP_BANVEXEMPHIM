@@ -114,7 +114,6 @@ const MovieTypeManagement = () => {
     <AdminPanelPage
       icon="collection-play"
       title="Thể loại phim"
-      description="Phân loại phim (hành động, tình cảm, hoạt hình…)."
       headerRight={
         <button
           type="button"

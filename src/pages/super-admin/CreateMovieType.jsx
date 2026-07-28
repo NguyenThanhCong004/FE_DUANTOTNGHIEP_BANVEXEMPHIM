@@ -111,7 +111,6 @@ const CreateMovieType = () => {
       <AdminPanelPage 
         icon={editData ? "bi-tags-fill" : "bi-plus-square-fill"} 
         title={editData ? 'Cập nhật thể loại' : 'Thêm thể loại mới'}
-        description="Quản lý danh mục các thể loại phim trên hệ thống để phân loại phim chính xác."
         headerRight={<AdminFormListBack to="/super-admin/movie-types" />}
       >
         <div className="admin-form-page-wrap admin-form-compact">

@@ -186,11 +186,6 @@ const InvoiceManagement = () => {
             <h1>
               Quản lý Hóa đơn
             </h1>
-            <p className="lead">
-              {isSuperAdmin
-                ? `Theo dõi hóa đơn của ${selectedCinemaName || 'rạp đang chọn'}`
-                : 'Theo dõi hóa đơn của rạp đang đăng nhập'}
-            </p>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
@@ -300,10 +295,10 @@ const InvoiceManagement = () => {
                     </td>
                     <td>{getStatusBadge(invoice.status)}</td>
                     <td className="text-center">
-                      <div className="admin-table-action-group d-inline-flex">
+                      <div className="d-flex justify-content-center gap-2">
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem chi tiết"
                           onClick={() => openOrderDetail(invoice.apiId)}
                         >Xem</button>

@@ -117,7 +117,6 @@ const NewsManagement = () => {
     <AdminPanelPage
       icon="newspaper"
       title="Tin tức hệ thống"
-      description="Quản lý các bài viết, tin khuyến mãi và thông báo trên toàn hệ thống."
       headerRight={
         <button
           type="button"

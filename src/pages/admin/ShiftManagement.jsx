@@ -294,7 +294,7 @@ export default function ShiftManagement() {
 
   if (!effectiveCinemaId) {
     return (
-      <AdminPanelPage icon="calendar-check" title="Quản lý Ca làm việc" description="Chọn rạp để phân lịch">
+      <AdminPanelPage icon="calendar-check" title="Quản lý Ca làm việc">
         <div className="alert alert-warning border-0 shadow-sm mb-0">
           <strong>Chưa chọn rạp.</strong> {isSuperAdmin ? "Vui lòng chọn rạp trên header để quản lý ca làm việc." : "Tài khoản của bạn chưa được gán cho rạp nào."}
         </div>
@@ -306,17 +306,12 @@ export default function ShiftManagement() {
     <AdminPanelPage
       icon="calendar-check"
       title="Quản lý Ca làm việc"
-      description={
-        <div className="d-flex align-items-center gap-2 flex-wrap">
-          <span>Phân bổ nhân sự trực quan bằng cách kéo thả.</span>
+      headerRight={
+        <div className="d-flex align-items-center gap-3">
           {hasChanges && <Badge bg="warning" text="dark" className="admin-fade-in">Có thay đổi chưa lưu</Badge>}
           <span className={`admin-realtime-pill ${hasChanges ? "is-paused" : realtimeSyncing ? "is-syncing" : ""}`}>
             {syncLabel}
           </span>
-        </div>
-      }
-      headerRight={
-        <div className="d-flex align-items-center gap-3">
           <div className="d-flex align-items-center bg-white rounded shadow-sm px-2 py-1 border">
             <Button 
               variant="link" 

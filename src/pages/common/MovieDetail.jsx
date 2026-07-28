@@ -7,6 +7,7 @@ import { apiFetch } from "../../utils/apiClient";
 import { MOVIES, CINEMAS, SHOWTIMES, SEATS, ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { releaseDateToYmd } from "../../utils/movieApiMap";
+import sanitizeHtml from "../../utils/sanitizeHtml";
 
 const STARS = [1, 2, 3, 4, 5];
 
@@ -982,7 +983,7 @@ const MovieDetail = () => {
                   {movie.description && (
                     <div style={{ marginBottom: 16 }}>
                       <p className="md-section-label">Giới thiệu</p>
-                      <p className="md-desc">{movie.description}</p>
+                      <div className="md-desc" dangerouslySetInnerHTML={{ __html: sanitizeHtml(movie.description) }} />
                     </div>
                   )}
                   {movie.content && (

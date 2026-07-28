@@ -92,7 +92,6 @@ const RoomManagement = () => {
             <h1 className="h3 mb-1">
               Quản lý Phòng chiếu
             </h1>
-            <p className="text-muted mb-0" style={{ fontSize: "0.8rem" }}>Quản lý thông tin và trạng thái phòng chiếu</p>
           </div>
           <div className="d-flex align-items-center gap-3">
             <div className="admin-search-wrapper shadow-sm" style={{ maxWidth: 300 }}>
@@ -183,21 +182,21 @@ const RoomManagement = () => {
                       </span>
                     </td>
                     <td>
-                      <div className="admin-table-action-group">
+                      <div className="d-flex justify-content-center gap-2">
                         <Link
                           to={`${prefix}/seats`}
                           state={{ roomId: room.id }}
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem sơ đồ ghế"
                         >Xem</Link>
                         <Link
                           to={`${prefix}/rooms/edit/${room.id}`}
-                          className="admin-table-action-btn admin-table-action-btn--edit"
+                          className="admin-btn admin-btn-sm admin-btn-primary"
                           title="Chỉnh sửa"
                         >Sửa</Link>
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--danger"
+                          className="admin-btn admin-btn-sm admin-btn-danger"
                           title="Xóa"
                           onClick={() => {
                             setRoomToDelete(room);

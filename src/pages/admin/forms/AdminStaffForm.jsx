@@ -17,9 +17,13 @@ import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCin
 
 import { useAdminToast } from "../../../components/admin/AdminToast";
 
-import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../../utils/mediaFiles";
 import { staffStatusToCode } from "../../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../../utils/uiMessages";
+
+function buildDefaultAvatarUrl(staff) {
+  const label = staff.name?.trim() || staff.email?.trim() || "Staff";
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(label)}&background=1f2937&color=fff&size=256`;
+}
 
 
 
@@ -52,8 +56,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
     name: "",
 
-    username: "",
-
     password: "",
 
     email: "",
@@ -65,13 +67,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
     status: "1",
     role: "STAFF",
 
-    avatar: null,
-
     cinemaId: null,
-
-    image: null,
-
-    imagePreview: "https://via.placeholder.com/150",
 
   };
 
@@ -95,22 +91,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
 
     if (!staff.name.trim()) tempErrors.name = "Họ tên không được để trống";
-
-
-
-    if (!staff.username) {
-
-      tempErrors.username = "Username không được để trống";
-
-    } else if (!staff.username.trim()) {
-
-      tempErrors.username = "Username không được để trống";
-
-    } else if (staff.username.trim().length < 6 || staff.username.trim().length > 50) {
-
-      tempErrors.username = "Tên đăng nhập phải từ 6 đến 50 ký tự";
-
-    }
 
 
 
@@ -186,25 +166,19 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
 
 
-    if (!staff.avatar) tempErrors.avatar = "Hình ảnh không được để trống";
-
-
-
     if (isEdit && originalDataRef.current) {
 
       const current = {
         fullname: String(staff.name || "").trim(),
-        username: String(staff.username || "").trim(),
         email: String(staff.email || "").trim(),
         phone: String(staff.phone || "").trim(),
         birthday: staff.birthDate || "",
         status: Number(staff.status),
-        avatar: staff.imagePreview || "",
         cinemaId: staff.cinemaId ? Number(staff.cinemaId) : null,
       };
       const isUnchanged = Object.entries(current).every(
         ([key, value]) => value === originalDataRef.current[key]
-      ) && !(staff.image instanceof File) && !staff.password?.trim();
+      ) && !staff.password?.trim();
 
       if (isUnchanged) tempErrors.form = MESSAGES.noChanges;
 
@@ -215,40 +189,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
     setErrors(tempErrors);
 
     return Object.keys(tempErrors).length === 0;
-
-  };
-
-
-
-  const handleImageChange = (e) => {
-
-    const file = e.target.files?.[0];
-
-    if (!file) return;
-
-
-
-    const previewUrl = URL.createObjectURL(file);
-
-    setStaff((prev) => ({
-
-      ...prev,
-
-      avatar: previewUrl,
-
-      image: file,
-
-      imagePreview: previewUrl,
-
-    }));
-
-
-
-    if (errors.avatar) {
-
-      setErrors((prev) => ({ ...prev, avatar: "" }));
-
-    }
 
   };
 
@@ -304,40 +244,25 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
     try {
 
-      let avatarUrl = staff.imagePreview;
-
-      if (staff.image instanceof File) {
-
-        avatarUrl = await fileToDataUrl(staff.image);
-
-      }
-
-      if (!avatarUrl || !String(avatarUrl).trim()) {
-
-        setErrors({ avatar: "Ảnh đại diện không được để trống" });
-
-        return;
-
-      }
-
       const submitCinemaId = isEdit ? (staff.cinemaId ?? null) : effectiveCinemaId;
 
       const data = {
         fullname: staff.name.trim(),
-        username: staff.username.trim(),
         email: staff.email.trim(),
         phone: staff.phone.trim(),
         birthday: staff.birthDate,
         status: Number(staff.status),
-        avatar: avatarUrl,
         cinemaId: submitCinemaId ?? null,
-        /** 
+        /**
          * Lấy role hiện tại nếu đang sửa, mặc định STAFF nếu thêm mới.
-         * Super Admin tạo quản trị viên rạp nên dùng trang Quản trị hệ thống (nếu có) 
+         * Super Admin tạo quản trị viên rạp nên dùng trang Quản trị hệ thống (nếu có)
          * hoặc trang này sẽ giữ nguyên role ADMIN của họ.
          */
         role: isEdit ? (initialStaff?.role ?? staff.role ?? "STAFF") : "STAFF",
       };
+      if (!isEdit) {
+        data.avatar = buildDefaultAvatarUrl(staff);
+      }
 
 
 
@@ -364,12 +289,10 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
         const changedData = {};
 
         if (data.fullname !== original.fullname) changedData.fullname = data.fullname;
-        if (data.username !== original.username) changedData.username = data.username;
         if (data.email !== original.email) changedData.email = data.email;
         if (data.phone !== original.phone) changedData.phone = data.phone;
         if (data.birthday !== original.birthday) changedData.birthday = data.birthday;
         if (data.status !== original.status) changedData.status = data.status;
-        if (data.avatar !== original.avatar) changedData.avatar = data.avatar;
         if (data.cinemaId !== original.cinemaId) changedData.cinemaId = data.cinemaId;
         if (staff.password?.trim()) changedData.password = staff.password.trim();
 
@@ -395,18 +318,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
       if (!res.ok) {
 
-        if (res.status === 413) {
-
-          const message = "Ảnh quá lớn. Vui lòng chọn ảnh JPG/PNG nhỏ hơn 5MB.";
-
-          setErrors({ avatar: message });
-
-          showToast(message, "danger");
-
-          return;
-
-        }
-
         // Xử lý lỗi trùng từ BE thành validation error
 
         const message = apiMessage(json, "Lưu nhân viên thất bại");
@@ -414,10 +325,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
         if (message.includes("Email đã tồn tại")) {
 
           setErrors({ email: message });
-
-        } else if (message.includes("Username đã tồn tại") || message.includes("Tên đăng nhập đã tồn tại")) {
-
-          setErrors({ username: message });
 
         } else if (message.includes("Số điện thoại đã tồn tại")) {
 
@@ -517,8 +424,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
           name: found.fullname ?? found.name ?? "",
 
-          username: found.username ?? "",
-
           password: "",
 
           email: found.email ?? "",
@@ -530,13 +435,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
           status: String(staffStatusToCode(found.status)),
           role: String(found.role || "STAFF").replace(/^ROLE_/i, "").toUpperCase(),
 
-          avatar: found.avatar ?? null,
-
           cinemaId: found.cinemaId ?? null,
-
-          image: null,
-
-          imagePreview: found.avatar ?? "https://via.placeholder.com/150",
 
         };
 
@@ -545,12 +444,10 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
         setInitialStaff(next);
         originalDataRef.current = {
           fullname: String(next.name || "").trim(),
-          username: String(next.username || "").trim(),
           email: String(next.email || "").trim(),
           phone: String(next.phone || "").trim(),
           birthday: next.birthDate || "",
           status: Number(next.status),
-          avatar: next.imagePreview || "",
           cinemaId: next.cinemaId ? Number(next.cinemaId) : null,
         };
 
@@ -656,52 +553,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
         }
 
-        .image-upload-wrapper {
-
-          width: 200px;
-
-          height: 200px;
-
-          border: 2px dashed #ddd;
-
-          border-radius: 20px;
-
-          display: flex;
-
-          align-items: center;
-
-          justify-content: center;
-
-          cursor: pointer;
-
-          overflow: hidden;
-
-          position: relative;
-
-          transition: all 0.3s ease;
-
-          background: #f8f9fa;
-
-        }
-
-        .image-upload-wrapper:hover {
-
-          border-color: #0d6efd;
-
-          background: rgba(13, 110, 253, 0.05);
-
-        }
-
-        .image-upload-wrapper img {
-
-          width: 100%;
-
-          height: 100%;
-
-          object-fit: cover;
-
-        }
-
       `}</style>
 
 
@@ -752,59 +603,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
             <Row>
 
-              <Col lg={4} className="d-flex flex-column align-items-center mb-4 mb-lg-0">
-
-                <Form.Label className="fw-bold mb-3 text-dark">Ảnh đại diện</Form.Label>
-
-                <label htmlFor="imageUpload" className="image-upload-wrapper shadow-sm mb-3">
-
-                  {staff.imagePreview ? (
-
-                    <img src={staff.imagePreview} alt="Preview" />
-
-                  ) : (
-
-                    <div className="text-muted text-center">
-
-                      <small className="d-block">Tải ảnh lên</small>
-
-                    </div>
-
-                  )}
-
-                </label>
-
-                <input
-
-                  type="file"
-
-                  id="imageUpload"
-
-                  className="d-none"
-
-                  accept={IMAGE_FILE_ACCEPT}
-
-                  onChange={handleImageChange}
-
-                />
-
-                <p className="text-muted small text-center px-4" style={{ marginBottom: 0 }}>
-
-                  Nên chọn ảnh vuông để hiển thị đẹp hơn.
-
-                </p>
-
-                {errors.avatar ? (
-
-                  <div className="text-danger small fw-bold mt-2 text-center">{errors.avatar}</div>
-
-                ) : null}
-
-              </Col>
-
-
-
-              <Col lg={8}>
+              <Col lg={12}>
 
                 <Row className="g-4">
 
@@ -831,40 +630,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
                       />
 
                       {errors.name ? <div className="text-danger small fw-bold mt-1">{errors.name}</div> : null}
-
-                    </Form.Group>
-
-                  </Col>
-
-
-
-                  <Col md={6}>
-
-                    <Form.Group>
-
-                      <Form.Label className="fw-bold small text-dark">Username</Form.Label>
-
-                      <Form.Control
-
-                        type="text"
-
-                        name="username"
-
-                        className={`black-input py-2 ${errors.username ? "is-invalid" : ""}`}
-
-                        placeholder="Nhập username"
-
-                        value={staff.username}
-
-                        onChange={handleInputChange}
-
-                      />
-
-                      {errors.username ? (
-
-                        <div className="text-danger small fw-bold mt-1">{errors.username}</div>
-
-                      ) : null}
 
                     </Form.Group>
 

@@ -8,6 +8,7 @@ import { useAdminToast } from '../../components/admin/AdminToast';
 import { fileToDataUrl, IMAGE_FILE_ACCEPT } from '../../utils/mediaFiles';
 import { adminStatusToCode, codeToAdminStatus } from '../../utils/statusFormat';
 import { apiMessage, MESSAGES, resultToastType } from '../../utils/uiMessages';
+import sanitizeHtml from '../../utils/sanitizeHtml';
 
 const CreateMovie = () => {
   const navigate = useNavigate();
@@ -15,8 +16,12 @@ const CreateMovie = () => {
   const editData = location.state?.editData;
   const posterInputRef = useRef(null);
   const bannerInputRef = useRef(null);
+  const quillMountRef = useRef(null);
+  const quillRef = useRef(null);
+  const lastPushedHtmlRef = useRef("");
+  const quillLiveRef = useRef({ quill: null, onTextChange: null });
   const { showToast, ToastComponent } = useAdminToast();
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -38,6 +43,7 @@ const CreateMovie = () => {
   const [loading, setLoading] = useState(false);
   const [originalDate, setOriginalDate] = useState('');
   const [originalData, setOriginalData] = useState(null);
+  const [editorMode, setEditorMode] = useState("loading");
 
   useEffect(() => {
     fetchGenres();
@@ -74,7 +80,7 @@ const CreateMovie = () => {
 
         setFormData({
           title: m.title || "",
-          description: m.description || m.content || "",
+          description: sanitizeHtml(m.description || m.content || ""),
           duration: m.duration != null ? String(m.duration) : "",
           genre_ids: gids.map(String),
           release_date: rd,
@@ -95,6 +101,96 @@ const CreateMovie = () => {
 
     fetchMovieDetail();
   }, [editData?.id, genreOptions]);
+
+  useEffect(() => {
+    const host = quillMountRef.current;
+    if (!host) return undefined;
+
+    let cancelled = false;
+    lastPushedHtmlRef.current = "";
+    quillLiveRef.current = { quill: null, onTextChange: null };
+
+    (async () => {
+      setEditorMode("loading");
+      try {
+        await import("quill/dist/quill.snow.css");
+        const { default: Quill } = await import("quill");
+        if (cancelled || !quillMountRef.current) return;
+
+        host.innerHTML = "";
+        const editorEl = document.createElement("div");
+        host.appendChild(editorEl);
+
+        const quillInstance = new Quill(editorEl, {
+          theme: "snow",
+          placeholder: "Mô tả nội dung, cốt truyện của phim...",
+          modules: {
+            toolbar: [
+              [{ header: [1, 2, 3, false] }],
+              ["bold", "italic", "underline", "strike"],
+              [{ color: [] }, { background: [] }],
+              [{ list: "ordered" }, { list: "bullet" }],
+              ["link", "blockquote"],
+              ["clean"],
+            ],
+          },
+        });
+
+        if (cancelled) {
+          host.innerHTML = "";
+          return;
+        }
+
+        quillRef.current = quillInstance;
+
+        const initialHtml = sanitizeHtml(editData?.description || editData?.content || "");
+        if (initialHtml) {
+          try {
+            quillInstance.setContents(quillInstance.clipboard.convert({ html: initialHtml }), "silent");
+          } catch {
+            quillInstance.root.innerHTML = initialHtml;
+          }
+        }
+
+        const onTextChange = () => {
+          let html;
+          try {
+            html = quillInstance.getSemanticHTML();
+          } catch {
+            html = quillInstance.root.innerHTML;
+          }
+          const safeHtml = sanitizeHtml(html);
+          if (safeHtml === lastPushedHtmlRef.current) return;
+          lastPushedHtmlRef.current = safeHtml;
+          setFormData((prev) => ({ ...prev, description: safeHtml }));
+        };
+
+        quillInstance.on("text-change", onTextChange);
+        quillLiveRef.current = { quill: quillInstance, onTextChange };
+        onTextChange();
+
+        if (!cancelled) setEditorMode("quill");
+      } catch (e) {
+        console.error("[CreateMovie] Quill init failed:", e);
+        if (!cancelled) {
+          host.innerHTML = "";
+          setEditorMode("textarea");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      const { quill, onTextChange } = quillLiveRef.current;
+      if (quill && onTextChange) {
+        quill.off("text-change", onTextChange);
+      }
+      quillLiveRef.current = { quill: null, onTextChange: null };
+      quillRef.current = null;
+      lastPushedHtmlRef.current = "";
+      host.innerHTML = "";
+    };
+  }, [editData?.id, editData?.description, editData?.content]);
 
   useEffect(() => {
     if (!formData.release_date || formData.status === 'Inactive') return;
@@ -186,6 +282,12 @@ const CreateMovie = () => {
     if (errors.genre_ids) setErrors(prev => ({ ...prev, genre_ids: '' }));
   };
 
+  const handleDescriptionTextarea = (e) => {
+    const value = e.target.value;
+    lastPushedHtmlRef.current = value;
+    setFormData(prev => ({ ...prev, description: value }));
+  };
+
   const handleFileChange = (e) => {
     const { name, files } = e.target;
     const file = files[0];
@@ -222,7 +324,7 @@ const CreateMovie = () => {
       const body = {
         genreIds,
         title: formData.title.trim(),
-        description: formData.description || "",
+        description: sanitizeHtml(formData.description || "").trim(),
         duration: Number(formData.duration),
         ageLimit: Number(formData.age_limit),
         releaseDate: formData.release_date,
@@ -243,7 +345,7 @@ const CreateMovie = () => {
           && body.genreIds.every((id, i) => id === originalData.genreIds[i]);
         if (!sameGenres) payload.genreIds = body.genreIds;
         if (body.title !== originalData.title) payload.title = body.title;
-        if (body.description !== originalData.description) payload.description = body.description;
+        if (body.description !== sanitizeHtml(originalData.description || "").trim()) payload.description = body.description;
         if (body.duration !== originalData.duration) payload.duration = body.duration;
         if (body.ageLimit !== originalData.ageLimit) payload.ageLimit = body.ageLimit;
         if (body.releaseDate !== (originalData.releaseDate ? String(originalData.releaseDate).slice(0, 10) : null)) payload.releaseDate = body.releaseDate;
@@ -308,7 +410,6 @@ const CreateMovie = () => {
       <AdminPanelPage
         icon={editData ? "bi-film" : "bi-plus-circle-dotted"}
         title={editData ? "Cập nhật phim" : "Thêm phim mới"}
-        description="Quản lý thông tin phim, poster, banner và nội dung chi tiết trên hệ thống."
         headerRight={<AdminFormListBack to="/super-admin/movies" />}
       >
         <div className="admin-form-page-wrap admin-form-compact">
@@ -392,28 +493,26 @@ const CreateMovie = () => {
                       style={{ padding: '10px 14px' }}
                     >
                       {genreOptions.length === 0 && <span className="text-muted small">Chưa có thể loại nào.</span>}
-                      <div className="d-flex flex-wrap" style={{ columnGap: 24, rowGap: 8 }}>
+                      <div className="d-flex flex-wrap gap-2">
                         {genreOptions.map((g) => {
-                          const id = String(g.genreId);
-                          const checked = formData.genre_ids.includes(id);
+                          const active = formData.genre_ids.includes(String(g.genreId));
                           return (
-                            <div className="form-check" key={g.genreId}>
-                              <input
-                                type="checkbox"
-                                className="form-check-input"
-                                id={`genre-${g.genreId}`}
-                                checked={checked}
-                                onChange={() => handleGenreToggle(g.genreId)}
-                              />
-                              <label className="form-check-label" htmlFor={`genre-${g.genreId}`}>
-                                {g.name}
-                              </label>
-                            </div>
+                            <button
+                              key={g.genreId}
+                              type="button"
+                              className={`admin-btn admin-btn-sm ${active ? 'admin-btn-primary' : 'admin-btn-outline'}`}
+                              onClick={() => handleGenreToggle(g.genreId)}
+                            >
+                              {g.name}
+                            </button>
                           );
                         })}
                       </div>
                     </div>
-                    {errors.genre_ids && <small className="text-danger fw-medium">{errors.genre_ids}</small>}
+                    <small className="text-muted d-block mt-1">
+                      Nhấn để chọn hoặc bỏ chọn thể loại — chọn được nhiều thể loại cùng lúc.
+                    </small>
+                    {errors.genre_ids && <small className="text-danger fw-medium d-block">{errors.genre_ids}</small>}
                   </div>
                   <div className="col-md-4 mb-4">
                     <label className="admin-form-label">Ngày khởi chiếu <span className="text-danger">*</span></label>
@@ -457,11 +556,23 @@ const CreateMovie = () => {
               </div>
               <div className="admin-card-body p-4">
                 <div className="mb-0">
-                  <label className="admin-form-label">Mô tả phim</label>
-                  <textarea
-                    name="description" className="admin-search-input w-100" style={{ height: 'auto', minHeight: '140px', paddingTop: '10px' }}
-                    rows="5" placeholder="Mô tả nội dung, cốt truyện của phim..." value={formData.description} onChange={handleChange}
-                  ></textarea>
+                  <label className="admin-form-label mb-3">Mô tả phim</label>
+                  <div className="movie-quill-wrapper">
+                    {editorMode === "loading" && (
+                      <div className="text-muted small py-5 text-center border rounded-3 bg-light">Đang tải trình soạn thảo…</div>
+                    )}
+                    {editorMode === "textarea" && (
+                      <textarea
+                        name="description"
+                        className="admin-search-input w-100 font-monospace"
+                        rows={10}
+                        placeholder="Nhập HTML mô tả phim…"
+                        value={formData.description}
+                        onChange={handleDescriptionTextarea}
+                      />
+                    )}
+                    <div ref={quillMountRef} className={editorMode === "quill" ? "movie-quill-mount" : "d-none"} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -478,6 +589,35 @@ const CreateMovie = () => {
         </div>
       </form>
       </div>
+
+      <style>{`
+        .movie-quill-wrapper .movie-quill-mount .ql-toolbar {
+          border-radius: 12px 12px 0 0;
+          border-color: #e2e8f0 !important;
+          background: #f8fafc;
+        }
+        .movie-quill-wrapper .movie-quill-mount .ql-container {
+          min-height: 220px;
+          font-size: 1rem;
+          line-height: 1.7;
+          color: #334155;
+          border-radius: 0 0 12px 12px;
+          border-color: #e2e8f0 !important;
+        }
+        .movie-quill-wrapper .movie-quill-mount .ql-editor {
+          min-height: 200px;
+          padding-left: 1.5rem;
+          padding-right: 1.5rem;
+        }
+        .movie-quill-wrapper .movie-quill-mount .ql-editor.ql-blank::before {
+          color: #94a3b8;
+          font-style: normal;
+        }
+        .movie-quill-wrapper .movie-quill-mount .ql-container.ql-focused {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+      `}</style>
     </AdminPanelPage>
     </>
   );

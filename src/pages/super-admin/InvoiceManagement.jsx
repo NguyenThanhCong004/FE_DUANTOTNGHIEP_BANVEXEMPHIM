@@ -145,7 +145,6 @@ const GlobalInvoiceManagement = () => {
     <AdminPanelPage
       icon="receipt"
       title="Quản lý hóa đơn toàn hệ thống"
-      description="Xem và theo dõi tất cả giao dịch, hóa đơn từ mọi chi nhánh rạp trên toàn hệ thống."
     >
       <div className="admin-table-container">
         <div className="d-flex flex-wrap gap-3 mb-4">

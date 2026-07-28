@@ -120,7 +120,6 @@ const CinemaManagement = () => {
     <AdminPanelPage
       icon="building"
       title="Quản lý rạp"
-      description="Danh sách cụm rạp trong hệ thống."
       headerRight={
         <button
           type="button"

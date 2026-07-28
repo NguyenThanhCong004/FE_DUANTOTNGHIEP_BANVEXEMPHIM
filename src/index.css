@@ -42,10 +42,10 @@ th {
   font-family: var(--font-ui, system-ui, sans-serif) !important;
 }
 
-/* Admin page: sync admin shell background */
+/* Admin page: sync admin shell background (theo theme sáng/tối, xem --shell-layout-bg) */
 html.admin-panel body {
-  background-color: var(--admin-bg-deep, #070b17);
-  color: var(--admin-text, #e2e8f0);
+  background-color: var(--shell-layout-bg, #f4f6f9);
+  color: var(--admin-text, #1e293b);
   font-family: var(--font-ui, system-ui, sans-serif);
 }
 
@@ -75,7 +75,27 @@ html.admin-panel .create-employee,
 html.admin-panel .create-movie,
 html.admin-panel .create-voucher,
 html.admin-panel .create-product {
-  color: #212529 !important;
+  color: var(--admin-text, #212529) !important;
+}
+
+/* react-bootstrap <Modal> giữ nguyên style trắng mặc định của Bootstrap — theo
+   theme sáng/tối như .admin-modal (custom) để không còn "đảo trắng" giữa nền tối. */
+html.admin-panel .modal-content {
+  background-color: var(--admin-bg-card, #fff) !important;
+  border-color: var(--admin-border, rgba(0, 0, 0, 0.15)) !important;
+}
+
+html.admin-panel .modal-header,
+html.admin-panel .modal-footer {
+  border-color: var(--admin-border, rgba(0, 0, 0, 0.15)) !important;
+}
+
+html.admin-panel .modal-body {
+  color: var(--admin-text, #212529);
+}
+
+html.admin-panel[data-theme="dark"] .btn-close {
+  filter: invert(1) grayscale(1) brightness(1.6);
 }
 
 ::-webkit-scrollbar-thumb:hover {
