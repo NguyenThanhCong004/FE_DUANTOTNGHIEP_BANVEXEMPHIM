@@ -101,7 +101,7 @@ export default function EmployeeSelfServiceLayout() {
                       </NavLink>
                     </>
                   )}
-                  <NavLink to="/staff/ca-lam" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
+                  <NavLink to="/staff/shifts" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
                     <Calendar size={16} />
                     <span>Lịch ca làm</span>
                   </NavLink>
