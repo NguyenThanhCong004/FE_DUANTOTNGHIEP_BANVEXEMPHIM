@@ -114,7 +114,6 @@ const MovieTypeManagement = () => {
     <AdminPanelPage
       icon="collection-play"
       title="Thể loại phim"
-      description="Phân loại phim (hành động, tình cảm, hoạt hình…)."
       headerRight={
         <button
           type="button"
@@ -122,7 +121,6 @@ const MovieTypeManagement = () => {
           style={{ background: "white", color: "#6366f1" }}
           onClick={() => navigate("/super-admin/movie-types/create")}
         >
-          <i className="bi bi-plus-lg me-2"></i>
           Thêm thể loại
         </button>
       }
@@ -131,14 +129,12 @@ const MovieTypeManagement = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
-            <i className="bi bi-list-ul text-primary"></i>
             Danh sách thể loại
           </h4>
           <span className="text-muted small">Tổng: {filteredGenres.length}</span>
         </div>
         <div className="admin-card-body">
           <div className="admin-search-wrapper mb-3" style={{ maxWidth: 420 }}>
-            <i className="bi bi-search admin-search-icon" aria-hidden />
             <input
               type="search"
               className="admin-search-input"
@@ -188,17 +184,13 @@ const MovieTypeManagement = () => {
                             className="admin-btn admin-btn-sm admin-btn-primary"
                             onClick={() => navigate("/super-admin/movie-types/create", { state: { editData: genre } })}
                             title="Sửa thể loại"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </button>
+                          >Sửa</button>
                           <button
                             type="button"
                             className="admin-btn admin-btn-sm admin-btn-danger"
                             onClick={() => openDeleteModal(genre)}
                             title="Xóa thể loại"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
+                          >Xóa</button>
                         </div>
                       </td>
                     </tr>
@@ -225,7 +217,6 @@ const MovieTypeManagement = () => {
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa
               </h3>
               <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
@@ -239,12 +230,10 @@ const MovieTypeManagement = () => {
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}
               <p className="text-muted small mb-0">
-                <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả phim thuộc thể loại này có thể bị ảnh hưởng.
               </p>
             </div>
@@ -254,7 +243,6 @@ const MovieTypeManagement = () => {
                 className="admin-btn admin-btn-outline-secondary"
                 onClick={closeDeleteModal}
               >
-                <i className="bi bi-x-circle me-2"></i>
                 Hủy
               </button>
               <button
@@ -262,7 +250,6 @@ const MovieTypeManagement = () => {
                 className="admin-btn admin-btn-danger"
                 onClick={() => handleDeleteGenre(itemToDelete)}
               >
-                <i className="bi bi-trash me-2"></i>
                 Xóa thể loại
               </button>
             </div>

@@ -4,26 +4,21 @@ import { Form, Button, Row, Col, Card, Alert } from "react-bootstrap";
 import { apiFetch } from "../../utils/apiClient";
 import { STAFF, CINEMAS } from "../../constants/apiEndpoints";
 import { useAdminToast } from "../../components/admin/AdminToast";
-import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../utils/mediaFiles";
 import { staffStatusToCode } from "../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 
 const initialForm = {
   name: "",
-  username: "",
   email: "",
   phone: "",
   birthDate: "",
   status: "1",
   role: "STAFF",
-  avatar: null,
-  image: null,
-  imagePreview: "",
   cinemaId: "",
 };
 
 function buildDefaultAvatarUrl(staff) {
-  const label = staff.name?.trim() || staff.username?.trim() || staff.email?.trim() || "Staff";
+  const label = staff.name?.trim() || staff.email?.trim() || "Staff";
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(label)}&background=1f2937&color=fff&size=256`;
 }
 
@@ -81,26 +76,20 @@ const CreateSystemStaff = () => {
           : "";
         const next = {
           name: found.fullname ?? "",
-          username: found.username ?? "",
           email: found.email ?? "",
           phone: found.phone ?? "",
           birthDate: birth,
           status: String(staffStatusToCode(found.status)),
           role: String(found.role || "STAFF").toUpperCase() === "ADMIN" ? "ADMIN" : "STAFF",
-          avatar: found.avatar ?? null,
-          image: null,
-          imagePreview: found.avatar ?? "",
           cinemaId: found.cinemaId ?? "",
         };
         setStaff(next);
         originalDataRef.current = {
           fullname: String(next.name || "").trim(),
-          username: String(next.username || "").trim(),
           email: String(next.email || "").trim(),
           phone: String(next.phone || "").trim(),
           birthday: next.birthDate || "",
           status: Number(next.status),
-          avatar: next.imagePreview || "",
           cinemaId: next.cinemaId ? Number(next.cinemaId) : null,
           role: next.role === "ADMIN" ? "ADMIN" : "STAFF",
         };
@@ -118,12 +107,6 @@ const CreateSystemStaff = () => {
   const validate = () => {
     const tempErrors = {};
     if (!staff.name.trim()) tempErrors.name = "Họ tên không được để trống";
-
-    if (!staff.username?.trim()) {
-      tempErrors.username = "Username không được để trống";
-    } else if (staff.username.trim().length < 6 || staff.username.trim().length > 50) {
-      tempErrors.username = "Tên đăng nhập phải từ 6 đến 50 ký tự";
-    }
 
     const emailRegex = /^[a-z0-9._%+-]+@gmail\.com$/i;
     if (!staff.email) {
@@ -162,20 +145,6 @@ const CreateSystemStaff = () => {
     return Object.keys(tempErrors).length === 0;
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setStaff((prev) => ({
-      ...prev,
-      avatar: previewUrl,
-      image: file,
-      imagePreview: previewUrl,
-    }));
-    if (errors.avatar) setErrors((prev) => ({ ...prev, avatar: "" }));
-    if (errors.form) setErrors((prev) => ({ ...prev, form: "" }));
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setStaff((prev) => ({ ...prev, [name]: value }));
@@ -191,25 +160,18 @@ const CreateSystemStaff = () => {
     setSubmitting(true);
     setErrors({});
     try {
-      let avatarUrl = staff.imagePreview;
-      if (staff.image instanceof File) {
-        avatarUrl = await fileToDataUrl(staff.image);
-      }
-      if (!editId && (!avatarUrl || !String(avatarUrl).trim())) {
-        avatarUrl = buildDefaultAvatarUrl(staff);
-      }
-
       const data = {
         fullname: staff.name.trim(),
-        username: staff.username.trim(),
         email: staff.email.trim(),
         phone: staff.phone.trim(),
         birthday: staff.birthDate,
         status: Number(staff.status),
-        avatar: avatarUrl,
         cinemaId: staff.cinemaId ? parseInt(staff.cinemaId) : null,
         role: staff.role === "ADMIN" ? "ADMIN" : "STAFF",
       };
+      if (!editId) {
+        data.avatar = buildDefaultAvatarUrl(staff);
+      }
 
       let payload = data;
 
@@ -218,12 +180,10 @@ const CreateSystemStaff = () => {
         const changedData = {};
 
         if (data.fullname !== original.fullname) changedData.fullname = data.fullname;
-        if (data.username !== original.username) changedData.username = data.username;
         if (data.email !== original.email) changedData.email = data.email;
         if (data.phone !== original.phone) changedData.phone = data.phone;
         if (data.birthday !== original.birthday) changedData.birthday = data.birthday;
         if (data.status !== original.status) changedData.status = data.status;
-        if (data.avatar !== original.avatar) changedData.avatar = data.avatar;
         if (data.cinemaId !== original.cinemaId) changedData.cinemaId = data.cinemaId;
         if (data.role !== original.role) changedData.role = data.role;
 
@@ -247,15 +207,9 @@ const CreateSystemStaff = () => {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        if (res.status === 413) {
-          setErrors({ avatar: "Ảnh quá lớn. Vui lòng chọn ảnh JPG/PNG nhỏ hơn 5MB." });
-          return;
-        }
         const message = apiMessage(json, "Lưu nhân sự thất bại");
         if (message.includes("Email đã tồn tại")) {
           setErrors({ email: message });
-        } else if (message.includes("Username đã tồn tại") || message.includes("Tên đăng nhập đã tồn tại")) {
-          setErrors({ username: message });
         } else if (message.includes("Số điện thoại đã tồn tại")) {
           setErrors({ phone: message });
         } else {
@@ -320,29 +274,6 @@ const CreateSystemStaff = () => {
         .black-input.is-invalid {
           border-color: #dc3545 !important;
         }
-        .image-upload-wrapper {
-          width: 200px;
-          height: 200px;
-          border: 2px dashed #ddd;
-          border-radius: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          overflow: hidden;
-          position: relative;
-          transition: all 0.3s ease;
-          background: #f8f9fa;
-        }
-        .image-upload-wrapper:hover {
-          border-color: #0d6efd;
-          background: rgba(13, 110, 253, 0.05);
-        }
-        .image-upload-wrapper img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
       `}</style>
 
       <div className="d-flex align-items-center justify-content-between gap-3 mb-4 flex-wrap">
@@ -356,7 +287,6 @@ const CreateSystemStaff = () => {
 
       {errors.form ? (
         <Alert variant="warning" className="border-0 shadow-sm mb-4 fw-bold" style={{ borderRadius: "12px" }}>
-          <i className="fas fa-exclamation-triangle me-2" />
           {errors.form}
         </Alert>
       ) : null}
@@ -366,35 +296,7 @@ const CreateSystemStaff = () => {
         <Card.Body>
           <Form onSubmit={handleSubmit} noValidate>
             <Row>
-              <Col lg={4} className="d-flex flex-column align-items-center mb-4 mb-lg-0">
-                <Form.Label className="fw-bold mb-3 text-dark">Ảnh đại diện</Form.Label>
-                <label htmlFor="sysStaffImageUpload" className="image-upload-wrapper shadow-sm mb-3">
-                  {staff.imagePreview ? (
-                    <img src={staff.imagePreview} alt="Preview" />
-                  ) : (
-                    <div className="text-muted text-center">
-                      <i className="fas fa-camera fs-1 mb-2" />
-                      <small className="d-block">Tải ảnh lên</small>
-                    </div>
-                  )}
-                </label>
-                <input
-                  type="file"
-                  id="sysStaffImageUpload"
-                  className="d-none"
-                  accept={IMAGE_FILE_ACCEPT}
-                  onChange={handleImageChange}
-                  disabled={submitting}
-                />
-                <p className="text-muted small text-center px-4" style={{ marginBottom: 0 }}>
-                  Có thể bỏ trống, hệ thống sẽ tự tạo avatar theo tên nhân sự.
-                </p>
-                {errors.avatar ? (
-                  <div className="text-danger small fw-bold mt-2 text-center">{errors.avatar}</div>
-                ) : null}
-              </Col>
-
-              <Col lg={8}>
+              <Col lg={12}>
                 <Row className="g-4">
                   <Col md={12}>
                     <Form.Group>
@@ -430,24 +332,6 @@ const CreateSystemStaff = () => {
                         ))}
                       </Form.Select>
                       {errors.cinemaId ? <div className="text-danger small fw-bold mt-1">{errors.cinemaId}</div> : null}
-                    </Form.Group>
-                  </Col>
-
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label className="fw-bold small text-dark">Username</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="username"
-                        className={`black-input py-2 ${errors.username ? "is-invalid" : ""}`}
-                        placeholder="Nhập username"
-                        value={staff.username}
-                        onChange={handleInputChange}
-                        disabled={!!editId}
-                      />
-                      {errors.username ? (
-                        <div className="text-danger small fw-bold mt-1">{errors.username}</div>
-                      ) : null}
                     </Form.Group>
                   </Col>
 

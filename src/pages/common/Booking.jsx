@@ -530,6 +530,10 @@ const Booking = () => {
 
   const toggleSeat = (seat) => {
     if (showEnded) return;
+    if (!getAccessToken()) {
+      navigate("/login", { state: { from: `/booking/${showtimeId}` } });
+      return;
+    }
     const id = Number(seat.seatId);
     if (!Number.isFinite(id)) return;
     if (bookedSet.has(id)) return;
@@ -538,18 +542,6 @@ const Booking = () => {
 
     const alreadySelected = selectedSeatIds.includes(id);
     const nextSelected = alreadySelected ? selectedSeatIds.filter((x) => x !== id) : [...selectedSeatIds, id];
-    if (alreadySelected) {
-      setSeatSelectionError(null);
-      setPayError(null);
-      setSelectedSeatIds(nextSelected);
-      return;
-    }
-    const blocked = new Set([...bookedSet, ...peerHeldSet, ...nextSelected]);
-    const check = checkNoSingleSeatOrphanInRows(seats, blocked);
-    if (!check.ok) {
-      setSeatSelectionError(check.message);
-      return;
-    }
     setSeatSelectionError(null);
     setPayError(null);
     setSelectedSeatIds(nextSelected);
@@ -662,15 +654,18 @@ const Booking = () => {
     };
   }, [showtimeId, showEnded, selectedSeatIds, snackCart, selectedVoucherId]);
 
-  // Load user vouchers when logged in
+  // Load user vouchers when logged in — chỉ hiện voucher đúng rạp của suất chiếu đang đặt.
   useEffect(() => {
     if (!getAccessToken()) return;
+    const bookingCinemaId = showtime?.cinemaId;
+    if (!bookingCinemaId) return;
 
     const isVoucherUsable = (row) => {
       if (row?.status !== 1) return false;
       const voucher = row.voucher || {};
       const voucherStatus = Number(voucher.status ?? 1);
       if (voucherStatus === 0 || voucherStatus === 3) return false;
+      if (voucher.cinemaId !== bookingCinemaId) return false;
       const now = new Date();
       const start = voucher.startDate ? new Date(`${String(voucher.startDate).slice(0, 10)}T00:00:00`) : null;
       const end = voucher.endDate ? new Date(`${String(voucher.endDate).slice(0, 10)}T23:59:59`) : null;
@@ -678,14 +673,14 @@ const Booking = () => {
       if (end && end < now) return false;
       return true;
     };
-    
+
     const loadVouchers = async () => {
       setVoucherLoading(true);
       try {
         const res = await apiFetch(ME.VOUCHERS);
         const json = await res.json().catch(() => null);
         if (res.ok && json?.data) {
-          // Chỉ hiện voucher chưa dùng và còn hiệu lực.
+          // Chỉ hiện voucher chưa dùng, còn hiệu lực và đúng rạp đang đặt vé.
           const available = json.data.filter(isVoucherUsable);
           setUserVouchers(available);
         }
@@ -695,9 +690,9 @@ const Booking = () => {
         setVoucherLoading(false);
       }
     };
-    
+
     loadVouchers();
-  }, []);
+  }, [showtime?.cinemaId]);
 
   const addSnack = (productId) => {
     setSnackCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
@@ -856,6 +851,13 @@ const Booking = () => {
       setPayError("Hệ thống đang tính lại giá, vui lòng chờ một chút.");
       return;
     }
+    const blocked = new Set([...bookedSet, ...peerHeldSet, ...selectedSeatIds]);
+    const check = checkNoSingleSeatOrphanInRows(seats, blocked);
+    if (!check.ok) {
+      setSeatSelectionError(check.message);
+      return;
+    }
+    setSeatSelectionError(null);
     setShowPaymentConfirm(true);
   };
 
@@ -1337,20 +1339,6 @@ const Booking = () => {
                           </div>
                           <div className="flex-grow-1 min-width-0">
                             <div className="fw-bold small text-truncate" style={{ color: '#fff' }}>{p.name}</div>
-                            <div
-                              className="small"
-                              title={p.description || "Chưa có mô tả"}
-                              style={{
-                                color: "rgba(255,255,255,0.62)",
-                                lineHeight: 1.35,
-                                display: "-webkit-box",
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden",
-                              }}
-                            >
-                              {p.description || "Chưa có mô tả"}
-                            </div>
                             <div className="text-danger fw-bold small">{formatVnd(p.price)}</div>
                           </div>
                           <div className="d-flex align-items-center gap-1">
@@ -1678,11 +1666,7 @@ const Booking = () => {
                         <div className="small rounded-3 p-3" style={{ background: "rgba(142,230,168,0.1)", color: "#9fe6b8", border: "1px solid rgba(142,230,168,0.22)" }}>
                           Tổng tiền còn 0đ nên hệ thống sẽ hoàn tất đặt vé ngay, không chuyển sang PayOS.
                         </div>
-                      ) : (
-                        <div className="small rounded-3 p-3" style={{ background: "rgba(255,209,102,0.1)", color: "#ffd166", border: "1px solid rgba(255,209,102,0.22)" }}>
-                          Sau khi xác nhận, bạn sẽ được chuyển sang PayOS để thanh toán.
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   </Modal.Body>
                   <Modal.Footer style={{ background: "#12133a", borderTop: "1px solid rgba(255,255,255,0.08)" }}>

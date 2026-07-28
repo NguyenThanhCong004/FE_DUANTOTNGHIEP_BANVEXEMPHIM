@@ -110,15 +110,13 @@ const CreateMovieType = () => {
       <ToastComponent />
       <AdminPanelPage 
         icon={editData ? "bi-tags-fill" : "bi-plus-square-fill"} 
-        title={editData ? 'Cập nhật thể loại' : 'Thêm thể loại mới'} 
-        description="Quản lý danh mục các thể loại phim trên hệ thống để phân loại phim chính xác."
+        title={editData ? 'Cập nhật thể loại' : 'Thêm thể loại mới'}
         headerRight={<AdminFormListBack to="/super-admin/movie-types" />}
       >
         <div className="admin-form-page-wrap admin-form-compact">
         <div className="admin-card admin-slide-up">
           <div className="admin-card-header">
             <h4 className="mb-0">
-              <i className={`bi ${editData ? 'bi-pencil-square' : 'bi-tag-fill'} text-primary me-2`}></i>
               Thông tin thể loại
             </h4>
           </div>
@@ -144,10 +142,8 @@ const CreateMovieType = () => {
                   style={{ minWidth: '180px' }} 
                   disabled={submitting}
                 >
-                  {submitting ? (
+                  {submitting && (
                     <span className="spinner-border spinner-border-sm me-2"></span>
-                  ) : (
-                    <i className="bi bi-check-circle me-2"></i>
                   )}
                   {editData ? 'Cập nhật' : 'Lưu thể loại'}
                 </button>

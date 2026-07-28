@@ -7,32 +7,33 @@
    CSS Variables - Design Tokens
    ───────────────────────────────────────────────────────── */
 :root {
-  /* Primary Colors */
-  --admin-primary: #2563eb;
-  --admin-primary-dark: #1d4ed8;
-  --admin-primary-light: #60a5fa;
-  --admin-primary-bg: rgba(37, 99, 235, 0.08);
-  
+  /* Primary Colors — chuyển hẳn sang xanh sky tươi, sáng và nổi bật hơn hẳn tông navy trước đó */
+  --admin-primary: #0ea5e9;
+  --admin-primary-dark: #0284c7;
+  --admin-primary-light: #7dd3fc;
+  --admin-primary-bg: rgba(14, 165, 233, 0.1);
+
   /* Secondary Colors */
-  --admin-secondary: #7c3aed;
-  --admin-success: #10b981;
-  --admin-warning: #f59e0b;
+  --admin-secondary: #a855f7;
+  --admin-success: #22c55e;
+  --admin-warning: #fbbf24;
   --admin-danger: #ef4444;
   --admin-info: #3b82f6;
-  
-  /* Neutral Colors */
-  --admin-bg: #f4f6f9;
+
+  /* Neutral Colors — nền sáng, gần trắng, viền/bóng đổ nhẹ hơn cho cảm giác thoáng */
+  --admin-bg: #f7f9fc;
   --admin-bg-card: #ffffff;
   --admin-bg-header: #ffffff;
+  --admin-bg-subtle: #f2f6fb;
   --admin-text: #1e293b;
   --admin-text-muted: #64748b;
-  --admin-border: #e2e8f0;
-  
+  --admin-border: #e9edf3;
+
   /* Shadows */
-  --admin-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --admin-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --admin-shadow-lg: 0 8px 18px rgba(15, 23, 42, 0.1);
-  --admin-shadow-xl: 0 14px 30px rgba(15, 23, 42, 0.12);
+  --admin-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --admin-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  --admin-shadow-lg: 0 8px 18px rgba(15, 23, 42, 0.08);
+  --admin-shadow-xl: 0 14px 30px rgba(15, 23, 42, 0.1);
   
   /* Border Radius */
   --admin-radius-sm: 8px;
@@ -51,6 +52,28 @@
   /* Transitions */
   --admin-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --admin-transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Shell (sidebar + top header) — light by default, matches the content area */
+  --shell-layout-bg: #f7f9fc;
+  --shell-sidebar-bg: #ffffff;
+  --shell-header-bg: #ffffff;
+  --shell-border: #e9edf3;
+  --shell-text: #1e293b;
+  --shell-text-muted: #64748b;
+  --shell-nav-hover-bg: rgba(14, 165, 233, 0.1);
+  --shell-nav-hover-text: #1e293b;
+  --shell-nav-active-bg: rgba(14, 165, 233, 0.14);
+  --shell-nav-active-border: rgba(14, 165, 233, 0.4);
+  --shell-nav-active-text: #0284c7;
+  --shell-chip-bg: #f2f6fb;
+  --shell-chip-border: #e9edf3;
+  --shell-input-bg: #ffffff;
+  --shell-input-text: #1e293b;
+  --shell-danger-bg: rgba(239, 68, 68, 0.08);
+  --shell-danger-border: rgba(239, 68, 68, 0.3);
+  --shell-danger-text: #b91c1c;
+  --shell-locked-bg: rgba(100, 116, 139, 0.06);
+  --shell-locked-border: rgba(100, 116, 139, 0.25);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -212,7 +235,7 @@
 
 .admin-card-header {
   padding: 0.75rem 1rem;
-  background: #ffffff;
+  background: var(--admin-bg-card);
   border-bottom: 1px solid var(--admin-border);
   display: flex;
   justify-content: space-between;
@@ -255,7 +278,7 @@
 }
 
 .admin-table thead th {
-  background: #f8fafc;
+  background: var(--admin-bg-subtle);
   font-weight: 600;
   color: var(--admin-text);
   text-transform: uppercase;
@@ -282,7 +305,7 @@
 }
 
 .admin-table tbody tr:hover {
-  background: #f8fafc;
+  background: var(--admin-bg-subtle);
 }
 
 .admin-table tbody tr:last-child td {
@@ -444,48 +467,6 @@
   font-weight: 600;
   font-size: 0.9rem;
   flex-shrink: 0;
-}
-
-.admin-table-action-group {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
-  align-items: center;
-}
-
-.admin-table-action-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  text-decoration: none;
-  transition: var(--admin-transition);
-  border: none;
-  cursor: pointer;
-}
-
-.admin-table-action-btn--view {
-  background: var(--admin-info);
-}
-
-.admin-table-action-btn--edit {
-  background: var(--admin-warning);
-}
-
-.admin-table-action-btn--danger {
-  background: var(--admin-danger);
-}
-
-.admin-table-action-btn--success {
-  background: var(--admin-success);
-}
-
-.admin-table-action-btn:hover {
-  transform: scale(1.08);
-  color: #fff;
 }
 
 /* Square icon tile (rooms, promos) — complements round .admin-table-avatar */
@@ -752,7 +733,7 @@
 }
 
 .admin-modal-close:hover {
-  background: #f1f5f9;
+  background: var(--admin-bg-subtle);
   color: var(--admin-danger);
 }
 
@@ -1022,4 +1003,91 @@
   max-width: min(1400px, calc(100vw - 2 * var(--admin-space-lg)));
   margin-left: auto;
   margin-right: auto;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Dark Mode — overrides the neutral tokens above. Sidebar/header
+   (app-shell.css) stay permanently dark by design; this block only
+   re-themes the content workspace (cards, tables, forms, modals).
+   ───────────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  /* Lets the browser render native controls (select popup, date picker, scrollbar)
+     with a dark palette instead of always-white OS chrome. */
+  color-scheme: dark;
+
+  --admin-bg: #0b1220;
+  --admin-bg-card: #111827;
+  --admin-bg-header: #111827;
+  --admin-bg-subtle: #1a2333;
+  --admin-text: #e2e8f0;
+  --admin-text-muted: #94a3b8;
+  --admin-border: rgba(255, 255, 255, 0.09);
+
+  --admin-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --admin-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --admin-shadow-lg: 0 8px 18px rgba(0, 0, 0, 0.45);
+  --admin-shadow-xl: 0 14px 30px rgba(0, 0, 0, 0.5);
+
+  /* Shell (sidebar + top header) — dark variant */
+  --shell-layout-bg: #070b17;
+  --shell-sidebar-bg: #090d1d;
+  --shell-header-bg: #090d1d;
+  --shell-border: rgba(255, 255, 255, 0.08);
+  --shell-text: #f8fafc;
+  --shell-text-muted: #94a3b8;
+  --shell-nav-hover-bg: rgba(30, 41, 59, 0.6);
+  --shell-nav-hover-text: #ffffff;
+  --shell-nav-active-bg: linear-gradient(135deg, rgba(67, 56, 202, 0.55), rgba(126, 34, 206, 0.5));
+  --shell-nav-active-border: rgba(129, 140, 248, 0.65);
+  --shell-nav-active-text: #ffffff;
+  --shell-chip-bg: rgba(15, 23, 42, 0.7);
+  --shell-chip-border: rgba(148, 163, 184, 0.25);
+  --shell-input-bg: rgba(2, 6, 23, 0.85);
+  --shell-input-text: #e2e8f0;
+  --shell-danger-bg: rgba(127, 29, 29, 0.26);
+  --shell-danger-border: rgba(248, 113, 113, 0.45);
+  --shell-danger-text: #fecaca;
+  --shell-locked-bg: rgba(15, 23, 42, 0.35);
+  --shell-locked-border: rgba(148, 163, 184, 0.25);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Nhiều trang admin cũ dùng trực tiếp class tiện ích Bootstrap (text-dark, text-muted...)
+   thay vì var(--admin-text) — các class này có màu cố định + !important nên không tự đổi
+   theo theme. Ép lại theo theme ở chế độ tối để chữ không bị "kẹt" màu tối trên nền tối. */
+html.admin-panel[data-theme="dark"] .text-dark,
+html.admin-panel[data-theme="dark"] .text-black,
+html.admin-panel[data-theme="dark"] .text-body {
+  color: var(--admin-text) !important;
+}
+
+html.admin-panel[data-theme="dark"] .text-muted,
+html.admin-panel[data-theme="dark"] .text-secondary {
+  color: var(--admin-text-muted) !important;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Theme Toggle Button (header)
+   ───────────────────────────────────────────────────────── */
+.app-shell-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: var(--admin-transition);
+  flex-shrink: 0;
+}
+
+.app-shell-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
 }

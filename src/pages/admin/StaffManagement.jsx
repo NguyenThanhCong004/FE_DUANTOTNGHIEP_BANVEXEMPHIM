@@ -107,8 +107,6 @@ const StaffManagement = () => {
 
           fullname: data.fullname,
 
-          username: data.username,
-
           email: data.email,
 
           phone: data.phone,
@@ -363,8 +361,6 @@ const StaffManagement = () => {
 
       name: s.fullname ?? "",
 
-      username: s.username ?? "",
-
       email: s.email ?? "",
 
       phone: s.phone ?? "",
@@ -407,21 +403,15 @@ const StaffManagement = () => {
 
             <h1>
 
-              <i className="bi bi-people-fill me-3"></i>
-
               Quản lý nhân viên rạp
 
             </h1>
-
-            <p className="lead">Quản lý thông tin và phân công nhân viên</p>
 
           </div>
 
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
 
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
-
-              <i className="bi bi-search admin-search-icon" aria-hidden />
 
               <input
 
@@ -442,8 +432,6 @@ const StaffManagement = () => {
             </div>
 
             <Link to={addPath} className="admin-btn" style={{ background: "white", color: "#6366f1" }}>
-
-              <i className="bi bi-person-plus-fill me-2"></i>
 
               Thêm nhân viên
 
@@ -474,8 +462,6 @@ const StaffManagement = () => {
         <div className="admin-card-header">
 
           <h4>
-
-            <i className="bi bi-list-ul me-2 text-primary"></i>
 
             Danh sách nhân viên
 
@@ -533,8 +519,6 @@ const StaffManagement = () => {
 
                     <td colSpan={5} className="text-center py-4">
 
-                      <i className="bi bi-exclamation-triangle text-warning me-2"></i>
-
                       {error}
 
                     </td>
@@ -550,8 +534,6 @@ const StaffManagement = () => {
                       <div className="admin-empty">
 
                         <div className="admin-empty-icon">
-
-                          <i className="bi bi-people"></i>
 
                         </div>
 
@@ -587,7 +569,7 @@ const StaffManagement = () => {
 
                             <div className="fw-semibold text-dark">{staff.name}</div>
 
-                            <small className="text-muted">@{staff.username}</small>
+                            <small className="text-muted">{staff.email}</small>
 
                           </div>
 
@@ -601,15 +583,11 @@ const StaffManagement = () => {
 
                           <div className="d-flex align-items-center gap-2 mb-1">
 
-                            <i className="bi bi-envelope text-muted small"></i>
-
                             <small className="text-muted">{staff.email}</small>
 
                           </div>
 
                           <div className="d-flex align-items-center gap-2">
-
-                            <i className="bi bi-telephone text-muted small"></i>
 
                             <small className="text-muted">{staff.phone || 'Chưa có'}</small>
 
@@ -643,43 +621,35 @@ const StaffManagement = () => {
 
                       <td>
 
-                        <div className="admin-table-action-group">
+                        <div className="d-flex justify-content-center gap-2">
 
                           <button
 
                             type="button"
 
-                            className="admin-table-action-btn admin-table-action-btn--view"
+                            className="admin-btn admin-btn-sm admin-btn-outline"
 
                             title="Xem chi tiết"
 
                             onClick={() => openStaffDetail(staff.id)}
 
-                          >
-
-                            <i className="bi bi-eye"></i>
-
-                          </button>
+                          >Xem</button>
 
                           <Link
 
                             to={editPath(staff.id)}
 
-                            className="admin-table-action-btn admin-table-action-btn--edit"
+                            className="admin-btn admin-btn-sm admin-btn-primary"
 
                             title="Chỉnh sửa"
 
-                          >
-
-                            <i className="bi bi-pencil"></i>
-
-                          </Link>
+                          >Sửa</Link>
 
                           <button
 
                             type="button"
 
-                            className={`admin-table-action-btn ${isActiveStatus(staff.status) ? 'admin-table-action-btn--danger' : 'admin-table-action-btn--success'}`}
+                            className={`admin-btn admin-btn-sm ${isActiveStatus(staff.status) ? 'admin-btn-danger' : 'admin-btn-success'}`}
 
                             title={isActiveStatus(staff.status) ? "Khóa tài khoản" : "Mở khóa tài khoản"}
 
@@ -687,7 +657,7 @@ const StaffManagement = () => {
 
                           >
 
-                            <i className={`bi ${isActiveStatus(staff.status) ? 'bi-lock-fill' : 'bi-unlock-fill'}`}></i>
+                            {isActiveStatus(staff.status) ? "Khóa" : "Mở khóa"}
 
                           </button>
 
@@ -738,8 +708,6 @@ const StaffManagement = () => {
 
               <h3 className="text-danger mb-0">
 
-                <i className="bi bi-exclamation-triangle me-2"></i>
-
                 {isActiveStatus(staffToToggle.status) ? "Xác nhận khóa tài khoản" : "Xác nhận mở khóa tài khoản"}
 
               </h3>
@@ -762,15 +730,13 @@ const StaffManagement = () => {
 
               <div className="alert alert-warning">
 
-                <strong>Nhân viên:</strong> {staffToToggle.name} ({staffToToggle.username})
+                <strong>Nhân viên:</strong> {staffToToggle.name} ({staffToToggle.email})
 
               </div>
 
               {isActiveStatus(staffToToggle.status) && (
 
                 <p className="text-muted small mb-0">
-
-                  <i className="bi bi-info-circle me-1"></i>
 
                   Các ca làm việc từ hôm nay trở đi của nhân viên sẽ được gỡ tự động.
 
@@ -781,8 +747,6 @@ const StaffManagement = () => {
               {toggleError && (
 
                 <div className="alert alert-danger mt-3 mb-0">
-
-                  <i className="bi bi-exclamation-triangle me-2"></i>
 
                   {toggleError}
 
@@ -906,14 +870,6 @@ const StaffManagement = () => {
 
                       <Col md={6}>
 
-                        <div className="small text-muted fw-bold text-uppercase">Username</div>
-
-                        <div className="fw-bold">{detailStaff.username ?? '—'}</div>
-
-                      </Col>
-
-                      <Col md={6}>
-
                         <div className="small text-muted fw-bold text-uppercase">Email</div>
 
                         <div className="fw-bold">{detailStaff.email ?? '—'}</div>
@@ -961,8 +917,6 @@ const StaffManagement = () => {
           {detailStaff ? (
 
             <Button variant="primary" as={Link} to={editPath(detailStaff.staffId)} onClick={closeStaffDetail}>
-
-              <i className="bi bi-pencil me-2"></i>
 
               Chỉnh sửa
 

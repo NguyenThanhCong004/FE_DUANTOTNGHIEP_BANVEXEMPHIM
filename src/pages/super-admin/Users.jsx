@@ -110,8 +110,6 @@ const UserManagement = () => {
 
       title="Quản lý khách hàng"
 
-      description="Xem thông tin chi tiết, lịch sử chi tiêu và hạng thành viên của khách hàng."
-
     >
 
       <div className="admin-card admin-slide-up">
@@ -119,8 +117,6 @@ const UserManagement = () => {
         <div className="admin-card-header flex-wrap gap-2">
 
           <h4 className="mb-0 d-flex align-items-center gap-2">
-
-            <i className="bi bi-list-ul text-primary"></i>
 
             Danh sách khách hàng
 
@@ -134,15 +130,13 @@ const UserManagement = () => {
 
           <div className="admin-search-wrapper mb-4" style={{ maxWidth: 420 }}>
 
-            <i className="bi bi-search admin-search-icon"></i>
-
             <input
 
               type="search"
 
               className="admin-search-input"
 
-              placeholder="Tìm theo tên, username, email, SĐT..."
+              placeholder="Tìm theo tên, email, SĐT..."
 
               value={searchTerm}
 
@@ -226,7 +220,7 @@ const UserManagement = () => {
 
                               <div className="fw-semibold">{user.fullname}</div>
 
-                              <div className="small text-muted">@{user.username}</div>
+                              <div className="small text-muted">{user.email}</div>
 
                             </div>
 
@@ -248,9 +242,9 @@ const UserManagement = () => {
 
                           <div className="small">
 
-                            <div><i className="bi bi-envelope me-1"></i> {user.email}</div>
+                            <div> {user.email}</div>
 
-                            <div><i className="bi bi-telephone me-1"></i> {user.phone || 'N/A'}</div>
+                            <div> {user.phone || 'N/A'}</div>
 
                           </div>
 
@@ -274,15 +268,19 @@ const UserManagement = () => {
 
                               className="admin-btn admin-btn-sm admin-btn-outline"
 
+                              title="Xem chi tiết"
+
                               onClick={() => { setSelectedItem(user); setShowModal(true); }}
 
                             >
 
-                              <i className="bi bi-eye"></i>
+                              Xem
 
                             </button>
 
                             <button
+
+                              title="Sửa"
 
                               className="admin-btn admin-btn-sm admin-btn-primary"
 
@@ -290,7 +288,7 @@ const UserManagement = () => {
 
                             >
 
-                              <i className="bi bi-pencil"></i>
+                              Sửa
 
                             </button>
 
@@ -339,9 +337,9 @@ const UserManagement = () => {
 
             <div className="admin-modal-header">
 
-              <h3><i className="bi bi-person-badge me-2 text-primary"></i>Chi tiết khách hàng</h3>
+              <h3>Chi tiết khách hàng</h3>
 
-              <button className="admin-modal-close" onClick={() => setShowModal(false)}><i className="bi bi-x-lg"></i></button>
+              <button className="admin-modal-close" onClick={() => setShowModal(false)}></button>
 
             </div>
 
@@ -383,8 +381,6 @@ const UserManagement = () => {
 
                     <div className="fw-bold text-primary">
 
-                      <i className="bi bi-star-fill me-1 text-warning"></i>
-
                       {selectedItem.rankName || "Hạng đồng"}
 
                     </div>
@@ -397,9 +393,7 @@ const UserManagement = () => {
 
                 <div className="col-md-8">
 
-                  <h4 className="fw-bold mb-1">{selectedItem.fullname}</h4>
-
-                  <p className="text-muted mb-4">@{selectedItem.username}</p>
+                  <h4 className="fw-bold mb-4">{selectedItem.fullname}</h4>
 
                   
 
@@ -491,9 +485,7 @@ const UserManagement = () => {
 
                 }}
 
-              >
-
-                <i className="bi bi-pencil-square me-2"></i>Chỉnh sửa
+              >Chỉnh sửa
 
               </button>
 

@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Modal, Button, Spinner } from 'react-bootstrap';
-import { ReceiptText } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { apiFetch, withQuery } from '../../utils/apiClient';
 import { ORDERS_ONLINE } from '../../constants/apiEndpoints';
@@ -185,18 +184,11 @@ const InvoiceManagement = () => {
         <div className="admin-header-content">
           <div>
             <h1>
-              <i className="bi bi-receipt-cutoff me-3"></i>
               Quản lý Hóa đơn
             </h1>
-            <p className="lead">
-              {isSuperAdmin
-                ? `Theo dõi hóa đơn của ${selectedCinemaName || 'rạp đang chọn'}`
-                : 'Theo dõi hóa đơn của rạp đang đăng nhập'}
-            </p>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
-              <i className="bi bi-search admin-search-icon" aria-hidden />
               <input
                 type="search"
                 className="admin-search-input"
@@ -222,7 +214,6 @@ const InvoiceManagement = () => {
             }}
           >
             <div className="admin-stat-icon">
-              <i className={`bi ${s.icon}`}></i>
             </div>
             <div className="admin-stat-value">{s.value}</div>
             <div className="admin-stat-label">{s.label}</div>
@@ -233,7 +224,6 @@ const InvoiceManagement = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4>
-            <i className="bi bi-list-ul me-2 text-primary"></i>
             Danh sách Hóa đơn
           </h4>
         </div>
@@ -267,7 +257,6 @@ const InvoiceManagement = () => {
                     <td colSpan={8}>
                       <div className="admin-empty">
                         <div className="admin-empty-icon">
-                          <i className="bi bi-receipt"></i>
                         </div>
                         <h5 className="mb-2">
                           {requiresCinemaSelection ? 'Chưa chọn rạp' : 'Không có hóa đơn'}
@@ -291,13 +280,11 @@ const InvoiceManagement = () => {
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-2">
-                        <i className="bi bi-film text-primary"></i>
                         <span>{invoice.movieTitle}</span>
                       </div>
                     </td>
                     <td>
                       <small className="text-muted">
-                        <i className="bi bi-clock me-1"></i>
                         {invoice.showtime}
                       </small>
                     </td>
@@ -308,15 +295,13 @@ const InvoiceManagement = () => {
                     </td>
                     <td>{getStatusBadge(invoice.status)}</td>
                     <td className="text-center">
-                      <div className="admin-table-action-group d-inline-flex">
+                      <div className="d-flex justify-content-center gap-2">
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem chi tiết"
                           onClick={() => openOrderDetail(invoice.apiId)}
-                        >
-                          <i className="bi bi-eye"></i>
-                        </button>
+                        >Xem</button>
                       </div>
                     </td>
                   </tr>
@@ -339,7 +324,6 @@ const InvoiceManagement = () => {
       <Modal show={showDetailModal} onHide={closeOrderDetail} centered size="lg">
         <Modal.Header closeButton className="border-0 pb-0">
           <Modal.Title className="d-flex align-items-center gap-2 fw-bold text-primary mb-0">
-            <ReceiptText size={22} />
             Chi tiết hóa đơn
           </Modal.Title>
         </Modal.Header>
@@ -360,8 +344,7 @@ const InvoiceManagement = () => {
           <Button variant="outline-secondary" onClick={closeOrderDetail}>
             Đóng
           </Button>
-          <Button variant="primary" onClick={() => window.print()} className="d-none d-print-inline-block">
-            <i className="bi bi-printer me-2"></i>In hóa đơn
+          <Button variant="primary" onClick={() => window.print()} className="d-none d-print-inline-block">In hóa đơn
           </Button>
         </Modal.Footer>
       </Modal>

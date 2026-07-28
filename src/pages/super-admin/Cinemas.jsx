@@ -120,7 +120,6 @@ const CinemaManagement = () => {
     <AdminPanelPage
       icon="building"
       title="Quản lý rạp"
-      description="Danh sách cụm rạp trong hệ thống."
       headerRight={
         <button
           type="button"
@@ -128,7 +127,6 @@ const CinemaManagement = () => {
           style={{ background: 'white', color: '#6366f1' }}
           onClick={() => navigate('/super-admin/cinemas/create')}
         >
-          <i className="bi bi-plus-lg me-2"></i>
           Thêm rạp mới
         </button>
       }
@@ -136,14 +134,12 @@ const CinemaManagement = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header flex-wrap gap-2">
           <h4 className="mb-0 d-flex align-items-center gap-2">
-            <i className="bi bi-list-ul text-primary"></i>
             Danh sách rạp
           </h4>
           <span className="text-muted small">Tổng: {filteredCinemas.length} cụm rạp</span>
         </div>
         <div className="admin-card-body">
           <div className="admin-search-wrapper mb-3" style={{ maxWidth: 420 }}>
-            <i className="bi bi-search admin-search-icon" aria-hidden />
             <input
               type="search"
               className="admin-search-input"
@@ -197,25 +193,19 @@ const CinemaManagement = () => {
                             setShowModal(true);
                           }}
                           title="Xem chi tiết"
-                        >
-                          <i className="bi bi-eye"></i>
-                        </button>
+                        >Xem</button>
                         <button
                           type="button"
                           className="admin-btn admin-btn-sm admin-btn-primary"
                           onClick={() => navigate('/super-admin/cinemas/create', { state: { editData: cinema } })}
                           title="Sửa rạp"
-                        >
-                          <i className="bi bi-pencil"></i>
-                        </button>
+                        >Sửa</button>
                         <button
                           type="button"
                           className="admin-btn admin-btn-sm admin-btn-danger"
                           onClick={() => openDeleteModal(cinema)}
                           title="Xóa rạp"
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
+                        >Xóa</button>
                       </div>
                     </td>
                   </tr>
@@ -270,7 +260,6 @@ const CinemaManagement = () => {
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa Rạp
               </h3>
               <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
@@ -286,12 +275,10 @@ const CinemaManagement = () => {
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}
               <p className="text-muted small mb-0">
-                <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả phòng chiếu, suất chiếu và lịch trình của rạp này sẽ bị ảnh hưởng.
               </p>
             </div>
@@ -301,7 +288,6 @@ const CinemaManagement = () => {
                 className="admin-btn admin-btn-outline-secondary"
                 onClick={closeDeleteModal}
               >
-                <i className="bi bi-x-circle me-2"></i>
                 Hủy
               </button>
               <button
@@ -309,7 +295,6 @@ const CinemaManagement = () => {
                 className="admin-btn admin-btn-danger"
                 onClick={() => handleDeleteCinema(cinemaToDelete)}
               >
-                <i className="bi bi-trash me-2"></i>
                 Xóa rạp
               </button>
             </div>

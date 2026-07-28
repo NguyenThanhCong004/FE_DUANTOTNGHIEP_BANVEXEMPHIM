@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Form, Button, Row, Col, Card } from "react-bootstrap";
-import { UserCheck, Calendar as CalendarIcon } from "lucide-react";
+
 import { getAccessToken, getStoredStaff } from "../../../utils/authStorage";
 import { SuperAdminCinemaContext } from "../../../components/layout/SuperAdminCinemaContext";
 import { apiUrl } from "../../../utils/apiClient";
@@ -325,7 +325,6 @@ export default function AdminShiftForm({ mode = "add" }) {
 
             <Card className="border-0 shadow-sm p-4 rounded-4">
               <div className="d-flex align-items-center gap-2 mb-4 text-primary">
-                <UserCheck size={20} />
                 <h5 className="fw-bold mb-0">
                   {isEdit ? "Điều chỉnh nhân sự" : `Bố trí nhân sự cho ${formData.shiftType}`}
                 </h5>

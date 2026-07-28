@@ -1,22 +1,23 @@
 import React, { useEffect, useMemo } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  Armchair,
+  LayoutDashboard,
+  UserRound,
   CalendarClock,
   DoorOpen,
+  Armchair,
   Film,
-  LayoutDashboard,
-  LogOut,
-  Megaphone,
   Package,
+  Megaphone,
   ReceiptText,
-  UserCircle,
-  UserRound,
   Users,
+  Ticket,
 } from "lucide-react";
+
 import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "./useSuperAdminCinema";
 import CinemaPicker from "./CinemaPicker";
+import ThemeToggle from "./ThemeToggle";
 import "../../styles/admin-shell.css";
 import "../../styles/admin-design-system.css";
 
@@ -41,6 +42,7 @@ const sectionsCinema = [
       { path: "/admin/seats", label: "Sơ đồ ghế", icon: Armchair },
       { path: "/admin/showtimes", label: "Suất chiếu", icon: Film },
       { path: "/admin/products", label: "Sản phẩm", icon: Package },
+      { path: "/admin/vouchers", label: "Voucher", icon: Ticket },
       { path: "/admin/promotions", label: "Khuyến mãi", icon: Megaphone },
       { path: "/admin/invoices", label: "Hóa đơn", icon: ReceiptText },
     ],
@@ -52,11 +54,6 @@ const sectionsRest = [
     title: "Khách hàng",
     requiresCinema: false,
     items: [{ path: "/admin/users", label: "Khách hàng", icon: Users }],
-  },
-  {
-    title: "Tài khoản",
-    requiresCinema: false,
-    items: [{ path: "/admin/profile", label: "Hồ sơ cá nhân", icon: UserCircle }],
   },
 ];
 
@@ -150,7 +147,7 @@ export default function AdminLayout() {
         <div className="app-shell-brand">
           <div className="app-shell-brand-dot" />
           <div>
-            <div className="app-shell-brand-title">ERROR404</div>
+            <div className="app-shell-brand-title">MovieZone</div>
             <div className="app-shell-brand-sub">Quản trị rạp</div>
           </div>
         </div>
@@ -178,6 +175,7 @@ export default function AdminLayout() {
                   : "Chưa có rạp"}
               </span>
             </div>
+            <ThemeToggle />
             <NavLink to="/admin/profile" className="text-decoration-none">
               <div className="app-shell-profile-chip">
                 <img
@@ -197,7 +195,6 @@ export default function AdminLayout() {
               className="app-shell-logout-btn app-shell-logout-btn--header"
               onClick={handleLogout}
             >
-              <LogOut size={16} />
               <span>Đăng xuất</span>
             </button>
           </div>

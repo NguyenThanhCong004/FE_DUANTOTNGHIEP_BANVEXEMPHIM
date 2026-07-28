@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2 } from "lucide-react";
+
 import { useSuperAdminCinema } from "./useSuperAdminCinema";
 
 /**
@@ -16,7 +16,6 @@ export default function CinemaPicker({ className = "", variant = "sidebar" }) {
   if (variant === "header") {
     return (
       <div className={`app-shell-header-cinema-picker ${className}`.trim()}>
-        <Building2 size={16} className="app-shell-header-cinema-icon flex-shrink-0" aria-hidden />
         <label htmlFor={selectId} className="visually-hidden">
           Rạp đang thao tác
         </label>

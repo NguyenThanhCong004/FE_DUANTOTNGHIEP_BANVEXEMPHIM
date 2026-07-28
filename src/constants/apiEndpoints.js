@@ -62,16 +62,6 @@ export const MOVIES = {
   HOME_BANNERS: `${API_V1}/movies/home-banners`,
 };
 
-export const AUTHORS = {
-  LIST: `${API_V1}/authors`,
-  BY_ID: (id) => `${API_V1}/authors/${id}`,
-};
-
-export const NATIONS = {
-  LIST: `${API_V1}/nations`,
-  BY_ID: (id) => `${API_V1}/nations/${id}`,
-};
-
 export const SHOWTIMES = {
   LIST: `${API_V1}/showtimes`,
   BY_ID: (id) => `${API_V1}/showtimes/${id}`,
@@ -173,7 +163,15 @@ export const PRODUCTS = {
 
 export const SUPER_ADMIN_DASHBOARD = {
   SUMMARY: `${API_V1}/super-admin/dashboard/summary`,
-  REVENUE_CHART: (year) => `${API_V1}/super-admin/dashboard/revenue-chart${year ? `?year=${year}` : ""}`,
+  REVENUE_CHART: (year, granularity, range) => {
+    const q = new URLSearchParams();
+    if (year) q.set("year", String(year));
+    if (granularity) q.set("granularity", granularity);
+    if (range?.from) q.set("from", range.from);
+    if (range?.to) q.set("to", range.to);
+    const qs = q.toString();
+    return `${API_V1}/super-admin/dashboard/revenue-chart${qs ? `?${qs}` : ""}`;
+  },
   CINEMA_RANKING: (year, month) => {
     const q = new URLSearchParams();
     if (year) q.set("year", String(year));
@@ -182,6 +180,55 @@ export const SUPER_ADMIN_DASHBOARD = {
     return `${API_V1}/super-admin/dashboard/cinema-ranking${qs ? `?${qs}` : ""}`;
   },
   CINEMA_DETAIL: (id) => `${API_V1}/super-admin/dashboard/cinema-detail/${id}`,
+  TOP_MOVIES: (limit) => `${API_V1}/super-admin/dashboard/top-movies${limit ? `?limit=${limit}` : ""}`,
+  SEAT_OCCUPANCY: `${API_V1}/super-admin/dashboard/seat-occupancy`,
+  PAYMENT_METHOD_REVENUE: `${API_V1}/super-admin/dashboard/payment-method-revenue`,
+  RECENT_ADMIN_ACTIVITY: (limit) => `${API_V1}/super-admin/dashboard/recent-admin-activity${limit ? `?limit=${limit}` : ""}`,
+  AUDIT_LOG: (limit) => `${API_V1}/super-admin/dashboard/audit-log${limit ? `?limit=${limit}` : ""}`,
+};
+
+export const ADMIN_DASHBOARD = {
+  SUMMARY: (cinemaId) => `${API_V1}/admin/dashboard/summary${cinemaId ? `?cinemaId=${cinemaId}` : ""}`,
+  REVENUE_BY_DAY: (cinemaId, days) => {
+    const q = new URLSearchParams();
+    if (cinemaId) q.set("cinemaId", String(cinemaId));
+    if (days) q.set("days", String(days));
+    const qs = q.toString();
+    return `${API_V1}/admin/dashboard/revenue-by-day${qs ? `?${qs}` : ""}`;
+  },
+  TICKETS_BY_HOUR: (cinemaId, date) => {
+    const q = new URLSearchParams();
+    if (cinemaId) q.set("cinemaId", String(cinemaId));
+    if (date) q.set("date", date);
+    const qs = q.toString();
+    return `${API_V1}/admin/dashboard/tickets-by-hour${qs ? `?${qs}` : ""}`;
+  },
+  TOP_MOVIES: (cinemaId, limit) => {
+    const q = new URLSearchParams();
+    if (cinemaId) q.set("cinemaId", String(cinemaId));
+    if (limit) q.set("limit", String(limit));
+    const qs = q.toString();
+    return `${API_V1}/admin/dashboard/top-movies${qs ? `?${qs}` : ""}`;
+  },
+  SEAT_TYPE_RATIO: (cinemaId) => `${API_V1}/admin/dashboard/seat-type-ratio${cinemaId ? `?cinemaId=${cinemaId}` : ""}`,
+  NOTIFICATIONS: (cinemaId, limit) => {
+    const q = new URLSearchParams();
+    if (cinemaId) q.set("cinemaId", String(cinemaId));
+    if (limit) q.set("limit", String(limit));
+    const qs = q.toString();
+    return `${API_V1}/admin/dashboard/notifications${qs ? `?${qs}` : ""}`;
+  },
+};
+
+export const NOTIFICATIONS = {
+  LIST: (cinemaId, limit) => {
+    const q = new URLSearchParams();
+    if (cinemaId) q.set("cinemaId", String(cinemaId));
+    if (limit) q.set("limit", String(limit));
+    const qs = q.toString();
+    return `${API_V1}/notifications${qs ? `?${qs}` : ""}`;
+  },
+  CREATE: `${API_V1}/notifications`,
 };
 
 export const ORDERS_ONLINE = {

@@ -192,7 +192,7 @@ const SystemStaffManagement = () => {
 
 
 
-            name: s.fullname || s.username || "—",
+            name: s.fullname || s.email || "—",
 
 
 
@@ -429,12 +429,6 @@ const SystemStaffManagement = () => {
 
       title="Quản lý nhân sự toàn hệ thống"
 
-
-
-      description="Danh sách tất cả nhân sự (ADMIN & STAFF) từ mọi chi nhánh trên toàn quốc."
-
-
-
       headerRight={
 
 
@@ -455,11 +449,7 @@ const SystemStaffManagement = () => {
 
 
 
-          onClick={() => navigate('/super-admin/system-staff/create')}>
-
-
-
-          <i className="bi bi-person-plus me-2"></i> Thêm nhân sự
+          onClick={() => navigate('/super-admin/system-staff/create')}> Thêm nhân sự
 
 
 
@@ -491,10 +481,6 @@ const SystemStaffManagement = () => {
 
 
 
-            <i className="bi bi-search admin-search-icon"></i>
-
-
-
             <input 
 
 
@@ -520,10 +506,6 @@ const SystemStaffManagement = () => {
 
 
           <div className="admin-search-wrapper" style={{ width: '250px' }}>
-
-
-
-            <i className="bi bi-filter admin-search-icon"></i>
 
 
 
@@ -679,7 +661,7 @@ const SystemStaffManagement = () => {
 
 
 
-                            {emp.avatar ? <img src={emp.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <i className="bi bi-person text-muted"></i>}
+                            {emp.avatar ? <img src={emp.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (emp.name || '?').charAt(0).toUpperCase()}
 
 
 
@@ -763,39 +745,15 @@ const SystemStaffManagement = () => {
 
 
 
-                          <button className="admin-btn admin-btn-sm admin-btn-outline" title="Xem chi tiết" onClick={() => { setSelectedItem(emp); setShowModal(true); }}>
+                          <button className="admin-btn admin-btn-sm admin-btn-outline" title="Xem chi tiết" onClick={() => { setSelectedItem(emp); setShowModal(true); }}>Xem</button>
 
 
 
-                            <i className="bi bi-eye"></i>
+                          <button className="admin-btn admin-btn-sm admin-btn-primary" title="Sửa" onClick={() => navigate(`/super-admin/system-staff/edit/${emp.id}`)}>Sửa</button>
 
 
 
-                          </button>
-
-
-
-                          <button className="admin-btn admin-btn-sm admin-btn-primary" title="Sửa" onClick={() => navigate(`/super-admin/system-staff/edit/${emp.id}`)}>
-
-
-
-                            <i className="bi bi-pencil"></i>
-
-
-
-                          </button>
-
-
-
-                          <button className="admin-btn admin-btn-sm admin-btn-danger" title="Xóa" onClick={() => { setDeletingItem(emp); setDeleteError(''); setShowDeleteModal(true); }}>
-
-
-
-                            <i className="bi bi-trash"></i>
-
-
-
-                          </button>
+                          <button className="admin-btn admin-btn-sm admin-btn-danger" title="Xóa" onClick={() => { setDeletingItem(emp); setDeleteError(''); setShowDeleteModal(true); }}>Xóa</button>
 
 
 
@@ -886,7 +844,7 @@ const SystemStaffManagement = () => {
 
 
 
-              <button className="admin-modal-close" onClick={() => setShowModal(false)}><i className="bi bi-x-lg"></i></button>
+              <button className="admin-modal-close" onClick={() => setShowModal(false)}></button>
 
 
 
@@ -910,7 +868,7 @@ const SystemStaffManagement = () => {
 
 
 
-                    {selectedItem.avatar ? <img src={selectedItem.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <i className="bi bi-person-circle" style={{ fontSize: '5rem', color: '#ccc' }}></i>}
+                    {selectedItem.avatar ? <img src={selectedItem.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (selectedItem.name || '?').charAt(0).toUpperCase()}
 
 
 
@@ -1018,7 +976,7 @@ const SystemStaffManagement = () => {
 
 
 
-              <button className="admin-modal-close" onClick={() => setShowDeleteModal(false)}><i className="bi bi-x-lg"></i></button>
+              <button className="admin-modal-close" onClick={() => setShowDeleteModal(false)}></button>
 
 
 
@@ -1039,10 +997,6 @@ const SystemStaffManagement = () => {
 
 
                 <div className="alert alert-danger mb-3">
-
-
-
-                  <i className="bi bi-exclamation-triangle me-2"></i>
 
 
 

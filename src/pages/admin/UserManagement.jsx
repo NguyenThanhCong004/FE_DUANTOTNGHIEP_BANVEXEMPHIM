@@ -67,7 +67,7 @@ const UserManagement = () => {
         setUsers(
           arr.map((u) => ({
             userId: u.userId ?? u.id,
-            fullname: u.fullname ?? u.username ?? '',
+            fullname: u.fullname ?? '',
             email: u.email ?? '',
             phone: u.phone ?? '',
             birthday: u.birthday,
@@ -112,14 +112,11 @@ const UserManagement = () => {
         <div className="admin-header-content">
           <div>
             <h1>
-              <i className="bi bi-people-fill me-3"></i>
               Quản lý Khách hàng
             </h1>
-            <p className="lead">Quản lý thông tin và tài khoản người dùng</p>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
-              <i className="bi bi-search admin-search-icon" aria-hidden />
               <input
                 type="search"
                 className="admin-search-input"
@@ -136,7 +133,6 @@ const UserManagement = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4>
-            <i className="bi bi-people me-2 text-primary"></i>
             Danh sách Khách hàng
           </h4>
         </div>
@@ -169,7 +165,6 @@ const UserManagement = () => {
                     <td colSpan={7}>
                       <div className="admin-empty">
                         <div className="admin-empty-icon">
-                          <i className="bi bi-people"></i>
                         </div>
                         <h5 className="mb-2">Không có khách hàng</h5>
                         <p className="mb-0">Chưa có khách hàng nào trong hệ thống</p>
@@ -182,7 +177,6 @@ const UserManagement = () => {
                     <td>
                       <div className="d-flex align-items-center gap-3">
                         <div className="admin-table-icon-tile">
-                          <i className="bi bi-person"></i>
                         </div>
                         <div>
                           <div className="fw-semibold text-dark">{user.fullname}</div>
@@ -193,45 +187,37 @@ const UserManagement = () => {
                     <td>
                       <div className="d-flex flex-column gap-1">
                         <div className="d-flex align-items-center gap-2 text-muted small">
-                          <i className="bi bi-telephone"></i>
                           {user.phone || 'Chưa có'}
                         </div>
                         <div className="d-flex align-items-center gap-2 text-muted small">
-                          <i className="bi bi-envelope"></i>
                           {user.email || 'Chưa có'}
                         </div>
                       </div>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-2">
-                        <i className="bi bi-calendar-event text-muted"></i>
                         <span>{formatBirthday(user.birthday)}</span>
                       </div>
                     </td>
                     <td>
                       <span className="admin-points-badge">
-                        <i className="bi bi-star-fill"></i>
                         {user.points || 0} điểm
                       </span>
                     </td>
                     <td>{getStatusBadge(user.status)}</td>
                     <td>
-                      <div className="admin-table-action-group">
+                      <div className="d-flex justify-content-center gap-2">
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem chi tiết"
                           onClick={() => openUserDetail(user.userId)}
-                        >
-                          <i className="bi bi-eye"></i>
-                        </button>
+                        >Xem</button>
                         <Link
                           to={`${prefix}/users/edit/${user.userId}`}
-                          className="admin-table-action-btn admin-table-action-btn--edit"
+                          className="admin-btn admin-btn-sm admin-btn-primary"
                           title="Chỉnh sửa"
-                        >
-                          <i className="bi bi-pencil"></i>
-                        </Link>
+                        >Sửa</Link>
                       </div>
                     </td>
                   </tr>
@@ -313,7 +299,6 @@ const UserManagement = () => {
           </Button>
           {detailUser ? (
             <Button variant="primary" as={Link} to={`${prefix}/users/edit/${detailUser.userId}`} onClick={closeUserDetail}>
-              <i className="bi bi-pencil me-2"></i>
               Chỉnh sửa
             </Button>
           ) : null}

@@ -60,8 +60,6 @@ const CreateNews = lazy(() => import('../pages/super-admin/CreateNews'));
 const CreateCinema = lazy(() => import('../pages/super-admin/CreateCinema'));
 const SuperAdminProfile = lazy(() => import('../pages/super-admin/SuperAdminProfile'));
 const GlobalInvoiceManagement = lazy(() => import('../pages/super-admin/InvoiceManagement'));
-const MovieReferenceManagement = lazy(() => import('../pages/super-admin/MovieReferenceManagement'));
-const MovieReferenceForm = lazy(() => import('../pages/super-admin/MovieReferenceForm'));
 
 // --- Lazy Loaded Admin Pages ---
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -96,6 +94,7 @@ const AppRoutes = () => {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/staff/login" element={<Login mode="staff" />} />
+        <Route path="/staff/forgetPassword" element={<ForgetPassword mode="staff" />} />
         
         {/* Employee Floor Route */}
         <Route
@@ -157,6 +156,8 @@ const AppRoutes = () => {
           <Route path="shifts/edit/:id" element={<AdminShiftForm mode="edit" />} />
           <Route path="seats" element={<SeatManagement />} />
           <Route path="products" element={<ProductManagement />} />
+          <Route path="vouchers" element={<VouchersAdmin />} />
+          <Route path="vouchers/create" element={<CreateVoucher />} />
           <Route path="showtimes" element={<ShowtimeManagement />} />
           <Route path="rooms" element={<RoomManagement />} />
           <Route path="rooms/add" element={<AdminRoomForm mode="add" />} />
@@ -187,12 +188,6 @@ const AppRoutes = () => {
           <Route path="movies/create" element={<CreateMovie />} />
           <Route path="movie-types" element={<SuperMovieTypes />} />
           <Route path="movie-types/create" element={<CreateMovieType />} />
-          <Route path="authors" element={<MovieReferenceManagement type="author" />} />
-          <Route path="authors/create" element={<MovieReferenceForm type="author" />} />
-          <Route path="authors/edit/:id" element={<MovieReferenceForm type="author" />} />
-          <Route path="nations" element={<MovieReferenceManagement type="nation" />} />
-          <Route path="nations/create" element={<MovieReferenceForm type="nation" />} />
-          <Route path="nations/edit/:id" element={<MovieReferenceForm type="nation" />} />
           <Route path="seat-types" element={<SuperSeatTypes />} />
           <Route path="seat-types/create" element={<CreateSeatType />} />
           <Route path="product-types" element={<SuperProductTypes />} />
@@ -204,8 +199,6 @@ const AppRoutes = () => {
           <Route path="products/create" element={<Navigate to="/super-admin/catalog-products/create" replace />} />
           <Route path="membership-levels" element={<SuperMembershipLevels />} />
           <Route path="membership-levels/create" element={<CreateMembershipLevel />} />
-          <Route path="vouchers" element={<VouchersAdmin />} />
-          <Route path="vouchers/create" element={<CreateVoucher />} />
           <Route path="news/create" element={<CreateNews />} />
           <Route path="news" element={<NewsAdmin />} />
           <Route path="global-invoices" element={<GlobalInvoiceManagement />} />
@@ -214,6 +207,8 @@ const AppRoutes = () => {
           <Route path="staff" element={<StaffManagement />} />
           <Route path="staff/add" element={<AdminStaffForm mode="add" />} />
           <Route path="staff/edit/:id" element={<AdminStaffForm mode="edit" />} />
+          <Route path="vouchers" element={<VouchersAdmin />} />
+          <Route path="vouchers/create" element={<CreateVoucher />} />
           <Route path="promotions" element={<PromotionManagement />} />
           <Route path="promotions/add" element={<AdminPromotionForm mode="add" />} />
           <Route path="promotions/edit/:id" element={<AdminPromotionForm mode="edit" />} />

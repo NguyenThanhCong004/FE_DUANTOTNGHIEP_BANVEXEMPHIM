@@ -5,7 +5,6 @@ export default function AdminFormListBack({ to, label = "Danh sách" }) {
   const navigate = useNavigate();
   return (
     <button type="button" className="admin-btn admin-btn-outline text-nowrap" onClick={() => navigate(to)}>
-      <i className="bi bi-list-ul me-1" aria-hidden />
       {label}
     </button>
   );
