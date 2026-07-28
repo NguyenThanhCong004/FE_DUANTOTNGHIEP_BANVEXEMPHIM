@@ -3,13 +3,8 @@ import { STRONG_PASSWORD_REGEX, PASSWORD_RULE_MESSAGE } from "../../utils/passwo
 import Layout from "../../components/layout/Layout";
 import CustomerPageShell from "../../components/common/CustomerPageShell";
 import MovieCard from "../../components/common/MovieCard";
+import TicketPopup from "../../components/common/TicketPopup";
 import { Container, Row, Col } from "react-bootstrap";
-import {
-  User, Calendar, Mail, Phone, Shield, Star, History,
-  Award, Edit3, X, Check, AlertCircle, Camera, Key,
-  TrendingUp, TrendingDown, Activity, Ticket, Crown,
-  ChevronRight, Clock, CheckCircle, XCircle,
-} from "lucide-react";
 import { getAccessToken, getRefreshToken, getStoredUser, setAuthSession, getStoredStaff, getAuthSession } from "../../utils/authStorage";
 import { getUserIdFromToken } from "../../utils/jwt";
 import { apiFetch, apiUrl, withQuery } from "../../utils/apiClient";
@@ -29,7 +24,6 @@ function normalizeUser(raw) {
     return {
       ...raw,
       user_id: raw.user_id,
-      username: raw.username ?? "",
       fullname: raw.fullname ?? "",
       email: raw.email ?? "",
       phone: raw.phone ?? "",
@@ -44,7 +38,6 @@ function normalizeUser(raw) {
   if (resolvedId != null) {
     return {
       user_id: resolvedId,
-      username: raw.username ?? "",
       fullname: raw.fullname ?? "",
       email: raw.email ?? "",
       phone: raw.phone ?? "",
@@ -94,9 +87,9 @@ function voucherIsScheduled(v) {
 }
 
 const TX_TYPE = {
-  ticket_online: { label: "Vé Online",  color: "#b39ddb", bg: "rgba(123,31,162,0.18)", icon: "🎫" },
-  food:          { label: "Bắp & Nước", color: "#e91e8c", bg: "rgba(233,30,140,0.14)", icon: "🍿" },
-  points:        { label: "Điểm",       color: "#d4e219", bg: "rgba(212,226,25,0.14)",  icon: "⭐" },
+  ticket_online: { label: "Vé Online",  color: "#b39ddb", bg: "rgba(123,31,162,0.18)" },
+  food:          { label: "Bắp & Nước", color: "#e91e8c", bg: "rgba(233,30,140,0.14)" },
+  points:        { label: "Điểm",       color: "#d4e219", bg: "rgba(212,226,25,0.14)" },
 };
 const TX_STATUS = {
   completed: { label: "Hoàn thành", color: "#81c784", bg: "rgba(76,175,80,0.13)" },
@@ -139,7 +132,7 @@ function Toast({ toast }) {
   if (!toast) return null;
   return (
     <div className={`pf-toast ${toast.type}`}>
-      {toast.type === "success" ? "✓" : "⚠"} {toast.msg}
+      {toast.msg}
     </div>
   );
 }
@@ -170,10 +163,9 @@ function LoadingSpinner({ text }) {
   );
 }
 
-function EmptyState({ icon, text, children }) {
+function EmptyState({ text, children }) {
   return (
-    <div style={{ textAlign: "center", padding: "48px 0" }}>
-      <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>{icon}</div>
+    <div style={{ textAlign: "center", padding: "32px 0" }}>
       <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, fontWeight: 700, marginBottom: 16 }}>{text}</p>
       {children}
     </div>
@@ -220,12 +212,7 @@ function PasswordModal({ user, onClose, showToast }) {
 
   const EyeBtn = ({ field }) => (
     <button className="pf-eye" type="button" onClick={() => setShowPw(s => ({ ...s, [field]: !s[field] }))}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        {showPw[field]
-          ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
-          : <><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
-        }
-      </svg>
+      {showPw[field] ? "Ẩn" : "Hiện"}
     </button>
   );
 
@@ -341,10 +328,10 @@ function TabInfo({ user, setUser, showToast }) {
         <Col xs={12} lg={7}>
           <div className="pf-card">
             <div className="pf-card-title">
-              <span>👤</span> THÔNG TIN <span>CÁ NHÂN</span>
+              THÔNG TIN <span>CÁ NHÂN</span>
               {!editing && (
                 <button className="pf-btn-yellow ms-auto" style={{ fontSize: 11, padding: "6px 16px" }} onClick={startEdit}>
-                  ✏️ Chỉnh sửa
+                  Chỉnh sửa
                 </button>
               )}
             </div>
@@ -387,14 +374,13 @@ function TabInfo({ user, setUser, showToast }) {
             ) : (
               <>
                 {[
-                  { icon: "👤", label: "Họ và tên",       value: user.fullname },
-                  { icon: "✉️", label: "Email",             value: user.email },
-                  { icon: "📱", label: "Số điện thoại",    value: user.phone },
-                  { icon: "🎂", label: "Ngày sinh",         value: fmtBirthday(user.birthday) },
-                  { icon: "🏆", label: "Hạng thành viên",   value: user.rank_name || "Mới" },
-                ].map(({ icon, label, value }) => (
+                  { label: "Họ và tên",       value: user.fullname },
+                  { label: "Email",             value: user.email },
+                  { label: "Số điện thoại",    value: user.phone },
+                  { label: "Ngày sinh",         value: fmtBirthday(user.birthday) },
+                  { label: "Hạng thành viên",   value: user.rank_name || "Mới" },
+                ].map(({ label, value }) => (
                   <div key={label} className="pf-info-row">
-                    <span className="pf-info-icon">{icon}</span>
                     <div>
                       <div className="pf-info-label">{label}</div>
                       <div className="pf-info-value">{value || "—"}</div>
@@ -408,14 +394,14 @@ function TabInfo({ user, setUser, showToast }) {
 
         <Col xs={12} lg={5}>
           <div className="pf-card">
-            <div className="pf-card-title"><span>🔐</span> BẢO <span>MẬT</span></div>
+            <div className="pf-card-title">BẢO <span>MẬT</span></div>
             <div className="pf-security-block" style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Mật khẩu</div>
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontWeight: 600, marginBottom: 12 }}>
                 Nên đổi mật khẩu định kỳ để bảo vệ tài khoản
               </div>
               <button className="pf-btn-primary" style={{ fontSize: 12, padding: "9px 18px" }} onClick={() => setPwModal(true)}>
-                🔑 Đổi mật khẩu mới
+                Đổi mật khẩu mới
               </button>
             </div>
           </div>
@@ -438,16 +424,14 @@ function TabPoints({ user, pointRows, loading }) {
     <Row className="g-3">
       <Col xs={12} lg={7}>
         <div className="pf-card">
-          <div className="pf-card-title"><span>⚡</span> LỊCH SỬ <span>ĐIỂM</span></div>
+          <div className="pf-card-title">LỊCH SỬ <span>ĐIỂM</span></div>
           {pointRows.length === 0 ? (
-            <EmptyState icon="⭐" text="Chưa có lịch sử điểm" />
+            <EmptyState text="Chưa có lịch sử điểm" />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {pointRows.map(ev => (
                 <div key={ev.id} className="pf-activity-item" style={{ borderBottom: "none", background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: ev.delta > 0 ? "rgba(76,175,80,0.13)" : "rgba(244,67,54,0.13)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, border: `1px solid ${ev.delta > 0 ? "rgba(129,199,132,0.3)" : "rgba(229,115,115,0.3)"}` }}>
-                    {ev.delta > 0 ? "↑" : "↓"}
-                  </div>
+                  <div style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: ev.delta > 0 ? "#4caf50" : "#f44336", flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{ev.label}</div>
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{ev.date}</div>
@@ -465,9 +449,9 @@ function TabPoints({ user, pointRows, loading }) {
 
       <Col xs={12} lg={5}>
         <div className="pf-card">
-          <div className="pf-card-title"><span>⭐</span> ĐIỂM <span>TÍCH LŨY</span></div>
-          <div style={{ textAlign: "center", padding: "20px 0 24px" }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 64, letterSpacing: 3, color: "var(--yellow)", lineHeight: 1 }}>
+          <div className="pf-card-title">ĐIỂM <span>TÍCH LŨY</span></div>
+          <div style={{ textAlign: "center", padding: "10px 0 14px" }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 40, letterSpacing: 2, color: "var(--yellow)", lineHeight: 1 }}>
               {formatNumber(user?.points ?? 0)}
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: 1, textTransform: "uppercase", marginTop: 4 }}>
@@ -493,10 +477,10 @@ function TabPoints({ user, pointRows, loading }) {
           </div>
 
           <Link to="/voucher" style={{ display: "block", textAlign: "center", padding: 12, background: "linear-gradient(135deg, var(--purple), var(--pink))", borderRadius: 12, color: "#fff", fontFamily: "'Syne'", fontWeight: 800, fontSize: 13, textDecoration: "none", letterSpacing: 0.5, boxShadow: "0 0 20px rgba(233,30,140,0.2)", marginBottom: 10 }}>
-            🎟 Đổi điểm lấy voucher
+            Đổi điểm lấy voucher
           </Link>
           <Link to="/myVouchers" style={{ display: "block", textAlign: "center", padding: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, color: "rgba(255,255,255,0.6)", fontFamily: "'Syne'", fontWeight: 800, fontSize: 13, textDecoration: "none", letterSpacing: 0.5 }}>
-            🎫 Kho Voucher của tôi
+            Kho Voucher của tôi
           </Link>
         </div>
       </Col>
@@ -510,6 +494,7 @@ function TabPoints({ user, pointRows, loading }) {
 function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) {
   const [filter, setFilter] = useState("all");
   const [openId, setOpenId] = useState(null);
+  const [ticketPopupTx, setTicketPopupTx] = useState(null);
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
@@ -522,7 +507,7 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
 
   if (!transactions.length) {
     return (
-      <EmptyState icon="🧾" text="Chưa có giao dịch nào">
+      <EmptyState text="Chưa có giao dịch nào">
         <Link to="/movies" className="pf-btn-primary" style={{ textDecoration: "none" }}>Đặt vé ngay</Link>
       </EmptyState>
     );
@@ -551,11 +536,11 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon="🔍" text="Không tìm thấy giao dịch phù hợp" />
+        <EmptyState text="Không tìm thấy giao dịch phù hợp" />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {filtered.map((tx) => {
-            const type = TX_TYPE[tx.type] || { label: "Giao dịch", color: "#b39ddb", bg: "rgba(123,31,162,0.14)", icon: "🧾" };
+            const type = TX_TYPE[tx.type] || { label: "Giao dịch", color: "#b39ddb", bg: "rgba(123,31,162,0.14)" };
             const status = TX_STATUS[tx.status] || { label: tx.status || "—", color: "rgba(255,255,255,0.55)", bg: "rgba(255,255,255,0.08)" };
             const isOpen = openId === tx.id;
             const qrItems = (tx.items || []).filter((item) => ticketQrSrc(item));
@@ -565,7 +550,7 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
               <div key={tx.id} className={`pf-tx-row${isOpen ? " open" : ""}`}>
                 <button
                   type="button"
-                  onClick={() => setOpenId(isOpen ? null : tx.id)}
+                  onClick={() => (qrItems.length > 0 ? setTicketPopupTx(tx) : setOpenId(isOpen ? null : tx.id))}
                   style={{
                     width: "100%",
                     border: "none",
@@ -578,9 +563,7 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
                     cursor: "pointer",
                   }}
                 >
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: type.bg, border: `1px solid ${type.color}44`, color: type.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
-                    {type.icon}
-                  </div>
+                  <div style={{ width: 6, borderRadius: 4, alignSelf: "stretch", background: type.color, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
                       <span style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>{type.label}</span>
@@ -603,7 +586,6 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
                       {(tx.items || []).map((item, idx) => (
                         <div key={`${tx.id}-${idx}`} style={{ display: "flex", gap: 10, alignItems: "center", color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: 700 }}>
-                          <span style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center" }}>{item.icon || "•"}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
                             {item.sub && <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 11, fontWeight: 600 }}>{item.sub}</div>}
@@ -673,6 +655,7 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
           })}
         </div>
       )}
+      <TicketPopup show={Boolean(ticketPopupTx)} onHide={() => setTicketPopupTx(null)} transaction={ticketPopupTx} />
     </>
   );
 }
@@ -703,7 +686,7 @@ function TabVouchers({ vouchers, loading }) {
             <button className="pf-modal-close" onClick={() => setSelected(null)}>×</button>
             <div className="pf-modal-title">CHI TIẾT <span>VOUCHER</span></div>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, letterSpacing: 3, color: "var(--yellow)" }}>{formatVoucherDiscount(selected.voucher)}</div>
+              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 34, letterSpacing: 2, color: "var(--yellow)" }}>{formatVoucherDiscount(selected.voucher)}</div>
               <div style={{ fontFamily: "monospace", fontSize: 16, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", padding: "8px 16px", borderRadius: 8, color: "#fff", display: "inline-block" }}>{selected.voucher?.code}</div>
             </div>
             {selected.voucher?.description && (
@@ -755,7 +738,7 @@ function TabVouchers({ vouchers, loading }) {
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon="🎫" text={filter === "active" ? "Bạn chưa có voucher đang hoạt động" : filter === "used" ? "Bạn chưa sử dụng voucher nào" : "Chưa có voucher nào"}>
+        <EmptyState text={filter === "active" ? "Bạn chưa có voucher đang hoạt động" : filter === "used" ? "Bạn chưa sử dụng voucher nào" : "Chưa có voucher nào"}>
           <Link to="/voucher" className="pf-btn-primary" style={{ textDecoration: "none", display: "inline-block" }}>Đổi điểm lấy voucher</Link>
         </EmptyState>
       ) : (
@@ -784,10 +767,10 @@ function TabVouchers({ vouchers, loading }) {
                   {voucher?.description && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginBottom: 10, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{voucher.description}</p>}
                   <div className="pf-voucher-divider" />
                   <div className="pf-voucher-meta">
-                    <div>🛒 Đơn tối thiểu: <strong>{fmtVnd(voucher?.minOrderValue ?? 0)}</strong></div>
-                    <div>💸 Giảm tối đa: <strong>{fmtVnd(voucher?.maxDiscountAmount ?? 0)}</strong></div>
-                    <div>⭐ Điểm đổi: <strong>{pointCost > 0 ? `${formatNumber(pointCost)} điểm` : "Miễn phí"}</strong></div>
-                    <div>📅 <strong>{fmtDate(voucher?.startDate)}</strong> – <strong>{fmtDate(voucher?.endDate)}</strong></div>
+                    <div>Đơn tối thiểu: <strong>{fmtVnd(voucher?.minOrderValue ?? 0)}</strong></div>
+                    <div>Giảm tối đa: <strong>{fmtVnd(voucher?.maxDiscountAmount ?? 0)}</strong></div>
+                    <div>Điểm đổi: <strong>{pointCost > 0 ? `${formatNumber(pointCost)} điểm` : "Miễn phí"}</strong></div>
+                    <div><strong>{fmtDate(voucher?.startDate)}</strong> – <strong>{fmtDate(voucher?.endDate)}</strong></div>
                   </div>
                 </div>
               </Col>
@@ -826,15 +809,14 @@ function TabRank({ user, ranks, loading }) {
     <Row className="g-3">
       <Col xs={12} lg={7}>
         <div className="pf-card">
-          <div className="pf-card-title"><span>🏆</span> CÁC HẠNG <span>THÀNH VIÊN</span></div>
+          <div className="pf-card-title">CÁC HẠNG <span>THÀNH VIÊN</span></div>
           {ranks.length === 0 ? (
-            <EmptyState icon="🏆" text="Chưa có danh sách hạng" />
+            <EmptyState text="Chưa có danh sách hạng" />
           ) : (
             ranks.map(r => {
               const isCurrent = r.rankName === label;
               return (
                 <div key={r.id} className={`pf-rank-card${isCurrent ? " current" : ""}`}>
-                  <span className="pf-rank-icon">{isCurrent ? "👑" : "🏅"}</span>
                   <div className="pf-rank-info">
                     <div className="pf-rank-name" style={{ color: isCurrent ? "var(--yellow)" : "#b39ddb" }}>{r.rankName}</div>
                     <div className="pf-rank-req">
@@ -856,10 +838,9 @@ function TabRank({ user, ranks, loading }) {
 
       <Col xs={12} lg={5}>
         <div className="pf-card">
-          <div className="pf-card-title"><span>📈</span> TIẾN ĐỘ <span>HẠNG</span></div>
+          <div className="pf-card-title">TIẾN ĐỘ <span>HẠNG</span></div>
 
           <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>👑</div>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 3, color: "var(--yellow)" }}>{label}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontWeight: 600, marginTop: 4 }}>
               Tổng chi tiêu: <span style={{ color: "#fff" }}>{fmtVnd(user?.total_spending)}</span>
@@ -889,8 +870,8 @@ function TabRank({ user, ranks, loading }) {
                 currentRank.bonusPoint != null && `Nhân ×${currentRank.bonusPoint} điểm tích lũy`,
                 "Ưu tiên đặt vé sự kiện đặc biệt",
               ].filter(Boolean).map((perk, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
-                  <span style={{ color: "var(--yellow)" }}>✓</span> {perk}
+                <div key={i} style={{ marginBottom: 7, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
+                  {perk}
                 </div>
               ))}
             </div>
@@ -907,12 +888,12 @@ function TabFavorites({ favorites, loading }) {
   return (
     <div className="pf-card">
       <div className="pf-card-title">
-        <span>❤️</span> PHIM <span>YÊU THÍCH</span>
+        PHIM <span>YÊU THÍCH</span>
         <Link to="/favorites" className="pf-mini-link ms-auto">Xem đầy đủ</Link>
       </div>
 
       {favorites.length === 0 ? (
-        <EmptyState icon="🎬" text="Bạn chưa lưu phim yêu thích nào">
+        <EmptyState text="Bạn chưa lưu phim yêu thích nào">
           <Link to="/movies" className="pf-btn-primary" style={{ textDecoration: "none" }}>
             Khám phá phim
           </Link>
@@ -922,7 +903,7 @@ function TabFavorites({ favorites, loading }) {
           {favorites.slice(0, 8).map((fav) => (
             <Col key={fav.favorite_id} xs={6} md={4} xl={3}>
               <div className="pf-fav-card">
-                {fav.review && <div className="pf-review-badge">★ {fav.review.rating}.0</div>}
+                {fav.review && <div className="pf-review-badge">{fav.review.rating}.0</div>}
                 <MovieCard
                   movie={fav.movie}
                   isComingSoon={fav.movie?.type === "soon"}
@@ -1084,7 +1065,6 @@ export default function UserProfile() {
       <Layout>
         <div className="pf-page" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
           <div style={{ textAlign: "center", maxWidth: 400 }}>
-            <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.2 }}>🔒</div>
             <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: 3, color: "#fff", marginBottom: 8 }}>
               {token ? "Không tải được hồ sơ" : "Vui lòng đăng nhập"}
             </h2>
@@ -1097,8 +1077,6 @@ export default function UserProfile() {
       </Layout>
     );
   }
-
-  const completedTx = transactions.filter(t => t.status === "completed").length;
 
   return (
     <Layout>
@@ -1121,60 +1099,43 @@ export default function UserProfile() {
             radial-gradient(ellipse 50% 40% at 85% 80%, rgba(233,30,140,0.13) 0%, transparent 60%),
             #0f102a;
           font-family: 'Syne', sans-serif;
-          padding: 32px 0 80px;
+          padding: 20px 0 40px;
+          overflow-x: hidden;
         }
+        .pf-page *, .pf-page *::before, .pf-page *::after { box-sizing: border-box; }
 
         .pf-header {
-          display: flex;
-          align-items: end;
-          justify-content: space-between;
-          gap: 18px;
-          margin-bottom: 22px;
+          margin-bottom: 12px;
         }
         .pf-title {
           font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(36px, 6vw, 58px);
-          letter-spacing: 4px;
+          font-size: clamp(22px, 3vw, 30px);
+          letter-spacing: 2px;
           line-height: 1;
           color: #fff;
           margin: 0;
         }
         .pf-title span { color: var(--yellow); }
         .pf-title-bar {
-          width: 80px;
+          width: 48px;
           height: 3px;
           border-radius: 2px;
           background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow));
-          margin-top: 12px;
-        }
-        .pf-count {
-          color: rgba(255,255,255,0.42);
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: .6px;
-          text-transform: uppercase;
-          margin-top: 8px;
-        }
-        .pf-filters {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          min-width: 0;
-          max-width: 100%;
+          margin-top: 6px;
         }
 
         /* HERO */
         .pf-hero {
           background: var(--card);
           border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 20px;
-          padding: 28px 32px;
+          border-radius: 14px;
+          padding: 14px 18px;
           display: flex;
           align-items: center;
-          gap: 24px;
+          gap: 14px;
           position: relative;
           overflow: hidden;
-          margin-bottom: 24px;
+          margin-bottom: 14px;
         }
         .pf-hero::before {
           content: '';
@@ -1185,50 +1146,86 @@ export default function UserProfile() {
         }
         @keyframes gradMove { 0%{background-position:0%} 100%{background-position:300%} }
         .pf-hero-right { flex: 1; min-width: 0; }
-        .pf-username   { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.35); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
-        .pf-fullname   { font-family: 'Bebas Neue', sans-serif; font-size: clamp(26px,4vw,40px); letter-spacing: 3px; color: #fff; line-height: 1; margin-bottom: 10px; }
-        .pf-rank-badge { display: inline-flex; align-items: center; gap: 7px; border-radius: 100px; padding: 5px 14px; border: 1px solid; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 16px; }
+        .pf-fullname   { font-family: 'Bebas Neue', sans-serif; font-size: clamp(16px,2.2vw,20px); letter-spacing: 1.5px; color: #fff; line-height: 1.2; }
+        .pf-username   { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35); letter-spacing: 0.5px; margin-top: 2px; }
+        .pf-rank-badge { display: inline-flex; align-items: center; border-radius: 100px; padding: 4px 12px; border: 1px solid; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
 
-        .pf-progress-wrap { max-width: 380px; }
-        .pf-progress-label { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); margin-bottom: 6px; }
-        .pf-progress-bar   { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
-        .pf-progress-fill  { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--purple), var(--pink)); transition: width 0.6s ease; }
+        .pf-hero-stats { display: flex; gap: 6px; text-align: center; flex-shrink: 0; }
+        .pf-hs { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 6px 12px; min-width: 74px; }
+        .pf-hs-num { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 1px; color: var(--yellow); line-height: 1; }
+        .pf-hs-lbl { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 
-        .pf-hero-stats { display: flex; flex-direction: column; gap: 10px; text-align: center; flex-shrink: 0; }
-        .pf-hs { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 12px 20px; min-width: 110px; }
-        .pf-hs-num { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px; color: var(--yellow); line-height: 1; }
-        .pf-hs-lbl { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
-
-        /* TABS */
-        .pf-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 4px; overflow-x: auto; width: fit-content; max-width: 100%; }
-        .pf-tab { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.8px; text-transform: uppercase; padding: 9px 18px; border-radius: 9px; border: none; background: transparent; color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        /* MENU TAI KHOAN */
+        .pf-profile-layout {
+          display: grid;
+          grid-template-columns: 230px minmax(0, 1fr);
+          gap: 16px;
+          align-items: start;
+        }
+        .pf-sidebar {
+          position: sticky;
+          top: 14px;
+          z-index: 10;
+          background: var(--card);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 14px;
+          padding: 12px;
+        }
+        .pf-sidebar-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 13px;
+          letter-spacing: 2px;
+          color: rgba(255,255,255,0.75);
+          margin: 0 0 10px;
+          padding: 0 4px 10px;
+          border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .pf-profile-content { min-width: 0; }
+        .pf-tabs { display: flex; flex-direction: column; gap: 6px; }
+        .pf-tab {
+          width: 100%;
+          font-family: 'Syne', sans-serif;
+          font-weight: 700;
+          font-size: 11px;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+          text-align: left;
+          padding: 10px 12px;
+          border-radius: 8px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: rgba(255,255,255,0.45);
+          cursor: pointer;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
         .pf-tab.active { background: linear-gradient(135deg, var(--purple), var(--pink)); color: #fff; box-shadow: 0 0 14px rgba(233,30,140,0.3); }
-        .pf-tab:hover:not(.active) { color: rgba(255,255,255,0.7); }
+        .pf-tab:hover:not(.active) { color: rgba(255,255,255,0.78); border-color: rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); }
 
         /* CARD */
-        .pf-card { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 24px; height: 100%; }
-        .pf-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px; color: #fff; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        .pf-card { background: var(--card); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 16px; height: 100%; }
+        .pf-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 2px; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .pf-card-title span { color: var(--yellow); }
 
         /* FORM */
-        .pf-field { margin-bottom: 16px; }
-        .pf-label { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: rgba(255,255,255,0.5); margin-bottom: 7px; }
-        .pf-input { width: 100%; background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 11px 16px; color: #fff; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 400; outline: none; transition: border-color 0.2s, background 0.2s; }
+        .pf-field { margin-bottom: 10px; }
+        .pf-label { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
+        .pf-input { width: 100%; background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.09); border-radius: 8px; padding: 8px 12px; color: #fff; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 400; outline: none; transition: border-color 0.2s, background 0.2s; }
         .pf-input:focus { border-color: var(--yellow); background: rgba(212,226,25,0.03); }
         .pf-input.disabled { color: rgba(255,255,255,0.35); cursor: default; background: rgba(255,255,255,0.02); }
         .pf-input.err { border-color: var(--pink); }
         .pf-field-err { font-size: 12px; font-weight: 400; color: #f48fb1; margin-top: 5px; }
 
         /* SECURITY BLOCK */
-        .pf-security-block { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 16px; }
+        .pf-security-block { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 12px; }
 
         /* BUTTONS */
-        .pf-btn-primary { background: linear-gradient(135deg, var(--purple), var(--pink)); border: none; color: #fff; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; border-radius: 10px; padding: 11px 24px; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; box-shadow: 0 0 16px rgba(233,30,140,0.25); }
+        .pf-btn-primary { background: linear-gradient(135deg, var(--purple), var(--pink)); border: none; color: #fff; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 12px; letter-spacing: 0.5px; border-radius: 8px; padding: 8px 16px; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; box-shadow: 0 0 16px rgba(233,30,140,0.25); }
         .pf-btn-primary:hover { box-shadow: 0 0 28px rgba(233,30,140,0.5); transform: translateY(-1px); }
         .pf-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .pf-btn-ghost { background: transparent; border: 1.5px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.5); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.3px; border-radius: 10px; padding: 11px 20px; cursor: pointer; transition: all 0.2s; }
+        .pf-btn-ghost { background: transparent; border: 1.5px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.5); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.3px; border-radius: 8px; padding: 8px 14px; cursor: pointer; transition: all 0.2s; }
         .pf-btn-ghost:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
-        .pf-btn-yellow { background: var(--yellow); border: none; color: #0f102a; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; border-radius: 10px; padding: 11px 24px; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; box-shadow: 0 0 16px rgba(212,226,25,0.2); }
+        .pf-btn-yellow { background: var(--yellow); border: none; color: #0f102a; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 12px; letter-spacing: 0.5px; border-radius: 8px; padding: 8px 16px; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; box-shadow: 0 0 16px rgba(212,226,25,0.2); }
         .pf-btn-yellow:hover { box-shadow: 0 0 28px rgba(212,226,25,0.45); transform: translateY(-1px); }
         .pf-mini-link { color: rgba(255,255,255,0.55); font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-decoration: none; text-transform: uppercase; }
         .pf-mini-link:hover { color: var(--yellow); }
@@ -1244,21 +1241,22 @@ export default function UserProfile() {
         .pf-search-input:focus { border-color: var(--yellow); }
 
         /* RANK CARDS */
-        .pf-rank-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 12px; transition: border-color 0.2s; margin-bottom: 10px; }
+        .pf-rank-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; transition: border-color 0.2s; margin-bottom: 6px; }
         .pf-rank-card.current { border-color: rgba(212,226,25,0.35); background: rgba(212,226,25,0.04); }
-        .pf-rank-icon { font-size: 28px; flex-shrink: 0; }
         .pf-rank-info { flex: 1; }
         .pf-rank-name { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 2px; }
         .pf-rank-req  { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.3); margin-top: 2px; }
         .pf-rank-perks { display: flex; flex-direction: column; gap: 3px; text-align: right; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.4); flex-shrink: 0; }
         .pf-current-tag { font-size: 9px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; background: var(--yellow); color: #0f102a; padding: 2px 8px; border-radius: 4px; }
+        .pf-progress-bar { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,0.08); }
+        .pf-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--purple), var(--pink), var(--yellow)); }
 
         /* VOUCHER CARD */
         .pf-voucher-card {
           background: rgba(20,22,50,0.92);
           border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 16px;
-          padding: 20px 20px 20px 24px;
+          border-radius: 12px;
+          padding: 14px 14px 14px 18px;
           cursor: pointer;
           transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
           height: 100%;
@@ -1303,7 +1301,7 @@ export default function UserProfile() {
         .pf-voucher-main { margin-bottom: 8px; }
         .pf-voucher-discount {
           font-family: 'Bebas Neue', sans-serif;
-          font-size: 42px;
+          font-size: 30px;
           line-height: 1;
           letter-spacing: 1px;
           background: linear-gradient(135deg, #e91e8c, #7b1fa2);
@@ -1346,27 +1344,26 @@ export default function UserProfile() {
         .pf-activity-item:last-child { border-bottom: none; }
 
         /* INFO ROW */
-        .pf-info-row { display: flex; align-items: flex-start; gap: 14px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .pf-info-row { display: flex; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .pf-info-row:last-child { border-bottom: none; }
-        .pf-info-icon  { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
         .pf-info-label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35); letter-spacing: 0.3px; margin-bottom: 3px; }
         .pf-info-value { font-size: 14px; font-weight: 400; color: #fff; }
 
         /* MODAL */
         .pf-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 16px; }
-        .pf-modal { background: #0d0e28; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; width: 100%; max-width: 420px; padding: 28px; position: relative; animation: pfPop 0.3s ease; }
+        .pf-modal { background: #0d0e28; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 100%; max-width: 380px; padding: 18px; position: relative; animation: pfPop 0.3s ease; }
         @keyframes pfPop { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
-        .pf-modal-close { position: absolute; top: 14px; right: 16px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; color: rgba(255,255,255,0.4); width: 30px; height: 30px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .pf-modal-close { position: absolute; top: 12px; right: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; color: rgba(255,255,255,0.4); width: 26px; height: 26px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .pf-modal-close:hover { color: #fff; }
-        .pf-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 3px; color: #fff; margin-bottom: 20px; }
+        .pf-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: #fff; margin-bottom: 14px; }
         .pf-modal-title span { color: var(--yellow); }
         .pf-pw-wrap { position: relative; display: flex; align-items: center; }
-        .pf-pw-wrap .pf-input { padding-right: 44px; }
-        .pf-eye { position: absolute; right: 12px; background: none; border: none; color: rgba(255,255,255,0.25); cursor: pointer; padding: 0; display: flex; align-items: center; transition: color 0.2s; }
+        .pf-pw-wrap .pf-input { padding-right: 56px; }
+        .pf-eye { position: absolute; right: 10px; background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; padding: 0; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; display: flex; align-items: center; transition: color 0.2s; }
         .pf-eye:hover { color: var(--yellow); }
 
         /* TOAST */
-        .pf-toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); border-radius: 12px; padding: 13px 24px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.4px; z-index: 9999; white-space: nowrap; animation: pfToast 0.3s ease; display: flex; align-items: center; gap: 8px; }
+        .pf-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); border-radius: 10px; padding: 10px 18px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.4px; z-index: 9999; white-space: nowrap; animation: pfToast 0.3s ease; display: flex; align-items: center; gap: 8px; }
         .pf-toast.success { background: #0d0e28; border: 1.5px solid #81c784; color: #81c784; }
         .pf-toast.error   { background: #0d0e28; border: 1.5px solid var(--pink); color: var(--pink); }
         @keyframes pfToast { from{opacity:0;transform:translateX(-50%) translateY(14px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
@@ -1376,11 +1373,224 @@ export default function UserProfile() {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 767px) {
-          .pf-header { display: block; }
-          .pf-filters { justify-content: flex-start; margin-top: 18px; }
-          .pf-hero { flex-direction: column; align-items: flex-start; }
-          .pf-hero-stats { flex-direction: row; }
-          .pf-tabs { width: 100%; }
+          .pf-page {
+            padding: 14px 0 28px;
+          }
+          .pf-page .container-xl {
+            padding-left: 12px;
+            padding-right: 12px;
+          }
+          .pf-header {
+            margin-bottom: 10px;
+          }
+          .pf-title {
+            font-size: 24px;
+          }
+          .pf-hero {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 14px;
+            border-radius: 12px;
+          }
+          .pf-hero-right,
+          .pf-fullname,
+          .pf-username {
+            width: 100%;
+            min-width: 0;
+          }
+          .pf-fullname,
+          .pf-username,
+          .pf-info-value {
+            overflow-wrap: anywhere;
+          }
+          .pf-rank-badge {
+            max-width: 100%;
+            white-space: normal;
+          }
+          .pf-hero-stats {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .pf-hs {
+            min-width: 0;
+            padding: 8px 10px;
+          }
+          .pf-hs-num {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .pf-profile-layout {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .pf-sidebar {
+            position: static;
+            padding: 10px;
+            border-radius: 12px;
+          }
+          .pf-sidebar-title { display: none; }
+          .pf-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+          .pf-tab {
+            width: 100%;
+            min-height: 42px;
+            padding: 9px 8px;
+            text-align: center;
+            white-space: normal;
+            line-height: 1.25;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .pf-card {
+            padding: 14px;
+            border-radius: 12px;
+          }
+          .pf-card-title {
+            flex-wrap: wrap;
+            line-height: 1.25;
+            row-gap: 8px;
+          }
+          .pf-card-title .pf-btn-yellow,
+          .pf-security-block .pf-btn-primary {
+            width: 100%;
+          }
+          .pf-card-title .pf-btn-yellow {
+            margin-left: 0 !important;
+          }
+          .pf-field,
+          .pf-input,
+          .pf-pw-wrap {
+            min-width: 0;
+          }
+          .pf-search-input {
+            width: 100%;
+            min-width: 0;
+            margin-left: 0;
+            flex: 1 1 100%;
+          }
+          .pf-filter-btn {
+            flex: 1 1 auto;
+            min-height: 38px;
+            text-align: center;
+          }
+          .pf-activity-item {
+            align-items: flex-start;
+          }
+          .pf-activity-item > div:nth-child(2) {
+            min-width: 0;
+          }
+          .pf-tx-row > button {
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+            padding: 14px !important;
+          }
+          .pf-tx-row > button > div:nth-child(2),
+          .pf-tx-row > button > div:last-child {
+            min-width: 0;
+          }
+          .pf-tx-row > button > div:last-child {
+            flex: 1 1 100%;
+            text-align: left !important;
+            padding-left: 16px;
+          }
+          .pf-rank-card {
+            align-items: flex-start;
+          }
+          .pf-rank-info {
+            min-width: 0;
+          }
+          .pf-rank-perks {
+            text-align: left;
+            align-items: flex-start;
+          }
+          .pf-voucher-card {
+            min-width: 0;
+          }
+          .pf-voucher-code,
+          .pf-voucher-meta {
+            overflow-wrap: anywhere;
+          }
+          .pf-voucher-code {
+            letter-spacing: 2px;
+          }
+          .pf-voucher-status {
+            text-align: center;
+          }
+          .pf-modal-overlay {
+            align-items: flex-end;
+            padding: 10px;
+          }
+          .pf-modal {
+            max-width: 100%;
+            max-height: calc(100dvh - 20px);
+            overflow-y: auto;
+            border-radius: 14px;
+          }
+          .pf-toast {
+            left: 12px;
+            right: 12px;
+            bottom: 14px;
+            transform: none;
+            white-space: normal;
+            text-align: center;
+            justify-content: center;
+            animation: pfToastMobile 0.3s ease;
+          }
+          @keyframes pfToastMobile {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        }
+
+        @media (max-width: 420px) {
+          .pf-page .container-xl {
+            padding-left: 10px;
+            padding-right: 10px;
+          }
+          .pf-card,
+          .pf-sidebar,
+          .pf-hero {
+            border-radius: 10px;
+          }
+          .pf-hero-stats {
+            grid-template-columns: 1fr;
+          }
+          .pf-tx-row > button {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+          }
+          .pf-tx-row > button > div:first-child {
+            width: 100% !important;
+            height: 4px;
+            align-self: stretch !important;
+          }
+          .pf-tx-row > button > div:last-child {
+            width: 100%;
+            padding-left: 0;
+          }
+          .pf-rank-card {
+            flex-direction: column;
+          }
+          .pf-rank-perks {
+            flex-direction: row;
+            flex-wrap: wrap;
+          }
+          .pf-voucher-discount {
+            font-size: 26px;
+          }
+        }
+
+        @media (max-width: 340px) {
+          .pf-tabs {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
 
@@ -1390,68 +1600,57 @@ export default function UserProfile() {
         <Container fluid="xl">
 
           <div className="pf-header">
-            <div>
-              <h1 className="pf-title">TÀI KHOẢN <span>CỦA TÔI</span></h1>
-              <div className="pf-title-bar" />
-              <div className="pf-count">Hồ sơ, điểm thưởng, voucher và giao dịch</div>
-            </div>
-
-            <div className="pf-filters">
-              <div className="pf-tabs">
-                {TABS.map(({ key, label }) => (
-                  <button key={key} className={`pf-tab${activeTab === key ? " active" : ""}`} onClick={() => setActiveTab(key)}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <h1 className="pf-title">TÀI KHOẢN <span>CỦA TÔI</span></h1>
+            <div className="pf-title-bar" />
           </div>
 
           {/* HERO */}
           <div className="pf-hero">
-            <Avatar name={user.fullname} avatarUrl={user.avatar} size={90} />
+            <Avatar name={user.fullname} avatarUrl={user.avatar} size={56} />
 
             <div className="pf-hero-right">
-              <div className="pf-username">@{user.username}</div>
               <div className="pf-fullname">{user.fullname}</div>
-
-              {user.rank_name && (
-                <div className="pf-rank-badge" style={{ color: "var(--yellow)", borderColor: "var(--yellow)", background: "rgba(212,226,25,0.06)" }}>
-                  🏆 {user.rank_name}
-                </div>
-              )}
-
-              <div className="pf-progress-wrap">
-                <div className="pf-progress-label">
-                  <span>{fmtVnd(user.total_spending)} đã chi</span>
-                </div>
-                <div className="pf-progress-bar">
-                  <div className="pf-progress-fill" style={{ width: `60%` }} />
-                </div>
-              </div>
+              <div className="pf-username">{user.email}</div>
             </div>
+
+            {user.rank_name && (
+              <div className="pf-rank-badge" style={{ color: "var(--yellow)", borderColor: "var(--yellow)", background: "rgba(212,226,25,0.06)" }}>
+                {user.rank_name}
+              </div>
+            )}
 
             <div className="pf-hero-stats">
               <div className="pf-hs">
                 <div className="pf-hs-num">{formatNumber(user.points)}</div>
-                <div className="pf-hs-lbl">Điểm ⭐</div>
+                <div className="pf-hs-lbl">Điểm</div>
               </div>
               <div className="pf-hs">
-                <div className="pf-hs-num" style={{ fontSize: 18 }}>{fmtVnd(user.total_spending)}</div>
+                <div className="pf-hs-num" style={{ fontSize: 15 }}>{fmtVnd(user.total_spending)}</div>
                 <div className="pf-hs-lbl">Tổng chi</div>
-              </div>
-              <div className="pf-hs">
-                <div className="pf-hs-num" style={{ fontSize: 18 }}>{completedTx || "—"}</div>
-                <div className="pf-hs-lbl">Giao dịch</div>
               </div>
             </div>
           </div>
+
+          {/* MENU TAI KHOAN */}
+          <div className="pf-profile-layout">
+            <aside className="pf-sidebar">
+              <div className="pf-sidebar-title">Mục tài khoản</div>
+              <div className="pf-tabs">
+              {TABS.map(({ key, label }) => (
+                <button key={key} className={`pf-tab${activeTab === key ? " active" : ""}`} onClick={() => setActiveTab(key)}>
+                  {label}
+                </button>
+              ))}
+              </div>
+            </aside>
+
+            <section className="pf-profile-content">
 
           {/* TAB PANELS */}
           {activeTab === "info"         && <TabInfo user={user} setUser={setUser} showToast={showToast} />}
           {activeTab === "transactions" && (
             <div className="pf-card">
-              <div className="pf-card-title"><span>📋</span> LỊCH SỬ <span>GIAO DỊCH</span></div>
+              <div className="pf-card-title">LỊCH SỬ <span>GIAO DỊCH</span></div>
               <TabTransactions transactions={transactions} loading={loadingTx} searchTerm={txSearch} onSearchChange={setTxSearch} />
             </div>
           )}
@@ -1459,11 +1658,13 @@ export default function UserProfile() {
           {activeTab === "favorites" && <TabFavorites favorites={favorites} loading={loadingFav} />}
           {activeTab === "vouchers" && (
             <div className="pf-card">
-              <div className="pf-card-title"><span>🎫</span> KHO <span>VOUCHER</span></div>
+              <div className="pf-card-title">KHO <span>VOUCHER</span></div>
               <TabVouchers vouchers={vouchers} loading={loadingVou} />
             </div>
           )}
-          {activeTab === "rank"     && <TabRank user={user} ranks={ranks} loading={loadingRnk} />}
+              {activeTab === "rank"     && <TabRank user={user} ranks={ranks} loading={loadingRnk} />}
+            </section>
+          </div>
 
         </Container>
       </div>

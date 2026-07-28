@@ -12,6 +12,7 @@ const Login = ({ mode = "user" }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(() => {
     const registerMessage = location.state?.message;
     if (registerMessage) return registerMessage;
@@ -35,12 +36,23 @@ const Login = ({ mode = "user" }) => {
   }, [location.pathname, location.state, navigate]);
 
   const handleLogin = async () => {
+    const rawLoginName = username.trim();
+    const loginName = !isStaffLogin && !rawLoginName.includes("@")
+      ? rawLoginName.replace(/\s/g, "")
+      : rawLoginName;
+    if (loading || !loginName || !password) return;
+    if (!isStaffLogin && !loginName.includes("@") && !/^[0-9]{10}$/.test(loginName)) {
+      setError("Vui lòng nhập email hoặc số điện thoại hợp lệ");
+      return;
+    }
+
     setError("");
+    setLoading(true);
     try {
       const res = await fetch(apiUrl(isStaffLogin ? AUTH.STAFF_LOGIN : AUTH.LOGIN), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ account: loginName, password }),
       });
 
       const json = await res.json().catch(() => null);
@@ -122,7 +134,7 @@ const Login = ({ mode = "user" }) => {
           staff: null,
         });
         const redirectTo = location.state?.from;
-        navigate(typeof redirectTo === "string" && redirectTo.startsWith("/") ? redirectTo : "/profile", {
+        navigate(typeof redirectTo === "string" && redirectTo.startsWith("/") ? redirectTo : "/", {
           replace: true,
         });
         return;
@@ -132,6 +144,8 @@ const Login = ({ mode = "user" }) => {
       clearAuthSession();
     } catch {
       setError("Không thể kết nối tới server");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -355,13 +369,13 @@ const Login = ({ mode = "user" }) => {
 
           <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
             <div className="auth-field">
-              <label className="auth-label">{isStaffLogin ? "Username / Email nhân viên" : "Tên đăng nhập / Email"}</label>
+              <label className="auth-label">{isStaffLogin ? "Email / SĐT nhân viên" : "Email / Số điện thoại"}</label>
               <div className="auth-input-group">
                 <span className="auth-input-icon"><i className="fas fa-user" /></span>
                 <input
                   type="text"
                   className="auth-input"
-                  placeholder={isStaffLogin ? "Nhập username hoặc email staff" : "Nhập username hoặc email"}
+                  placeholder={isStaffLogin ? "Nhập email hoặc SĐT staff" : "Nhập email hoặc số điện thoại"}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
@@ -391,14 +405,14 @@ const Login = ({ mode = "user" }) => {
               </div>
             </div>
 
-            {!isStaffLogin && <Link to="/forgetPassword" className="auth-forgot">Quên mật khẩu?</Link>}
+            <Link to={isStaffLogin ? "/staff/forgetPassword" : "/forgetPassword"} className="auth-forgot">Quên mật khẩu?</Link>
 
             {error && <div className="auth-error">{error}</div>}
 
             <button
               type="submit"
               className="auth-btn-primary"
-              disabled={!username || !password}
+              disabled={loading || !username.trim() || !password}
             >
               Đăng Nhập
             </button>

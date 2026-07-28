@@ -90,14 +90,11 @@ const RoomManagement = () => {
         <div className="admin-header-content d-flex justify-content-between align-items-center flex-nowrap w-100">
           <div>
             <h1 className="h3 mb-1">
-              <i className="bi bi-door-open me-2"></i>
               Quản lý Phòng chiếu
             </h1>
-            <p className="text-muted mb-0" style={{ fontSize: "0.8rem" }}>Quản lý thông tin và trạng thái phòng chiếu</p>
           </div>
           <div className="d-flex align-items-center gap-3">
             <div className="admin-search-wrapper shadow-sm" style={{ maxWidth: 300 }}>
-              <i className="bi bi-search admin-search-icon" aria-hidden />
               <input
                 type="search"
                 className="admin-search-input py-1"
@@ -112,7 +109,6 @@ const RoomManagement = () => {
               className="admin-btn shadow-sm d-flex align-items-center fw-bold" 
               style={{ background: 'white', color: '#6366f1', height: '38px' }}
             >
-              <i className="bi bi-plus-lg me-2"></i>
               Thêm phòng chiếu
             </Link>
           </div>
@@ -122,7 +118,6 @@ const RoomManagement = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4>
-            <i className="bi bi-list-ul me-2 text-primary"></i>
             Danh sách phòng chiếu
           </h4>
         </div>
@@ -152,7 +147,6 @@ const RoomManagement = () => {
                     <td colSpan={4}>
                       <div className="admin-empty">
                         <div className="admin-empty-icon">
-                          <i className="bi bi-door-closed"></i>
                         </div>
                         <h5 className="mb-2">Không có phòng chiếu</h5>
                         <p className="mb-0">
@@ -169,7 +163,6 @@ const RoomManagement = () => {
                     <td>
                       <div className="d-flex align-items-center gap-3">
                         <div className="admin-table-icon-tile">
-                          <i className="bi bi-film"></i>
                         </div>
                         <div>
                           <div className="fw-semibold text-dark">{room.name}</div>
@@ -189,34 +182,28 @@ const RoomManagement = () => {
                       </span>
                     </td>
                     <td>
-                      <div className="admin-table-action-group">
+                      <div className="d-flex justify-content-center gap-2">
                         <Link
                           to={`${prefix}/seats`}
                           state={{ roomId: room.id }}
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem sơ đồ ghế"
-                        >
-                          <i className="bi bi-grid-3x3-gap"></i>
-                        </Link>
+                        >Xem</Link>
                         <Link
                           to={`${prefix}/rooms/edit/${room.id}`}
-                          className="admin-table-action-btn admin-table-action-btn--edit"
+                          className="admin-btn admin-btn-sm admin-btn-primary"
                           title="Chỉnh sửa"
-                        >
-                          <i className="bi bi-pencil"></i>
-                        </Link>
+                        >Sửa</Link>
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--danger"
+                          className="admin-btn admin-btn-sm admin-btn-danger"
                           title="Xóa"
                           onClick={() => {
                             setRoomToDelete(room);
                             setDeleteError('');
                             setShowDeleteModal(true);
                           }}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
+                        >Xóa</button>
                       </div>
                     </td>
                   </tr>
@@ -239,7 +226,6 @@ const RoomManagement = () => {
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa phòng
               </h3>
               <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
@@ -251,7 +237,6 @@ const RoomManagement = () => {
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}

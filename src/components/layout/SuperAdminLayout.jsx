@@ -1,9 +1,10 @@
 import React, { useMemo } from "react";
-import { LogOut } from "lucide-react";
+
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import CinemaPicker from "./CinemaPicker";
+import ThemeToggle from "./ThemeToggle";
 import "../../styles/admin-shell.css";
 import "../../styles/admin-design-system.css";
 
@@ -25,9 +26,7 @@ export default function SuperAdminLayout({ children }) {
       <main className="app-shell-main">
         <header className="app-shell-header">
           <div className="app-shell-header-title d-none d-md-block">
-            <span className="app-shell-header-kicker">
-              Super Admin · Dữ liệu theo rạp: chọn <strong>cinemaId</strong> trên header
-            </span>
+            <span className="app-shell-header-kicker">Super Admin</span>
           </div>
 
           <div className="app-shell-header-actions">
@@ -35,6 +34,7 @@ export default function SuperAdminLayout({ children }) {
               <span className="app-shell-header-cinema-label d-none d-lg-inline">Rạp:</span>
               <CinemaPicker variant="header" />
             </div>
+            <ThemeToggle />
             <NavLink to="/super-admin/profile" className="text-decoration-none">
               <div className="app-shell-profile-chip">
                 <img
@@ -54,7 +54,6 @@ export default function SuperAdminLayout({ children }) {
               className="app-shell-logout-btn app-shell-logout-btn--header"
               onClick={handleLogout}
             >
-              <LogOut size={16} />
               <span>Đăng xuất</span>
             </button>
           </div>

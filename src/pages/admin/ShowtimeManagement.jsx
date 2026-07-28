@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Badge, Button, Card, Row, Col, Modal } from "react-bootstrap";
-import { Film, GripVertical, Search, Clock, Calendar, Hash, CreditCard, Trash2 } from "lucide-react";
+
 import { apiFetch } from "../../utils/apiClient";
 import { ROOMS, MOVIES, SHOWTIMES } from "../../constants/apiEndpoints";
 import { getStoredStaff } from "../../utils/authStorage";
@@ -197,7 +197,16 @@ export default function ShowtimeManagement() {
   const [pointerDragPreview, setPointerDragPreview] = useState(null);
   const [detailEvent, setDetailEvent] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  useEffect(() => {
+    if (!showDetailModal || !detailEvent) return;
+    const latest = state.events.find(e => e.id === detailEvent.id);
+    if (latest && (latest.startTime !== detailEvent.startTime || latest.roomId !== detailEvent.roomId || latest.businessDate !== detailEvent.businessDate)) {
+      setDetailEvent(latest);
+    }
+  }, [state.events, showDetailModal, detailEvent]);
   const [weeklySurcharge, setWeeklySurcharge] = useState(readStoredWeeklySurcharge);
+  const [addSlot, setAddSlot] = useState(null); // { roomId, time }
+  const [addSlotMovieId, setAddSlotMovieId] = useState("");
   const pointerDragRef = useRef(null);
   const nativeDragActiveRef = useRef(false);
   const globalDateRef = useRef(globalDate);
@@ -768,6 +777,11 @@ export default function ShowtimeManagement() {
 
   return (
     <div className="admin-page showtime-schedule-page admin-fade-in">
+      <style>{`
+        .showtime-add-btn { opacity: 0; transition: opacity .12s, transform .12s; }
+        td[data-showtime-drop-cell="true"]:hover .showtime-add-btn { opacity: 1; }
+        .showtime-add-btn:hover { transform: translate(-50%, -50%) scale(1.15); background: #0d6efd !important; color: #fff !important; }
+      `}</style>
       {pointerDragPreview && (
         <div
           className="shadow-sm"
@@ -795,7 +809,7 @@ export default function ShowtimeManagement() {
       )}
       <div className="d-flex justify-content-between align-items-center mb-3 bg-white p-3 rounded shadow-sm border">
         <div>
-          <h2 className="h4 mb-0 fw-bold text-primary"><i className="bi bi-calendar3 me-2"></i>Quản lý Suất chiếu (7h - 1h sáng)</h2>
+          <h2 className="h4 mb-0 fw-bold text-primary">Quản lý Suất chiếu (7h - 1h sáng)</h2>
           <div className="d-flex align-items-center gap-2 flex-wrap mt-1">
             <p className="text-muted small mb-0">Ca đêm (00:00 - 01:00) tính vào ngày kinh doanh hôm trước.</p>
             <span className={`admin-realtime-pill ${hasUnsaved ? "is-paused" : realtimeSyncing ? "is-syncing" : ""}`}>
@@ -866,7 +880,7 @@ export default function ShowtimeManagement() {
 
       <Card className="border-0 shadow-sm mb-3 rounded-3">
         <Card.Header className="bg-white py-2 border-0 d-flex justify-content-between align-items-center">
-          <span className="fw-bold text-muted small"><i className="bi bi-film me-2"></i>Phim đang chiếu</span>
+          <span className="fw-bold text-muted small">Phim đang chiếu</span>
           <input type="text" className="form-control form-control-sm w-auto bg-light border-0" placeholder="Tìm phim..." value={movieSearchTerm} onChange={e => setMovieSearchTerm(e.target.value)} style={{ fontSize: "0.7rem" }} />
         </Card.Header>
         <Card.Body className="p-2">
@@ -938,19 +952,38 @@ export default function ShowtimeManagement() {
                       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
                       onDragEnter={() => dragData && handleDragOverCell(room.id, time, dragData)}
                       onDrop={(e) => { setDragOverCell(null); onDropCell(e, room.id, time); }}
-                      onClick={() => {
-                        if (!ev && dragData?.type === "movie") {
-                          placeOnCell(room.id, time, dragData);
-                        }
-                      }}
                       style={{ height: "95px" }}
                     >
+                      {!ev && !isPreviewActive && (
+                        <button
+                          type="button"
+                          className="showtime-add-btn position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center fw-bold"
+                          style={{
+                            width: "22px", height: "22px", borderRadius: "50%",
+                            border: "1px solid #0d6efd", background: "#fff", color: "#0d6efd",
+                            fontSize: "0.9rem", lineHeight: 1, cursor: "pointer", zIndex: 2, padding: 0,
+                          }}
+                          title="Thêm suất chiếu"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (dragData?.type === "movie") {
+                              placeOnCell(room.id, time, dragData);
+                            } else {
+                              setAddSlot({ roomId: room.id, time });
+                              setAddSlotMovieId("");
+                            }
+                          }}
+                        >
+                          +
+                        </button>
+                      )}
                       {ev && (
                         <div
                           draggable={!isPast && !isPreviewEv}
                           onDragStart={e => !isPast && !isPreviewEv && handleDragStart(e, "event", { eventId: ev.id })}
                           onDragEnd={() => { setDragOverCell(null); setDragData(null); }}
                           onClick={() => { if (!isPreviewEv) { setDetailEvent(ev); setShowDetailModal(true); } }}
+                          title={!isPast && !isPreviewEv ? "Kéo để dời suất chiếu, bấm để xem/sửa chi tiết" : undefined}
                           className={"position-absolute rounded-2 p-2 shadow-sm overflow-hidden " +
                             (isPreviewEv ? "bg-success text-white" :
                              isPushedEv ? "bg-warning" :
@@ -959,7 +992,7 @@ export default function ShowtimeManagement() {
                           }
                           style={{
                             top: "6px", left: "2px", height: "83px", zIndex: 5,
-                            cursor: isPreviewEv ? "default" : isPast ? "default" : "pointer",
+                            cursor: isPreviewEv ? "default" : isPast ? "default" : "grab",
                             width: ((duration / SLOT_INTERVAL) * SLOT_WIDTH - 4) + "px",
                             borderWidth: "2px",
                             opacity: isPreviewEv ? 0.75 : isPast ? 0.7 : 1,
@@ -987,7 +1020,7 @@ export default function ShowtimeManagement() {
                             />
                           )}
 
-                          <div className="small opacity-75" style={{ fontSize: "0.65rem" }}><i className="bi bi-clock me-1"></i>{ev.startTime} - {calculateEndTime(ev.startTime, duration)}</div>
+                          <div className="small opacity-75" style={{ fontSize: "0.65rem" }}>{ev.startTime} - {calculateEndTime(ev.startTime, duration)}</div>
                           <div className="mt-auto d-flex justify-content-between align-items-center pt-2">
                             <span className="badge bg-dark bg-opacity-10 text-dark" style={{ fontSize: "0.6rem" }}>+{ev.surcharge.toLocaleString()}đ</span>
                             <span className="fw-bold" style={{ fontSize: "0.7rem" }}>{((movie?.basePrice || 0) + ev.surcharge).toLocaleString()}đ</span>
@@ -1005,8 +1038,7 @@ export default function ShowtimeManagement() {
 
       <Modal show={showDetailModal} onHide={() => setShowDetailModal(false)} centered>
         <Modal.Header closeButton className="border-0 pb-0">
-          <Modal.Title className="fw-bold text-primary">
-            <Clock size={20} className="me-2"/> Chi tiết Suất chiếu {detailEvent && isPastShowtime(detailEvent.businessDate, detailEvent.startTime) && "(Đã kết thúc)"}
+          <Modal.Title className="fw-bold text-primary"> Chi tiết Suất chiếu {detailEvent && isPastShowtime(detailEvent.businessDate, detailEvent.startTime) && "(Đã kết thúc)"}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -1015,7 +1047,6 @@ export default function ShowtimeManagement() {
               {isPastShowtime(detailEvent.businessDate, detailEvent.startTime) && (
                 <div className="col-12">
                   <div className="alert alert-info py-2 px-3 small border-0 mb-0">
-                    <i className="bi bi-info-circle-fill me-2"></i>
                     Suất chiếu này đã diễn ra hoặc đang chiếu. Bạn chỉ có thể xem thông tin, không thể sửa đổi.
                   </div>
                 </div>
@@ -1025,7 +1056,27 @@ export default function ShowtimeManagement() {
                 <Badge bg="primary">{movieMap[detailEvent.movieId]?.durationMin} phút</Badge>
               </div>
               <div className="col-6"><div className="small text-muted mb-1">Ngày (Kinh doanh)</div><div className="fw-bold">{formatDate(detailEvent.businessDate)}</div></div>
-              <div className="col-6"><div className="small text-muted mb-1">Thời gian</div><div className="fw-bold text-primary">{detailEvent.startTime} - {calculateEndTime(detailEvent.startTime, movieMap[detailEvent.movieId]?.durationMin)}</div></div>
+              <div className="col-6">
+                <label className="form-label small text-muted mb-1">Giờ bắt đầu</label>
+                {isPastShowtime(detailEvent.businessDate, detailEvent.startTime) ? (
+                  <div className="fw-bold text-primary">{detailEvent.startTime} - {calculateEndTime(detailEvent.startTime, movieMap[detailEvent.movieId]?.durationMin)}</div>
+                ) : (
+                  <>
+                    <select
+                      className="form-select form-select-sm fw-bold border-primary border-opacity-25"
+                      value={detailEvent.startTime}
+                      disabled={detailEvent.soldTicketsCount > 0}
+                      onChange={e => placeOnCell(detailEvent.roomId, e.target.value, { type: "event", eventId: detailEvent.id })}
+                    >
+                      {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <div className="small text-muted mt-1">Kết thúc dự kiến: {calculateEndTime(detailEvent.startTime, movieMap[detailEvent.movieId]?.durationMin)}</div>
+                    {detailEvent.soldTicketsCount > 0 && (
+                      <div className="small text-danger mt-1">Đã có vé bán, không thể đổi giờ.</div>
+                    )}
+                  </>
+                )}
+              </div>
               <div className="col-12"><hr className="my-1 opacity-10"/></div>
               <div className="col-6"><label className="form-label small text-muted mb-1">Giá gốc phim</label><div className="fw-bold">{(movieMap[detailEvent.movieId]?.basePrice || 0).toLocaleString()}đ</div></div>
               <div className="col-6">
@@ -1050,6 +1101,64 @@ export default function ShowtimeManagement() {
           )}
         </Modal.Body>
         <Modal.Footer className="border-0 pt-0"><Button variant="secondary" className="w-100 fw-bold py-2 rounded-2" onClick={() => setShowDetailModal(false)}>Đóng</Button></Modal.Footer>
+      </Modal>
+
+      <Modal show={Boolean(addSlot)} onHide={() => setAddSlot(null)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold text-primary">
+            Thêm suất chiếu lúc {addSlot?.time}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {addSlot && (
+            <div className="row g-3">
+              <div className="col-12 bg-light p-3 rounded-3 mb-1 border border-primary border-opacity-10 d-flex justify-content-between align-items-center">
+                <div>
+                  <div className="small text-muted mb-1">Giờ bắt đầu</div>
+                  <select
+                    className="form-select form-select-sm fw-bold border-primary border-opacity-25"
+                    style={{ width: "110px" }}
+                    value={addSlot.time}
+                    onChange={e => setAddSlot(prev => ({ ...prev, time: e.target.value }))}
+                  >
+                    {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="text-end">
+                  <div className="small text-muted mb-1">Phòng / Ngày</div>
+                  <div className="fw-bold">{state.rooms.find(r => r.id === addSlot.roomId)?.name}</div>
+                  <div className="small text-muted">{formatDate(roomDates[addSlot.roomId] || globalDate)}</div>
+                </div>
+              </div>
+              <div className="col-12">
+                <label className="form-label small text-muted mb-1">Phim</label>
+                <select
+                  className="form-select form-select-sm fw-bold border-primary border-opacity-25"
+                  value={addSlotMovieId}
+                  onChange={e => setAddSlotMovieId(e.target.value)}
+                >
+                  <option value="">-- Chọn phim --</option>
+                  {draggableMovies.map(m => (
+                    <option key={m.id} value={m.id}>{m.title} ({m.durationMin} phút)</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="border-0 pt-0">
+          <Button
+            variant="primary"
+            className="w-100 fw-bold py-2 rounded-2"
+            disabled={!addSlotMovieId}
+            onClick={() => {
+              placeOnCell(addSlot.roomId, addSlot.time, { type: "movie", movieId: Number(addSlotMovieId) });
+              setAddSlot(null);
+            }}
+          >
+            Thêm suất chiếu
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       <ToastComponent />

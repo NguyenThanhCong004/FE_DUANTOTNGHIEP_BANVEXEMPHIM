@@ -8,6 +8,7 @@ import { codeToAdminStatus } from '../../utils/statusFormat';
 import { apiMessage, MESSAGES } from '../../utils/uiMessages';
 import { formatDate, formatVnd } from '../../utils/formatters';
 import AdminPagination from '../../components/admin/AdminPagination';
+import sanitizeHtml from '../../utils/sanitizeHtml';
 
 const PLACEHOLDER_POSTER = 'https://placehold.co/120x180?text=Poster';
 
@@ -64,14 +65,12 @@ const MovieManagement = () => {
             return {
               id: m.id,
               title: m.title ?? '',
-              author: m.author ?? '—',
-              nation: m.nation ?? '—',
               duration: m.duration ?? 0,
               release_date: m.releaseDate ?? '',
               base_price: m.basePrice ?? 0,
               status: statusStr,
               age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
-              genre: m.genre ?? '—',
+              genre: Array.isArray(m.genres) && m.genres.length ? m.genres.join(', ') : '—',
               description: m.description ?? '',
               describe: m.content ?? '',
               poster: m.posterUrl || PLACEHOLDER_POSTER,
@@ -135,14 +134,12 @@ const MovieManagement = () => {
             return {
               id: m.id,
               title: m.title ?? '',
-              author: m.author ?? '—',
-              nation: m.nation ?? '—',
               duration: m.duration ?? 0,
               release_date: m.releaseDate ?? '',
               base_price: m.basePrice ?? 0,
               status: statusStr,
               age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
-              genre: m.genre ?? '—',
+              genre: Array.isArray(m.genres) && m.genres.length ? m.genres.join(', ') : '—',
               description: m.description ?? '',
               describe: m.content ?? '',
               poster: m.posterUrl || PLACEHOLDER_POSTER,
@@ -181,7 +178,6 @@ const MovieManagement = () => {
       <AdminPanelPage
       icon="film"
       title="Quản lý phim"
-      description="Kho phim toàn hệ thống — poster, giá, trạng thái chiếu."
       headerRight={
         <button
           type="button"
@@ -189,7 +185,6 @@ const MovieManagement = () => {
           style={{ background: "white", color: "#6366f1" }}
           onClick={() => navigate('/super-admin/movies/create')}
         >
-          <i className="bi bi-plus-lg me-2"></i>
           Thêm phim mới
         </button>
       }
@@ -198,7 +193,6 @@ const MovieManagement = () => {
         {/* Search & Filter Bar */}
         <div className="d-flex flex-wrap gap-3 mb-4">
           <div className="admin-search-wrapper" style={{ maxWidth: '400px', flex: '1' }}>
-            <i className="bi bi-search admin-search-icon"></i>
             <input 
               type="text" 
               className="admin-search-input"
@@ -235,7 +229,6 @@ const MovieManagement = () => {
           </div>
         ) : currentItems.length === 0 ? (
           <div className="admin-empty">
-            <i className="bi bi-film admin-empty-icon"></i>
             <p>Chưa có phim nào</p>
           </div>
         ) : (
@@ -247,7 +240,6 @@ const MovieManagement = () => {
                     <th style={{ width: 56 }}>STT</th>
                     <th>Phim</th>
                     <th className="text-center">Thời lượng</th>
-                    <th>Quốc gia</th>
                     <th>Ngày khởi chiếu</th>
                     <th className="text-end">Giá cơ bản</th>
                     <th className="text-center">Trạng thái</th>
@@ -268,7 +260,6 @@ const MovieManagement = () => {
                           />
                           <div>
                             <div className="fw-semibold">{movie.title}</div>
-                            <small className="text-muted">Đạo diễn: {movie.author}</small>
                             <div className="mt-1">
                               <span className="admin-badge admin-badge-primary" style={{ fontSize: '0.7rem' }}>
                                 {movie.age_limit}
@@ -278,7 +269,6 @@ const MovieManagement = () => {
                         </div>
                       </td>
                       <td className="text-center">{movie.duration} phút</td>
-                      <td>{movie.nation}</td>
                       <td>{formatDate(movie.release_date)}</td>
                       <td className="text-end fw-bold text-success">
                         {formatVnd(movie.base_price)}
@@ -303,23 +293,17 @@ const MovieManagement = () => {
                               setShowModal(true);
                             }}
                             title="Xem chi tiết"
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
+                          >Xem</button>
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-primary"
                             onClick={() => navigate('/super-admin/movies/create', { state: { editData: movie } })}
                             title="Sửa phim"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </button>
+                          >Sửa</button>
                           <button 
                             className="admin-btn admin-btn-sm admin-btn-danger"
                             onClick={() => openDeleteModal(movie)}
                             title="Xóa phim"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
+                          >Xóa</button>
                         </div>
                       </td>
                     </tr>
@@ -346,11 +330,9 @@ const MovieManagement = () => {
           <div className="admin-modal" onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>
-                <i className="bi bi-film me-2"></i>
                 Chi tiết phim
               </h3>
               <button className="admin-modal-close" onClick={() => setShowModal(false)}>
-                <i className="bi bi-x-lg"></i>
               </button>
             </div>
             <div className="admin-modal-body">
@@ -370,9 +352,7 @@ const MovieManagement = () => {
                   <h4 className="fw-bold mb-3">{selectedItem.title}</h4>
                   <div className="row g-3">
                     <div className="col-6">
-                      <p className="mb-2"><strong className="text-muted">Đạo diễn:</strong> {selectedItem.author}</p>
                       <p className="mb-2"><strong className="text-muted">Thời lượng:</strong> {selectedItem.duration} phút</p>
-                      <p className="mb-2"><strong className="text-muted">Quốc gia:</strong> {selectedItem.nation}</p>
                     </div>
                     <div className="col-6">
                       <p className="mb-2"><strong className="text-muted">Ngày chiếu:</strong> {formatDate(selectedItem.release_date)}</p>
@@ -392,9 +372,8 @@ const MovieManagement = () => {
                     </div>
                     <div className="col-12">
                       <p className="mb-2"><strong className="text-muted">Giá vé cơ bản:</strong> <span className="text-success fw-bold">{formatVnd(selectedItem.base_price)}</span></p>
-                      <p className="mb-2"><strong className="text-muted">Mô tả:</strong> {selectedItem.description}</p>
-                      <p className="mb-1"><strong className="text-muted">Nội dung chi tiết:</strong></p>
-                      <p>{selectedItem.describe}</p>
+                      <p className="mb-1"><strong className="text-muted">Mô tả:</strong></p>
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedItem.description || "") }} />
                     </div>
                   </div>
                 </div>
@@ -420,7 +399,6 @@ const MovieManagement = () => {
                   navigate('/super-admin/movies/create', { state: { editData: selectedItem } });
                 }}
               >
-                <i className="bi bi-pencil me-2"></i>
                 Chỉnh sửa
               </button>
             </div>
@@ -434,7 +412,6 @@ const MovieManagement = () => {
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa phim
               </h3>
               <button type="button" className="admin-modal-close" aria-label="Đóng" onClick={closeDeleteModal}>
@@ -453,19 +430,16 @@ const MovieManagement = () => {
                   />
                   <div>
                     <strong>Tên phim:</strong> {movieToDelete.title}<br/>
-                    <strong>Đạo diễn:</strong> {movieToDelete.author}<br/>
                     <strong>Thời lượng:</strong> {movieToDelete.duration} phút
                   </div>
                 </div>
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}
               <p className="text-muted small mb-0">
-                <i className="bi bi-info-circle me-1"></i>
                 Hành động này không thể hoàn tác. Tất cả suất chiếu, vé đặt và dữ liệu liên quan sẽ bị xóa.
               </p>
             </div>
@@ -475,7 +449,6 @@ const MovieManagement = () => {
                 className="admin-btn admin-btn-outline-secondary"
                 onClick={closeDeleteModal}
               >
-                <i className="bi bi-x-circle me-2"></i>
                 Hủy
               </button>
               <button
@@ -483,7 +456,6 @@ const MovieManagement = () => {
                 className="admin-btn admin-btn-danger"
                 onClick={() => handleDeleteMovie(movieToDelete)}
               >
-                <i className="bi bi-trash me-2"></i>
                 Xóa phim
               </button>
             </div>

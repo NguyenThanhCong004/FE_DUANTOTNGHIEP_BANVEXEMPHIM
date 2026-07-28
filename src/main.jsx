@@ -9,16 +9,14 @@ import './styles/tailwind.css'
 import './styles/public-theme.css'
 import App from './App.jsx'
 import { installApiFetchInterceptor } from './utils/apiClient'
+import { ThemeProvider } from './contexts/ThemeContext'
 
 installApiFetchInterceptor()
 
-window.addEventListener('vite:preloadError', (event) => {
-  event.preventDefault()
-  window.location.reload()
-})
-
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </StrictMode>,
 )

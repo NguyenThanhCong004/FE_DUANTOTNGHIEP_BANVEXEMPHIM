@@ -12,7 +12,7 @@ const maskEmail = (email) => {
   return user.slice(0, 2) + "****" + user.slice(-1) + "@" + domain;
 };
 
-/** Hiển thị bước 2: email đã che từ BE hoặc che username cục bộ. */
+/** Hiển thị bước 2: email đã che từ BE hoặc che số điện thoại cục bộ. */
 const maskIdentifier = (raw) => {
   if (!raw || !raw.trim()) return "—";
   const s = raw.trim();
@@ -95,10 +95,15 @@ function RuleRow({ pass, text }) {
 /* ══════════════════════════════════════════
    STEP 1 – Nhập tài khoản
 ══════════════════════════════════════════ */
-function Step1({ onContinue }) {
+function Step1({ mode, onContinue }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const isStaff = mode === "staff";
+  const helperText = isStaff
+    ? "Vui lòng nhập email hoặc số điện thoại nhân viên"
+    : "Vui lòng nhập email hoặc số điện thoại đã đăng ký";
+  const placeholder = "Email / Số điện thoại";
 
   const handleSubmit = async () => {
     if (!value.trim()) { setError("Tài khoản không được để trống"); return; }
@@ -107,7 +112,7 @@ function Step1({ onContinue }) {
     try {
       const res = await apiJson(AUTH.FORGOT_PASSWORD, {
         method: "POST",
-        body: JSON.stringify({ usernameOrEmail: value.trim() }),
+        body: JSON.stringify({ account: value.trim() }),
       });
       if (!res.ok) {
         setError(firstApiErrorMessage(res));
@@ -126,11 +131,11 @@ function Step1({ onContinue }) {
 
   return (
     <div className="fp-body">
-      <p className="fp-desc">Vui lòng nhập tài khoản cần tìm lại mật khẩu</p>
+      <p className="fp-desc">{helperText}</p>
       <div className={`fp-input-wrap ${error ? "has-error" : ""}`}>
         <input
           className="fp-input"
-          placeholder="Tên Người Dùng / Email"
+          placeholder={placeholder}
           value={value}
           disabled={loading}
           onChange={(e) => { setValue(e.target.value); setError(""); }}
@@ -366,7 +371,7 @@ function Step3({ resetSessionToken, onDone, busy, onBusy }) {
 /* ══════════════════════════════════════════
    SUCCESS
 ══════════════════════════════════════════ */
-function SuccessView() {
+function SuccessView({ loginPath }) {
   const navigate = useNavigate();
   return (
     <div className="fp-body" style={{ textAlign: "center", paddingTop: 20 }}>
@@ -383,7 +388,7 @@ function SuccessView() {
       </div>
       <h3 className="fp-success-title">ĐỔI MẬT KHẨU THÀNH CÔNG!</h3>
       <p className="fp-success-desc">Mật khẩu của bạn đã được cập nhật. Vui lòng đăng nhập lại.</p>
-      <button className="fp-btn" onClick={() => navigate("/login")}>
+      <button className="fp-btn" onClick={() => navigate(loginPath)}>
         Đăng Nhập Ngay
       </button>
     </div>
@@ -393,7 +398,8 @@ function SuccessView() {
 /* ══════════════════════════════════════════
    MAIN PAGE
 ══════════════════════════════════════════ */
-export default function ForgotPassword() {
+export default function ForgotPassword({ mode = "customer" }) {
+  const loginPath = mode === "staff" ? "/staff/login" : "/login";
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -736,13 +742,17 @@ export default function ForgotPassword() {
           <h2 className="fp-card-title">
             QUÊN <span>MẬT KHẨU</span>
           </h2>
+          {mode === "staff" && (
+            <p className="fp-desc" style={{ textAlign: "center", marginTop: -16 }}>Dành cho tài khoản nhân viên</p>
+          )}
 
           {!done && <StepIndicator current={step} />}
 
           {done ? (
-            <SuccessView />
+            <SuccessView loginPath={loginPath} />
           ) : step === 1 ? (
             <Step1
+              mode={mode}
               onContinue={(payload) => {
                 setFp((s) => ({ ...s, ...payload }));
                 setStep(2);
@@ -767,7 +777,7 @@ export default function ForgotPassword() {
 
           {!done && (
             <p className="fp-back">
-              Nhớ mật khẩu rồi? <Link to="/login">Đăng nhập</Link>
+              Nhớ mật khẩu rồi? <Link to={loginPath}>Đăng nhập</Link>
             </p>
           )}
         </div>

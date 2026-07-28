@@ -146,14 +146,11 @@ const PromotionManagement = () => {
         <div className="admin-header-content">
           <div>
             <h1>
-              <i className="bi bi-tags-fill me-3"></i>
               Chương trình Khuyến mãi
             </h1>
-            <p className="lead">Quản lý khuyến mãi và ưu đãi đặc biệt</p>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
-              <i className="bi bi-search admin-search-icon" aria-hidden />
               <input
                 type="search"
                 className="admin-search-input"
@@ -164,7 +161,6 @@ const PromotionManagement = () => {
               />
             </div>
             <Link to={`${prefix}/promotions/add`} className="admin-btn" style={{ background: 'white', color: '#6366f1' }}>
-              <i className="bi bi-plus-lg me-2"></i>
               Tạo khuyến mãi
             </Link>
           </div>
@@ -174,7 +170,6 @@ const PromotionManagement = () => {
       <div className="admin-card admin-slide-up">
         <div className="admin-card-header">
           <h4>
-            <i className="bi bi-list-ul me-2 text-primary"></i>
             Danh sách khuyến mãi
           </h4>
         </div>
@@ -203,7 +198,7 @@ const PromotionManagement = () => {
                   <tr>
                     <td colSpan={6}>
                       <div className="admin-empty">
-                        <div className="admin-empty-icon"><i className="bi bi-building"></i></div>
+                        <div className="admin-empty-icon"></div>
                         <h5 className="mb-2">Chưa chọn rạp</h5>
                         <p className="mb-0">{isSuperAdmin ? 'Vui lòng chọn rạp trên header.' : 'Tài khoản chưa được gán rạp.'}</p>
                       </div>
@@ -213,7 +208,7 @@ const PromotionManagement = () => {
                   <tr>
                     <td colSpan={6}>
                       <div className="admin-empty">
-                        <div className="admin-empty-icon"><i className="bi bi-tags"></i></div>
+                        <div className="admin-empty-icon"></div>
                         <h5 className="mb-2">Không có khuyến mãi</h5>
                         <p className="mb-0">Chưa có chương trình khuyến mãi nào cho rạp này</p>
                       </div>
@@ -224,7 +219,7 @@ const PromotionManagement = () => {
                     <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
                       <div className="d-flex align-items-center gap-3">
-                        <div className="admin-table-icon-tile"><i className="bi bi-percent"></i></div>
+                        <div className="admin-table-icon-tile"></div>
                         <div>
                           <div className="fw-semibold text-dark">{promo.title}</div>
                           <small className="text-muted">Chương trình ưu đãi</small>
@@ -234,8 +229,8 @@ const PromotionManagement = () => {
                     <td><Badge bg="success" className="px-2 py-1">{promo.discount}</Badge></td>
                     <td>
                       <div className="d-flex flex-column gap-1 small text-muted">
-                        <div><i className="bi bi-calendar-event me-1"></i>{promo.startDate}</div>
-                        <div><i className="bi bi-calendar-check me-1"></i>{promo.endDate}</div>
+                        <div>{promo.startDate}</div>
+                        <div>{promo.endDate}</div>
                       </div>
                     </td>
                     <td>
@@ -244,24 +239,20 @@ const PromotionManagement = () => {
                       </Badge>
                     </td>
                     <td>
-                      <div className="admin-table-action-group justify-content-center">
+                      <div className="d-flex justify-content-center gap-2">
                         <button
                           onClick={() => handleOpenView(promo.id)}
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem chi tiết"
-                        >
-                          <i className="bi bi-eye"></i>
-                        </button>
+                        >Xem</button>
                         <Link
                           to={`${prefix}/promotions/edit/${promo.id}`}
-                          className="admin-table-action-btn admin-table-action-btn--edit"
+                          className="admin-btn admin-btn-sm admin-btn-primary"
                           title="Chỉnh sửa"
-                        >
-                          <i className="bi bi-pencil"></i>
-                        </Link>
+                        >Sửa</Link>
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--danger"
+                          className="admin-btn admin-btn-sm admin-btn-danger"
                           title={promo.status === 'active' ? 'Không thể xóa khi khuyến mãi đang diễn ra' : 'Xóa'}
                           disabled={promo.status === 'active'}
                           style={promo.status === 'active' ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
@@ -271,9 +262,7 @@ const PromotionManagement = () => {
                             setDeleteError('');
                             setShowDeleteModal(true);
                           }}
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
+                        >Xóa</button>
                       </div>
                     </td>
                   </tr>
@@ -329,16 +318,15 @@ const PromotionManagement = () => {
                 </Col>
                 <Col md={6}>
                   <div className="small text-muted fw-bold mb-1 text-uppercase">Ngày bắt đầu</div>
-                  <div className="fw-bold text-dark"><i className="bi bi-calendar-event me-2"></i>{formatDate(selectedPromo.startDate)}</div>
+                  <div className="fw-bold text-dark">{formatDate(selectedPromo.startDate)}</div>
                 </Col>
                 <Col md={6}>
                   <div className="small text-muted fw-bold mb-1 text-uppercase">Ngày kết thúc</div>
-                  <div className="fw-bold text-dark"><i className="bi bi-calendar-check me-2"></i>{formatDate(selectedPromo.endDate)}</div>
+                  <div className="fw-bold text-dark">{formatDate(selectedPromo.endDate)}</div>
                 </Col>
                 <Col md={12}>
                   <hr className="my-2" />
                   <div className="small text-muted fw-bold mb-2 text-uppercase d-flex align-items-center gap-2">
-                    <i className="bi bi-film text-primary"></i>
                     Phim áp dụng
                   </div>
                   <div className="d-flex flex-wrap gap-2">
@@ -366,8 +354,7 @@ const PromotionManagement = () => {
         </Modal.Body>
         <Modal.Footer className="border-0">
           <Button variant="secondary" onClick={() => setShowViewModal(false)}>Đóng</Button>
-          <Link to={`${prefix}/promotions/edit/${selectedPromo?.id}`} className="btn btn-primary">
-            <i className="bi bi-pencil me-2"></i>Chỉnh sửa
+          <Link to={`${prefix}/promotions/edit/${selectedPromo?.id}`} className="btn btn-primary">Chỉnh sửa
           </Link>
         </Modal.Footer>
       </Modal>
@@ -376,7 +363,6 @@ const PromotionManagement = () => {
           <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3 className="text-danger mb-0">
-                <i className="bi bi-exclamation-triangle me-2"></i>
                 Xác nhận xóa khuyến mãi
               </h3>
               <button type="button" className="admin-modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
@@ -388,7 +374,6 @@ const PromotionManagement = () => {
               </div>
               {deleteError && (
                 <div className="alert alert-danger mb-3">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
                   {deleteError}
                 </div>
               )}

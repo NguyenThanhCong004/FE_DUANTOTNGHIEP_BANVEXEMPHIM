@@ -1,11 +1,11 @@
 /**
- * Public/customer interface theme — ONLY applies when html.cinetoon-public
+ * Public/customer interface theme — ONLY applies when html.moviezone-public
  * (see RouteThemeSync + index.html). Does not override admin-panel.
  * Font: design-tokens.css (no duplicate @import).
  * Do not style .navbar / .nav-link globally — avoid overriding Navbar/Footer (site-chrome.css).
  */
 
-html.cinetoon-public {
+html.moviezone-public {
   /* Public/customer pages share the same dark cinema surface as Movies.jsx. */
   --user-purple: #7b1fa2;
   --user-pink: #e91e8c;
@@ -46,8 +46,8 @@ html.cinetoon-public {
   scrollbar-color: rgba(212, 226, 25, 0.62) rgba(255, 255, 255, 0.055);
 }
 
-html.cinetoon-public,
-html.cinetoon-public body {
+html.moviezone-public,
+html.moviezone-public body {
   background: var(--bg-gradient);
   background-attachment: fixed;
   color: var(--user-text);
@@ -58,20 +58,20 @@ html.cinetoon-public body {
 }
 
 /* Scrollbar đồng bộ cho trang khách/user */
-html.cinetoon-public::-webkit-scrollbar,
-html.cinetoon-public *::-webkit-scrollbar {
+html.moviezone-public::-webkit-scrollbar,
+html.moviezone-public *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-html.cinetoon-public::-webkit-scrollbar-track,
-html.cinetoon-public *::-webkit-scrollbar-track {
+html.moviezone-public::-webkit-scrollbar-track,
+html.moviezone-public *::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.045);
   border-radius: 999px;
 }
 
-html.cinetoon-public::-webkit-scrollbar-thumb,
-html.cinetoon-public *::-webkit-scrollbar-thumb {
+html.moviezone-public::-webkit-scrollbar-thumb,
+html.moviezone-public *::-webkit-scrollbar-thumb {
   background:
     linear-gradient(180deg, rgba(123, 31, 162, 0.95), rgba(233, 30, 140, 0.92) 58%, rgba(212, 226, 25, 0.9));
   border: 2px solid #0f102a;
@@ -79,175 +79,175 @@ html.cinetoon-public *::-webkit-scrollbar-thumb {
   min-height: 44px;
 }
 
-html.cinetoon-public::-webkit-scrollbar-thumb:hover,
-html.cinetoon-public *::-webkit-scrollbar-thumb:hover {
+html.moviezone-public::-webkit-scrollbar-thumb:hover,
+html.moviezone-public *::-webkit-scrollbar-thumb:hover {
   background:
     linear-gradient(180deg, #8f2fc0, #f03c9d 58%, #e7f43a);
 }
 
-html.cinetoon-public::-webkit-scrollbar-corner,
-html.cinetoon-public *::-webkit-scrollbar-corner {
+html.moviezone-public::-webkit-scrollbar-corner,
+html.moviezone-public *::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-html.cinetoon-public .pf-tabs,
-html.cinetoon-public .mv-toggle,
-html.cinetoon-public .fd-cats,
-html.cinetoon-public .md-date-row,
-html.cinetoon-public .fd-cart-scroll,
-html.cinetoon-public .th-modal,
-html.cinetoon-public .fav-modal,
-html.cinetoon-public .modal-body {
+html.moviezone-public .pf-tabs,
+html.moviezone-public .mv-toggle,
+html.moviezone-public .fd-cats,
+html.moviezone-public .md-date-row,
+html.moviezone-public .fd-cart-scroll,
+html.moviezone-public .th-modal,
+html.moviezone-public .fav-modal,
+html.moviezone-public .modal-body {
   scrollbar-width: thin;
   scrollbar-color: rgba(212, 226, 25, 0.64) rgba(255, 255, 255, 0.045);
 }
 
-html.cinetoon-public .pf-tabs::-webkit-scrollbar,
-html.cinetoon-public .mv-toggle::-webkit-scrollbar,
-html.cinetoon-public .fd-cats::-webkit-scrollbar,
-html.cinetoon-public .md-date-row::-webkit-scrollbar,
-html.cinetoon-public .fd-cart-scroll::-webkit-scrollbar,
-html.cinetoon-public .th-modal::-webkit-scrollbar,
-html.cinetoon-public .fav-modal::-webkit-scrollbar,
-html.cinetoon-public .modal-body::-webkit-scrollbar {
+html.moviezone-public .pf-tabs::-webkit-scrollbar,
+html.moviezone-public .mv-toggle::-webkit-scrollbar,
+html.moviezone-public .fd-cats::-webkit-scrollbar,
+html.moviezone-public .md-date-row::-webkit-scrollbar,
+html.moviezone-public .fd-cart-scroll::-webkit-scrollbar,
+html.moviezone-public .th-modal::-webkit-scrollbar,
+html.moviezone-public .fav-modal::-webkit-scrollbar,
+html.moviezone-public .modal-body::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-html.cinetoon-public .pf-tabs::-webkit-scrollbar-thumb,
-html.cinetoon-public .mv-toggle::-webkit-scrollbar-thumb,
-html.cinetoon-public .fd-cats::-webkit-scrollbar-thumb,
-html.cinetoon-public .md-date-row::-webkit-scrollbar-thumb,
-html.cinetoon-public .fd-cart-scroll::-webkit-scrollbar-thumb,
-html.cinetoon-public .th-modal::-webkit-scrollbar-thumb,
-html.cinetoon-public .fav-modal::-webkit-scrollbar-thumb,
-html.cinetoon-public .modal-body::-webkit-scrollbar-thumb {
+html.moviezone-public .pf-tabs::-webkit-scrollbar-thumb,
+html.moviezone-public .mv-toggle::-webkit-scrollbar-thumb,
+html.moviezone-public .fd-cats::-webkit-scrollbar-thumb,
+html.moviezone-public .md-date-row::-webkit-scrollbar-thumb,
+html.moviezone-public .fd-cart-scroll::-webkit-scrollbar-thumb,
+html.moviezone-public .th-modal::-webkit-scrollbar-thumb,
+html.moviezone-public .fav-modal::-webkit-scrollbar-thumb,
+html.moviezone-public .modal-body::-webkit-scrollbar-thumb {
   border-width: 1px;
 }
 
 /* Public pages: same dark canvas, same compact cinema frame. */
-html.cinetoon-public .mv-page,
-html.cinetoon-public .voucher-page,
-html.cinetoon-public .fd-page,
-html.cinetoon-public .pf-page,
-html.cinetoon-public .th-page,
-html.cinetoon-public .ev-page,
-html.cinetoon-public .ed-page,
-html.cinetoon-public .md-page,
-html.cinetoon-public .fav-page,
-html.cinetoon-public .fp-page,
-html.cinetoon-public .auth-page-wrapper {
+html.moviezone-public .mv-page,
+html.moviezone-public .voucher-page,
+html.moviezone-public .fd-page,
+html.moviezone-public .pf-page,
+html.moviezone-public .th-page,
+html.moviezone-public .ev-page,
+html.moviezone-public .ed-page,
+html.moviezone-public .md-page,
+html.moviezone-public .fav-page,
+html.moviezone-public .fp-page,
+html.moviezone-public .auth-page-wrapper {
   background: var(--user-page-bg) !important;
   color: var(--user-text);
 }
 
-html.cinetoon-public .mv-filters,
-html.cinetoon-public .ev-search-card,
-html.cinetoon-public .pf-hero,
-html.cinetoon-public .pf-card,
-html.cinetoon-public .fd-cart-panel,
-html.cinetoon-public .fd-card,
-html.cinetoon-public .voucher-card,
-html.cinetoon-public .fav-modal,
-html.cinetoon-public .pf-modal,
-html.cinetoon-public .th-modal,
-html.cinetoon-public .md-booking-panel,
-html.cinetoon-public .auth-card,
-html.cinetoon-public .fp-card {
+html.moviezone-public .mv-filters,
+html.moviezone-public .ev-search-card,
+html.moviezone-public .pf-hero,
+html.moviezone-public .pf-card,
+html.moviezone-public .fd-cart-panel,
+html.moviezone-public .fd-card,
+html.moviezone-public .voucher-card,
+html.moviezone-public .fav-modal,
+html.moviezone-public .pf-modal,
+html.moviezone-public .th-modal,
+html.moviezone-public .md-booking-panel,
+html.moviezone-public .auth-card,
+html.moviezone-public .fp-card {
   background: var(--user-card) !important;
   border-color: var(--user-border) !important;
 }
 
-html.cinetoon-public .mv-title,
-html.cinetoon-public .fd-title,
-html.cinetoon-public .pf-title,
-html.cinetoon-public .ev-title,
-html.cinetoon-public .ed-title,
-html.cinetoon-public .md-title,
-html.cinetoon-public .fav-title,
-html.cinetoon-public .page-title,
-html.cinetoon-public .auth-title,
-html.cinetoon-public .fp-card-title {
+html.moviezone-public .mv-title,
+html.moviezone-public .fd-title,
+html.moviezone-public .pf-title,
+html.moviezone-public .ev-title,
+html.moviezone-public .ed-title,
+html.moviezone-public .md-title,
+html.moviezone-public .fav-title,
+html.moviezone-public .page-title,
+html.moviezone-public .auth-title,
+html.moviezone-public .fp-card-title {
   color: var(--user-text) !important;
 }
 
-html.cinetoon-public .mv-title span,
-html.cinetoon-public .fd-title span,
-html.cinetoon-public .pf-title span,
-html.cinetoon-public .ev-title span,
-html.cinetoon-public .ed-title span,
-html.cinetoon-public .md-title span,
-html.cinetoon-public .fav-title span,
-html.cinetoon-public .page-title span,
-html.cinetoon-public .auth-title span,
-html.cinetoon-public .fp-card-title span {
+html.moviezone-public .mv-title span,
+html.moviezone-public .fd-title span,
+html.moviezone-public .pf-title span,
+html.moviezone-public .ev-title span,
+html.moviezone-public .ed-title span,
+html.moviezone-public .md-title span,
+html.moviezone-public .fav-title span,
+html.moviezone-public .page-title span,
+html.moviezone-public .auth-title span,
+html.moviezone-public .fp-card-title span {
   color: var(--user-yellow) !important;
 }
 
-html.cinetoon-public .mv-title-bar,
-html.cinetoon-public .pf-title-bar,
-html.cinetoon-public .ev-strip,
-html.cinetoon-public .ed-strip,
-html.cinetoon-public .md-strip,
-html.cinetoon-public .auth-strip {
+html.moviezone-public .mv-title-bar,
+html.moviezone-public .pf-title-bar,
+html.moviezone-public .ev-strip,
+html.moviezone-public .ed-strip,
+html.moviezone-public .md-strip,
+html.moviezone-public .auth-strip {
   background: var(--user-strip-gradient) !important;
 }
 
-html.cinetoon-public .mv-input,
-html.cinetoon-public .mv-select,
-html.cinetoon-public .ev-search-input,
-html.cinetoon-public .fd-search,
-html.cinetoon-public .fd-select,
-html.cinetoon-public .pf-input,
-html.cinetoon-public .th-search-input,
-html.cinetoon-public .auth-input,
-html.cinetoon-public .auth-datepicker-input,
-html.cinetoon-public .fp-input,
-html.cinetoon-public .md-select,
-html.cinetoon-public .search-box .form-control {
+html.moviezone-public .mv-input,
+html.moviezone-public .mv-select,
+html.moviezone-public .ev-search-input,
+html.moviezone-public .fd-search,
+html.moviezone-public .fd-select,
+html.moviezone-public .pf-input,
+html.moviezone-public .th-search-input,
+html.moviezone-public .auth-input,
+html.moviezone-public .auth-datepicker-input,
+html.moviezone-public .fp-input,
+html.moviezone-public .md-select,
+html.moviezone-public .search-box .form-control {
   background: rgba(255, 255, 255, 0.055) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
   color: var(--user-text) !important;
 }
 
-html.cinetoon-public .mv-input:focus,
-html.cinetoon-public .mv-select:focus,
-html.cinetoon-public .ev-search-wrap:focus-within,
-html.cinetoon-public .fd-search:focus,
-html.cinetoon-public .fd-select:focus,
-html.cinetoon-public .pf-input:focus,
-html.cinetoon-public .th-search-input:focus,
-html.cinetoon-public .auth-input-group:focus-within,
-html.cinetoon-public .fp-input-wrap:focus-within,
-html.cinetoon-public .md-select:focus,
-html.cinetoon-public .search-box .form-control:focus {
+html.moviezone-public .mv-input:focus,
+html.moviezone-public .mv-select:focus,
+html.moviezone-public .ev-search-wrap:focus-within,
+html.moviezone-public .fd-search:focus,
+html.moviezone-public .fd-select:focus,
+html.moviezone-public .pf-input:focus,
+html.moviezone-public .th-search-input:focus,
+html.moviezone-public .auth-input-group:focus-within,
+html.moviezone-public .fp-input-wrap:focus-within,
+html.moviezone-public .md-select:focus,
+html.moviezone-public .search-box .form-control:focus {
   border-color: var(--user-yellow) !important;
   box-shadow: 0 0 18px rgba(212, 226, 25, 0.12) !important;
 }
 
-html.cinetoon-public .mv-toggle,
-html.cinetoon-public .pf-tabs,
-html.cinetoon-public .md-steps-bar {
+html.moviezone-public .mv-toggle,
+html.moviezone-public .pf-tabs,
+html.moviezone-public .md-steps-bar {
   background: rgba(255, 255, 255, 0.04) !important;
   border-color: var(--user-border) !important;
 }
 
-html.cinetoon-public .mv-toggle-btn.active,
-html.cinetoon-public .pf-tab.active,
-html.cinetoon-public .filter-btn.active,
-html.cinetoon-public .fd-cat-btn.active,
-html.cinetoon-public .fav-filter-btn.active,
-html.cinetoon-public .md-step-pill.active {
+html.moviezone-public .mv-toggle-btn.active,
+html.moviezone-public .pf-tab.active,
+html.moviezone-public .filter-btn.active,
+html.moviezone-public .fd-cat-btn.active,
+html.moviezone-public .fav-filter-btn.active,
+html.moviezone-public .md-step-pill.active {
   background: var(--user-accent-gradient) !important;
   color: #fff !important;
   border-color: transparent !important;
 }
 
-html.cinetoon-public main {
+html.moviezone-public main {
   padding-top: var(--customer-page-top-gap);
 }
 
-html.cinetoon-public .toon-bg {
+html.moviezone-public .toon-bg {
   position: fixed;
   top: 0;
   left: 0;
@@ -258,7 +258,7 @@ html.cinetoon-public .toon-bg {
   background-attachment: fixed;
 }
 
-html.cinetoon-public .btn-gradient {
+html.moviezone-public .btn-gradient {
   background: var(--primary-gradient);
   color: white;
   border: none;
@@ -266,14 +266,14 @@ html.cinetoon-public .btn-gradient {
   transition: all 0.2s ease;
 }
 
-html.cinetoon-public .btn-gradient:hover {
+html.moviezone-public .btn-gradient:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 #9f1239;
   color: white;
 }
 
 /* Card glass — light text by default; bright background areas use bold text */
-html.cinetoon-public .card {
+html.moviezone-public .card {
   border-radius: var(--user-card-radius);
   border: 1px solid var(--user-border);
   background: var(--user-card);
@@ -283,79 +283,79 @@ html.cinetoon-public .card {
   color: var(--user-text);
 }
 
-html.cinetoon-public .card .bg-light,
-html.cinetoon-public .card .bg-white,
-html.cinetoon-public .card .bg-body {
+html.moviezone-public .card .bg-light,
+html.moviezone-public .card .bg-white,
+html.moviezone-public .card .bg-body {
   color: #212529 !important;
 }
 
-html.cinetoon-public .card .bg-light .text-muted,
-html.cinetoon-public .card .bg-white .text-muted {
+html.moviezone-public .card .bg-light .text-muted,
+html.moviezone-public .card .bg-white .text-muted {
   color: #6c757d !important;
 }
 
-html.cinetoon-public .card .bg-light .text-dark,
-html.cinetoon-public .card .bg-white .text-dark {
+html.moviezone-public .card .bg-light .text-dark,
+html.moviezone-public .card .bg-white .text-dark {
   color: #212529 !important;
 }
 
 /* Muted description directly in card (not within bg-light) — dark glass background */
-html.cinetoon-public .card > p.text-muted {
+html.moviezone-public .card > p.text-muted {
   color: #64748b !important;
 }
 
 /* Forms in main — do not override search box on Navbar */
-html.cinetoon-public main input.form-control,
-html.cinetoon-public main select.form-select,
-html.cinetoon-public main textarea.form-control {
+html.moviezone-public main input.form-control,
+html.moviezone-public main select.form-select,
+html.moviezone-public main textarea.form-control {
   color: #ffffff !important;
   background-color: rgba(255, 255, 255, 0.1) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-html.cinetoon-public main input.form-control:focus,
-html.cinetoon-public main select.form-select:focus,
-html.cinetoon-public main textarea.form-control:focus {
+html.moviezone-public main input.form-control:focus,
+html.moviezone-public main select.form-select:focus,
+html.moviezone-public main textarea.form-control:focus {
   background-color: rgba(255, 255, 255, 0.15) !important;
   box-shadow: 0 0 0 0.25rem rgba(244, 63, 94, 0.25) !important;
   border-color: #f43f5e !important;
   color: #fff !important;
 }
 
-html.cinetoon-public main input.form-control::placeholder,
-html.cinetoon-public main textarea.form-control::placeholder {
+html.moviezone-public main input.form-control::placeholder,
+html.moviezone-public main textarea.form-control::placeholder {
   color: rgba(255, 255, 255, 0.5) !important;
 }
 
 /* Forms in auth page (Login, Register) - not within main */
-html.cinetoon-public .auth-public-page input.form-control,
-html.cinetoon-public .auth-public-page select.form-select,
-html.cinetoon-public .auth-public-page textarea.form-control {
+html.moviezone-public .auth-public-page input.form-control,
+html.moviezone-public .auth-public-page select.form-select,
+html.moviezone-public .auth-public-page textarea.form-control {
   color: #ffffff !important;
 }
 
-html.cinetoon-public .auth-public-page input.form-control:focus,
-html.cinetoon-public .auth-public-page select.form-select:focus,
-html.cinetoon-public .auth-public-page textarea.form-control:focus {
+html.moviezone-public .auth-public-page input.form-control:focus,
+html.moviezone-public .auth-public-page select.form-select:focus,
+html.moviezone-public .auth-public-page textarea.form-control:focus {
   color: #ffffff !important;
 }
 
-html.cinetoon-public .auth-public-page input.form-control::placeholder,
-html.cinetoon-public .auth-public-page textarea.form-control::placeholder {
+html.moviezone-public .auth-public-page input.form-control::placeholder,
+html.moviezone-public .auth-public-page textarea.form-control::placeholder {
   color: rgba(255, 255, 255, 0.6) !important;
 }
 
-html.cinetoon-public main select.form-select option {
+html.moviezone-public main select.form-select option {
   background-color: #18181b;
   color: #ffffff;
 }
 
 /* Customer page content frame — same max-width / horizontal padding as Navbar: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 */
-html.cinetoon-public .customer-page {
+html.moviezone-public .customer-page {
   color: inherit;
 }
 
-html.cinetoon-public .customer-page-container {
+html.moviezone-public .customer-page-container {
   width: 100%;
   max-width: 80rem;
   margin-left: auto;
@@ -365,54 +365,54 @@ html.cinetoon-public .customer-page-container {
 }
 
 @media (min-width: 640px) {
-  html.cinetoon-public .customer-page-container {
+  html.moviezone-public .customer-page-container {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
 }
 
 @media (min-width: 1024px) {
-  html.cinetoon-public .customer-page-container {
+  html.moviezone-public .customer-page-container {
     padding-left: 2rem;
     padding-right: 2rem;
   }
 }
 
-html.cinetoon-public .customer-page--full {
+html.moviezone-public .customer-page--full {
   min-height: 0;
 }
 
 /* User/customer dark pages: Bootstrap dark text utilities must stay readable on the dark canvas. */
-html.cinetoon-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) {
+html.moviezone-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) {
   color: var(--user-text) !important;
 }
 
-html.cinetoon-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) :where(.text-dark, .text-body, .text-black, .text-secondary, .card-title, .card-text, .form-label) {
+html.moviezone-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) :where(.text-dark, .text-body, .text-black, .text-secondary, .card-title, .card-text, .form-label) {
   color: var(--user-text) !important;
 }
 
-html.cinetoon-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) :where(.text-muted, .small, small) {
+html.moviezone-public main :where(.pf-page, .fav-page, .th-page, .voucher-page, .fd-page, .md-page, .ev-page, .ed-page, .mv-page, .fp-page, .auth-page-wrapper) :where(.text-muted, .small, small) {
   color: var(--user-muted) !important;
 }
 
-html.cinetoon-public .text-gradient {
+html.moviezone-public .text-gradient {
   background: var(--primary-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 800;
 }
 
-html.cinetoon-public .movie-poster-container {
+html.moviezone-public .movie-poster-container {
   border-radius: 15px;
   overflow: hidden;
   border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
-html.cinetoon-public .animate-bounce-soft {
-  animation: cinetoon-bounce-soft 2s infinite;
+html.moviezone-public .animate-bounce-soft {
+  animation: moviezone-bounce-soft 2s infinite;
 }
 
-@keyframes cinetoon-bounce-soft {
+@keyframes moviezone-bounce-soft {
   0%,
   100% {
     transform: translateY(0);
@@ -423,13 +423,13 @@ html.cinetoon-public .animate-bounce-soft {
 }
 
 /* User size system: one rhythm for all customer-facing pages. */
-html.cinetoon-public .container,
-html.cinetoon-public .container-sm,
-html.cinetoon-public .container-md,
-html.cinetoon-public .container-lg,
-html.cinetoon-public .container-xl,
-html.cinetoon-public .container-xxl,
-html.cinetoon-public .customer-page-container {
+html.moviezone-public .container,
+html.moviezone-public .container-sm,
+html.moviezone-public .container-md,
+html.moviezone-public .container-lg,
+html.moviezone-public .container-xl,
+html.moviezone-public .container-xxl,
+html.moviezone-public .customer-page-container {
   width: 100%;
   max-width: var(--user-container-max) !important;
   margin-left: auto !important;
@@ -438,170 +438,170 @@ html.cinetoon-public .customer-page-container {
   padding-right: clamp(16px, 2vw, 24px) !important;
 }
 
-html.cinetoon-public .mv-page,
-html.cinetoon-public .voucher-page,
-html.cinetoon-public .fd-page:not(.embedded),
-html.cinetoon-public .pf-page,
-html.cinetoon-public .th-page,
-html.cinetoon-public .ev-page,
-html.cinetoon-public .ed-page,
-html.cinetoon-public .md-page,
-html.cinetoon-public .fav-page,
-html.cinetoon-public .fp-page {
+html.moviezone-public .mv-page,
+html.moviezone-public .voucher-page,
+html.moviezone-public .fd-page:not(.embedded),
+html.moviezone-public .pf-page,
+html.moviezone-public .th-page,
+html.moviezone-public .ev-page,
+html.moviezone-public .ed-page,
+html.moviezone-public .md-page,
+html.moviezone-public .fav-page,
+html.moviezone-public .fp-page {
   min-height: calc(100vh - var(--cinema-header-offset, 76px));
   padding-top: var(--user-page-pad-y) !important;
   padding-bottom: var(--user-page-pad-bottom) !important;
 }
 
-html.cinetoon-public .auth-page-wrapper {
+html.moviezone-public .auth-page-wrapper {
   min-height: calc(100vh - var(--cinema-header-offset, 76px));
   padding: var(--user-page-pad-y) 16px var(--user-page-pad-bottom) !important;
 }
 
-html.cinetoon-public .home-section {
+html.moviezone-public .home-section {
   padding-top: var(--user-section-gap) !important;
   padding-bottom: var(--user-section-gap) !important;
 }
 
-html.cinetoon-public .mv-header,
-html.cinetoon-public .ev-header,
-html.cinetoon-public .pf-header,
-html.cinetoon-public .home-section-header {
+html.moviezone-public .mv-header,
+html.moviezone-public .ev-header,
+html.moviezone-public .pf-header,
+html.moviezone-public .home-section-header {
   gap: clamp(16px, 2vw, 24px) !important;
   margin-bottom: clamp(22px, 3vw, 32px) !important;
 }
 
-html.cinetoon-public .fd-page .row.align-items-end,
-html.cinetoon-public .voucher-page .row.align-items-end,
-html.cinetoon-public .fav-page .row.align-items-end {
+html.moviezone-public .fd-page .row.align-items-end,
+html.moviezone-public .voucher-page .row.align-items-end,
+html.moviezone-public .fav-page .row.align-items-end {
   margin-bottom: clamp(22px, 3vw, 32px) !important;
 }
 
-html.cinetoon-public .mv-title,
-html.cinetoon-public .fd-title,
-html.cinetoon-public .pf-title,
-html.cinetoon-public .ev-title,
-html.cinetoon-public .ed-title,
-html.cinetoon-public .md-title,
-html.cinetoon-public .fav-title,
-html.cinetoon-public .page-title {
+html.moviezone-public .mv-title,
+html.moviezone-public .fd-title,
+html.moviezone-public .pf-title,
+html.moviezone-public .ev-title,
+html.moviezone-public .ed-title,
+html.moviezone-public .md-title,
+html.moviezone-public .fav-title,
+html.moviezone-public .page-title {
   font-size: var(--user-title-size) !important;
   letter-spacing: 3.5px !important;
   line-height: 1.02 !important;
   margin-bottom: 10px !important;
 }
 
-html.cinetoon-public .home-section-title,
-html.cinetoon-public .pf-card-title,
-html.cinetoon-public .fd-cart-panel-title,
-html.cinetoon-public .md-panel-title,
-html.cinetoon-public .fav-modal-title,
-html.cinetoon-public .pf-modal-title,
-html.cinetoon-public .th-modal-title,
-html.cinetoon-public .modal-title {
+html.moviezone-public .home-section-title,
+html.moviezone-public .pf-card-title,
+html.moviezone-public .fd-cart-panel-title,
+html.moviezone-public .md-panel-title,
+html.moviezone-public .fav-modal-title,
+html.moviezone-public .pf-modal-title,
+html.moviezone-public .th-modal-title,
+html.moviezone-public .modal-title {
   font-size: var(--user-section-title-size) !important;
   line-height: 1.1 !important;
 }
 
-html.cinetoon-public .mv-title-bar,
-html.cinetoon-public .pf-title-bar,
-html.cinetoon-public .ev-strip,
-html.cinetoon-public .ed-strip,
-html.cinetoon-public .md-strip,
-html.cinetoon-public .home-section-title::after,
-html.cinetoon-public .auth-strip,
-html.cinetoon-public .fp-strip {
+html.moviezone-public .mv-title-bar,
+html.moviezone-public .pf-title-bar,
+html.moviezone-public .ev-strip,
+html.moviezone-public .ed-strip,
+html.moviezone-public .md-strip,
+html.moviezone-public .home-section-title::after,
+html.moviezone-public .auth-strip,
+html.moviezone-public .fp-strip {
   width: 56px !important;
   height: 3px !important;
   border-radius: 3px !important;
 }
 
-html.cinetoon-public .mv-filters,
-html.cinetoon-public .ev-search-card,
-html.cinetoon-public .pf-hero,
-html.cinetoon-public .pf-card,
-html.cinetoon-public .fd-cart-panel,
-html.cinetoon-public .fd-card,
-html.cinetoon-public .voucher-card,
-html.cinetoon-public .mc-card,
-html.cinetoon-public .ec-card,
-html.cinetoon-public .fav-modal,
-html.cinetoon-public .pf-modal,
-html.cinetoon-public .th-modal,
-html.cinetoon-public .md-booking-panel,
-html.cinetoon-public .auth-card,
-html.cinetoon-public .fp-card,
-html.cinetoon-public .modal-content {
+html.moviezone-public .mv-filters,
+html.moviezone-public .ev-search-card,
+html.moviezone-public .pf-hero,
+html.moviezone-public .pf-card,
+html.moviezone-public .fd-cart-panel,
+html.moviezone-public .fd-card,
+html.moviezone-public .voucher-card,
+html.moviezone-public .mc-card,
+html.moviezone-public .ec-card,
+html.moviezone-public .fav-modal,
+html.moviezone-public .pf-modal,
+html.moviezone-public .th-modal,
+html.moviezone-public .md-booking-panel,
+html.moviezone-public .auth-card,
+html.moviezone-public .fp-card,
+html.moviezone-public .modal-content {
   border-radius: var(--user-card-radius) !important;
   border-color: var(--user-border) !important;
 }
 
-html.cinetoon-public .pf-card,
-html.cinetoon-public .fd-cart-panel,
-html.cinetoon-public .md-booking-panel,
-html.cinetoon-public .auth-card,
-html.cinetoon-public .fp-card,
-html.cinetoon-public .modal-body {
+html.moviezone-public .pf-card,
+html.moviezone-public .fd-cart-panel,
+html.moviezone-public .md-booking-panel,
+html.moviezone-public .auth-card,
+html.moviezone-public .fp-card,
+html.moviezone-public .modal-body {
   padding: var(--user-card-padding) !important;
 }
 
-html.cinetoon-public .pf-hero {
+html.moviezone-public .pf-hero {
   padding: clamp(20px, 2.6vw, 28px) !important;
 }
 
-html.cinetoon-public .mv-input,
-html.cinetoon-public .mv-select,
-html.cinetoon-public .ev-search-input,
-html.cinetoon-public .fd-search,
-html.cinetoon-public .fd-select,
-html.cinetoon-public .pf-input,
-html.cinetoon-public .th-search-input,
-html.cinetoon-public .auth-input,
-html.cinetoon-public .auth-datepicker-input,
-html.cinetoon-public .fp-input,
-html.cinetoon-public .md-select,
-html.cinetoon-public main input.form-control,
-html.cinetoon-public main select.form-select,
-html.cinetoon-public main textarea.form-control {
+html.moviezone-public .mv-input,
+html.moviezone-public .mv-select,
+html.moviezone-public .ev-search-input,
+html.moviezone-public .fd-search,
+html.moviezone-public .fd-select,
+html.moviezone-public .pf-input,
+html.moviezone-public .th-search-input,
+html.moviezone-public .auth-input,
+html.moviezone-public .auth-datepicker-input,
+html.moviezone-public .fp-input,
+html.moviezone-public .md-select,
+html.moviezone-public main input.form-control,
+html.moviezone-public main select.form-select,
+html.moviezone-public main textarea.form-control {
   min-height: var(--user-control-height) !important;
   border-radius: var(--user-control-radius) !important;
   font-size: var(--user-control-font) !important;
 }
 
-html.cinetoon-public .auth-input-group,
-html.cinetoon-public .fp-input-wrap,
-html.cinetoon-public .ev-search-wrap,
-html.cinetoon-public .search-box .form-control,
-html.cinetoon-public .search-box .input-group-text {
+html.moviezone-public .auth-input-group,
+html.moviezone-public .fp-input-wrap,
+html.moviezone-public .ev-search-wrap,
+html.moviezone-public .search-box .form-control,
+html.moviezone-public .search-box .input-group-text {
   min-height: var(--user-control-height) !important;
   border-radius: var(--user-control-radius) !important;
 }
 
-html.cinetoon-public .search-box .form-control {
+html.moviezone-public .search-box .form-control {
   border-top-right-radius: 0 !important;
   border-bottom-right-radius: 0 !important;
 }
 
-html.cinetoon-public .search-box .input-group-text {
+html.moviezone-public .search-box .input-group-text {
   border-top-left-radius: 0 !important;
   border-bottom-left-radius: 0 !important;
 }
 
-html.cinetoon-public .mv-toggle,
-html.cinetoon-public .pf-tabs,
-html.cinetoon-public .fd-cats,
-html.cinetoon-public .filter-bar {
+html.moviezone-public .mv-toggle,
+html.moviezone-public .pf-tabs,
+html.moviezone-public .fd-cats,
+html.moviezone-public .filter-bar {
   gap: 6px !important;
 }
 
-html.cinetoon-public .mv-toggle-btn,
-html.cinetoon-public .pf-tab,
-html.cinetoon-public .filter-btn,
-html.cinetoon-public .fd-cat-btn,
-html.cinetoon-public .fav-filter-btn,
-html.cinetoon-public .pf-filter-btn,
-html.cinetoon-public .md-date-chip,
-html.cinetoon-public .md-step-pill {
+html.moviezone-public .mv-toggle-btn,
+html.moviezone-public .pf-tab,
+html.moviezone-public .filter-btn,
+html.moviezone-public .fd-cat-btn,
+html.moviezone-public .fav-filter-btn,
+html.moviezone-public .pf-filter-btn,
+html.moviezone-public .md-date-chip,
+html.moviezone-public .md-step-pill {
   min-height: 34px !important;
   border-radius: 8px !important;
   padding: 7px 14px !important;
@@ -609,26 +609,26 @@ html.cinetoon-public .md-step-pill {
   line-height: 1.1 !important;
 }
 
-html.cinetoon-public .mc-btn,
-html.cinetoon-public .ec-btn,
-html.cinetoon-public .fd-add-btn,
-html.cinetoon-public .fd-checkout-btn,
-html.cinetoon-public .pf-btn-primary,
-html.cinetoon-public .pf-btn-ghost,
-html.cinetoon-public .pf-btn-yellow,
-html.cinetoon-public .btn-redeem,
-html.cinetoon-public .btn-redeemed,
-html.cinetoon-public .ev-empty-btn,
-html.cinetoon-public .ed-empty-btn,
-html.cinetoon-public .home-section-link,
-html.cinetoon-public .md-book-btn,
-html.cinetoon-public .md-fav-btn,
-html.cinetoon-public .auth-btn-primary,
-html.cinetoon-public .fp-btn,
-html.cinetoon-public .btn-gradient,
-html.cinetoon-public .btn-modal-save,
-html.cinetoon-public .btn-modal-cancel,
-html.cinetoon-public .btn-confirm-remove {
+html.moviezone-public .mc-btn,
+html.moviezone-public .ec-btn,
+html.moviezone-public .fd-add-btn,
+html.moviezone-public .fd-checkout-btn,
+html.moviezone-public .pf-btn-primary,
+html.moviezone-public .pf-btn-ghost,
+html.moviezone-public .pf-btn-yellow,
+html.moviezone-public .btn-redeem,
+html.moviezone-public .btn-redeemed,
+html.moviezone-public .ev-empty-btn,
+html.moviezone-public .ed-empty-btn,
+html.moviezone-public .home-section-link,
+html.moviezone-public .md-book-btn,
+html.moviezone-public .md-fav-btn,
+html.moviezone-public .auth-btn-primary,
+html.moviezone-public .fp-btn,
+html.moviezone-public .btn-gradient,
+html.moviezone-public .btn-modal-save,
+html.moviezone-public .btn-modal-cancel,
+html.moviezone-public .btn-confirm-remove {
   min-height: 38px !important;
   border-radius: var(--user-control-radius) !important;
   display: inline-flex !important;
@@ -638,97 +638,97 @@ html.cinetoon-public .btn-confirm-remove {
   font-size: 13px !important;
 }
 
-html.cinetoon-public .mc-btn,
-html.cinetoon-public .ec-btn,
-html.cinetoon-public .fd-add-btn,
-html.cinetoon-public .fd-checkout-btn,
-html.cinetoon-public .auth-btn-primary,
-html.cinetoon-public .fp-btn {
+html.moviezone-public .mc-btn,
+html.moviezone-public .ec-btn,
+html.moviezone-public .fd-add-btn,
+html.moviezone-public .fd-checkout-btn,
+html.moviezone-public .auth-btn-primary,
+html.moviezone-public .fp-btn {
   width: 100% !important;
 }
 
-html.cinetoon-public .mc-card,
-html.cinetoon-public .ec-card {
+html.moviezone-public .mc-card,
+html.moviezone-public .ec-card {
   background: var(--user-card) !important;
   border: 1px solid var(--user-border) !important;
 }
 
-html.cinetoon-public .mc-body,
-html.cinetoon-public .ec-body {
+html.moviezone-public .mc-body,
+html.moviezone-public .ec-body {
   min-height: 108px !important;
   padding: 12px 14px 14px !important;
 }
 
-html.cinetoon-public .mc-title,
-html.cinetoon-public .ec-title {
+html.moviezone-public .mc-title,
+html.moviezone-public .ec-title {
   font-size: 16px !important;
   line-height: 1.15 !important;
 }
 
-html.cinetoon-public .mc-genre,
-html.cinetoon-public .mc-release,
-html.cinetoon-public .ec-date,
-html.cinetoon-public .mv-count,
-html.cinetoon-public .pf-count,
-html.cinetoon-public .ev-subtitle,
-html.cinetoon-public .result-count,
-html.cinetoon-public .text-muted,
-html.cinetoon-public .card > p.text-muted {
+html.moviezone-public .mc-genre,
+html.moviezone-public .mc-release,
+html.moviezone-public .ec-date,
+html.moviezone-public .mv-count,
+html.moviezone-public .pf-count,
+html.moviezone-public .ev-subtitle,
+html.moviezone-public .result-count,
+html.moviezone-public .text-muted,
+html.moviezone-public .card > p.text-muted {
   color: var(--user-muted) !important;
 }
 
-html.cinetoon-public .stat-chip,
-html.cinetoon-public .pf-hs,
-html.cinetoon-public .points-badge,
-html.cinetoon-public .code-chip,
-html.cinetoon-public .point-cost,
-html.cinetoon-public .status-pill,
-html.cinetoon-public .pf-rank-card,
-html.cinetoon-public .pf-voucher-card,
-html.cinetoon-public .pf-tx-row,
-html.cinetoon-public .md-slot-card {
+html.moviezone-public .stat-chip,
+html.moviezone-public .pf-hs,
+html.moviezone-public .points-badge,
+html.moviezone-public .code-chip,
+html.moviezone-public .point-cost,
+html.moviezone-public .status-pill,
+html.moviezone-public .pf-rank-card,
+html.moviezone-public .pf-voucher-card,
+html.moviezone-public .pf-tx-row,
+html.moviezone-public .md-slot-card {
   border-radius: var(--user-card-radius) !important;
 }
 
-html.cinetoon-public .home-page .mySwiper img {
+html.moviezone-public .home-page .mySwiper img {
   height: clamp(320px, 40vw, 520px) !important;
 }
 
-html.cinetoon-public .row.g-4,
-html.cinetoon-public .row.g-3 {
+html.moviezone-public .row.g-4,
+html.moviezone-public .row.g-3 {
   --bs-gutter-x: clamp(16px, 1.8vw, 24px);
   --bs-gutter-y: clamp(16px, 1.8vw, 24px);
 }
 
 @media (max-width: 767.98px) {
-  html.cinetoon-public {
+  html.moviezone-public {
     --user-page-pad-y: 24px;
     --user-page-pad-bottom: 56px;
     --user-card-padding: 18px;
     --user-title-size: clamp(28px, 9vw, 36px);
   }
 
-  html.cinetoon-public .mv-header,
-  html.cinetoon-public .ev-header,
-  html.cinetoon-public .pf-header,
-  html.cinetoon-public .home-section-header {
+  html.moviezone-public .mv-header,
+  html.moviezone-public .ev-header,
+  html.moviezone-public .pf-header,
+  html.moviezone-public .home-section-header {
     align-items: flex-start !important;
     margin-bottom: 22px !important;
   }
 
-  html.cinetoon-public .mv-filters,
-  html.cinetoon-public .ev-search-card {
+  html.moviezone-public .mv-filters,
+  html.moviezone-public .ev-search-card {
     width: 100% !important;
     max-width: 100% !important;
     padding: 14px !important;
   }
 
-  html.cinetoon-public .pf-hero-stats,
-  html.cinetoon-public .stat-chip {
+  html.moviezone-public .pf-hero-stats,
+  html.moviezone-public .stat-chip {
     width: 100%;
   }
 
-  html.cinetoon-public .home-page .mySwiper img {
+  html.moviezone-public .home-page .mySwiper img {
     height: 320px !important;
   }
 }

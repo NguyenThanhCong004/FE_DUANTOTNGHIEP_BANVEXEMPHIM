@@ -6,33 +6,33 @@
   padding: 0;
 }
 
-html.cinetoon-public main {
+html.moviezone-public main {
   padding-top: 32px;
 }
 
 /* Sync spacing from header to content across public pages */
-html.cinetoon-public main > *:first-child {
+html.moviezone-public main > *:first-child {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
 
 /* Many pages place <style> before content wrapper, need to reset next element */
-html.cinetoon-public main > style + * {
+html.moviezone-public main > style + * {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
 
 /* Sync page titles across public pages */
-html.cinetoon-public .page-title,
-html.cinetoon-public .mv-title,
-html.cinetoon-public .ev-title,
-html.cinetoon-public .fav-title,
-html.cinetoon-public .fd-title,
-html.cinetoon-public .th-title,
-html.cinetoon-public .auth-title,
-html.cinetoon-public .fp-card-title,
-html.cinetoon-public .md-title,
-html.cinetoon-public .ed-title {
+html.moviezone-public .page-title,
+html.moviezone-public .mv-title,
+html.moviezone-public .ev-title,
+html.moviezone-public .fav-title,
+html.moviezone-public .fd-title,
+html.moviezone-public .th-title,
+html.moviezone-public .auth-title,
+html.moviezone-public .fp-card-title,
+html.moviezone-public .md-title,
+html.moviezone-public .ed-title {
   font-family: var(--font-brand) !important;
   font-size: 32px !important;
   font-weight: 700 !important;

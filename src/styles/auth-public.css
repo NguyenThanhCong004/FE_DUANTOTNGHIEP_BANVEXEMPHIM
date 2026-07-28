@@ -2,7 +2,7 @@
  * Đồng bộ giao diện: đăng nhập / đăng ký / quên mật khẩu / đăng nhập nhân viên.
  * Dùng chung với design-tokens (--font-ui, màu site-chrome).
  */
-html.cinetoon-public .auth-public-page,
+html.moviezone-public .auth-public-page,
 html.admin-panel .staff-auth-page {
   font-family: var(--font-ui, system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
@@ -27,7 +27,7 @@ html.admin-panel .staff-auth-page {
 }
 
 /* Trang đăng nhập / đăng ký — cùng phong cách Navbar: zinc-950 + rose, không ảnh nền tách biệt */
-html.cinetoon-public .auth-public-page--navbar {
+html.moviezone-public .auth-public-page--navbar {
   min-height: 90vh;
   display: flex;
   align-items: center;
@@ -39,7 +39,7 @@ html.cinetoon-public .auth-public-page--navbar {
     linear-gradient(180deg, #09090b 0%, #18181b 100%);
 }
 
-html.cinetoon-public .auth-public-page--navbar .card.border-0 {
+html.moviezone-public .auth-public-page--navbar .card.border-0 {
   background: rgba(24, 24, 27, 0.92) !important;
   border: 1px solid rgba(63, 63, 70, 0.95) !important;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);

@@ -27,7 +27,7 @@ export default function EmployeeSelfServiceLayout() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const name = staff?.fullName || staff?.fullname || staff?.username || "Nhân viên";
+  const name = staff?.fullName || staff?.fullname || staff?.email || "Nhân viên";
   const cinemaName = activeShift?.cinemaName || staff?.cinemaName || "Đang tải rạp...";
 
   useEffect(() => {
@@ -46,9 +46,9 @@ export default function EmployeeSelfServiceLayout() {
       <header className="employee-self-header">
         <div className="header-left">
           <div className="brand-logo">
-            <div className="logo-icon">C</div>
+            <div className="logo-icon">M</div>
             <div className="logo-text">
-              <span className="brand-name">CINETOON</span>
+              <span className="brand-name">MOVIEZONE</span>
               <span className="brand-tag">STAFF</span>
             </div>
           </div>

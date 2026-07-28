@@ -1,285 +1,175 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Row, Col, Spinner } from "react-bootstrap";
-import AdminPanelPage from "../../components/admin/AdminPanelPage";
-import { getStoredStaff } from "../../utils/authStorage";
-import { apiFetch } from "../../utils/apiClient";
-import {
-  SHOWTIMES,
-  ROOMS,
-  STAFF,
-  PROMOTIONS,
-  ORDERS_ONLINE,
-  CINEMAS,
-} from "../../constants/apiEndpoints";
-import { formatNumber } from "../../utils/formatters";
+import React, { useMemo } from "react";
+import { Alert } from "react-bootstrap";
 
-function formatMoney(v) {
-  return formatNumber(v, "0");
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import KpiCard from "../../components/admin/dashboard/KpiCard";
+import ChartCard from "../../components/admin/dashboard/ChartCard";
+import RecentListCard from "../../components/admin/dashboard/RecentListCard";
+import BarChartWidget from "../../components/admin/dashboard/BarChartWidget";
+import DoughnutChartWidget from "../../components/admin/dashboard/DoughnutChartWidget";
+import { useApiData } from "../../components/admin/dashboard/useApiData";
+import { apiJson } from "../../utils/apiClient";
+import { ADMIN_DASHBOARD, ORDERS_ONLINE, SHOWTIMES } from "../../constants/apiEndpoints";
+import { getStoredStaff } from "../../utils/authStorage";
+import { formatNumber, formatVnd, formatDateTime, formatDate, formatTime } from "../../utils/formatters";
+
+function todayBounds() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
 }
 
 const AdminDashboard = () => {
-  const staffSession = getStoredStaff();
-  const cinemaId = staffSession?.cinemaId;
+  const staff = getStoredStaff();
+  const cinemaId = staff?.cinemaId;
 
-  const [loading, setLoading] = useState(true);
-  const [cinemaLabel, setCinemaLabel] = useState("");
-  const [stats, setStats] = useState({
-    revenueToday: 0,
-    showtimeCount: 0,
-    showtimeUpcoming: 0,
-    roomCount: 0,
-    staffCount: 0,
-    promoCount: 0,
-    ordersToday: 0,
-  });
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!cinemaId) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const today0 = new Date();
-        today0.setHours(0, 0, 0, 0);
-        const tonight = new Date();
-        tonight.setHours(23, 59, 59, 999);
-
-        // Fetch song song các dữ liệu cần thiết của rạp
-        const [ordersRes, stRes, rmRes, sfRes, cRes, prRes] = await Promise.all([
-          apiFetch(`${ORDERS_ONLINE.LIST}?cinemaId=${cinemaId}`),
-          apiFetch(`${SHOWTIMES.LIST}?cinemaId=${cinemaId}`),
-          apiFetch(`${ROOMS.LIST}?cinemaId=${cinemaId}`),
-          apiFetch(STAFF.LIST),
-          apiFetch(CINEMAS.BY_ID(cinemaId)),
-          apiFetch(`${PROMOTIONS.LIST}?cinemaId=${cinemaId}`),
-        ]);
-
-        // 1. Xử lý Đơn hàng & Doanh thu
-        const ordersJson = await ordersRes.json().catch(() => null);
-        const allOrders = Array.isArray(ordersJson?.data) ? ordersJson.data : [];
-        
-        let revenueToday = 0;
-        let ordersToday = 0;
-        
-        allOrders.forEach(o => {
-          const isOurCinema = o.cinemaId != null && Number(o.cinemaId) === Number(cinemaId); 
-          const isSuccess = o.status === 1; 
-          const created = o.createdAt ? new Date(o.createdAt) : null;
-          const isToday = created && created >= today0 && created <= tonight;
-
-          if (isOurCinema && isSuccess && isToday) {
-            ordersToday += 1;
-            revenueToday += Number(o.finalAmount) || 0;
-          }
-        });
-
-        // 2. Xử lý Suất chiếu (Chỉ tính suất chiếu của ngày hôm nay)
-        const stJson = await stRes.json().catch(() => null);
-        const allSlots = Array.isArray(stJson?.data) ? stJson.data : [];
-        
-        const slotsToday = allSlots.filter(s => {
-          const stDate = s.date ? new Date(s.date) : null;
-          if (!stDate) return false;
-          stDate.setHours(0,0,0,0);
-          return stDate.getTime() === today0.getTime();
-        });
-
-        const showtimeCount = slotsToday.length;
-        const showtimeUpcoming = slotsToday.length; 
-
-        // 3. Xử lý Phòng chiếu
-        const rmJson = await rmRes.json().catch(() => null);
-        const rooms = Array.isArray(rmJson?.data) ? rmJson.data : [];
-        const roomCount = rooms.length;
-
-        // 4. Xử lý Nhân viên
-        const sfJson = await sfRes.json().catch(() => null);
-        const staffList = Array.isArray(sfJson?.data) ? sfJson.data : [];
-        const staffCount = staffList.filter(
-          (s) => Number(s.cinemaId) === Number(cinemaId)
-        ).length;
-
-        // 5. Xử lý Khuyến mãi
-        const prJson = await prRes.json().catch(() => null);
-        const promos = Array.isArray(prJson?.data) ? prJson.data : [];
-        const promoCount = promos.length;
-
-        // 6. Lấy tên rạp
-        const cJson = await cRes.json().catch(() => null);
-        const cdata = cJson?.data ?? cJson;
-        const label = cdata?.name || "";
-
-        if (!mounted) return;
-        
-        setStats({
-          revenueToday,
-          showtimeCount,
-          showtimeUpcoming,
-          roomCount,
-          staffCount,
-          promoCount,
-          ordersToday,
-        });
-        setCinemaLabel(label);
-      } catch (error) {
-        console.error("Dashboard Fetch Error:", error);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [cinemaId]);
-
-  const statCards = useMemo(
-    () => [
-      {
-        title: "Doanh thu hôm nay",
-        value: formatMoney(stats.revenueToday),
-        subtitle: "VNĐ · đơn hoàn thành",
-        icon: "bi-cash-stack",
-        color: "#10b981",
-        hint: `${stats.ordersToday} đơn trong ngày`,
-      },
-      {
-        title: "Suất chiếu",
-        value: String(stats.showtimeCount),
-        subtitle: "tại rạp",
-        icon: "bi-calendar-check",
-        color: "#8b5cf6",
-        hint: `${stats.showtimeUpcoming} suất hôm nay`,
-      },
-      {
-        title: "Phòng chiếu",
-        value: String(stats.roomCount),
-        subtitle: "phòng",
-        icon: "bi-door-open",
-        color: "#3b82f6",
-        hint: "Theo rạp hiện tại",
-      },
-      {
-        title: "Nhân viên rạp",
-        value: String(stats.staffCount),
-        subtitle: "người",
-        icon: "bi-people",
-        color: "#f59e0b",
-        hint: "Được gán cinemaId",
-      },
-    ],
-    [stats]
+  const summary = useApiData(() => apiJson(ADMIN_DASHBOARD.SUMMARY(cinemaId)), [cinemaId]);
+  const revenueByDay = useApiData(() => apiJson(ADMIN_DASHBOARD.REVENUE_BY_DAY(cinemaId, 14)), [cinemaId]);
+  const ticketsByHour = useApiData(() => apiJson(ADMIN_DASHBOARD.TICKETS_BY_HOUR(cinemaId)), [cinemaId]);
+  const topMovies = useApiData(() => apiJson(ADMIN_DASHBOARD.TOP_MOVIES(cinemaId, 5)), [cinemaId]);
+  const seatTypeRatio = useApiData(() => apiJson(ADMIN_DASHBOARD.SEAT_TYPE_RATIO(cinemaId)), [cinemaId]);
+  const recentInvoices = useApiData(
+    () => apiJson(cinemaId ? `${ORDERS_ONLINE.LIST}?cinemaId=${cinemaId}` : ORDERS_ONLINE.LIST),
+    [cinemaId]
   );
-
-  const quickLinks = useMemo(
-    () => [
-      { to: "/admin/staff", label: "Nhân viên", icon: "bi-person-badge" },
-      { to: "/admin/showtimes", label: "Suất chiếu", icon: "bi-film" },
-      { to: "/admin/products", label: "Sản phẩm", icon: "bi-bag" },
-      { to: "/admin/promotions", label: "Khuyến mãi", icon: "bi-megaphone" },
-      { to: "/admin/invoices", label: "Hóa đơn", icon: "bi-receipt" },
-      { to: "/admin/users", label: "Khách hàng", icon: "bi-person-lines-fill" },
-    ],
-    []
+  const showtimesRaw = useApiData(
+    () => apiJson(cinemaId ? `${SHOWTIMES.LIST}?cinemaId=${cinemaId}` : SHOWTIMES.LIST),
+    [cinemaId]
   );
+  const showtimesToday = useMemo(() => {
+    if (!showtimesRaw.data) return [];
+    const { start, end } = todayBounds();
+    return showtimesRaw.data
+      .filter((s) => {
+        const t = new Date(s.startTime);
+        return t >= start && t <= end;
+      })
+      .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+  }, [showtimesRaw.data]);
 
-  const headerDescription = (
-    <>
-      <p className="lead mb-1">
-        {cinemaId != null
-          ? cinemaLabel || `Rạp #${cinemaId}`
-          : "Chưa có rạp — vui lòng liên hệ Super Admin gán rạp cho tài khoản của bạn."}
-      </p>
-      <p className="small text-white-50 mb-0">
-        Doanh thu/ngày tính trên các đơn hàng online hoàn thành của chi nhánh.
-      </p>
-    </>
-  );
+  const seatTypeTotal = (seatTypeRatio.data || []).reduce((a, b) => a + (b.ticketsSold || 0), 0);
+  const formatVN = (v) => formatVnd(v, { compact: true });
+
+  if (!cinemaId) {
+    return (
+      <AdminPanelPage icon="speedometer2" title="Bảng điều khiển Admin">
+        <div className="admin-empty py-5">
+          <h5 className="mb-2">Chưa có rạp</h5>
+          <p className="mb-0">Tài khoản chưa được gán rạp — vui lòng liên hệ Super Admin.</p>
+        </div>
+      </AdminPanelPage>
+    );
+  }
 
   return (
-    <AdminPanelPage icon="speedometer2" title="Bảng điều khiển Admin" description={headerDescription}>
-      {loading ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" variant="primary" />
-          <p className="text-muted mt-2 small">Đang tải số liệu…</p>
-        </div>
-      ) : (
-        <>
-          <div className="admin-stats-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-            {statCards.map((stat, index) => (
-              <div
-                key={stat.title}
-                className="admin-stat-card admin-slide-up"
-                style={{
-                  "--stat-color": stat.color,
-                  "--icon-bg": `${stat.color}15`,
-                  animationDelay: `${index * 0.08}s`,
-                }}
-              >
-                <div className="admin-stat-icon">
-                  <i className={`bi ${stat.icon}`}></i>
-                </div>
-                <div className="admin-stat-value">{stat.value}</div>
-                <div className="admin-stat-label">{stat.subtitle}</div>
-                <div className="fw-semibold small mt-2" style={{ color: "var(--admin-text)" }}>
-                  {stat.title}
-                </div>
-                <div className="small text-muted mt-1">{stat.hint}</div>
-              </div>
-            ))}
-          </div>
+    <AdminPanelPage icon="speedometer2" title="Bảng điều khiển Admin">
+      {summary.error ? <Alert variant="danger" className="mb-3">{summary.error}</Alert> : null}
 
-          <Row className="g-4 mt-1">
-            <Col lg={12}>
-              <div className="admin-card admin-slide-up">
-                <div className="admin-card-header">
-                  <h4>
-                    <i className="bi bi-lightning-charge me-2 text-warning"></i>
-                    Truy cập nhanh
-                  </h4>
-                </div>
-                <div className="admin-card-body">
-                  <Row className="g-2">
-                    {quickLinks.map((q) => (
-                      <Col xs={6} md={4} lg={2} key={q.to}>
-                        <Link
-                          to={q.to}
-                          className="admin-btn admin-btn-outline w-100 d-flex align-items-center justify-content-center gap-2 py-3 text-decoration-none"
-                        >
-                          <i className={`bi ${q.icon}`}></i>
-                          <span>{q.label}</span>
-                        </Link>
-                      </Col>
-                    ))}
-                  </Row>
-                </div>
-              </div>
-            </Col>
-            <Col lg={12}>
-              <div className="admin-card">
-                <div className="admin-card-header">
-                  <h4>
-                    <i className="bi bi-tags me-2 text-info"></i>
-                    Khuyến mãi tại rạp
-                  </h4>
-                </div>
-                <div className="admin-card-body">
-                  <p className="text-muted mb-0">
-                    Đang có <strong>{stats.promoCount}</strong> nhóm khuyến mãi đang hoạt động.
-                    <Link to="/admin/promotions" className="ms-2">
-                      Quản lý →
-                    </Link>
-                  </p>
-                </div>
-              </div>
-            </Col>
-          </Row>
-        </>
-      )}
+      <div className="admin-stats-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
+        <KpiCard title="Doanh thu hôm nay" value={formatVN(summary.data?.revenueToday)} color="#2a78d6" loading={summary.loading} />
+        <KpiCard title="Vé bán hôm nay" value={formatNumber(summary.data?.ticketsToday)} color="#eb6834" loading={summary.loading} />
+        <KpiCard title="Khách hàng hôm nay" value={formatNumber(summary.data?.customersToday)} color="#4a3aa7" loading={summary.loading} />
+        <KpiCard title="Phim đang chiếu" value={formatNumber(summary.data?.moviesShowingCount)} color="#e87ba4" loading={summary.loading} />
+        <KpiCard title="Suất chiếu hôm nay" value={formatNumber(summary.data?.showtimesToday)} color="#1baf7a" loading={summary.loading} />
+        <KpiCard title="Ghế đã bán" value={formatNumber(summary.data?.seatsSoldToday)} color="#eda100" loading={summary.loading} />
+      </div>
+
+      <div className="row g-4 mt-1">
+        <div className="col-lg-7">
+          <ChartCard
+            title="Doanh thu theo ngày (14 ngày gần nhất)"
+            loading={revenueByDay.loading}
+            error={revenueByDay.error}
+            isEmpty={!revenueByDay.loading && (revenueByDay.data || []).length === 0}
+          >
+            <BarChartWidget
+              labels={(revenueByDay.data || []).map((r) => formatDate(r.label, { day: "2-digit", month: "2-digit" }))}
+              datasets={[{ label: "Doanh thu", data: (revenueByDay.data || []).map((r) => r.totalAmount) }]}
+            />
+          </ChartCard>
+        </div>
+
+        <div className="col-lg-5">
+          <ChartCard
+            title="Vé bán theo giờ hôm nay"
+            loading={ticketsByHour.loading}
+            error={ticketsByHour.error}
+            isEmpty={!ticketsByHour.loading && (ticketsByHour.data || []).every((h) => !h.ticketCount)}
+          >
+            <BarChartWidget
+              labels={(ticketsByHour.data || []).map((h) => `${h.hour}h`)}
+              datasets={[{ label: "Vé bán", data: (ticketsByHour.data || []).map((h) => h.ticketCount) }]}
+            />
+          </ChartCard>
+        </div>
+
+        <div className="col-lg-7">
+          <ChartCard
+            title="Top phim bán chạy"
+            loading={topMovies.loading}
+            error={topMovies.error}
+            isEmpty={!topMovies.loading && (topMovies.data || []).length === 0}
+          >
+            <BarChartWidget
+              horizontal
+              labels={(topMovies.data || []).map((m) => m.movieTitle)}
+              datasets={[{ label: "Vé bán", data: (topMovies.data || []).map((m) => m.ticketsSold) }]}
+            />
+          </ChartCard>
+        </div>
+
+        <div className="col-lg-5">
+          <ChartCard
+            title="Tỷ lệ ghế VIP / thường"
+            loading={seatTypeRatio.loading}
+            error={seatTypeRatio.error}
+            isEmpty={!seatTypeRatio.loading && seatTypeTotal === 0}
+            emptyText="Hôm nay chưa bán vé"
+          >
+            <DoughnutChartWidget
+              soldLabel={(seatTypeRatio.data || [])[0]?.seatTypeName || "Loại 1"}
+              remainingLabel="Loại khác"
+              sold={(seatTypeRatio.data || [])[0]?.ticketsSold || 0}
+              total={seatTypeTotal}
+              centerLabel={formatNumber(seatTypeTotal)}
+              colorSold="#2a78d6"
+            />
+          </ChartCard>
+        </div>
+
+        <div className="col-lg-6">
+          <RecentListCard
+            title="Hóa đơn gần đây"
+            loading={recentInvoices.loading}
+            error={recentInvoices.error}
+            rows={(recentInvoices.data || []).slice(0, 10)}
+            rowKey={(r) => r.id}
+            columns={[
+              { key: "orderCode", label: "Mã đơn" },
+              { key: "customerName", label: "Khách hàng" },
+              { key: "finalAmount", label: "Tổng tiền", align: "end", render: (r) => formatVN(r.finalAmount) },
+              { key: "createdAt", label: "Thời gian", render: (r) => formatDateTime(r.createdAt) },
+            ]}
+          />
+        </div>
+
+        <div className="col-lg-6">
+          <RecentListCard
+            title="Suất chiếu hôm nay"
+            loading={showtimesRaw.loading}
+            error={showtimesRaw.error}
+            rows={showtimesToday}
+            rowKey={(r) => r.showtimeId}
+            columns={[
+              { key: "movie", label: "Phim", render: (r) => r.movieTitle || r.movie?.title || "—" },
+              { key: "room", label: "Phòng", render: (r) => r.roomName || r.room?.name || "—" },
+              { key: "startTime", label: "Giờ chiếu", render: (r) => formatTime(r.startTime) },
+            ]}
+          />
+        </div>
+      </div>
     </AdminPanelPage>
   );
 };

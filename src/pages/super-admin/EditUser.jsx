@@ -20,7 +20,6 @@ const buildUserForm = (editUser) => ({
   email: editUser?.email || "",
   phone: editUser?.phone || "",
   status: isActiveStatus(editUser?.status) ? 1 : 0,
-  username: editUser?.username || "",
   rankName: editUser?.rankName || "Hạng đồng",
   totalSpending: editUser?.totalSpending || 0,
 });
@@ -140,7 +139,7 @@ export default function EditUser() {
 
     return (
 
-      <AdminPanelPage icon="people" title="Lỗi" description="Không tìm thấy thông tin người dùng">
+      <AdminPanelPage icon="people" title="Lỗi">
 
         <div className="admin-card">
 
@@ -180,8 +179,6 @@ export default function EditUser() {
 
       title="Cập nhật trạng thái khách hàng"
 
-      description={`Chỉnh sửa quyền truy cập cho tài khoản: ${formData.fullname}`}
-
     >
 
       <div className="admin-card admin-slide-up" style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -189,8 +186,6 @@ export default function EditUser() {
         <div className="admin-card-header">
 
           <h4 className="mb-0">
-
-            <i className="bi bi-shield-lock text-primary me-2"></i>
 
             Quản lý trạng thái & Hạng
 
@@ -204,7 +199,6 @@ export default function EditUser() {
 
           {serverError && (
             <div className="alert alert-danger border-0 py-2 small mb-4">
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
               {serverError}
             </div>
           )}
@@ -222,8 +216,6 @@ export default function EditUser() {
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
 
-                  <i className="bi bi-person admin-search-icon" style={{ left: '15px' }}></i>
-
                   <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.fullname} disabled />
 
                 </div>
@@ -234,13 +226,11 @@ export default function EditUser() {
 
               <div className="col-md-6">
 
-                <label className="admin-form-label">Tên đăng nhập</label>
+                <label className="admin-form-label">Email</label>
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
 
-                  <i className="bi bi-at admin-search-icon" style={{ left: '15px' }}></i>
-
-                  <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.username} disabled />
+                  <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.email} disabled />
 
                 </div>
 
@@ -253,8 +243,6 @@ export default function EditUser() {
                 <label className="admin-form-label">Tổng chi tiêu</label>
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
-
-                  <i className="bi bi-cash-stack admin-search-icon" style={{ left: '15px' }}></i>
 
                   <input type="text" className="admin-search-input w-100 fw-bold text-success" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formatVnd(formData.totalSpending, { compact: true })} disabled />
 
@@ -269,8 +257,6 @@ export default function EditUser() {
                 <label className="admin-form-label">Hạng hiện tại (Tự động)</label>
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
-
-                  <i className="bi bi-star-fill admin-search-icon text-warning" style={{ left: '15px' }}></i>
 
                   <input type="text" className="admin-search-input w-100 fw-bold text-primary" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.rankName} disabled />
 
@@ -324,8 +310,6 @@ export default function EditUser() {
 
                     <p className="small text-muted mt-2">
 
-                      <i className="bi bi-info-circle me-1"></i>
-
                       Khóa tài khoản sẽ ngăn người dùng đăng nhập vào hệ thống.
 
                     </p>
@@ -356,8 +340,6 @@ export default function EditUser() {
 
               >
 
-                <i className="bi bi-x-circle me-2"></i>
-
                 Hủy bỏ
 
               </button>
@@ -387,8 +369,6 @@ export default function EditUser() {
                 ) : (
 
                   <>
-
-                    <i className="bi bi-check2-circle me-2"></i>
 
                     Cập nhật trạng thái
 
