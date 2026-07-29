@@ -16,6 +16,7 @@ const CreateMovie = () => {
   const editData = location.state?.editData;
   const posterInputRef = useRef(null);
   const bannerInputRef = useRef(null);
+  const genreDropdownRef = useRef(null);
   const quillMountRef = useRef(null);
   const quillRef = useRef(null);
   const lastPushedHtmlRef = useRef("");
@@ -44,10 +45,22 @@ const CreateMovie = () => {
   const [originalDate, setOriginalDate] = useState('');
   const [originalData, setOriginalData] = useState(null);
   const [editorMode, setEditorMode] = useState("loading");
+  const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
 
   useEffect(() => {
     fetchGenres();
   }, []);
+
+  useEffect(() => {
+    if (!genreDropdownOpen) return undefined;
+    const handleClickOutside = (e) => {
+      if (genreDropdownRef.current && !genreDropdownRef.current.contains(e.target)) {
+        setGenreDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [genreDropdownOpen]);
 
   const fetchGenres = async () => {
     try {
@@ -488,29 +501,55 @@ const CreateMovie = () => {
                   </div>
                   <div className="col-md-8 mb-4">
                     <label className="admin-form-label">Thể loại <span className="text-danger">*</span></label>
-                    <div
-                      className={`w-100 rounded ${errors.genre_ids ? 'border border-danger' : 'border'}`}
-                      style={{ padding: '10px 14px' }}
-                    >
-                      {genreOptions.length === 0 && <span className="text-muted small">Chưa có thể loại nào.</span>}
-                      <div className="d-flex flex-wrap gap-2">
-                        {genreOptions.map((g) => {
-                          const active = formData.genre_ids.includes(String(g.genreId));
-                          return (
-                            <button
-                              key={g.genreId}
-                              type="button"
-                              className={`admin-btn admin-btn-sm ${active ? 'admin-btn-primary' : 'admin-btn-outline'}`}
-                              onClick={() => handleGenreToggle(g.genreId)}
-                            >
-                              {g.name}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    <div className="position-relative" ref={genreDropdownRef}>
+                      <button
+                        type="button"
+                        className={`admin-search-input w-100 text-start d-flex align-items-center justify-content-between ${errors.genre_ids ? 'border-danger' : ''}`}
+                        onClick={() => setGenreDropdownOpen((prev) => !prev)}
+                        disabled={genreOptions.length === 0}
+                      >
+                        <span className={formData.genre_ids.length === 0 ? 'text-muted' : ''}>
+                          {genreOptions.length === 0
+                            ? 'Chưa có thể loại nào.'
+                            : formData.genre_ids.length === 0
+                              ? '-- Chọn thể loại --'
+                              : genreOptions
+                                  .filter((g) => formData.genre_ids.includes(String(g.genreId)))
+                                  .map((g) => g.name)
+                                  .join(', ')}
+                        </span>
+                        <i className={`bi bi-chevron-${genreDropdownOpen ? 'up' : 'down'} text-muted`}></i>
+                      </button>
+
+                      {genreDropdownOpen && genreOptions.length > 0 && (
+                        <div
+                          className="position-absolute w-100 mt-1 bg-white border rounded-3 shadow-sm"
+                          style={{ zIndex: 20, maxHeight: 260, overflowY: 'auto', padding: '8px 4px' }}
+                        >
+                          {genreOptions.map((g) => {
+                            const checked = formData.genre_ids.includes(String(g.genreId));
+                            return (
+                              <label
+                                key={g.genreId}
+                                className="d-flex align-items-center gap-2 px-2 py-2 rounded-2"
+                                style={{ cursor: 'pointer' }}
+                                onMouseDown={(e) => e.preventDefault()}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="form-check-input m-0"
+                                  checked={checked}
+                                  onChange={() => handleGenreToggle(g.genreId)}
+                                />
+                                <span>{g.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                     <small className="text-muted d-block mt-1">
-                      Nhấn để chọn hoặc bỏ chọn thể loại — chọn được nhiều thể loại cùng lúc.
+                      Nhấn để mở danh sách, tích chọn được nhiều thể loại cùng lúc.
                     </small>
                     {errors.genre_ids && <small className="text-danger fw-medium d-block">{errors.genre_ids}</small>}
                   </div>
