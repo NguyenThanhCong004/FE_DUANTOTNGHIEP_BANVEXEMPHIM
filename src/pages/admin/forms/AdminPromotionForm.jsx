@@ -43,6 +43,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
   const [moviesLoading, setMoviesLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(isEdit);
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   // 1. Load chi tiết khuyến mãi nếu là chế độ Sửa
   useEffect(() => {
@@ -313,6 +314,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
                       <Form.Control
                         type="date"
                         name="start_date"
+                        min={todayIso}
                         className={`promo-input ${errors.start_date ? "is-invalid border-danger" : ""}`}
                         value={formData.start_date}
                         onChange={handleInputChange}
@@ -324,6 +326,7 @@ export default function AdminPromotionForm({ mode = "add" }) {
                       <Form.Control
                         type="date"
                         name="end_date"
+                        min={formData.start_date || todayIso}
                         className={`promo-input ${errors.end_date ? "is-invalid border-danger" : ""}`}
                         value={formData.end_date}
                         onChange={handleInputChange}

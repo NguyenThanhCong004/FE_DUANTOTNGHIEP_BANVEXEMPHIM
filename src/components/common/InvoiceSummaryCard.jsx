@@ -43,6 +43,10 @@ function getTicketOriginalPrice(ticket) {
   return asNumber(ticket.originalPrice ?? ticket.price ?? ticket.finalPrice);
 }
 
+function getTicketMembershipDiscount(ticket) {
+  return asNumber(ticket.membershipDiscount);
+}
+
 function groupTicketsByType(tickets) {
   const groups = new Map();
   tickets.forEach((ticket) => {
@@ -53,16 +57,24 @@ function groupTicketsByType(tickets) {
       count: 0,
       originalTotal: 0,
       discountTotal: 0,
+      memberDiscountTotal: 0,
       total: 0,
     };
     current.count += 1;
     if (ticket.seatNumber) current.seatNumbers.push(ticket.seatNumber);
     current.originalTotal += getTicketOriginalPrice(ticket);
     current.discountTotal += asNumber(ticket.promotionDiscount);
+    current.memberDiscountTotal += getTicketMembershipDiscount(ticket);
     current.total += getTicketPrice(ticket);
     groups.set(typeName, current);
   });
   return Array.from(groups.values());
+}
+
+function formatPercent(value) {
+  const n = asNumber(value);
+  if (n <= 0) return null;
+  return Number.isInteger(n) ? `${n}%` : `${n.toFixed(1)}%`;
 }
 
 const sectionStyle = {
@@ -96,6 +108,8 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
   const ticketTotal = tickets.reduce((sum, ticket) => sum + getTicketPrice(ticket), 0);
   const ticketOriginalTotal = tickets.reduce((sum, ticket) => sum + getTicketOriginalPrice(ticket), 0);
   const promotionDiscountTotal = ticketGroups.reduce((sum, group) => sum + group.discountTotal, 0);
+  const membershipDiscountTotal = ticketGroups.reduce((sum, group) => sum + group.memberDiscountTotal, 0);
+  const afterPromoTotal = ticketOriginalTotal - promotionDiscountTotal;
   const foodTotal = foods.reduce((sum, food) => sum + asNumber(food.price) * asNumber(food.quantity || 1), 0);
   const subtotalBeforeVoucher = data.originalAmount != null ? asNumber(data.originalAmount) : ticketTotal + foodTotal;
   const voucherDiscountAmount = asNumber(data.discountAmount);
@@ -104,7 +118,24 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
     : Math.max(0, subtotalBeforeVoucher - voucherDiscountAmount);
   const showtimeValue = firstTicket.showtime || firstTicket.showtimeStart || firstTicket.startTime;
   const orderCode = data.orderCode || `#${data.id || emptyText}`;
-  const voucherLabel = data.voucherCode ? `Giảm voucher (${data.voucherCode})` : "Giảm voucher";
+
+  // % khuyến mãi / hạng hội viên tính theo hiệu số thực tế đã áp dụng trên vé (chính xác hơn
+  // là chỉ hiển thị % cấu hình hiện tại của khuyến mãi/hạng, vì các giá trị này có thể đã thay đổi
+  // kể từ lúc đặt vé).
+  const promotionPercentLabel = formatPercent(ticketOriginalTotal > 0 ? (promotionDiscountTotal / ticketOriginalTotal) * 100 : 0);
+  const membershipPercentLabel = formatPercent(afterPromoTotal > 0 ? (membershipDiscountTotal / afterPromoTotal) * 100 : 0);
+
+  const voucherPercentLabel = data.voucherDiscountType === "PERCENT" && data.voucherValue
+    ? ` — giảm ${data.voucherValue}%`
+    : data.voucherDiscountType === "FIXED" && data.voucherValue
+      ? ` — giảm ${formatVnd(data.voucherValue)}`
+      : "";
+  const voucherLabel = data.voucherCode
+    ? `Voucher (${data.voucherCode}${voucherPercentLabel})`
+    : "Giảm voucher";
+  const rankLabel = data.rankName
+    ? `Hạng hội viên — ${data.rankName}${membershipPercentLabel ? ` (${membershipPercentLabel})` : ""}`
+    : `Hạng hội viên${membershipPercentLabel ? ` (${membershipPercentLabel})` : ""}`;
 
   return (
     <div
@@ -225,12 +256,16 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
                       <th className="text-center">SL</th>
                       <th className="text-end">Giá gốc</th>
                       <th className="text-end">Khuyến mãi</th>
+                      <th className="text-end">Hạng hội viên</th>
                       <th className="text-end">Thành tiền</th>
                     </tr>
                   </thead>
                   <tbody>
                     {ticketGroups.map((group) => {
                       const seats = group.seatNumbers.length ? group.seatNumbers.join(", ") : emptyText;
+                      const groupPromoPercent = formatPercent(group.originalTotal > 0 ? (group.discountTotal / group.originalTotal) * 100 : 0);
+                      const groupAfterPromo = group.originalTotal - group.discountTotal;
+                      const groupMemberPercent = formatPercent(groupAfterPromo > 0 ? (group.memberDiscountTotal / groupAfterPromo) * 100 : 0);
                       return (
                         <tr key={group.typeName}>
                           <td className="fw-semibold">{group.typeName}</td>
@@ -240,7 +275,14 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
                           <td className="text-center fw-bold">{group.count}</td>
                           <td className="text-end">{formatVnd(group.originalTotal)}</td>
                           <td className="text-end text-success">
-                            {group.discountTotal > 0 ? `-${formatVnd(group.discountTotal)}` : emptyText}
+                            {group.discountTotal > 0
+                              ? <>-{formatVnd(group.discountTotal)}{groupPromoPercent && <div className="text-muted" style={{ fontSize: 11 }}>({groupPromoPercent})</div>}</>
+                              : emptyText}
+                          </td>
+                          <td className="text-end text-success">
+                            {group.memberDiscountTotal > 0
+                              ? <>-{formatVnd(group.memberDiscountTotal)}{groupMemberPercent && <div className="text-muted" style={{ fontSize: 11 }}>({groupMemberPercent})</div>}</>
+                              : emptyText}
                           </td>
                           <td className="text-end fw-bold">{formatVnd(group.total)}</td>
                         </tr>
@@ -298,22 +340,35 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
         </section>
 
         <section style={{ ...sectionStyle, background: "#ffffff" }}>
+          <div className="fw-bold small text-uppercase mb-2" style={{ color: "#64748b", letterSpacing: 0 }}>
+            Chi tiết ưu đãi áp dụng
+          </div>
           <div className="d-flex justify-content-between small mb-2" style={labelStyle}>
             <span>Tổng vé trước khuyến mãi</span>
             <span className="fw-bold" style={textStyle}>{formatVnd(ticketOriginalTotal || ticketTotal)}</span>
           </div>
           {promotionDiscountTotal > 0 ? (
             <div className="d-flex justify-content-between small mb-2 text-success">
-              <span>Giảm khuyến mãi</span>
+              <span>Giảm khuyến mãi{promotionPercentLabel ? ` (${promotionPercentLabel})` : ""}</span>
               <span className="fw-bold">-{formatVnd(promotionDiscountTotal)}</span>
             </div>
           ) : null}
+          {membershipDiscountTotal > 0 ? (
+            <div className="d-flex justify-content-between small mb-2 text-success">
+              <span>{rankLabel}</span>
+              <span className="fw-bold">-{formatVnd(membershipDiscountTotal)}</span>
+            </div>
+          ) : null}
+          <div className="d-flex justify-content-between small mb-2 pt-2 border-top" style={labelStyle}>
+            <span>Tổng tiền vé sau ưu đãi</span>
+            <span className="fw-bold" style={textStyle}>{formatVnd(ticketTotal)}</span>
+          </div>
           <div className="d-flex justify-content-between small mb-2" style={labelStyle}>
             <span>Tổng bắp nước / combo</span>
             <span className="fw-bold" style={textStyle}>{formatVnd(foodTotal)}</span>
           </div>
           <div className="d-flex justify-content-between small mb-2" style={labelStyle}>
-            <span>Tạm tính sau khuyến mãi</span>
+            <span>Tạm tính (đã gồm khuyến mãi + hạng hội viên)</span>
             <span className="fw-bold" style={textStyle}>{formatVnd(subtotalBeforeVoucher)}</span>
           </div>
           {voucherDiscountAmount > 0 ? (
@@ -324,7 +379,7 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
           ) : null}
           <div className="d-flex justify-content-between align-items-end gap-3 pt-3 mt-3 border-top">
             <span className="small fw-bold text-uppercase" style={{ color: "#334155", letterSpacing: 0 }}>
-              Tổng thanh toán
+              Còn lại phải thanh toán
             </span>
             <h3 className="fw-black m-0 text-end" style={{ color: "#dc2626" }}>
               {formatVnd(finalAmount)}

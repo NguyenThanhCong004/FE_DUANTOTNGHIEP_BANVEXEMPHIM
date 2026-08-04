@@ -18,12 +18,27 @@ function formatMoney(v) {
   return formatNumber(v, "0");
 }
 
+const toIso = (d) => {
+  if (!d || Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+};
+
+const PERIOD_PRESETS = [
+  { id: "today", label: "Hôm nay" },
+  { id: "7d", label: "7 ngày qua" },
+  { id: "30d", label: "30 ngày qua" },
+  { id: "custom", label: "Tùy chọn" },
+];
+
 const AdminDashboard = () => {
   const staffSession = getStoredStaff();
   const cinemaId = staffSession?.cinemaId;
 
   const [loading, setLoading] = useState(true);
   const [cinemaLabel, setCinemaLabel] = useState("");
+  const [period, setPeriod] = useState("today");
+  const [customFrom, setCustomFrom] = useState(toIso(new Date()));
+  const [customTo, setCustomTo] = useState(toIso(new Date()));
   const [stats, setStats] = useState({
     revenueToday: 0,
     showtimeCount: 0,
@@ -33,6 +48,24 @@ const AdminDashboard = () => {
     promoCount: 0,
     ordersToday: 0,
   });
+
+  const range = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    if (period === "7d") {
+      start.setDate(start.getDate() - 6);
+    } else if (period === "30d") {
+      start.setDate(start.getDate() - 29);
+    } else if (period === "custom") {
+      const from = customFrom ? new Date(`${customFrom}T00:00:00`) : start;
+      const to = customTo ? new Date(`${customTo}T23:59:59.999`) : end;
+      return { start: from, end: to };
+    }
+    return { start, end };
+  }, [period, customFrom, customTo]);
 
   useEffect(() => {
     let mounted = true;
@@ -44,10 +77,8 @@ const AdminDashboard = () => {
 
       setLoading(true);
       try {
-        const today0 = new Date();
-        today0.setHours(0, 0, 0, 0);
-        const tonight = new Date();
-        tonight.setHours(23, 59, 59, 999);
+        const rangeStart = range.start;
+        const rangeEnd = range.end;
 
         // Fetch song song các dữ liệu cần thiết của rạp
         const [ordersRes, stRes, rmRes, sfRes, cRes, prRes] = await Promise.all([
@@ -59,38 +90,43 @@ const AdminDashboard = () => {
           apiFetch(`${PROMOTIONS.LIST}?cinemaId=${cinemaId}`),
         ]);
 
-        // 1. Xử lý Đơn hàng & Doanh thu
+        // 1. Xử lý Đơn hàng & Doanh thu (theo khoảng thời gian đã chọn)
         const ordersJson = await ordersRes.json().catch(() => null);
         const allOrders = Array.isArray(ordersJson?.data) ? ordersJson.data : [];
-        
+
         let revenueToday = 0;
         let ordersToday = 0;
-        
-        allOrders.forEach(o => {
-          const isOurCinema = o.cinemaId != null && Number(o.cinemaId) === Number(cinemaId); 
-          const isSuccess = o.status === 1; 
-          const created = o.createdAt ? new Date(o.createdAt) : null;
-          const isToday = created && created >= today0 && created <= tonight;
 
-          if (isOurCinema && isSuccess && isToday) {
+        allOrders.forEach(o => {
+          const isOurCinema = o.cinemaId != null && Number(o.cinemaId) === Number(cinemaId);
+          const isSuccess = o.status === 1;
+          const created = o.createdAt ? new Date(o.createdAt) : null;
+          const isInRange = created && created >= rangeStart && created <= rangeEnd;
+
+          if (isOurCinema && isSuccess && isInRange) {
             ordersToday += 1;
             revenueToday += Number(o.finalAmount) || 0;
           }
         });
 
-        // 2. Xử lý Suất chiếu (Chỉ tính suất chiếu của ngày hôm nay)
+        // 2. Xử lý Suất chiếu (theo khoảng thời gian đã chọn)
         const stJson = await stRes.json().catch(() => null);
         const allSlots = Array.isArray(stJson?.data) ? stJson.data : [];
-        
+
+        const rangeStartDay = new Date(rangeStart);
+        rangeStartDay.setHours(0, 0, 0, 0);
+        const rangeEndDay = new Date(rangeEnd);
+        rangeEndDay.setHours(23, 59, 59, 999);
+
         const slotsToday = allSlots.filter(s => {
           const stDate = s.date ? new Date(s.date) : null;
           if (!stDate) return false;
-          stDate.setHours(0,0,0,0);
-          return stDate.getTime() === today0.getTime();
+          stDate.setHours(0, 0, 0, 0);
+          return stDate.getTime() >= rangeStartDay.getTime() && stDate.getTime() <= rangeEndDay.getTime();
         });
 
         const showtimeCount = slotsToday.length;
-        const showtimeUpcoming = slotsToday.length; 
+        const showtimeUpcoming = slotsToday.length;
 
         // 3. Xử lý Phòng chiếu
         const rmJson = await rmRes.json().catch(() => null);
@@ -135,25 +171,31 @@ const AdminDashboard = () => {
     return () => {
       mounted = false;
     };
-  }, [cinemaId]);
+  }, [cinemaId, range]);
+
+  const periodLabel = useMemo(() => {
+    const preset = PERIOD_PRESETS.find((p) => p.id === period);
+    if (period !== "custom") return preset?.label || "";
+    return `${toIso(range.start)} → ${toIso(range.end)}`;
+  }, [period, range]);
 
   const statCards = useMemo(
     () => [
       {
-        title: "Doanh thu hôm nay",
+        title: `Doanh thu (${periodLabel})`,
         value: formatMoney(stats.revenueToday),
         subtitle: "VNĐ · đơn hoàn thành",
         icon: "bi-cash-stack",
         color: "#10b981",
-        hint: `${stats.ordersToday} đơn trong ngày`,
+        hint: `${stats.ordersToday} đơn trong khoảng đã chọn`,
       },
       {
-        title: "Suất chiếu",
+        title: `Suất chiếu (${periodLabel})`,
         value: String(stats.showtimeCount),
         subtitle: "tại rạp",
         icon: "bi-calendar-check",
         color: "#8b5cf6",
-        hint: `${stats.showtimeUpcoming} suất hôm nay`,
+        hint: `${stats.showtimeUpcoming} suất trong khoảng đã chọn`,
       },
       {
         title: "Phòng chiếu",
@@ -172,7 +214,7 @@ const AdminDashboard = () => {
         hint: "Được gán cinemaId",
       },
     ],
-    [stats]
+    [stats, periodLabel]
   );
 
   const quickLinks = useMemo(
@@ -195,13 +237,57 @@ const AdminDashboard = () => {
           : "Chưa có rạp — vui lòng liên hệ Super Admin gán rạp cho tài khoản của bạn."}
       </p>
       <p className="small text-white-50 mb-0">
-        Doanh thu/ngày tính trên các đơn hàng online hoàn thành của chi nhánh.
+        Doanh thu tính trên các đơn hàng online hoàn thành của chi nhánh theo khoảng thời gian đã chọn.
       </p>
     </>
   );
 
   return (
     <AdminPanelPage icon="speedometer2" title="Bảng điều khiển Admin" description={headerDescription}>
+      <div className="admin-card admin-slide-up mb-4">
+        <div className="admin-card-body d-flex align-items-end gap-3 flex-wrap py-3">
+          <div>
+            <label className="small fw-bold text-muted d-block mb-1">Khoảng thời gian</label>
+            <div className="d-flex gap-1 flex-wrap">
+              {PERIOD_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`admin-btn admin-btn-sm ${period === p.id ? "admin-btn-primary" : "admin-btn-outline"}`}
+                  onClick={() => setPeriod(p.id)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {period === "custom" && (
+            <>
+              <div>
+                <label className="small fw-bold text-muted d-block mb-1">Từ ngày</label>
+                <input
+                  type="date"
+                  className="admin-search-input"
+                  value={customFrom}
+                  max={customTo || undefined}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="small fw-bold text-muted d-block mb-1">Đến ngày</label>
+                <input
+                  type="date"
+                  className="admin-search-input"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       {loading ? (
         <div className="text-center py-5">
           <Spinner animation="border" variant="primary" />

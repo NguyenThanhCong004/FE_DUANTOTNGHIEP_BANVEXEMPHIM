@@ -67,6 +67,7 @@ export default function ShiftManagement() {
   const [dragData, setDragData] = useState(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
   const [pickerCell, setPickerCell] = useState(null); // { date, shiftName, posId }
+  const [pickerDays, setPickerDays] = useState([]); // các ngày được chọn thêm để phân công cùng lúc
 
   // Auto-scroll logic when dragging
   useEffect(() => {
@@ -202,6 +203,68 @@ export default function ShiftManagement() {
     if (!dragData) return;
     assignStaffToCell(date, shiftObj, posObj, dragData.staffId, dragData.staffName);
     setDragData(null);
+  };
+
+  const openPicker = (dateStr, shiftName, posId) => {
+    const isOpen = pickerCell
+      && pickerCell.date === dateStr
+      && pickerCell.shiftName === shiftName
+      && pickerCell.posId === posId;
+    if (isOpen) {
+      setPickerCell(null);
+      setPickerDays([]);
+    } else {
+      setPickerCell({ date: dateStr, shiftName, posId });
+      setPickerDays([dateStr]);
+    }
+  };
+
+  const togglePickerDay = (dateStr) => {
+    setPickerDays(prev => prev.includes(dateStr)
+      ? prev.filter(d => d !== dateStr)
+      : [...prev, dateStr]);
+  };
+
+  // Gán 1 nhân viên vào cùng ca/vị trí cho nhiều ngày đã chọn trong tuần.
+  const assignStaffToDays = (days, shiftObj, posObj, staffId, staffName) => {
+    const todayStr = toIso(new Date());
+    const newShifts = [];
+    let skippedPast = 0;
+    let skippedDuplicate = 0;
+
+    days.forEach(date => {
+      if (date < todayStr) { skippedPast++; return; }
+      const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId)
+        || newShifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
+      if (alreadyInShift) { skippedDuplicate++; return; }
+      newShifts.push({
+        id: `local-${Date.now()}-${Math.random()}`,
+        serverId: null,
+        date,
+        shiftType: shiftObj.name,
+        startTime: shiftObj.start,
+        endTime: shiftObj.end,
+        role: posObj.role,
+        staffId,
+        staffName,
+        dirty: true
+      });
+    });
+
+    if (newShifts.length > 0) {
+      setShifts(prev => [...prev, ...newShifts]);
+    }
+
+    const skippedParts = [];
+    if (skippedPast > 0) skippedParts.push(`${skippedPast} ngày đã qua`);
+    if (skippedDuplicate > 0) skippedParts.push(`${skippedDuplicate} ngày đã có ca`);
+    const suffix = skippedParts.length > 0 ? ` (bỏ qua ${skippedParts.join(", ")})` : "";
+
+    if (newShifts.length > 0) {
+      showToast(`Đã phân công ${staffName} cho ${newShifts.length} ngày${suffix}.`, "success");
+    } else {
+      showToast(`Không thể phân công ${staffName} — tất cả ngày đã chọn đều không hợp lệ hoặc trùng ca.`, "warning");
+    }
   };
 
   const handleRemoveShift = (shift) => {
@@ -451,7 +514,7 @@ export default function ShiftManagement() {
                                   key={pos.id}
                                   onDragOver={(e) => !isPast && e.preventDefault()}
                                   onDrop={() => !isPast && onDropStaff(dateStr, shift, pos)}
-                                  onClick={() => !isPast && setPickerCell(isPickerOpen ? null : { date: dateStr, shiftName: shift.name, posId: pos.id })}
+                                  onClick={() => !isPast && openPicker(dateStr, shift.name, pos.id)}
                                   className={`position-slot-v2 p-2 rounded ${
                                     isPast
                                       ? (hasAssignments ? 'border-past-v2 bg-past-assigned' : 'bg-past-empty border-dashed-past')
@@ -476,7 +539,7 @@ export default function ShiftManagement() {
                                           style={{ width: '18px', height: '18px', fontSize: '0.75rem', lineHeight: 1, padding: 0 }}
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            setPickerCell(isPickerOpen ? null : { date: dateStr, shiftName: shift.name, posId: pos.id });
+                                            openPicker(dateStr, shift.name, pos.id);
                                           }}
                                           title="Thêm nhân viên vào ca này"
                                         >
@@ -492,12 +555,38 @@ export default function ShiftManagement() {
                                     const pickerStaffOptions = filteredStaff.filter(
                                       staff => !assignedIdsInShift.has(staff.staffId || staff.id)
                                     );
+                                    const todayStr = toIso(new Date());
                                     return (
                                     <div
                                       className="bg-white border rounded shadow-lg"
-                                      style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, maxHeight: 220, overflowY: 'auto' }}
+                                      style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, maxHeight: 280, overflowY: 'auto' }}
                                       onClick={(e) => e.stopPropagation()}
                                     >
+                                      <div className="p-2 border-bottom bg-light">
+                                        <div className="text-muted mb-1" style={{ fontSize: '0.6rem' }}>
+                                          Áp dụng cho ngày ({pickerDays.length} đã chọn):
+                                        </div>
+                                        <div className="d-flex flex-wrap gap-1">
+                                          {weekDays.map((day, wIdx) => {
+                                            const ds = toIso(day);
+                                            const dayPast = ds < todayStr;
+                                            const daySelected = pickerDays.includes(ds);
+                                            return (
+                                              <button
+                                                key={wIdx}
+                                                type="button"
+                                                disabled={dayPast}
+                                                className={`btn btn-sm ${daySelected ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                                style={{ fontSize: '0.6rem', padding: '2px 6px', opacity: dayPast ? 0.35 : 1 }}
+                                                onClick={() => togglePickerDay(ds)}
+                                                title={`${DAY_NAMES[day.getDay()]} (${ds})`}
+                                              >
+                                                {DAY_NAMES[day.getDay()].replace('Thứ ', 'T').replace('Chủ Nhật', 'CN')}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
                                       {pickerStaffOptions.length === 0 ? (
                                         <div className="text-muted small p-2 text-center">Không còn nhân viên trống ca này</div>
                                       ) : pickerStaffOptions.map((staff) => (
@@ -507,8 +596,10 @@ export default function ShiftManagement() {
                                           className="btn btn-light w-100 text-start rounded-0 border-0 py-2 px-3"
                                           style={{ fontSize: '0.75rem' }}
                                           onClick={() => {
-                                            assignStaffToCell(dateStr, shift, pos, staff.staffId || staff.id, staff.fullname || staff.fullName || staff.name || "Không tên");
+                                            const days = pickerDays.length > 0 ? pickerDays : [dateStr];
+                                            assignStaffToDays(days, shift, pos, staff.staffId || staff.id, staff.fullname || staff.fullName || staff.name || "Không tên");
                                             setPickerCell(null);
+                                            setPickerDays([]);
                                           }}
                                         >
                                           {staff.fullname || staff.fullName || staff.name}

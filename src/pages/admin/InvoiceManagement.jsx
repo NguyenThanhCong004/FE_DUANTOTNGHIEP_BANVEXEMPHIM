@@ -12,6 +12,9 @@ import InvoiceSummaryCard from '../../components/common/InvoiceSummaryCard';
 
 const InvoiceManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,8 +112,14 @@ const InvoiceManagement = () => {
 
   const filteredInvoices = useMemo(() => {
     return invoices
+      .filter((i) => {
+        if (statusFilter !== 'all' && i.status !== statusFilter) return false;
+        if (fromDate && (!i.createdAt || i.createdAt.slice(0, 10) < fromDate)) return false;
+        if (toDate && (!i.createdAt || i.createdAt.slice(0, 10) > toDate)) return false;
+        return true;
+      })
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  }, [invoices]);
+  }, [invoices, statusFilter, fromDate, toDate]);
 
   // Pagination Logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -118,26 +127,33 @@ const InvoiceManagement = () => {
   const currentItems = filteredInvoices.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage);
 
-  // Reset to page 1 when searching
+  // Reset to page 1 when lọc thay đổi
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, effectiveCinemaId]);
+  }, [searchTerm, effectiveCinemaId, statusFilter, fromDate, toDate]);
 
+  const resetFilters = () => {
+    setStatusFilter('all');
+    setFromDate('');
+    setToDate('');
+  };
+  const hasActiveFilters = statusFilter !== 'all' || fromDate || toDate;
+
+  // Thống kê tính theo đúng bộ lọc đang áp dụng (ngày/trạng thái) để phản ánh đúng dữ liệu đang xem.
   const invoiceStats = useMemo(() => {
-    // Chỉ cộng dồn doanh thu nếu trạng thái là 'completed'
-    const totalRev = invoices.reduce((a, i) => {
+    const totalRev = filteredInvoices.reduce((a, i) => {
       if (i.status === 'completed') {
         return a + (Number(i.total) || 0);
       }
       return a;
     }, 0);
-    
-    const pending = invoices.filter((i) => i.status === 'pending').length;
-    const completed = invoices.filter((i) => i.status === 'completed').length;
-    const cancelled = invoices.filter((i) => i.status === 'cancelled').length;
-    
+
+    const pending = filteredInvoices.filter((i) => i.status === 'pending').length;
+    const completed = filteredInvoices.filter((i) => i.status === 'completed').length;
+    const cancelled = filteredInvoices.filter((i) => i.status === 'cancelled').length;
+
     return { totalRev, pending, completed, cancelled };
-  }, [invoices]);
+  }, [filteredInvoices]);
   const getStatusBadge = (status) => {
     switch (status) {
       case 'completed':
@@ -203,6 +219,53 @@ const InvoiceManagement = () => {
                 aria-label="Tìm hóa đơn"
               />
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-card admin-slide-up mb-4">
+        <div className="admin-card-body d-flex align-items-end gap-3 flex-wrap py-3">
+          <div>
+            <label className="small fw-bold text-muted d-block mb-1">Trạng thái</label>
+            <select
+              className="admin-search-input"
+              style={{ minWidth: 170 }}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="pending">Chờ thanh toán</option>
+              <option value="completed">Hoàn thành</option>
+              <option value="cancelled">Đã hủy</option>
+            </select>
+          </div>
+          <div>
+            <label className="small fw-bold text-muted d-block mb-1">Từ ngày</label>
+            <input
+              type="date"
+              className="admin-search-input"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="small fw-bold text-muted d-block mb-1">Đến ngày</label>
+            <input
+              type="date"
+              className="admin-search-input"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+          </div>
+          {hasActiveFilters && (
+            <button type="button" className="admin-btn admin-btn-outline" onClick={resetFilters}>
+              Xóa lọc
+            </button>
+          )}
+          <div className="ms-auto small text-muted">
+            Đang hiển thị <strong>{filteredInvoices.length}</strong> / {invoices.length} hóa đơn
           </div>
         </div>
       </div>
