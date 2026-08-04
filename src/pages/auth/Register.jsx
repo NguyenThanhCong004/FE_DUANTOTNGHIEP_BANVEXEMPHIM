@@ -347,7 +347,7 @@ const Register = () => {
           <h2 className="auth-title">Tạo Tài Khoản</h2>
           <p className="auth-subtitle">Đăng ký để nhận nhiều ưu đãi hấp dẫn</p>
 
-          <form onSubmit={(e) => { e.preventDefault(); handleRegister(); }}>
+          <form noValidate onSubmit={(e) => { e.preventDefault(); handleRegister(); }}>
             <div className="auth-row">
               <div className="auth-field">
                 <label className="auth-label">Họ và tên <span className="req">*</span></label>
@@ -369,7 +369,9 @@ const Register = () => {
                 <div className={`auth-input-group${fieldErrors.email ? ' has-error' : ''}`}>
                   <span className="auth-input-icon"><i className="fas fa-envelope" /></span>
                   <input
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
                     className="auth-input"
                     placeholder="example@gmail.com"
                     value={email}
