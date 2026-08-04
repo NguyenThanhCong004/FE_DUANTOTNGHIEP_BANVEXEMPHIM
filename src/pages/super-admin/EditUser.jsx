@@ -20,7 +20,6 @@ const buildUserForm = (editUser) => ({
   email: editUser?.email || "",
   phone: editUser?.phone || "",
   status: isActiveStatus(editUser?.status) ? 1 : 0,
-  username: editUser?.username || "",
   rankName: editUser?.rankName || "Hạng đồng",
   totalSpending: editUser?.totalSpending || 0,
 });
@@ -140,7 +139,7 @@ export default function EditUser() {
 
     return (
 
-      <AdminPanelPage icon="people" title="Lỗi" description="Không tìm thấy thông tin người dùng">
+      <AdminPanelPage icon="people" title="Lỗi">
 
         <div className="admin-card">
 
@@ -179,8 +178,6 @@ export default function EditUser() {
       icon="person-gear"
 
       title="Cập nhật trạng thái khách hàng"
-
-      description={`Chỉnh sửa quyền truy cập cho tài khoản: ${formData.fullname}`}
 
     >
 
@@ -229,11 +226,11 @@ export default function EditUser() {
 
               <div className="col-md-6">
 
-                <label className="admin-form-label">Tên đăng nhập</label>
+                <label className="admin-form-label">Email</label>
 
                 <div className="admin-search-wrapper w-100 mt-1 opacity-75">
 
-                  <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.username} disabled />
+                  <input type="text" className="admin-search-input w-100" style={{ paddingLeft: '45px', background: '#f8f9fa' }} value={formData.email} disabled />
 
                 </div>
 

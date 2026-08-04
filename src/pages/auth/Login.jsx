@@ -52,7 +52,7 @@ const Login = ({ mode = "user" }) => {
       const res = await fetch(apiUrl(isStaffLogin ? AUTH.STAFF_LOGIN : AUTH.LOGIN), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: loginName, password }),
+        body: JSON.stringify({ account: loginName, password }),
       });
 
       const json = await res.json().catch(() => null);
@@ -110,11 +110,11 @@ const Login = ({ mode = "user" }) => {
           if (activeShift) {
             navigate("/staff/sales");
           } else {
-            navigate("/staff/ca-lam");
+            navigate("/staff/shifts");
           }
         } catch (err) {
           console.error("Lỗi kiểm tra ca làm:", err);
-          navigate("/staff/ca-lam");
+          navigate("/staff/shifts");
         }
         return;
       }
@@ -369,13 +369,13 @@ const Login = ({ mode = "user" }) => {
 
           <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
             <div className="auth-field">
-              <label className="auth-label">{isStaffLogin ? "Username / Email / SĐT nhân viên" : "Email / Số điện thoại"}</label>
+              <label className="auth-label">{isStaffLogin ? "Email / SĐT nhân viên" : "Email / Số điện thoại"}</label>
               <div className="auth-input-group">
                 <span className="auth-input-icon"><i className="fas fa-user" /></span>
                 <input
                   type="text"
                   className="auth-input"
-                  placeholder={isStaffLogin ? "Nhập username, email hoặc SĐT staff" : "Nhập email hoặc số điện thoại"}
+                  placeholder={isStaffLogin ? "Nhập email hoặc SĐT staff" : "Nhập email hoặc số điện thoại"}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />

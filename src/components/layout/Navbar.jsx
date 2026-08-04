@@ -32,7 +32,7 @@ function staffPortalPath(role) {
   const r = (role || "").toUpperCase().replace(/^ROLE_/, "");
   if (r === "SUPER_ADMIN") return "/super-admin";
   if (r === "ADMIN") return "/admin";
-  return "/staff/ca-lam";
+  return "/staff/shifts";
 }
 
 function resolveAvatarSrc(value) {
@@ -61,7 +61,7 @@ export default function CinemaNavbar() {
 
   const isLoggedIn     = authSession.isAuthenticated;
   const isStaffSession = Boolean(staff);
-  const displayName    = staff?.fullname || user?.fullname || user?.username || "Tài khoản";
+  const displayName    = staff?.fullname || user?.fullname || user?.email || "Tài khoản";
   const avatarRaw      = staff?.avatar || user?.avatar || "";
   const avatarSrc      = useMemo(() => resolveAvatarSrc(avatarRaw), [avatarRaw]);
 

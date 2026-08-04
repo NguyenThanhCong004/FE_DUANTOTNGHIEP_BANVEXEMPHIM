@@ -67,7 +67,7 @@ const UserManagement = () => {
         setUsers(
           arr.map((u) => ({
             userId: u.userId ?? u.id,
-            fullname: u.fullname ?? u.username ?? '',
+            fullname: u.fullname ?? '',
             email: u.email ?? '',
             phone: u.phone ?? '',
             birthday: u.birthday,
@@ -114,7 +114,6 @@ const UserManagement = () => {
             <h1>
               Quản lý Khách hàng
             </h1>
-            <p className="lead">Quản lý thông tin và tài khoản người dùng</p>
           </div>
           <div className="d-flex align-items-center gap-3 flex-wrap justify-content-end">
             <div className="admin-search-wrapper admin-search-on-gradient" style={{ maxWidth: 400, minWidth: 200 }}>
@@ -207,16 +206,16 @@ const UserManagement = () => {
                     </td>
                     <td>{getStatusBadge(user.status)}</td>
                     <td>
-                      <div className="admin-table-action-group">
+                      <div className="d-flex justify-content-center gap-2">
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem chi tiết"
                           onClick={() => openUserDetail(user.userId)}
                         >Xem</button>
                         <Link
                           to={`${prefix}/users/edit/${user.userId}`}
-                          className="admin-table-action-btn admin-table-action-btn--edit"
+                          className="admin-btn admin-btn-sm admin-btn-primary"
                           title="Chỉnh sửa"
                         >Sửa</Link>
                       </div>

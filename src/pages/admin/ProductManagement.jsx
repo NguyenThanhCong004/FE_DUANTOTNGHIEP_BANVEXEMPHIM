@@ -75,7 +75,7 @@ export default function ProductManagement() {
   const location = useLocation();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const staffSession = getStoredStaff();
-  const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
+  const { selectedCinemaId } = useSuperAdminCinema();
   const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : staffSession?.cinemaId ?? null;
 
   const { showToast, ToastComponent } = useAdminToast();
@@ -207,11 +207,6 @@ export default function ProductManagement() {
   // Reset page when search changes
   useEffect(() => setPageA(1), [searchA]);
   useEffect(() => setPageB(1), [searchB]);
-
-  const cinemaLabel =
-    effectiveCinemaId != null
-      ? selectedCinemaName || `Rạp #${effectiveCinemaId}`
-      : null;
 
   const renderTable = (rows, mode, currentPage, totalPages, setPage) => (
     <div className="d-flex flex-column" style={{ minHeight: "400px" }}>
@@ -346,16 +341,6 @@ export default function ProductManagement() {
     <AdminPanelPage
       icon="box-seam"
       title="Sản phẩm & Combo"
-      description={
-        <div className="d-flex align-items-center gap-2 flex-wrap mt-2">
-          {cinemaLabel ? (
-            <Badge bg="primary" className="px-3 py-2 shadow-sm">
-              {cinemaLabel}
-            </Badge>
-          ) : null}
-          <span className="text-muted small">Cập nhật danh mục sản phẩm cho rạp phim của bạn</span>
-        </div>
-      }
     >
       <style>{`
         .pm-card {

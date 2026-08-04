@@ -6,6 +6,8 @@ import { apiFetch, withQuery } from "../../utils/apiClient";
 import { VOUCHERS } from "../../constants/apiEndpoints";
 import { formatDate, formatVnd } from "../../utils/formatters";
 import AdminPagination from "../../components/admin/AdminPagination";
+import { useSuperAdminCinema } from "../../components/layout/useSuperAdminCinema";
+import { getStoredStaff } from "../../utils/authStorage";
 
 const VoucherManagement = () => {
   const navigate = useNavigate();
@@ -24,6 +26,11 @@ const VoucherManagement = () => {
   const [loading, setLoading] = useState(true);
   const basePath = location.pathname.startsWith("/admin") ? "/admin" : "/super-admin";
   const isAdminSection = basePath === "/admin";
+  const isSuperAdmin = basePath === "/super-admin";
+  const staff = getStoredStaff();
+  const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
+  const activeCinemaId = isSuperAdmin ? selectedCinemaId : staff?.cinemaId ?? null;
+  const activeCinemaName = isSuperAdmin ? selectedCinemaName : staff?.cinemaName ?? null;
   // Đồng bộ style nút Xem/Sửa/Xóa với các trang khác trong cùng khu vực quản trị:
   // Admin dùng nút tròn icon (admin-table-action-btn), Super Admin dùng nút pill outline.
   const actionBtnClass = (variant) => {
@@ -63,17 +70,24 @@ const VoucherManagement = () => {
     endDate: v.endDate ?? "",
     pointVoucher: v.pointVoucher ?? 0,
     status: v.status,
+    cinemaId: v.cinemaId ?? null,
+    cinemaName: v.cinemaName ?? "",
   }), []);
 
   const fetchVouchers = useCallback(async () => {
+    if (!activeCinemaId) {
+      setVouchers([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await apiFetch(withQuery(VOUCHERS.LIST, { search: searchTerm }));
+      const res = await apiFetch(withQuery(VOUCHERS.LIST, { search: searchTerm, cinemaId: activeCinemaId }));
       const json = await res.json().catch(() => null);
-      
+
       const list = json?.data ?? json ?? [];
       const arr = Array.isArray(list) ? list : [];
-      
+
       setVouchers(arr.map(mapVoucher));
     } catch (err) {
       console.error("Lỗi fetch voucher:", err);
@@ -81,7 +95,7 @@ const VoucherManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [mapVoucher, searchTerm]);
+  }, [mapVoucher, searchTerm, activeCinemaId]);
 
   useEffect(() => {
     fetchVouchers();
@@ -135,13 +149,14 @@ const VoucherManagement = () => {
     <AdminPanelPage
       icon="ticket-perforated"
       title="Voucher"
-      description="Quản lý mã giảm giá, chương trình tích điểm và thời hạn áp dụng."
       headerRight={
         <button
           type="button"
           className="admin-btn"
           style={{ background: "white", color: "#6366f1" }}
           onClick={() => navigate(`${basePath}/vouchers/create`)}
+          disabled={!activeCinemaId}
+          title={activeCinemaId ? "" : "Chọn rạp ở header trước khi tạo voucher"}
         >
           Tạo Voucher mới
         </button>
@@ -152,7 +167,9 @@ const VoucherManagement = () => {
           <h4 className="mb-0 d-flex align-items-center gap-2">
             Danh sách voucher
           </h4>
-          <span className="text-muted small">Tổng: {filteredVouchers.length}</span>
+          <span className="text-muted small">
+            {activeCinemaName ? `Rạp: ${activeCinemaName} — ` : ""}Tổng: {filteredVouchers.length}
+          </span>
         </div>
         <div className="admin-card-body">
           <div className="admin-search-wrapper mb-3" style={{ maxWidth: 420 }}>
@@ -174,6 +191,7 @@ const VoucherManagement = () => {
                 <tr>
                   <th style={{ width: 56 }}>STT</th>
                   <th>Mã Code</th>
+                  <th>Rạp</th>
                   <th>Giảm giá (%)</th>
                   <th>Giảm tối đa</th>
                   <th>Đơn tối thiểu</th>
@@ -184,15 +202,21 @@ const VoucherManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {!activeCinemaId ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-4 text-muted">
+                    <td colSpan={10} className="text-center py-5 text-muted">
+                      Vui lòng chọn rạp ở góc trên (header) để xem danh sách voucher.
+                    </td>
+                  </tr>
+                ) : loading ? (
+                  <tr>
+                    <td colSpan={10} className="text-center py-4 text-muted">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
                 ) : currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-5 text-muted">
+                    <td colSpan={10} className="text-center py-5 text-muted">
                       Không tìm thấy voucher nào.
                     </td>
                   </tr>
@@ -205,6 +229,7 @@ const VoucherManagement = () => {
                         <td>
                           <span className="font-monospace fw-bold px-2 py-1 rounded border bg-light">{voucher.code}</span>
                         </td>
+                        <td className="small">{voucher.cinemaName || "—"}</td>
                         <td>
                           <div className="fw-semibold">{voucher.value}%</div>
                         </td>
@@ -284,6 +309,8 @@ const VoucherManagement = () => {
                   <p className="fw-bold fs-5 text-dark mb-4">
                     <span className="font-monospace px-2 py-1 rounded border bg-light">{selectedItem.code}</span>
                   </p>
+                  <p className="admin-form-label mb-1 text-muted">Áp dụng cho rạp</p>
+                  <p className="fw-bold mb-4">{selectedItem.cinemaName || "—"}</p>
                   <p className="admin-form-label mb-1 text-muted">Giá trị giảm</p>
                   <p className="fw-bold fs-5 mb-4 text-primary">{selectedItem.value}%</p>
                   <p className="admin-form-label mb-1 text-muted">Giảm tối đa</p>

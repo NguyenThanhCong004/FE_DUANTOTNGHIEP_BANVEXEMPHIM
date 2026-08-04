@@ -363,10 +363,10 @@ const InvoiceManagement = () => {
                     </td>
                     <td>{getStatusBadge(invoice.status)}</td>
                     <td className="text-center">
-                      <div className="admin-table-action-group d-inline-flex">
+                      <div className="d-flex justify-content-center gap-2">
                         <button
                           type="button"
-                          className="admin-table-action-btn admin-table-action-btn--view"
+                          className="admin-btn admin-btn-sm admin-btn-outline"
                           title="Xem chi tiết"
                           onClick={() => openOrderDetail(invoice.apiId)}
                         >Xem</button>

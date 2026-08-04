@@ -11,13 +11,13 @@ import {
   Megaphone,
   ReceiptText,
   Users,
-  UserCircle,
   Ticket,
 } from "lucide-react";
 
 import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "./useSuperAdminCinema";
 import CinemaPicker from "./CinemaPicker";
+import ThemeToggle from "./ThemeToggle";
 import "../../styles/admin-shell.css";
 import "../../styles/admin-design-system.css";
 
@@ -54,11 +54,6 @@ const sectionsRest = [
     title: "Khách hàng",
     requiresCinema: false,
     items: [{ path: "/admin/users", label: "Khách hàng", icon: Users }],
-  },
-  {
-    title: "Tài khoản",
-    requiresCinema: false,
-    items: [{ path: "/admin/profile", label: "Hồ sơ cá nhân", icon: UserCircle }],
   },
 ];
 
@@ -180,6 +175,7 @@ export default function AdminLayout() {
                   : "Chưa có rạp"}
               </span>
             </div>
+            <ThemeToggle />
             <NavLink to="/admin/profile" className="text-decoration-none">
               <div className="app-shell-profile-chip">
                 <img

@@ -192,7 +192,7 @@ const SystemStaffManagement = () => {
 
 
 
-            name: s.fullname || s.username || "—",
+            name: s.fullname || s.email || "—",
 
 
 
@@ -428,12 +428,6 @@ const SystemStaffManagement = () => {
 
 
       title="Quản lý nhân sự toàn hệ thống"
-
-
-
-      description="Danh sách tất cả nhân sự (ADMIN & STAFF) từ mọi chi nhánh trên toàn quốc."
-
-
 
       headerRight={
 

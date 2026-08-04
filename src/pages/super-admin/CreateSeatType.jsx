@@ -35,6 +35,12 @@ const CreateSeatType = () => {
   const [allSeatTypes, setAllSeatTypes] = useState([]);
 
   useEffect(() => {
+    if (!editData) {
+      navigate("/super-admin/seat-types", { replace: true });
+    }
+  }, [editData, navigate]);
+
+  useEffect(() => {
     let m = true;
     (async () => {
       try {
@@ -69,8 +75,6 @@ const CreateSeatType = () => {
         coupleSeat: Boolean(editData.coupleSeat),
         color: normalizeHex(editData.color) || "",
       });
-    } else {
-      setFormData(initialForm());
     }
   }, [editData]);
 
@@ -144,6 +148,7 @@ const CreateSeatType = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!editId) return;
     if (!validateForm()) return;
 
     setSubmitting(true);
@@ -155,29 +160,25 @@ const CreateSeatType = () => {
       coupleSeat: formData.coupleSeat,
       color: normalizeHex(formData.color),
     };
-    const tid = editData?.id;
-    if (tid) {
-      const originalBody = {
-        name: String(editData.name ?? "").trim(),
-        surcharge: Number(editData.surcharge ?? editData.price ?? 0),
-        coupleSeat: Boolean(editData.coupleSeat),
-        color: normalizeHex(editData.color),
-      };
-      if (JSON.stringify(body) === JSON.stringify(originalBody)) {
-        showToast(MESSAGES.noChanges, "warning");
-        setSubmitting(false);
-        return;
-      }
+    const originalBody = {
+      name: String(editData.name ?? "").trim(),
+      surcharge: Number(editData.surcharge ?? editData.price ?? 0),
+      coupleSeat: Boolean(editData.coupleSeat),
+      color: normalizeHex(editData.color),
+    };
+    if (JSON.stringify(body) === JSON.stringify(originalBody)) {
+      showToast(MESSAGES.noChanges, "warning");
+      setSubmitting(false);
+      return;
     }
-    const url = tid ? SEAT_TYPES.BY_ID(tid) : SEAT_TYPES.LIST;
     try {
-      const res = await apiFetch(url, {
-        method: tid ? "PUT" : "POST",
+      const res = await apiFetch(SEAT_TYPES.BY_ID(editId), {
+        method: "PUT",
         body: JSON.stringify(body),
       });
       if (res.ok) {
         const json = await res.json().catch(() => null);
-        const message = apiMessage(json, tid ? "Cập nhật loại ghế thành công" : "Thêm loại ghế thành công");
+        const message = apiMessage(json, "Cập nhật loại ghế thành công");
         navigate("/super-admin/seat-types", {
           state: {
             message,
@@ -205,11 +206,12 @@ const CreateSeatType = () => {
     [formData.color, isColorTakenByOther]
   );
 
+  if (!editData) return null;
+
   return (
     <AdminPanelPage
-      icon={editData ? "bi-chair-fill" : "bi-chair"}
-      title={editData ? "Cập nhật loại ghế" : "Thêm loại ghế mới"}
-      description="Chọn màu từ bảng có số (mỗi màu chỉ một loại ghế). Màu lưu trên máy chủ và hiển thị đồng bộ trên sơ đồ phòng / đặt vé."
+      icon="bi-chair-fill"
+      title="Cập nhật loại ghế"
       headerRight={<AdminFormListBack to="/super-admin/seat-types" />}
     >
       <ToastComponent />
@@ -351,7 +353,7 @@ const CreateSeatType = () => {
             <div className="mt-3 d-flex flex-wrap justify-content-end">
               <button type="submit" className="admin-btn admin-btn-primary" style={{ minWidth: 180 }} disabled={submitting}>
                 {submitting && <span className="spinner-border spinner-border-sm me-2" role="status" />}
-                {editData ? "Cập nhật" : "Lưu loại ghế"}
+                Cập nhật
               </button>
             </div>
           </form>

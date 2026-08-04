@@ -7,6 +7,7 @@ import { apiFetch } from "../../utils/apiClient";
 import { MOVIES, CINEMAS, SHOWTIMES, SEATS, ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { releaseDateToYmd } from "../../utils/movieApiMap";
+import sanitizeHtml from "../../utils/sanitizeHtml";
 
 const STARS = [1, 2, 3, 4, 5];
 
@@ -317,15 +318,19 @@ const MovieDetail = () => {
 
   const [resolvingSlotTime, setResolvingSlotTime] = useState(null);
 
+  const ROOM_SWITCH_OCCUPANCY_RATIO = 0.9;
+
   const handleBookSlot = async (slot) => {
     // Chỉ 1 suất trong ô này — đặt vé thẳng như cũ.
     if (slot.group.length === 1) {
       navigate(`/booking/${slot.group[0].id}`);
       return;
     }
-    // Nhiều phòng cùng giờ — tự tìm phòng đầu tiên còn ghế trống, khách không cần biết là phòng nào.
+    // Nhiều phòng cùng giờ — tự tìm phòng còn trống dưới 90%, khách không cần biết là phòng nào.
+    // Phòng đầu đầy từ 90% trở lên thì chuyển sang phòng tiếp theo trong danh sách.
     setResolvingSlotTime(slot.time);
     try {
+      const candidatesWithFreeSeats = [];
       for (const candidate of slot.group) {
         try {
           const [stRes, seatRes] = await Promise.all([
@@ -337,13 +342,26 @@ const MovieDetail = () => {
           const seatBody = await seatRes.json().catch(() => null);
           const bookedIds = Array.isArray(stBody?.data?.bookedSeatIds) ? stBody.data.bookedSeatIds : [];
           const totalSeats = Array.isArray(seatBody?.data) ? seatBody.data.length : 0;
-          if (totalSeats > 0 && bookedIds.length < totalSeats) {
+          if (totalSeats === 0) continue;
+          const occupancyRatio = bookedIds.length / totalSeats;
+          if (occupancyRatio < ROOM_SWITCH_OCCUPANCY_RATIO) {
+            // Phòng còn dưới 90% — đặt luôn, không cần thử tiếp các phòng sau.
             navigate(`/booking/${candidate.id}`);
             return;
+          }
+          if (bookedIds.length < totalSeats) {
+            // Phòng đã đầy từ 90% trở lên nhưng vẫn còn ghế trống — giữ lại làm phương án dự phòng.
+            candidatesWithFreeSeats.push({ id: candidate.id, freeSeats: totalSeats - bookedIds.length });
           }
         } catch {
           // thử phòng kế tiếp
         }
+      }
+      if (candidatesWithFreeSeats.length > 0) {
+        // Không phòng nào dưới 90%, nhưng vẫn còn ghế trống rải rác — chọn phòng còn nhiều ghế trống nhất.
+        candidatesWithFreeSeats.sort((a, b) => b.freeSeats - a.freeSeats);
+        navigate(`/booking/${candidatesWithFreeSeats[0].id}`);
+        return;
       }
       alert("Suất chiếu này đã hết ghế ở tất cả các phòng, vui lòng chọn suất khác.");
     } finally {
@@ -982,7 +1000,7 @@ const MovieDetail = () => {
                   {movie.description && (
                     <div style={{ marginBottom: 16 }}>
                       <p className="md-section-label">Giới thiệu</p>
-                      <p className="md-desc">{movie.description}</p>
+                      <div className="md-desc" dangerouslySetInnerHTML={{ __html: sanitizeHtml(movie.description) }} />
                     </div>
                   )}
                   {movie.content && (

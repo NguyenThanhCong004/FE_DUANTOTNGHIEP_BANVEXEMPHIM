@@ -203,7 +203,6 @@ const CreateProduct = () => {
     <AdminPanelPage 
       icon={editData ? "bi-box-seam-fill" : "bi-box-seam"} 
       title={editData ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm mới'}
-      description="Quản lý danh mục sản phẩm bắp nước, combo và quà tặng trên hệ thống."
       headerRight={<AdminFormListBack to="/super-admin/catalog-products" />}
     >
       <ToastComponent />

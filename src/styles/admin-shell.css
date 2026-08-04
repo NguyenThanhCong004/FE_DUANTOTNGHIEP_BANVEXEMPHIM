@@ -1,5 +1,6 @@
 /**
  * Shell admin — dùng chung Admin + Super Admin (sidebar, header, nav, khóa theo rạp).
+ * Theo theme sáng/tối qua các biến --shell-* (định nghĩa ở admin-design-system.css).
  * Import trước file layout cục bộ nếu cần override nhỏ.
  */
 
@@ -10,18 +11,15 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: 288px 1fr;
-  background:
-    radial-gradient(1200px 500px at 10% -10%, rgba(99, 102, 241, 0.22), transparent 55%),
-    radial-gradient(1000px 500px at 100% 0%, rgba(168, 85, 247, 0.2), transparent 45%),
-    #070b17;
+  background: var(--shell-layout-bg, #f4f6f9);
 }
 
 .app-shell-sidebar {
   position: sticky;
   top: 0;
   height: 100vh;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  background: #090d1d;
+  border-right: 1px solid var(--shell-border, #e2e8f0);
+  background: var(--shell-sidebar-bg, #ffffff);
   display: flex;
   flex-direction: column;
   padding: 18px 14px;
@@ -32,7 +30,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 10px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--shell-border, #e2e8f0);
   margin-bottom: 14px;
 }
 
@@ -41,12 +39,12 @@
   height: 12px;
   border-radius: 999px;
   background: linear-gradient(135deg, #60a5fa, #c084fc);
-  box-shadow: 0 0 16px rgba(147, 51, 234, 0.65);
+  box-shadow: 0 0 16px rgba(147, 51, 234, 0.45);
   flex-shrink: 0;
 }
 
 .app-shell-brand-title {
-  color: #f8fafc;
+  color: var(--shell-text, #1e293b);
   letter-spacing: 1px;
   font-weight: 800;
   font-size: 15px;
@@ -54,7 +52,7 @@
 }
 
 .app-shell-brand-sub {
-  color: #94a3b8;
+  color: var(--shell-text-muted, #64748b);
   font-size: 11px;
   letter-spacing: 0.06em;
   margin-top: 2px;
@@ -62,8 +60,8 @@
 
 /* Chọn rạp */
 .app-shell-cinema-picker {
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid var(--shell-chip-border, #e2e8f0);
+  background: var(--shell-chip-bg, #f8fafc);
   border-radius: 12px;
   padding: 10px 10px 16px;
   margin-bottom: 12px;
@@ -71,7 +69,7 @@
 
 .app-shell-cinema-picker label {
   display: block;
-  color: #94a3b8;
+  color: var(--shell-text-muted, #64748b);
   font-size: 11px;
   margin-bottom: 6px;
   font-weight: 700;
@@ -80,9 +78,9 @@
 
 .app-shell-cinema-picker select {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(2, 6, 23, 0.85);
-  color: #e2e8f0;
+  border: 1px solid var(--shell-border, #e2e8f0);
+  background: var(--shell-input-bg, #ffffff);
+  color: var(--shell-input-text, #1e293b);
   border-radius: 10px;
   height: 38px;
   padding: 0 10px;
@@ -92,7 +90,7 @@
 .app-shell-cinema-picker small {
   display: block;
   margin-top: 8px;
-  color: #a5b4fc;
+  color: var(--admin-primary, #2563eb);
   font-size: 11px;
   line-height: 1.35;
 }
@@ -116,12 +114,22 @@
 }
 
 .app-shell-nav-section-title {
-  color: #64748b;
+  color: var(--shell-text-muted, #64748b);
   font-size: 11px;
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.08em;
   margin: 14px 8px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.locked-badge {
+  color: var(--shell-danger-text, #b91c1c);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 /* Cả khối phân hệ rạp: xám khi chưa chọn rạp */
@@ -130,8 +138,8 @@
   border-radius: 14px;
   padding: 4px 10px 10px;
   margin: 8px -10px 8px;
-  background: rgba(15, 23, 42, 0.35);
-  border: 1px dashed rgba(148, 163, 184, 0.25);
+  background: var(--shell-locked-bg);
+  border: 1px dashed var(--shell-locked-border);
   transition: opacity 0.25s ease, filter 0.25s ease, border-color 0.25s ease;
 }
 
@@ -142,12 +150,12 @@
 }
 
 .app-shell-nav-section--locked.is-disabled .app-shell-nav-section-title {
-  color: #475569;
+  color: var(--shell-text-muted, #64748b);
 }
 
 .app-shell-lock-hint {
   font-size: 10px;
-  color: #64748b;
+  color: var(--shell-text-muted, #64748b);
   font-weight: 600;
   margin: 0 8px 8px;
   line-height: 1.35;
@@ -164,7 +172,7 @@
   gap: 10px;
   width: 100%;
   background: transparent;
-  color: #cbd5e1;
+  color: var(--shell-text, #1e293b);
   text-decoration: none;
   border: 1px solid transparent;
   padding: 10px 12px;
@@ -179,16 +187,15 @@
 }
 
 .app-shell-nav-link:hover {
-  border-color: rgba(148, 163, 184, 0.25);
-  background: rgba(30, 41, 59, 0.6);
-  color: #ffffff;
+  border-color: var(--shell-chip-border);
+  background: var(--shell-nav-hover-bg);
+  color: var(--shell-nav-hover-text);
 }
 
 .app-shell-nav-link.active {
-  border-color: rgba(129, 140, 248, 0.65);
-  background: linear-gradient(135deg, rgba(67, 56, 202, 0.55), rgba(126, 34, 206, 0.5));
-  color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  border-color: var(--shell-nav-active-border);
+  background: var(--shell-nav-active-bg);
+  color: var(--shell-nav-active-text);
 }
 
 .app-shell-nav-link--locked {
@@ -196,17 +203,26 @@
   opacity: 0.55;
 }
 
+/* Bootstrap-Icons font glyphs (Super Admin sidebar) render at varying widths;
+   Lucide SVGs (Admin sidebar) are already fixed-size and skip this rule. */
+.app-shell-nav-link > i {
+  font-size: 16px;
+  width: 17px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
 .app-shell-nav-link--locked:hover {
   border-color: transparent;
   background: transparent;
-  color: #94a3b8;
+  color: var(--shell-text-muted, #64748b);
 }
 
 .app-shell-logout-btn {
   margin-top: 8px;
-  border: 1px solid rgba(248, 113, 113, 0.45);
-  background: rgba(127, 29, 29, 0.26);
-  color: #fecaca;
+  border: 1px solid var(--shell-danger-border);
+  background: var(--shell-danger-bg);
+  color: var(--shell-danger-text);
   border-radius: 12px;
   padding: 10px;
   display: flex;
@@ -220,8 +236,7 @@
 }
 
 .app-shell-logout-btn:hover {
-  background: rgba(127, 29, 29, 0.4);
-  color: #fff;
+  filter: brightness(0.96);
 }
 
 .app-shell-logout-btn--header {
@@ -245,8 +260,8 @@
   top: 0;
   z-index: 20;
   min-height: 64px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: #090d1d;
+  border-bottom: 1px solid var(--shell-border, #e2e8f0);
+  background: var(--shell-header-bg, #ffffff);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -262,7 +277,7 @@
 .app-shell-header-kicker {
   font-size: 13px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--shell-text-muted, #64748b);
   letter-spacing: 0.02em;
 }
 
@@ -275,7 +290,7 @@
 .app-shell-header-cinema-label {
   font-size: 12px;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--shell-text-muted, #64748b);
   letter-spacing: 0.04em;
 }
 
@@ -284,8 +299,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(129, 140, 248, 0.45);
-  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid var(--shell-nav-active-border, rgba(37, 99, 235, 0.35));
+  background: var(--shell-chip-bg, #f8fafc);
   border-radius: 10px;
   padding: 4px 4px 4px 10px;
   min-height: 38px;
@@ -293,7 +308,7 @@
 }
 
 .app-shell-header-cinema-icon {
-  color: #a5b4fc;
+  color: var(--admin-primary, #2563eb);
 }
 
 .app-shell-header-cinema-select {
@@ -301,7 +316,7 @@
   min-width: 0;
   border: none;
   background: transparent;
-  color: #f1f5f9;
+  color: var(--shell-text, #1e293b);
   font-size: 13px;
   font-weight: 600;
   padding: 6px 8px;
@@ -318,9 +333,9 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.7);
-  color: #e2e8f0;
+  border: 1px solid var(--shell-chip-border, #e2e8f0);
+  background: var(--shell-chip-bg, #f8fafc);
+  color: var(--shell-text, #1e293b);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -328,19 +343,19 @@
 }
 
 .app-shell-icon-btn:hover {
-  border-color: rgba(129, 140, 248, 0.45);
-  background: rgba(30, 41, 59, 0.6);
+  border-color: var(--shell-nav-active-border);
+  background: var(--shell-nav-hover-bg);
 }
 
 .app-shell-cinema-chip {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #bfdbfe;
+  color: var(--shell-text, #1e293b);
   font-size: 12px;
   font-weight: 700;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--shell-chip-border, #e2e8f0);
+  background: var(--shell-chip-bg, #f8fafc);
   border-radius: 10px;
   min-height: 36px;
   padding: 0 10px;
@@ -354,8 +369,8 @@
 }
 
 .app-shell-profile-chip {
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--shell-chip-border, #e2e8f0);
+  background: var(--shell-chip-bg, #f8fafc);
   border-radius: 12px;
   padding: 4px 10px 4px 4px;
   display: flex;
@@ -365,8 +380,8 @@
 }
 
 a.text-decoration-none:hover .app-shell-profile-chip {
-  border-color: rgba(129, 140, 248, 0.45);
-  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.2);
+  border-color: var(--shell-nav-active-border);
+  box-shadow: 0 0 0 1px var(--shell-nav-active-border);
 }
 
 .app-shell-profile-chip img {
@@ -376,19 +391,19 @@ a.text-decoration-none:hover .app-shell-profile-chip {
 }
 
 .app-shell-profile-name {
-  color: #f8fafc;
+  color: var(--shell-text, #1e293b);
   font-size: 12px;
   font-weight: 700;
 }
 
 .app-shell-profile-sub {
-  color: #94a3b8;
+  color: var(--shell-text-muted, #64748b);
   font-size: 11px;
 }
 
 .app-shell-content {
   padding: 16px;
-  color: var(--admin-text, #e2e8f0);
+  color: var(--admin-text, #1e293b);
   font-size: 14px;
   line-height: 1.5;
 }
