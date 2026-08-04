@@ -1355,28 +1355,6 @@ export default function SeatManagement() {
 
       title="Sơ đồ ghế phòng"
 
-      description={
-
-        <p className="lead mb-2">
-
-          {selectedRoom?.name ? (
-
-            <>
-
-              Đang chỉnh: <strong>{selectedRoom.name}</strong>
-
-            </>
-
-          ) : (
-
-            "Chọn phòng để thiết kế lưới ghế."
-
-          )}
-
-        </p>
-
-      }
-
       headerRight={
 
         <div className="d-flex gap-2 align-items-center flex-wrap justify-content-end">

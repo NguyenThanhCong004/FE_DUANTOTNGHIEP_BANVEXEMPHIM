@@ -1,8 +1,8 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize, Phone, UserCheck, UserPlus, Loader } from 'lucide-react';
 import { getAccessToken, getStoredStaff } from '../../utils/authStorage';
 import { apiUrl, withQuery } from '../../utils/apiClient';
-import { MOVIES, SHOWTIMES, CINEMAS, SEATS, COUNTER_ORDERS, SEAT_TYPES, SHOWTIME_SEAT_HOLDS } from '../../constants/apiEndpoints';
+import { MOVIES, SHOWTIMES, CINEMAS, SEATS, COUNTER_ORDERS, SEAT_TYPES, SHOWTIME_SEAT_HOLDS, STAFF_DASHBOARD } from '../../constants/apiEndpoints';
 import { checkNoSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
 import { isCoupleTypeName, resolveSeatDisplayColor, resolveSeatTypeColor } from "../../utils/seatTypeColors";
 
@@ -191,6 +191,9 @@ const Sales = () => {
   const [activeTab, setActiveTab] = useState('showtimes');
   const [searchTerm, setSearchText] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerInfo, setCustomerInfo] = useState(null);
+  const [customerLookupStatus, setCustomerLookupStatus] = useState('idle'); // idle | loading | found | not_found | error
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [lastPrintableOrder, setLastPrintableOrder] = useState(null);
@@ -700,6 +703,44 @@ const Sales = () => {
     }
   }, [seatTypes, showToast, staff?.cinemaName, staff?.fullName]);
 
+  const lookupCustomer = useCallback(async (phone) => {
+    setCustomerLookupStatus('loading');
+    try {
+      const res = await fetch(apiUrl(STAFF_DASHBOARD.CUSTOMER_BY_PHONE(phone)), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.data) {
+        setCustomerInfo(json.data);
+        setCustomerLookupStatus(json.data.isNew ? 'not_found' : 'found');
+      } else {
+        setCustomerLookupStatus('error');
+      }
+    } catch {
+      setCustomerLookupStatus('error');
+    }
+  }, [token]);
+
+  const createGuestIfNeeded = useCallback(async (phone) => {
+    if (!phone || phone.length !== 10) return;
+    try {
+      await fetch(apiUrl(STAFF_DASHBOARD.CREATE_GUEST(phone)), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch { /* silent */ }
+  }, [token]);
+
+  const handlePhoneChange = (val) => {
+    const digits = val.replace(/\D/g, '').slice(0, 10);
+    setCustomerPhone(digits);
+    setCustomerInfo(null);
+    setCustomerLookupStatus('idle');
+    if (digits.length === 10) lookupCustomer(digits);
+  };
+
+  const clearCustomer = () => { setCustomerPhone(''); setCustomerInfo(null); setCustomerLookupStatus('idle'); };
+
   const handleCheckout = () => {
     if (isProcessing) return;
     if (selectedSeats.length > 0 && !selectedShowtime) {
@@ -721,7 +762,7 @@ const Sales = () => {
         seatIds: selectedSeats.map(s => s.seatId),
         products: selectedProducts.map(p => ({ productId: p.productId, quantity: p.quantity })),
         paymentMethod: paymentMethod,
-        userId: null
+        userId: customerInfo?.userId ?? null
       };
       const res = await fetch(apiUrl(COUNTER_ORDERS.CHECKOUT), {
         method: "POST",
@@ -756,6 +797,10 @@ const Sales = () => {
           generateTicketPreview(printable.order, printable.movie, printable.showtime, printable.seats, printable.products);
           setSelectedSeats([]);
           setSelectedProducts([]);
+          if (customerLookupStatus === 'not_found' && customerPhone) {
+            createGuestIfNeeded(customerPhone);
+          }
+          clearCustomer();
           if (selectedShowtime?.id) {
             const resST = await fetch(apiUrl(SHOWTIMES.BY_ID(selectedShowtime.id)));
             const jsonST = await resST.json().catch(() => null);
@@ -813,6 +858,10 @@ const Sales = () => {
               );
               showToast("Thanh toán chuyển khoản thành công!", "success");
               setOrderSuccess({ ...orderSuccess, orderCode: fullOrderCode, status: 'PAID' });
+              if (customerLookupStatus === 'not_found' && customerPhone) {
+                createGuestIfNeeded(customerPhone);
+                clearCustomer();
+              }
             }
           }
         } catch (err) {
@@ -1141,12 +1190,44 @@ const Sales = () => {
 
       {showConfirmModal && (
         <div className="pos-overlay">
-          <div className="success-modal" style={{ width: '450px', textAlign: 'left' }}>
+          <div className="success-modal" style={{ width: '470px', textAlign: 'left' }}>
             <h4 className="fw-bold mb-3 text-white d-flex align-items-center gap-2">
               <ShoppingCart size={24} className="text-primary" /> Xác nhận đơn hàng
             </h4>
-            
-            <div className="modal-details p-3 bg-light rounded mb-4" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+
+            {/* Phone lookup */}
+            <div className="modal-phone-section mb-3">
+              <div className="modal-phone-label"><Phone size={13} /> Số điện thoại khách hàng <span className="modal-phone-optional">(không bắt buộc)</span></div>
+              <div className={`modal-phone-box ${customerLookupStatus === 'found' ? 'is-found' : customerLookupStatus === 'not_found' ? 'is-not-found' : customerLookupStatus === 'error' ? 'is-error' : ''}`}>
+                <input
+                  type="text"
+                  className="modal-phone-input"
+                  placeholder="Nhập SĐT 10 số..."
+                  value={customerPhone}
+                  onChange={e => handlePhoneChange(e.target.value)}
+                  maxLength={10}
+                  inputMode="numeric"
+                  autoFocus
+                />
+                {customerLookupStatus === 'loading' && <Loader size={14} className="spin-icon" />}
+                {customerLookupStatus === 'found' && <UserCheck size={14} style={{ color: '#818cf8', flexShrink: 0 }} />}
+                {customerLookupStatus === 'not_found' && <UserPlus size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />}
+                {customerPhone && customerLookupStatus !== 'loading' && (
+                  <button className="phone-clear-btn" onClick={clearCustomer}><X size={12} /></button>
+                )}
+              </div>
+              {customerLookupStatus === 'found' && customerInfo && (
+                <div className="customer-status found"><UserCheck size={12} /> <b>{customerInfo.fullname}</b> — Thành viên</div>
+              )}
+              {customerLookupStatus === 'not_found' && (
+                <div className="customer-status not-found"><UserPlus size={12} /> Chưa có tài khoản — sẽ tạo sau khi thanh toán</div>
+              )}
+              {customerLookupStatus === 'error' && (
+                <div className="customer-status error"><X size={12} /> Không thể tra cứu số điện thoại này</div>
+              )}
+            </div>
+
+            <div className="modal-details p-3 bg-light rounded mb-4" style={{ maxHeight: '380px', overflowY: 'auto' }}>
               <div className="mb-3 border-bottom pb-2">
                 <div className="text-dark small fw-bold text-uppercase opacity-50">Phim & Suất chiếu</div>
                 <div className="text-dark fw-bold">{selectedShowtime ? selectedMovie?.title : "Đơn bắp nước riêng"}</div>
@@ -1179,6 +1260,20 @@ const Sales = () => {
                 </div>
               )}
 
+              {customerInfo && (
+                <div className="mb-3 border-bottom pb-2">
+                  <div className="text-dark small fw-bold text-uppercase opacity-50">Khách hàng</div>
+                  <div className="d-flex align-items-center gap-2 mt-1">
+                    {customerInfo.isNew
+                      ? <UserPlus size={14} className="text-success" />
+                      : <UserCheck size={14} className="text-primary" />}
+                    <span className="text-dark fw-bold">{customerInfo.fullname}</span>
+                    <span className="text-muted small">{customerInfo.phone}</span>
+                    {customerInfo.isNew && <span className="badge bg-success-subtle text-success border border-success-subtle" style={{fontSize:'10px'}}>Mới</span>}
+                  </div>
+                </div>
+              )}
+
               <div className="d-flex justify-content-between align-items-center mt-3 pt-2">
                 <div>
                   <div className="text-dark small fw-bold text-uppercase opacity-50">Hình thức thanh toán</div>
@@ -1194,7 +1289,7 @@ const Sales = () => {
             </div>
 
             <div className="d-flex gap-2">
-              <button className="btn btn-outline-light flex-1 py-2 fw-bold" disabled={isProcessing} onClick={() => setShowConfirmModal(false)}>QUAY LẠI</button>
+              <button className="btn btn-outline-light flex-1 py-2 fw-bold" disabled={isProcessing} onClick={() => { setShowConfirmModal(false); clearCustomer(); }}>QUAY LẠI</button>
               <button className="btn btn-primary flex-1 py-2 fw-bold" disabled={isProcessing} onClick={processCheckout}>
                 {isProcessing ? "ĐANG XỬ LÝ..." : "XÁC NHẬN ĐƠN"}
               </button>
@@ -1664,8 +1759,27 @@ const Sales = () => {
           border-top: 1px solid rgba(255,255,255,0.05); 
           flex-shrink: 0; 
         }
-        .method-btn { 
-          flex: 1; 
+        /* Customer phone in modal */
+        .modal-phone-section { background: rgba(56,189,248,0.05); border: 1px solid rgba(56,189,248,0.15); border-radius: 10px; padding: 12px 14px; }
+        .modal-phone-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .modal-phone-optional { color: #475569; font-weight: 400; text-transform: none; letter-spacing: 0; }
+        .modal-phone-box { display: flex; align-items: center; gap: 8px; background: rgba(15,23,42,0.6); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; transition: border-color 0.2s; }
+        .modal-phone-box:focus-within { border-color: rgba(56,189,248,0.6); }
+        .modal-phone-box.is-found { border-color: rgba(99,102,241,0.7); }
+        .modal-phone-box.is-not-found { border-color: rgba(245,158,11,0.6); }
+        .modal-phone-box.is-error { border-color: rgba(239,68,68,0.6); }
+        .modal-phone-input { background: transparent; border: none; outline: none; color: #f1f5f9; font-size: 15px; font-weight: 700; flex: 1; letter-spacing: 1px; }
+        .modal-phone-input::placeholder { color: #475569; font-weight: 400; letter-spacing: 0; font-size: 13px; }
+        .spin-icon { color: #94a3b8; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+        .phone-clear-btn { background: none; border: none; color: #475569; cursor: pointer; padding: 0; display: flex; align-items: center; flex-shrink: 0; }
+        .phone-clear-btn:hover { color: #ef4444; }
+        .customer-status { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; margin-top: 6px; }
+        .customer-status.found { color: #818cf8; }
+        .customer-status.not-found { color: #f59e0b; }
+        .customer-status.error { color: #ef4444; }
+
+        .method-btn {
+          flex: 1;
           display: flex; 
           align-items: center; 
           justify-content: center; 

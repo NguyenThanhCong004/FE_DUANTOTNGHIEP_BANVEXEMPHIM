@@ -4,6 +4,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import CinemaPicker from "./CinemaPicker";
+import ThemeToggle from "./ThemeToggle";
 import "../../styles/admin-shell.css";
 import "../../styles/admin-design-system.css";
 
@@ -33,6 +34,7 @@ export default function SuperAdminLayout({ children }) {
               <span className="app-shell-header-cinema-label d-none d-lg-inline">Rạp:</span>
               <CinemaPicker variant="header" />
             </div>
+            <ThemeToggle />
             <NavLink to="/super-admin/profile" className="text-decoration-none">
               <div className="app-shell-profile-chip">
                 <img

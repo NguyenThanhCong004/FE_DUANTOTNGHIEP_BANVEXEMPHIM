@@ -88,10 +88,10 @@ export default function StaffFloorGuard({ children }) {
     return <div className="p-4 text-center text-white">Đang kiểm tra ca làm việc...</div>;
   }
 
-  // Nếu không có ca làm việc hiện tại, chỉ cho phép truy cập trang /staff/ca-lam
-  const isViewingShifts = location.pathname.includes("/staff/ca-lam");
+  // Nếu không có ca làm việc hiện tại, chỉ cho phép truy cập trang /staff/shifts
+  const isViewingShifts = location.pathname.includes("/staff/shifts");
   if (!currentActiveShift && !isViewingShifts) {
-    return <Navigate to="/staff/ca-lam" replace />;
+    return <Navigate to="/staff/shifts" replace />;
   }
 
   const isViewingSales = location.pathname.includes("/staff/sales");

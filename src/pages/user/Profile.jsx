@@ -24,7 +24,6 @@ function normalizeUser(raw) {
     return {
       ...raw,
       user_id: raw.user_id,
-      username: raw.username ?? "",
       fullname: raw.fullname ?? "",
       email: raw.email ?? "",
       phone: raw.phone ?? "",
@@ -39,7 +38,6 @@ function normalizeUser(raw) {
   if (resolvedId != null) {
     return {
       user_id: resolvedId,
-      username: raw.username ?? "",
       fullname: raw.fullname ?? "",
       email: raw.email ?? "",
       phone: raw.phone ?? "",
@@ -1612,7 +1610,7 @@ export default function UserProfile() {
 
             <div className="pf-hero-right">
               <div className="pf-fullname">{user.fullname}</div>
-              <div className="pf-username">@{user.username}</div>
+              <div className="pf-username">{user.email}</div>
             </div>
 
             {user.rank_name && (

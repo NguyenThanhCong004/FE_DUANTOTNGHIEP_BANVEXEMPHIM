@@ -110,8 +110,6 @@ const UserManagement = () => {
 
       title="Quản lý khách hàng"
 
-      description="Xem thông tin chi tiết, lịch sử chi tiêu và hạng thành viên của khách hàng."
-
     >
 
       <div className="admin-card admin-slide-up">
@@ -138,7 +136,7 @@ const UserManagement = () => {
 
               className="admin-search-input"
 
-              placeholder="Tìm theo tên, username, email, SĐT..."
+              placeholder="Tìm theo tên, email, SĐT..."
 
               value={searchTerm}
 
@@ -222,7 +220,7 @@ const UserManagement = () => {
 
                               <div className="fw-semibold">{user.fullname}</div>
 
-                              <div className="small text-muted">@{user.username}</div>
+                              <div className="small text-muted">{user.email}</div>
 
                             </div>
 
@@ -270,19 +268,27 @@ const UserManagement = () => {
 
                               className="admin-btn admin-btn-sm admin-btn-outline"
 
+                              title="Xem chi tiết"
+
                               onClick={() => { setSelectedItem(user); setShowModal(true); }}
 
                             >
 
+                              Xem
+
                             </button>
 
                             <button
+
+                              title="Sửa"
 
                               className="admin-btn admin-btn-sm admin-btn-primary"
 
                               onClick={() => handleEditUser(user)}
 
                             >
+
+                              Sửa
 
                             </button>
 
@@ -387,9 +393,7 @@ const UserManagement = () => {
 
                 <div className="col-md-8">
 
-                  <h4 className="fw-bold mb-1">{selectedItem.fullname}</h4>
-
-                  <p className="text-muted mb-4">@{selectedItem.username}</p>
+                  <h4 className="fw-bold mb-4">{selectedItem.fullname}</h4>
 
                   
 

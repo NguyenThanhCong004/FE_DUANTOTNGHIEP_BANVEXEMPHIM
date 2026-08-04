@@ -109,7 +109,6 @@ const CreateProductType = () => {
     <AdminPanelPage 
       icon={editData ? "bi-grid-fill" : "bi-grid-plus"} 
       title={editData ? 'Cập nhật loại sản phẩm' : 'Thêm loại sản phẩm mới'}
-      description="Quản lý các nhóm danh mục sản phẩm như Bắp, Nước, Combo..."
       headerRight={<AdminFormListBack to="/super-admin/product-types" />}
     >
       <ToastComponent />

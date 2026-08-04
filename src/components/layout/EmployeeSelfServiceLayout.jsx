@@ -27,7 +27,7 @@ export default function EmployeeSelfServiceLayout() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const name = staff?.fullName || staff?.fullname || staff?.username || "Nhân viên";
+  const name = staff?.fullName || staff?.fullname || staff?.email || "Nhân viên";
   const cinemaName = activeShift?.cinemaName || staff?.cinemaName || "Đang tải rạp...";
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function EmployeeSelfServiceLayout() {
                       </NavLink>
                     </>
                   )}
-                  <NavLink to="/staff/ca-lam" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
+                  <NavLink to="/staff/shifts" className="dropdown-item-custom" onClick={() => setIsMenuOpen(false)}>
                     <Calendar size={16} />
                     <span>Lịch ca làm</span>
                   </NavLink>

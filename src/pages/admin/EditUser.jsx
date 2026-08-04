@@ -40,7 +40,6 @@ export default function EditUser() {
           status: found.status ?? 1,
           points: found.points ?? 0,
           avatar: found.avatar || "https://via.placeholder.com/160",
-          username: found.username ?? "",
           totalSpending: found.totalSpending ?? 0,
         };
         setUser(nextUser);
@@ -72,7 +71,6 @@ export default function EditUser() {
     try {
       const body = {
         userId: user.userId,
-        username: user.username,
         fullname: user.fullname,
         email: user.email,
         phone: user.phone,

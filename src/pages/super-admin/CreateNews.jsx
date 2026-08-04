@@ -260,7 +260,6 @@ const CreateNews = () => {
     <AdminPanelPage
       icon={editData ? "bi-newspaper" : "bi-file-earmark-plus"}
       title={editData ? "Cập nhật tin tức" : "Viết tin tức mới"}
-      description="Soạn thảo HTML nhẹ (Quill) — phù hợp tin tức, khuyến mãi."
       headerRight={<AdminFormListBack to="/super-admin/news" />}
     >
       <ToastComponent />
@@ -280,7 +279,7 @@ const CreateNews = () => {
                   }`}
                   style={{
                     width: "100%",
-                    maxWidth: "min(960px, 100%)",
+                    maxWidth: "min(240px, 100%)",
                     aspectRatio: "16/9",
                     cursor: "pointer",
                     background: "#f8fafc",

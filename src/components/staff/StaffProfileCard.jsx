@@ -43,7 +43,6 @@ function mergeStaffSession(serverDto) {
       ...prev,
       staffId: serverDto.staffId ?? prev.staffId,
       email: serverDto.email ?? prev.email,
-      username: serverDto.username ?? prev.username,
       fullname: serverDto.fullname ?? prev.fullname,
       phone: serverDto.phone ?? prev.phone,
       birthday: serverDto.birthday ?? prev.birthday,
@@ -118,7 +117,6 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
     setDraft({
       fullname: model.fullname ?? "",
       email: model.email ?? "",
-      username: model.username ?? "",
       phone: model.phone ?? "",
       birthday: toDateInputValue(model.birthday),
     });
@@ -145,7 +143,6 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
     const em = draft.email?.trim() || "";
     if (!em) e.email = "Email không được để trống";
     else if (!GMAIL_RE.test(em)) e.email = "Email phải là Gmail (vd: abc@gmail.com)";
-    if (!draft.username?.trim()) e.username = "Tên đăng nhập không được để trống";
     const ph = draft.phone?.trim() || "";
     if (!ph) e.phone = "Số điện thoại không được để trống";
     else if (!PHONE_RE.test(ph)) e.phone = "Số điện thoại phải đúng 10 chữ số";
@@ -179,7 +176,6 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       const body = {
         fullname: draft.fullname.trim(),
         email: draft.email.trim(),
-        username: draft.username.trim(),
         phone: draft.phone.trim(),
         birthday: draft.birthday,
         avatar: avatarPayload,
@@ -190,7 +186,6 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       const originalBody = {
         fullname: String(model.fullname ?? "").trim(),
         email: String(model.email ?? "").trim(),
-        username: String(model.username ?? "").trim(),
         phone: String(model.phone ?? "").trim(),
         birthday: toDateInputValue(model.birthday),
         avatar: String(model.avatar ?? "").trim(),
@@ -286,7 +281,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
       };
 
   const role = model ? normalizeRole(model.role) : normalizeRole(stored?.role);
-  const name = model?.fullname || stored?.fullname || stored?.username || "—";
+  const name = model?.fullname || stored?.fullname || stored?.email || "—";
   const email = model?.email || stored?.email || "—";
   const cinemaId = model?.cinemaId ?? stored?.cinemaId;
 
@@ -439,25 +434,6 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
                       <div className="fw-semibold">{model.email || "—"}</div>
                     )}
                     {errors.email && <div className="text-danger small mt-1">{errors.email}</div>}
-                  </div>
-                </li>
-                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
-                  <div className="flex-grow-1">
-                    <div className="small text-secondary text-uppercase fw-bold">Tên đăng nhập</div>
-                    {editing ? (
-                      <Form.Control
-                        name="username"
-                        value={draft.username}
-                        onChange={handleDraft}
-                        className={`mt-1 ${inputDark}`.trim()}
-                        isInvalid={!!errors.username}
-                      />
-                    ) : (
-                      <div className="fw-semibold">{model.username || "—"}</div>
-                    )}
-                    {errors.username && (
-                      <div className="text-danger small mt-1">{errors.username}</div>
-                    )}
                   </div>
                 </li>
                 <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
