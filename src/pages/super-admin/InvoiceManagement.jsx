@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
 import { apiFetch, withQuery } from "../../utils/apiClient";
-import { ORDERS_ONLINE } from "../../constants/apiEndpoints";
+import { ORDERS_ONLINE, CINEMAS } from "../../constants/apiEndpoints";
 import { Spinner, Badge } from "react-bootstrap";
 import { formatDateTime, formatVnd } from "../../utils/formatters";
 import AdminPagination from "../../components/admin/AdminPagination";
@@ -11,6 +11,11 @@ const GlobalInvoiceManagement = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [cinemaFilter, setCinemaFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [cinemas, setCinemas] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -68,6 +73,41 @@ const GlobalInvoiceManagement = () => {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch(CINEMAS.LIST);
+        const json = await res.json().catch(() => null);
+        const list = json?.data ?? json ?? [];
+        setCinemas(Array.isArray(list) ? list : []);
+      } catch {
+        setCinemas([]);
+      }
+    })();
+  }, []);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      if (statusFilter !== "all" && String(o.status) !== statusFilter) return false;
+      if (cinemaFilter !== "all" && String(o.cinemaId) !== cinemaFilter) return false;
+      if (fromDate && (!o.createdAt || o.createdAt.slice(0, 10) < fromDate)) return false;
+      if (toDate && (!o.createdAt || o.createdAt.slice(0, 10) > toDate)) return false;
+      return true;
+    });
+  }, [orders, statusFilter, cinemaFilter, fromDate, toDate]);
+
+  const resetFilters = () => {
+    setStatusFilter("all");
+    setCinemaFilter("all");
+    setFromDate("");
+    setToDate("");
+  };
+  const hasActiveFilters = statusFilter !== "all" || cinemaFilter !== "all" || fromDate || toDate;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, cinemaFilter, fromDate, toDate]);
 
   // Xử lý xuất PDF trực tiếp có lề 15mm
   const handleDownloadPDF = async () => {
@@ -170,8 +210,8 @@ const GlobalInvoiceManagement = () => {
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = orders.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const currentItems = filteredOrders.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
 
   return (
     <AdminPanelPage
@@ -196,12 +236,70 @@ const GlobalInvoiceManagement = () => {
           </button>
         </div>
 
+        <div className="admin-card admin-slide-up mb-4">
+          <div className="admin-card-body d-flex align-items-end gap-3 flex-wrap py-3">
+            <div>
+              <label className="small fw-bold text-muted d-block mb-1">Rạp</label>
+              <select
+                className="admin-search-input admin-filter-control"
+                style={{ minWidth: 170 }}
+                value={cinemaFilter}
+                onChange={(e) => setCinemaFilter(e.target.value)}
+              >
+                <option value="all">Tất cả rạp</option>
+                {cinemas.map((c) => (
+                  <option key={c.id ?? c.cinemaId} value={String(c.id ?? c.cinemaId)}>{c.name ?? c.cinemaName}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="small fw-bold text-muted d-block mb-1">Trạng thái</label>
+              <select
+                className="admin-search-input admin-filter-control"
+                style={{ minWidth: 170 }}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="1">Đã thanh toán</option>
+                <option value="0">Chờ thanh toán</option>
+                <option value="2">Đã hủy</option>
+              </select>
+            </div>
+            <div>
+              <label className="small fw-bold text-muted d-block mb-1">Từ ngày</label>
+              <input
+                type="date"
+                className="admin-search-input admin-filter-control"
+                value={fromDate}
+                max={toDate || undefined}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="small fw-bold text-muted d-block mb-1">Đến ngày</label>
+              <input
+                type="date"
+                className="admin-search-input admin-filter-control"
+                value={toDate}
+                min={fromDate || undefined}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+            {hasActiveFilters && (
+              <button type="button" className="admin-btn admin-btn-outline" onClick={resetFilters}>
+                Xóa lọc
+              </button>
+            )}
+          </div>
+        </div>
+
         {loading ? (
           <div className="text-center py-5">
             <Spinner animation="border" variant="primary" />
             <p className="mt-3 text-muted">Đang tải danh sách hóa đơn hệ thống...</p>
           </div>
-        ) : orders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div className="admin-empty">
             <p>Không tìm thấy hóa đơn nào</p>
           </div>
@@ -258,7 +356,7 @@ const GlobalInvoiceManagement = () => {
             <AdminPagination
               currentPage={currentPage}
               totalPages={totalPages}
-              totalItems={orders.length}
+              totalItems={filteredOrders.length}
               itemsPerPage={itemsPerPage}
               onPageChange={setCurrentPage}
               itemLabel="hóa đơn"

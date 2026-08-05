@@ -48,7 +48,7 @@ function MonthYearPicker({ month, year, onMonthChange, onYearChange }) {
   return (
     <div className="d-flex gap-2">
       <select
-        className="admin-search-input"
+        className="admin-search-input admin-filter-control"
         style={{ width: 100, height: 34 }}
         value={month}
         onChange={(e) => onMonthChange(Number(e.target.value))}
@@ -58,7 +58,7 @@ function MonthYearPicker({ month, year, onMonthChange, onYearChange }) {
         ))}
       </select>
       <select
-        className="admin-search-input"
+        className="admin-search-input admin-filter-control"
         style={{ width: 100, height: 34 }}
         value={year}
         onChange={(e) => onYearChange(Number(e.target.value))}
@@ -203,7 +203,7 @@ const SuperAdminDashboard = () => {
             headerRight={
               <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                 <select
-                  className="admin-search-input"
+                  className="admin-search-input admin-filter-control"
                   style={{ width: 150, height: 34 }}
                   value={granularity}
                   onChange={(e) => setGranularity(e.target.value)}
@@ -215,7 +215,7 @@ const SuperAdminDashboard = () => {
                 </select>
                 <input
                   type="date"
-                  className="admin-search-input"
+                  className="admin-search-input admin-filter-control"
                   style={{ width: 150, height: 34 }}
                   value={rangeFrom}
                   max={rangeTo || undefined}
@@ -224,7 +224,7 @@ const SuperAdminDashboard = () => {
                 <span className="text-muted small">đến</span>
                 <input
                   type="date"
-                  className="admin-search-input"
+                  className="admin-search-input admin-filter-control"
                   style={{ width: 150, height: 34 }}
                   value={rangeTo}
                   min={rangeFrom || undefined}

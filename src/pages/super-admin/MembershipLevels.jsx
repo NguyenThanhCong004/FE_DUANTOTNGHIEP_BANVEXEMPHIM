@@ -106,7 +106,7 @@ const MembershipLevelManagement = () => {
                     <th>Tên hạng</th>
                     <th className="text-end">Chi tiêu tối thiểu</th>
                     <th className="text-center">Giảm giá (%)</th>
-                    <th className="text-center">Hệ số điểm</th>
+                    <th className="text-center">Điểm thưởng cộng thêm</th>
                     <th className="text-center">Trạng thái</th>
                     <th className="text-center">Thao tác</th>
                   </tr>
@@ -139,7 +139,7 @@ const MembershipLevelManagement = () => {
                       <td className="text-center">
                         <span className="fw-semibold text-success">{level.discount_percent}%</span>
                       </td>
-                      <td className="text-center fw-medium">x{level.bonus_point}</td>
+                      <td className="text-center fw-medium">+{level.bonus_point}</td>
                       <td className="text-center">
                         <span className={`admin-badge ${isActiveStatus(level.status) ? 'admin-badge-success' : 'admin-badge-warning'}`}>
                           {isActiveStatus(level.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
@@ -216,8 +216,8 @@ const MembershipLevelManagement = () => {
                 </div>
                 <div className="col-sm-12">
                   <div className="p-3 border rounded-4 bg-light">
-                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Hệ số tích điểm</small>
-                    <div className="fs-5 fw-bold text-dark">x{selectedItem.bonus_point} (Nhân với giá trị hóa đơn)</div>
+                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Điểm thưởng cộng thêm</small>
+                    <div className="fs-5 fw-bold text-dark">+{selectedItem.bonus_point} điểm (Cộng thêm vào điểm tích lũy mỗi hóa đơn)</div>
                   </div>
                 </div>
                 <div className="col-sm-12">

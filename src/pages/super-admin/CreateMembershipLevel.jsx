@@ -56,9 +56,9 @@ const CreateMembershipLevel = () => {
       if (val < 0 || val > 100) newErrors.discount_percent = 'Phần trăm phải từ 0 đến 100';
     }
     if (!formData.bonus_point) {
-      newErrors.bonus_point = 'Hệ số điểm thưởng không được để trống';
+      newErrors.bonus_point = 'Điểm thưởng cộng thêm không được để trống';
     } else if (parseFloat(formData.bonus_point) < 1) {
-      newErrors.bonus_point = 'Hệ số điểm thưởng phải lớn hơn hoặc bằng 1';
+      newErrors.bonus_point = 'Điểm thưởng cộng thêm phải lớn hơn hoặc bằng 1';
     }
     if (!['0', '1'].includes(String(formData.status))) {
       newErrors.status = 'Trạng thái không hợp lệ';
@@ -194,10 +194,10 @@ const CreateMembershipLevel = () => {
               </div>
 
               <div className="col-md-6 mb-4">
-                <label className="admin-form-label">Hệ số điểm thưởng <span className="text-danger">*</span></label>
-                <input 
+                <label className="admin-form-label">Điểm thưởng cộng thêm <span className="text-danger">*</span></label>
+                <input
                   type="number" name="bonus_point" className={`admin-search-input w-100 ${errors.bonus_point ? 'border-danger' : ''}`}
-                  placeholder="Ví dụ: 2 (x2 điểm thưởng)" value={formData.bonus_point} onChange={handleChange}
+                  placeholder="Ví dụ: 2 (cộng thêm 2 điểm mỗi hóa đơn)" value={formData.bonus_point} onChange={handleChange}
                 />
                 {errors.bonus_point && <small className="text-danger fw-medium">{errors.bonus_point}</small>}
               </div>

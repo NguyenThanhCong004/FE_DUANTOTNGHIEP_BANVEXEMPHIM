@@ -826,7 +826,7 @@ function TabRank({ user, ranks, loading }) {
                   </div>
                   <div className="pf-rank-perks">
                     {r.discountPercent > 0 && <span style={{ color: isCurrent ? "var(--yellow)" : "#b39ddb" }}>-{r.discountPercent}% vé</span>}
-                    {r.bonusPoint != null && <span>×{r.bonusPoint} điểm</span>}
+                    {r.bonusPoint != null && <span>+{r.bonusPoint} điểm</span>}
                     {isCurrent && <span className="pf-current-tag">Của bạn</span>}
                   </div>
                 </div>
@@ -867,7 +867,7 @@ function TabRank({ user, ranks, loading }) {
               <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(212,226,25,0.7)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Quyền lợi hiện tại</div>
               {[
                 currentRank.discountPercent > 0 && `Giảm ${currentRank.discountPercent}% giá vé`,
-                currentRank.bonusPoint != null && `Nhân ×${currentRank.bonusPoint} điểm tích lũy`,
+                currentRank.bonusPoint != null && `Cộng thêm ${currentRank.bonusPoint} điểm tích lũy`,
                 "Ưu tiên đặt vé sự kiện đặc biệt",
               ].filter(Boolean).map((perk, i) => (
                 <div key={i} style={{ marginBottom: 7, fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
