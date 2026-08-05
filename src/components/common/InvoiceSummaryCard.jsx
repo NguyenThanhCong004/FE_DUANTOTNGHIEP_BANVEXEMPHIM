@@ -337,43 +337,66 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
           <div className="fw-bold small text-uppercase mb-2" style={{ color: "#64748b", letterSpacing: 0 }}>
             Chi tiết ưu đãi áp dụng
           </div>
-          <div className="d-flex justify-content-between small mb-2" style={labelStyle}>
+          <div className="d-flex justify-content-between small mb-1" style={labelStyle}>
             <span>Tổng vé trước khuyến mãi</span>
             <span className="fw-bold" style={textStyle}>{formatVnd(ticketOriginalTotal || ticketTotal)}</span>
           </div>
+
           {promotionDiscountTotal > 0 ? (
-            <div className="d-flex justify-content-between small mb-2 text-success">
-              <span>Giảm khuyến mãi{promotionPercentLabel ? ` (${promotionPercentLabel})` : ""}</span>
-              <span className="fw-bold">-{formatVnd(promotionDiscountTotal)}</span>
+            <div className="mb-1">
+              <div className="d-flex justify-content-between small text-success">
+                <span>Giảm khuyến mãi{promotionPercentLabel ? ` (${promotionPercentLabel})` : ""}</span>
+                <span className="fw-bold">-{formatVnd(promotionDiscountTotal)}</span>
+              </div>
+              <div className="d-flex justify-content-between" style={{ ...labelStyle, fontSize: 11 }}>
+                <span>Còn lại sau khuyến mãi</span>
+                <span>{formatVnd(afterPromoTotal)}</span>
+              </div>
             </div>
           ) : null}
+
           {membershipDiscountTotal > 0 ? (
-            <div className="d-flex justify-content-between small mb-2 text-success">
-              <span>{rankLabel}</span>
-              <span className="fw-bold">-{formatVnd(membershipDiscountTotal)}</span>
+            <div className="mb-1">
+              <div className="d-flex justify-content-between small text-success">
+                <span>{rankLabel}</span>
+                <span className="fw-bold">-{formatVnd(membershipDiscountTotal)}</span>
+              </div>
+              <div className="d-flex justify-content-between" style={{ ...labelStyle, fontSize: 11 }}>
+                <span>Còn lại sau giảm hạng hội viên</span>
+                <span>{formatVnd(afterPromoTotal - membershipDiscountTotal)}</span>
+              </div>
             </div>
           ) : null}
+
           <div className="d-flex justify-content-between small mb-2 pt-2 border-top" style={labelStyle}>
             <span>Tổng tiền vé sau ưu đãi</span>
             <span className="fw-bold" style={textStyle}>{formatVnd(ticketTotal)}</span>
           </div>
           <div className="d-flex justify-content-between small mb-2" style={labelStyle}>
-            <span>Tổng bắp nước / combo</span>
+            <span>Bắp nước / combo</span>
             <span className="fw-bold" style={textStyle}>{formatVnd(foodTotal)}</span>
           </div>
-          <div className="d-flex justify-content-between small mb-2" style={labelStyle}>
-            <span>Tạm tính (đã gồm khuyến mãi + hạng hội viên)</span>
+          <div className="d-flex justify-content-between small mb-1 pt-1 border-top" style={labelStyle}>
+            <span>Tạm tính (trước voucher)</span>
             <span className="fw-bold" style={textStyle}>{formatVnd(subtotalBeforeVoucher)}</span>
           </div>
+
           {voucherDiscountAmount > 0 ? (
-            <div className="d-flex justify-content-between small mb-2 text-success">
-              <span>{voucherLabel}</span>
-              <span className="fw-bold">-{formatVnd(voucherDiscountAmount)}</span>
+            <div className="mb-1 mt-1">
+              <div className="d-flex justify-content-between small text-success">
+                <span>{voucherLabel}</span>
+                <span className="fw-bold">-{formatVnd(voucherDiscountAmount)}</span>
+              </div>
+              <div className="d-flex justify-content-between" style={{ ...labelStyle, fontSize: 11 }}>
+                <span>Còn lại sau voucher</span>
+                <span>{formatVnd(subtotalBeforeVoucher - voucherDiscountAmount)}</span>
+              </div>
             </div>
           ) : null}
+
           <div className="d-flex justify-content-between align-items-end gap-3 pt-3 mt-3 border-top">
             <span className="small fw-bold text-uppercase" style={{ color: "#334155", letterSpacing: 0 }}>
-              Còn lại phải thanh toán
+              Tổng tiền
             </span>
             <h3 className="fw-black m-0 text-end" style={{ color: "#dc2626" }}>
               {formatVnd(finalAmount)}
