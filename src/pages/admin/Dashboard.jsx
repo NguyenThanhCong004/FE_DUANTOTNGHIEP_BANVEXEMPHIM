@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Alert } from "react-bootstrap";
 
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
@@ -21,14 +21,43 @@ function todayBounds() {
   return { start, end };
 }
 
+function todayIso() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+const REVENUE_DAYS_OPTIONS = [
+  { value: 7, label: "7 ngày" },
+  { value: 14, label: "14 ngày" },
+  { value: 30, label: "30 ngày" },
+  { value: 90, label: "90 ngày" },
+];
+
+const TOP_MOVIES_LIMIT_OPTIONS = [5, 10, 20];
+
 const AdminDashboard = () => {
   const staff = getStoredStaff();
   const cinemaId = staff?.cinemaId;
 
+  const [revenueDays, setRevenueDays] = useState(14);
+  const [ticketsDate, setTicketsDate] = useState("");
+  const [topMoviesLimit, setTopMoviesLimit] = useState(5);
+
   const summary = useApiData(() => apiJson(ADMIN_DASHBOARD.SUMMARY(cinemaId)), [cinemaId]);
-  const revenueByDay = useApiData(() => apiJson(ADMIN_DASHBOARD.REVENUE_BY_DAY(cinemaId, 14)), [cinemaId]);
-  const ticketsByHour = useApiData(() => apiJson(ADMIN_DASHBOARD.TICKETS_BY_HOUR(cinemaId)), [cinemaId]);
-  const topMovies = useApiData(() => apiJson(ADMIN_DASHBOARD.TOP_MOVIES(cinemaId, 5)), [cinemaId]);
+  const revenueByDay = useApiData(
+    () => apiJson(ADMIN_DASHBOARD.REVENUE_BY_DAY(cinemaId, revenueDays)),
+    [cinemaId, revenueDays]
+  );
+  const ticketsByHour = useApiData(
+    () => apiJson(ADMIN_DASHBOARD.TICKETS_BY_HOUR(cinemaId, ticketsDate || undefined)),
+    [cinemaId, ticketsDate]
+  );
+  const topMovies = useApiData(
+    () => apiJson(ADMIN_DASHBOARD.TOP_MOVIES(cinemaId, topMoviesLimit)),
+    [cinemaId, topMoviesLimit]
+  );
   const seatTypeRatio = useApiData(() => apiJson(ADMIN_DASHBOARD.SEAT_TYPE_RATIO(cinemaId)), [cinemaId]);
   const recentInvoices = useApiData(
     () => apiJson(cinemaId ? `${ORDERS_ONLINE.LIST}?cinemaId=${cinemaId}` : ORDERS_ONLINE.LIST),
@@ -79,10 +108,22 @@ const AdminDashboard = () => {
       <div className="row g-4 mt-1">
         <div className="col-lg-7">
           <ChartCard
-            title="Doanh thu theo ngày (14 ngày gần nhất)"
+            title={`Doanh thu theo ngày (${revenueDays} ngày gần nhất)`}
             loading={revenueByDay.loading}
             error={revenueByDay.error}
             isEmpty={!revenueByDay.loading && (revenueByDay.data || []).length === 0}
+            headerRight={
+              <select
+                className="admin-search-input admin-filter-control"
+                style={{ width: 130, height: 34 }}
+                value={revenueDays}
+                onChange={(e) => setRevenueDays(Number(e.target.value))}
+              >
+                {REVENUE_DAYS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            }
           >
             <BarChartWidget
               labels={(revenueByDay.data || []).map((r) => formatDate(r.label, { day: "2-digit", month: "2-digit" }))}
@@ -93,10 +134,27 @@ const AdminDashboard = () => {
 
         <div className="col-lg-5">
           <ChartCard
-            title="Vé bán theo giờ hôm nay"
+            title={ticketsDate ? `Vé bán theo giờ ngày ${formatDate(ticketsDate, { day: "2-digit", month: "2-digit" })}` : "Vé bán theo giờ hôm nay"}
             loading={ticketsByHour.loading}
             error={ticketsByHour.error}
             isEmpty={!ticketsByHour.loading && (ticketsByHour.data || []).every((h) => !h.ticketCount)}
+            headerRight={
+              <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                <input
+                  type="date"
+                  className="admin-search-input admin-filter-control"
+                  style={{ width: 150, height: 34 }}
+                  value={ticketsDate}
+                  max={todayIso()}
+                  onChange={(e) => setTicketsDate(e.target.value)}
+                />
+                {ticketsDate ? (
+                  <button type="button" className="admin-btn admin-btn-outline admin-btn-sm" onClick={() => setTicketsDate("")}>
+                    Hôm nay
+                  </button>
+                ) : null}
+              </div>
+            }
           >
             <BarChartWidget
               labels={(ticketsByHour.data || []).map((h) => `${h.hour}h`)}
@@ -107,10 +165,22 @@ const AdminDashboard = () => {
 
         <div className="col-lg-7">
           <ChartCard
-            title="Top phim bán chạy"
+            title={`Top ${topMoviesLimit} phim bán chạy`}
             loading={topMovies.loading}
             error={topMovies.error}
             isEmpty={!topMovies.loading && (topMovies.data || []).length === 0}
+            headerRight={
+              <select
+                className="admin-search-input admin-filter-control"
+                style={{ width: 110, height: 34 }}
+                value={topMoviesLimit}
+                onChange={(e) => setTopMoviesLimit(Number(e.target.value))}
+              >
+                {TOP_MOVIES_LIMIT_OPTIONS.map((n) => (
+                  <option key={n} value={n}>Top {n}</option>
+                ))}
+              </select>
+            }
           >
             <BarChartWidget
               horizontal

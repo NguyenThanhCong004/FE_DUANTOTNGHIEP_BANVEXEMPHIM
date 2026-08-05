@@ -25,19 +25,13 @@ const VoucherManagement = () => {
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const basePath = location.pathname.startsWith("/admin") ? "/admin" : "/super-admin";
-  const isAdminSection = basePath === "/admin";
   const isSuperAdmin = basePath === "/super-admin";
   const staff = getStoredStaff();
   const { selectedCinemaId, selectedCinemaName } = useSuperAdminCinema();
   const activeCinemaId = isSuperAdmin ? selectedCinemaId : staff?.cinemaId ?? null;
   const activeCinemaName = isSuperAdmin ? selectedCinemaName : staff?.cinemaName ?? null;
-  // Đồng bộ style nút Xem/Sửa/Xóa với các trang khác trong cùng khu vực quản trị:
-  // Admin dùng nút tròn icon (admin-table-action-btn), Super Admin dùng nút pill outline.
+  // Đồng bộ style nút Xem/Sửa/Xóa với các trang quản trị khác (admin-btn pill outline).
   const actionBtnClass = (variant) => {
-    if (isAdminSection) {
-      const map = { view: "admin-table-action-btn--view", edit: "admin-table-action-btn--edit", danger: "admin-table-action-btn--danger" };
-      return `admin-table-action-btn ${map[variant]}`;
-    }
     const map = { view: "admin-btn-outline", edit: "admin-btn-primary", danger: "admin-btn-danger" };
     return `admin-btn admin-btn-sm ${map[variant]}`;
   };
@@ -248,7 +242,7 @@ const VoucherManagement = () => {
                           </span>
                         </td>
                         <td className="text-center">
-                          <div className={isAdminSection ? "admin-table-action-group" : "d-flex justify-content-center gap-1"}>
+                          <div className="d-flex justify-content-center gap-1">
                             <button
                               type="button"
                               className={actionBtnClass("view")}

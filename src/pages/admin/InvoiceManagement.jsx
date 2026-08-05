@@ -264,9 +264,6 @@ const InvoiceManagement = () => {
               Xóa lọc
             </button>
           )}
-          <div className="ms-auto small text-muted">
-            Đang hiển thị <strong>{filteredInvoices.length}</strong> / {invoices.length} hóa đơn
-          </div>
         </div>
       </div>
 

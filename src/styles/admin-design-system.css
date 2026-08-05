@@ -414,6 +414,12 @@
   transition: var(--admin-transition);
 }
 
+/* Bộ lọc (select/ngày) dùng chung style với ô tìm kiếm nhưng không có icon bên trái
+   nên cần bỏ khoảng đệm dành cho icon, tránh chữ bị lệch hẳn sang phải. */
+.admin-filter-control.admin-search-input {
+  padding-left: 0.75rem;
+}
+
 .admin-search-input:focus {
   outline: none;
   border-color: var(--admin-primary);
