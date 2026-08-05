@@ -73,11 +73,22 @@ const GlobalInvoiceManagement = () => {
   const handleDownloadPDF = async () => {
     const element = document.querySelector(".invoice-print-area");
     if (!element) return;
+    const modal = document.querySelector(".admin-modal");
 
     const btn = document.querySelector(".btn-pdf-download");
     const originalText = btn.innerHTML;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang tạo PDF...';
     btn.disabled = true;
+
+    // Modal đang giới hạn chiều cao + cuộn (max-height/overflow-y), nếu chụp nguyên trạng
+    // html2canvas sẽ cắt mất phần nằm ngoài vùng cuộn hiện tại (thường là phần Tổng tiền ở cuối).
+    // Tạm bỏ giới hạn để chụp được toàn bộ nội dung, xong thì khôi phục lại.
+    const prevModalMaxHeight = modal?.style.maxHeight;
+    const prevModalOverflow = modal?.style.overflow;
+    if (modal) {
+      modal.style.maxHeight = "none";
+      modal.style.overflow = "visible";
+    }
 
     try {
       if (!window.html2canvas) {
@@ -101,25 +112,46 @@ const GlobalInvoiceManagement = () => {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        height: element.scrollHeight,
+        windowHeight: element.scrollHeight
       });
 
       const imgData = canvas.toDataURL('image/png');
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      const margin = 15; 
+
+      const margin = 15;
       const pdfWidth = pdf.internal.pageSize.getWidth() - 2 * margin;
+      const pageHeight = pdf.internal.pageSize.getHeight() - 2 * margin;
       const imgProps = pdf.getImageProperties(imgData);
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-      pdf.addImage(imgData, 'PNG', margin, margin, pdfWidth, pdfHeight);
+      if (pdfHeight <= pageHeight) {
+        pdf.addImage(imgData, 'PNG', margin, margin, pdfWidth, pdfHeight);
+      } else {
+        // Nội dung dài hơn 1 trang A4 — cắt thành nhiều trang để không mất phần cuối (Tổng tiền).
+        let heightLeft = pdfHeight;
+        let position = 0;
+        pdf.addImage(imgData, 'PNG', margin, margin, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+        while (heightLeft > 0) {
+          position -= pageHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', margin, margin + position, pdfWidth, pdfHeight);
+          heightLeft -= pageHeight;
+        }
+      }
       pdf.save(`HoaDon_${selectedOrder.orderCode}.pdf`);
 
     } catch (error) {
       console.error("Lỗi khi tạo PDF:", error);
       alert("Không thể tạo file PDF. Vui lòng thử lại.");
     } finally {
+      if (modal) {
+        modal.style.maxHeight = prevModalMaxHeight || "";
+        modal.style.overflow = prevModalOverflow || "";
+      }
       btn.innerHTML = originalText;
       btn.disabled = false;
     }
