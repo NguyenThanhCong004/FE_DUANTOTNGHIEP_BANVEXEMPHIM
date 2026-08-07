@@ -4,6 +4,9 @@ WORKDIR /app
 
 # Copy package.json và cài đặt dependencies
 COPY package*.json ./
+# Ép Node.js ưu tiên IPv4 khi resolve DNS: tránh npm ci bị treo/lỗi trên VPS
+# chỉ có IPv6 link-local (không có route IPv6 thật ra ngoài Internet)
+ENV NODE_OPTIONS=--dns-result-order=ipv4first
 RUN npm ci
 
 # Copy toàn bộ code và build bản production
