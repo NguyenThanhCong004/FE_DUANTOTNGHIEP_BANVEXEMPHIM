@@ -1,5 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Card, Button, Spinner, Form } from "react-bootstrap";
+import {
+  User, Mail, Phone, Calendar, Shield, Building2,
+  KeyRound, Pencil, RefreshCw, Save, X,
+} from "lucide-react";
 
 import { useAdminToast } from "../admin/AdminToast";
 import {
@@ -54,6 +58,104 @@ function mergeStaffSession(serverDto) {
   });
 }
 
+const ROLE_COLORS = {
+  ADMIN: { bg: "rgba(59,130,246,0.15)", text: "#60a5fa", border: "rgba(59,130,246,0.35)" },
+  STAFF: { bg: "rgba(16,185,129,0.15)", text: "#34d399", border: "rgba(16,185,129,0.35)" },
+  SUPER_ADMIN: { bg: "rgba(139,92,246,0.15)", text: "#a78bfa", border: "rgba(139,92,246,0.35)" },
+};
+
+function RoleBadge({ role }) {
+  const key = String(role || "").toUpperCase().replace(/^ROLE_/i, "");
+  const c = ROLE_COLORS[key] || { bg: "rgba(100,116,139,0.15)", text: "#94a3b8", border: "rgba(100,116,139,0.3)" };
+  return (
+    <span style={{
+      display: "inline-block",
+      padding: "3px 12px",
+      borderRadius: 20,
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: "0.06em",
+      background: c.bg,
+      color: c.text,
+      border: `1px solid ${c.border}`,
+      textTransform: "uppercase",
+    }}>
+      {key || "—"}
+    </span>
+  );
+}
+
+function IconBox({ icon: Icon, color = "#60a5fa", bg = "rgba(59,130,246,0.12)" }) {
+  return (
+    <div style={{
+      width: 36, height: 36, borderRadius: 9,
+      background: bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0,
+    }}>
+      <Icon size={16} color={color} />
+    </div>
+  );
+}
+
+function InfoRow({ icon, iconColor, iconBg, label, noBorder = false, children }) {
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 14,
+      padding: "15px 0",
+      borderBottom: noBorder ? "none" : "1px solid rgba(148,163,184,0.1)",
+    }}>
+      <IconBox icon={icon} color={iconColor} bg={iconBg} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 10.5, color: "#64748b", fontWeight: 700,
+          textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5,
+        }}>
+          {label}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function PwField({ label, name, value, show, onToggle, onChange, error, inputDark }) {
+  return (
+    <Form.Group className="mb-3">
+      <Form.Label style={{ fontSize: 12, color: "#94a3b8", fontWeight: 700, marginBottom: 6 }}>
+        {label}
+      </Form.Label>
+      <div style={{ position: "relative" }}>
+        <Form.Control
+          type={show ? "text" : "password"}
+          name={name}
+          value={value}
+          onChange={onChange}
+          className={`${inputDark || ""} ${error ? "is-invalid border-danger" : ""}`.trim()}
+          autoComplete={name === "current" ? "current-password" : "new-password"}
+          style={{ paddingRight: 42, backgroundImage: "none", borderRadius: 9 }}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          style={{
+            position: "absolute", right: 10, top: "50%",
+            transform: "translateY(-50%)", border: "none",
+            background: "transparent", color: "#94a3b8", zIndex: 5,
+          }}
+        >
+          <i className={`fas ${show ? "fa-eye-slash" : "fa-eye"}`} />
+        </button>
+      </div>
+      {error && (
+        <div style={{ color: "#f87171", fontSize: 11, marginTop: 5, fontWeight: 600 }}>{error}</div>
+      )}
+    </Form.Group>
+  );
+}
+
 /**
  * Hồ sơ nhân viên (ADMIN / SUPER_ADMIN) — tải từ API, chỉnh sửa & đổi mật khẩu.
  * @param {boolean} [hideHeader] — ẩn tiêu đề phụ (khi đã có AdminPanelPage).
@@ -80,10 +182,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const [avatarPreview, setAvatarPreview] = useState("");
 
   const load = useCallback(async () => {
-    if (!staffId) {
-      setLoading(false);
-      return;
-    }
+    if (!staffId) { setLoading(false); return; }
     setLoading(true);
     try {
       const res = await apiFetch(STAFF.ME);
@@ -104,16 +203,12 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
     }
   }, [staffId, showToast]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const startEdit = () => {
     if (!model) return;
     setAvatarFile(null);
-    setAvatarPreview(
-      (model.avatar && String(model.avatar).trim()) || DEFAULT_AVATAR_PLACEHOLDER
-    );
+    setAvatarPreview((model.avatar && String(model.avatar).trim()) || DEFAULT_AVATAR_PLACEHOLDER);
     setDraft({
       fullname: model.fullname ?? "",
       email: model.email ?? "",
@@ -154,10 +249,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
 
   const saveProfile = async () => {
     const e = validateDraft();
-    if (Object.keys(e).length) {
-      setErrors(e);
-      return;
-    }
+    if (Object.keys(e).length) { setErrors(e); return; }
     if (!model?.staffId) return;
 
     setSaving(true);
@@ -198,10 +290,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
         setSaving(false);
         return;
       }
-      const res = await apiFetch(STAFF.ME, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      });
+      const res = await apiFetch(STAFF.ME, { method: "PUT", body: JSON.stringify(body) });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.data) {
         showToast(apiMessage(json, "Cập nhật thất bại"), "danger");
@@ -236,26 +325,17 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
 
   const savePassword = async () => {
     const e = validatePw();
-    if (Object.keys(e).length) {
-      setPwErrors(e);
-      return;
-    }
+    if (Object.keys(e).length) { setPwErrors(e); return; }
     if (!model?.staffId) return;
 
     setPwSaving(true);
     try {
       const res = await apiFetch(STAFF.ME_PASSWORD, {
         method: "PUT",
-        body: JSON.stringify({
-          currentPassword: pw.current,
-          newPassword: pw.newPw,
-        }),
+        body: JSON.stringify({ currentPassword: pw.current, newPassword: pw.newPw }),
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        showToast(apiMessage(json, "Đổi mật khẩu thất bại"), "danger");
-        return;
-      }
+      if (!res.ok) { showToast(apiMessage(json, "Đổi mật khẩu thất bại"), "danger"); return; }
       setPw({ current: "", newPw: "", confirm: "" });
       showToast("Đã đổi mật khẩu");
     } catch {
@@ -267,315 +347,309 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
 
   const light = variant === "light";
   const inputDark = light ? "" : "bg-dark text-light border-secondary";
-  const cardStyle = light
-    ? {
-        background: "var(--admin-bg-card)",
-        borderRadius: 16,
-        border: "1px solid var(--admin-border)",
-        boxShadow: "var(--admin-shadow-sm)",
-      }
-    : {
-        background: "rgba(15, 23, 42, 0.75)",
-        borderRadius: 16,
-        border: "1px solid rgba(148, 163, 184, 0.2)",
-      };
 
   const role = model ? normalizeRole(model.role) : normalizeRole(stored?.role);
   const name = model?.fullname || stored?.fullname || stored?.email || "—";
   const email = model?.email || stored?.email || "—";
   const cinemaId = model?.cinemaId ?? stored?.cinemaId;
 
-  const listBorder = light ? "border-secondary" : "border-secondary border-opacity-25";
+  const cardStyle = {
+    background: light ? "var(--admin-bg-card)" : "rgba(15, 23, 42, 0.9)",
+    borderRadius: 16,
+    border: "1px solid rgba(148, 163, 184, 0.12)",
+    overflow: "hidden",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+  };
+
+  const textPrimary = light ? "#1e293b" : "#f1f5f9";
+  const textValue = light ? "#1e293b" : "#e2e8f0";
 
   return (
     <div className={`staff-profile-wrap${light ? " staff-profile-wrap--light" : ""}`}>
       <ToastComponent />
 
-      {!hideHeader ? (
+      {!hideHeader && (
         <div className="mb-4">
-          <h2 className={`h4 fw-bold mb-1 ${light ? "text-dark" : "text-white"}`}>{title}</h2>
-          <p className="text-secondary small mb-0">{roleLabel}</p>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: textPrimary, marginBottom: 4 }}>{title}</h2>
+          <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>{roleLabel}</p>
         </div>
-      ) : null}
+      )}
 
-      <Card className={`border-0 mb-4 ${light ? "text-dark" : "text-light"}`} style={cardStyle}>
-        <Card.Body className="p-4">
+      {/* Profile Card */}
+      <Card className="border-0 mb-4" style={cardStyle}>
+        {/* Gradient banner */}
+        <div style={{
+          background: light
+            ? "linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%)"
+            : "linear-gradient(135deg, #1e3a5f 0%, #1e293b 60%, #0f172a 100%)",
+          height: 88,
+        }} />
+
+        <Card.Body className="p-4" style={{ marginTop: -20 }}>
           {!staffId ? (
-            <p className="text-warning mb-0">
-              Không tìm thấy mã nhân viên. Vui lòng đăng nhập lại.
-            </p>
+            <p style={{ color: "#f59e0b" }}>Không tìm thấy mã nhân viên. Vui lòng đăng nhập lại.</p>
           ) : loading ? (
-            <div className="d-flex align-items-center gap-2 text-secondary">
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#64748b", padding: "20px 0" }}>
               <Spinner animation="border" size="sm" />
               Đang tải hồ sơ…
             </div>
           ) : !model ? (
-            <p className="text-warning mb-2">Không tải được dữ liệu từ máy chủ.</p>
+            <p style={{ color: "#f59e0b" }}>Không tải được dữ liệu từ máy chủ.</p>
           ) : (
             <>
-              <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-                <div className="d-flex align-items-center gap-3">
-                  <div
-                    style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: "50%",
-                      overflow: "hidden",
-                      border: "2px solid rgba(148,163,184,0.35)",
-                      flexShrink: 0,
-                    }}
-                  >
+              {/* Avatar + name + actions */}
+              <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
+                  <div style={{
+                    width: 90, height: 90, borderRadius: "50%",
+                    border: "3px solid #3b82f6",
+                    boxShadow: "0 0 0 5px rgba(59,130,246,0.18), 0 4px 16px rgba(0,0,0,0.3)",
+                    overflow: "hidden", background: "#1e293b", flexShrink: 0,
+                  }}>
                     <img
-                      src={
-                        (editing ? avatarPreview : model.avatar)?.trim() ||
-                        DEFAULT_AVATAR_PLACEHOLDER
-                      }
+                      src={(editing ? avatarPreview : model.avatar)?.trim() || DEFAULT_AVATAR_PLACEHOLDER}
                       alt=""
                       style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      onError={(ev) => {
-                        ev.target.src = DEFAULT_AVATAR_PLACEHOLDER;
-                      }}
+                      onError={(ev) => { ev.target.src = DEFAULT_AVATAR_PLACEHOLDER; }}
                     />
                   </div>
-                  <div>
-                    <div className="fw-bold fs-5">{name}</div>
-                    <div className="small text-secondary">{email}</div>
-                    {editing ? (
-                      <div className="mt-2">
-                        <Form.Label className="small text-secondary mb-1">Đổi ảnh đại diện</Form.Label>
-                        <Form.Control
-                          type="file"
-                          accept={IMAGE_FILE_ACCEPT}
-                          size="sm"
-                          className={inputDark || undefined}
-                          onChange={(ev) => {
-                            const f = ev.target.files?.[0];
-                            setErrors((er) => ({ ...er, avatar: "" }));
-                            if (!f) {
-                              setAvatarFile(null);
-                              setAvatarPreview(
-                                (model.avatar && String(model.avatar).trim()) ||
-                                  DEFAULT_AVATAR_PLACEHOLDER
-                              );
-                              return;
-                            }
-                            setAvatarFile(f);
-                            setAvatarPreview(URL.createObjectURL(f));
-                          }}
-                        />
-                        {errors.avatar ? (
-                          <div className="text-danger small mt-1">{errors.avatar}</div>
-                        ) : null}
-                      </div>
-                    ) : null}
+                  <div style={{ paddingBottom: 4 }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: textPrimary, marginBottom: 3 }}>{name}</div>
+                    <div style={{ fontSize: 13, color: "#64748b", marginBottom: 8 }}>{email}</div>
+                    <RoleBadge role={model.role} />
                   </div>
                 </div>
-                <div className="d-flex gap-2">
+
+                <div style={{ display: "flex", gap: 8, paddingBottom: 4 }}>
                   {!editing ? (
                     <>
-                      <Button variant={light ? "outline-primary" : "outline-light"} size="sm" onClick={startEdit}>
-                        Chỉnh sửa
-                      </Button>
-                      <Button variant="outline-secondary" size="sm" onClick={load}>
-                        Tải lại
-                      </Button>
+                      <button
+                        onClick={startEdit}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6,
+                          padding: "7px 16px", borderRadius: 9, border: "none",
+                          background: "#3b82f6", color: "#fff",
+                          fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        }}
+                      >
+                        <Pencil size={14} /> Chỉnh sửa
+                      </button>
+                      <button
+                        onClick={load}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6,
+                          padding: "7px 14px", borderRadius: 9,
+                          border: "1px solid rgba(148,163,184,0.3)",
+                          background: "transparent", color: "#94a3b8",
+                          fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        }}
+                      >
+                        <RefreshCw size={14} /> Tải lại
+                      </button>
                     </>
                   ) : (
                     <>
-                      <Button
-                        variant="primary"
-                        size="sm"
+                      <button
                         onClick={saveProfile}
                         disabled={saving}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6,
+                          padding: "7px 16px", borderRadius: 9, border: "none",
+                          background: "#10b981", color: "#fff",
+                          fontSize: 13, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
+                          opacity: saving ? 0.7 : 1,
+                        }}
                       >
-                        {saving ? "Đang lưu…" : "Lưu"}
-                      </Button>
-                      <Button variant="outline-secondary" size="sm" onClick={cancelEdit} disabled={saving}>
-                        Hủy
-                      </Button>
+                        <Save size={14} /> {saving ? "Đang lưu…" : "Lưu"}
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        disabled={saving}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6,
+                          padding: "7px 14px", borderRadius: 9,
+                          border: "1px solid rgba(148,163,184,0.3)",
+                          background: "transparent", color: "#94a3b8",
+                          fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        }}
+                      >
+                        <X size={14} /> Hủy
+                      </button>
                     </>
                   )}
                 </div>
               </div>
 
-              <ul className="list-unstyled mb-0">
-                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
-                  <div className="flex-grow-1">
-                    <div className="small text-secondary text-uppercase fw-bold">Họ tên</div>
-                    {editing ? (
-                      <Form.Control
-                        name="fullname"
-                        value={draft.fullname}
-                        onChange={handleDraft}
-                        className={`mt-1 ${inputDark}`.trim()}
-                        isInvalid={!!errors.fullname}
-                      />
-                    ) : (
-                      <div className="fw-semibold">{model.fullname || "—"}</div>
-                    )}
-                    {errors.fullname && (
-                      <div className="text-danger small mt-1">{errors.fullname}</div>
-                    )}
+              {/* Avatar file picker (edit mode) */}
+              {editing && (
+                <div style={{
+                  marginBottom: 20, padding: "12px 16px",
+                  background: "rgba(59,130,246,0.07)",
+                  borderRadius: 10, border: "1px solid rgba(59,130,246,0.18)",
+                }}>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Đổi ảnh đại diện
                   </div>
-                </li>
-                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
-                  <div className="flex-grow-1">
-                    <div className="small text-secondary text-uppercase fw-bold">Email (Gmail)</div>
-                    {editing ? (
-                      <Form.Control
-                        name="email"
-                        type="email"
-                        value={draft.email}
-                        onChange={handleDraft}
-                        className={`mt-1 ${inputDark}`.trim()}
-                        isInvalid={!!errors.email}
-                      />
-                    ) : (
-                      <div className="fw-semibold">{model.email || "—"}</div>
-                    )}
-                    {errors.email && <div className="text-danger small mt-1">{errors.email}</div>}
-                  </div>
-                </li>
-                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
-                  <div className="flex-grow-1">
-                    <div className="small text-secondary text-uppercase fw-bold">Điện thoại</div>
-                    {editing ? (
-                      <Form.Control
-                        name="phone"
-                        value={draft.phone}
-                        onChange={handleDraft}
-                        className={`mt-1 ${inputDark}`.trim()}
-                        isInvalid={!!errors.phone}
-                      />
-                    ) : (
-                      <div className="fw-semibold">{model.phone || "—"}</div>
-                    )}
-                    {errors.phone && <div className="text-danger small mt-1">{errors.phone}</div>}
-                  </div>
-                </li>
-                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
-                  <div className="flex-grow-1">
-                    <div className="small text-secondary text-uppercase fw-bold">Ngày sinh</div>
-                    {editing ? (
-                      <Form.Control
-                        name="birthday"
-                        type="date"
-                        value={draft.birthday}
-                        onChange={handleDraft}
-                        className={`mt-1 ${inputDark}`.trim()}
-                        isInvalid={!!errors.birthday}
-                      />
-                    ) : (
-                      <div className="fw-semibold">{formatBirthdayDisplay(model.birthday)}</div>
-                    )}
-                    {errors.birthday && (
-                      <div className="text-danger small mt-1">{errors.birthday}</div>
-                    )}
-                  </div>
-                </li>
-                <li className={`d-flex align-items-start gap-3 py-3 border-bottom ${listBorder}`}>
-                  <div>
-                    <div className="small text-secondary text-uppercase fw-bold">Vai trò</div>
-                    <div className="fw-semibold">{role}</div>
-                  </div>
-                </li>
-                <li className="d-flex align-items-start gap-3 py-3">
-                  <div>
-                    <div className="small text-secondary text-uppercase fw-bold">Rạp gán (cinemaId)</div>
-                    <div className="fw-semibold">
-                      {cinemaId != null ? `#${cinemaId}` : "— (Super Admin có thể chưa gán)"}
-                    </div>
-                  </div>
-                </li>
-              </ul>
+                  <Form.Control
+                    type="file"
+                    accept={IMAGE_FILE_ACCEPT}
+                    size="sm"
+                    className={inputDark || undefined}
+                    style={{ borderRadius: 8 }}
+                    onChange={(ev) => {
+                      const f = ev.target.files?.[0];
+                      setErrors((er) => ({ ...er, avatar: "" }));
+                      if (!f) {
+                        setAvatarFile(null);
+                        setAvatarPreview((model.avatar && String(model.avatar).trim()) || DEFAULT_AVATAR_PLACEHOLDER);
+                        return;
+                      }
+                      setAvatarFile(f);
+                      setAvatarPreview(URL.createObjectURL(f));
+                    }}
+                  />
+                  {errors.avatar && <div style={{ color: "#f87171", fontSize: 12, marginTop: 5 }}>{errors.avatar}</div>}
+                </div>
+              )}
+
+              {/* Info rows */}
+              <InfoRow icon={User} iconColor="#60a5fa" iconBg="rgba(59,130,246,0.1)" label="Họ tên">
+                {editing ? (
+                  <>
+                    <Form.Control name="fullname" value={draft.fullname} onChange={handleDraft}
+                      className={`mt-1 ${inputDark}`.trim()} isInvalid={!!errors.fullname}
+                      style={{ borderRadius: 9 }} />
+                    {errors.fullname && <div style={{ color: "#f87171", fontSize: 12, marginTop: 5 }}>{errors.fullname}</div>}
+                  </>
+                ) : (
+                  <div style={{ fontWeight: 600, color: textValue }}>{model.fullname || "—"}</div>
+                )}
+              </InfoRow>
+
+              <InfoRow icon={Mail} iconColor="#34d399" iconBg="rgba(16,185,129,0.1)" label="Email (Gmail)">
+                {editing ? (
+                  <>
+                    <Form.Control name="email" type="email" value={draft.email} onChange={handleDraft}
+                      className={`mt-1 ${inputDark}`.trim()} isInvalid={!!errors.email}
+                      style={{ borderRadius: 9 }} />
+                    {errors.email && <div style={{ color: "#f87171", fontSize: 12, marginTop: 5 }}>{errors.email}</div>}
+                  </>
+                ) : (
+                  <div style={{ fontWeight: 600, color: textValue }}>{model.email || "—"}</div>
+                )}
+              </InfoRow>
+
+              <InfoRow icon={Phone} iconColor="#f472b6" iconBg="rgba(244,114,182,0.1)" label="Điện thoại">
+                {editing ? (
+                  <>
+                    <Form.Control name="phone" value={draft.phone} onChange={handleDraft}
+                      className={`mt-1 ${inputDark}`.trim()} isInvalid={!!errors.phone}
+                      style={{ borderRadius: 9 }} />
+                    {errors.phone && <div style={{ color: "#f87171", fontSize: 12, marginTop: 5 }}>{errors.phone}</div>}
+                  </>
+                ) : (
+                  <div style={{ fontWeight: 600, color: textValue }}>{model.phone || "—"}</div>
+                )}
+              </InfoRow>
+
+              <InfoRow icon={Calendar} iconColor="#fb923c" iconBg="rgba(251,146,60,0.1)" label="Ngày sinh">
+                {editing ? (
+                  <>
+                    <Form.Control name="birthday" type="date" value={draft.birthday} onChange={handleDraft}
+                      className={`mt-1 ${inputDark}`.trim()} isInvalid={!!errors.birthday}
+                      style={{ borderRadius: 9 }} />
+                    {errors.birthday && <div style={{ color: "#f87171", fontSize: 12, marginTop: 5 }}>{errors.birthday}</div>}
+                  </>
+                ) : (
+                  <div style={{ fontWeight: 600, color: textValue }}>{formatBirthdayDisplay(model.birthday)}</div>
+                )}
+              </InfoRow>
+
+              <InfoRow icon={Shield} iconColor="#a78bfa" iconBg="rgba(139,92,246,0.1)" label="Vai trò">
+                <RoleBadge role={model.role} />
+              </InfoRow>
+
+              <InfoRow icon={Building2} iconColor="#38bdf8" iconBg="rgba(56,189,248,0.1)" label="Rạp phụ trách" noBorder>
+                <div style={{ fontWeight: 600, color: textValue }}>
+                  {cinemaId != null ? `Rạp #${cinemaId}` : "Chưa gán rạp"}
+                </div>
+              </InfoRow>
             </>
           )}
         </Card.Body>
       </Card>
 
+      {/* Password Card */}
       {staffId && model && (
-        <Card className={`border-0 ${light ? "text-dark" : "text-light"}`} style={cardStyle}>
+        <Card className="border-0" style={cardStyle}>
           <Card.Body className="p-4">
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <span className="fw-bold">Đổi mật khẩu</span>
+            {/* Section header */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 12,
+              marginBottom: 24, paddingBottom: 20,
+              borderBottom: "1px solid rgba(148,163,184,0.1)",
+            }}>
+              <div style={{
+                width: 42, height: 42, borderRadius: 11,
+                background: "rgba(245,158,11,0.12)",
+                border: "1px solid rgba(245,158,11,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <KeyRound size={19} color="#f59e0b" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: textPrimary }}>Đổi mật khẩu</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                  Mật khẩu mạnh giúp bảo vệ tài khoản của bạn
+                </div>
+              </div>
             </div>
-            <Form.Group className="mb-3">
-              <Form.Label className="small text-secondary fw-bold">Mật khẩu hiện tại</Form.Label>
-              <div style={{ position: "relative" }}>
-                <Form.Control
-                  type={showPw.current ? "text" : "password"}
-                  name="current"
-                  value={pw.current}
-                  onChange={handlePw}
-                  className={`${inputDark || ""} ${pwErrors.current ? "is-invalid border-danger" : ""}`.trim()}
-                  autoComplete="current-password"
-                  style={{ paddingRight: 42, backgroundImage: "none" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw((s) => ({ ...s, current: !s.current }))}
-                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
-                >
-                  <i className={`fas ${showPw.current ? "fa-eye-slash" : "fa-eye"}`} />
-                </button>
-              </div>
-              {pwErrors.current && (
-                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.current}</div>
-              )}
-            </Form.Group>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="small text-secondary fw-bold">Mật khẩu mới (≥ 8 ký tự)</Form.Label>
-              <div style={{ position: "relative" }}>
-                <Form.Control
-                  type={showPw.newPw ? "text" : "password"}
-                  name="newPw"
-                  value={pw.newPw}
-                  onChange={handlePw}
-                  className={`${inputDark || ""} ${pwErrors.newPw ? "is-invalid border-danger" : ""}`.trim()}
-                  autoComplete="new-password"
-                  style={{ paddingRight: 42, backgroundImage: "none" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw((s) => ({ ...s, newPw: !s.newPw }))}
-                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
-                >
-                  <i className={`fas ${showPw.newPw ? "fa-eye-slash" : "fa-eye"}`} />
-                </button>
-              </div>
-              {pwErrors.newPw && (
-                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.newPw}</div>
-              )}
-            </Form.Group>
+            <PwField
+              label="Mật khẩu hiện tại"
+              name="current"
+              value={pw.current}
+              show={showPw.current}
+              onToggle={() => setShowPw((s) => ({ ...s, current: !s.current }))}
+              onChange={handlePw}
+              error={pwErrors.current}
+              inputDark={inputDark}
+            />
+            <PwField
+              label="Mật khẩu mới (≥ 8 ký tự)"
+              name="newPw"
+              value={pw.newPw}
+              show={showPw.newPw}
+              onToggle={() => setShowPw((s) => ({ ...s, newPw: !s.newPw }))}
+              onChange={handlePw}
+              error={pwErrors.newPw}
+              inputDark={inputDark}
+            />
+            <PwField
+              label="Xác nhận mật khẩu mới"
+              name="confirm"
+              value={pw.confirm}
+              show={showPw.confirm}
+              onToggle={() => setShowPw((s) => ({ ...s, confirm: !s.confirm }))}
+              onChange={handlePw}
+              error={pwErrors.confirm}
+              inputDark={inputDark}
+            />
 
-            <Form.Group className="mb-4">
-              <Form.Label className="small text-secondary fw-bold">Xác nhận mật khẩu mới</Form.Label>
-              <div style={{ position: "relative" }}>
-                <Form.Control
-                  type={showPw.confirm ? "text" : "password"}
-                  name="confirm"
-                  value={pw.confirm}
-                  onChange={handlePw}
-                  className={`${inputDark || ""} ${pwErrors.confirm ? "is-invalid border-danger" : ""}`.trim()}
-                  autoComplete="new-password"
-                  style={{ paddingRight: 42, backgroundImage: "none" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw((s) => ({ ...s, confirm: !s.confirm }))}
-                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#94a3b8", zIndex: 5 }}
-                >
-                  <i className={`fas ${showPw.confirm ? "fa-eye-slash" : "fa-eye"}`} />
-                </button>
-              </div>
-              {pwErrors.confirm && (
-                <div className="text-danger small mt-1 fw-bold" style={{ fontSize: '11px' }}>{pwErrors.confirm}</div>
-              )}
-            </Form.Group>
-            <Button variant="warning" className="text-dark fw-semibold" onClick={savePassword} disabled={pwSaving}>
+            <button
+              onClick={savePassword}
+              disabled={pwSaving}
+              style={{
+                marginTop: 4, padding: "9px 22px", borderRadius: 9, border: "none",
+                background: "#f59e0b", color: "#1e293b",
+                fontSize: 13, fontWeight: 700, cursor: pwSaving ? "not-allowed" : "pointer",
+                opacity: pwSaving ? 0.7 : 1,
+                display: "flex", alignItems: "center", gap: 7,
+              }}
+            >
+              <KeyRound size={14} />
               {pwSaving ? "Đang xử lý…" : "Cập nhật mật khẩu"}
-            </Button>
+            </button>
           </Card.Body>
         </Card>
       )}

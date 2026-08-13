@@ -363,7 +363,7 @@ export default function MyShifts() {
                     <div className="panel-section-title"><CreditCard size={14} /> Doanh thu theo thanh toán</div>
                     {revenueBreakdown.map((r, i) => (
                       <div key={i} className="breakdown-row">
-                        <span className="breakdown-method">{r.method}</span>
+                        <span className="breakdown-method">{r.method === 'CASH' ? 'Tiền mặt' : r.method === 'TRANSFER' ? 'Chuyển khoản' : r.method}</span>
                         <span className="breakdown-amount">{fmtCurrency(r.total)}</span>
                       </div>
                     ))}
