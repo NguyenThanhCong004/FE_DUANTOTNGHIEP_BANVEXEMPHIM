@@ -161,13 +161,9 @@ const RoomManagement = () => {
                   <tr key={room.id}>
                     <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
-                      <div className="d-flex align-items-center gap-3">
-                        <div className="admin-table-icon-tile">
-                        </div>
-                        <div>
-                          <div className="fw-semibold text-dark">{room.name}</div>
-                          <small className="text-muted">Phòng chiếu {room.name}</small>
-                        </div>
+                      <div>
+                        <div className="fw-semibold text-dark">{room.name}</div>
+                        <small className="text-muted">Phòng chiếu {room.name}</small>
                       </div>
                     </td>
                     <td>

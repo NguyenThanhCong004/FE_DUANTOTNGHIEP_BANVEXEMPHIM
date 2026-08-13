@@ -204,17 +204,35 @@ const UserManagement = () => {
 
                           <div className="d-flex align-items-center gap-2">
 
-                            <img
+                            {user.avatar ? (
 
-                              src={user.avatar || 'https://via.placeholder.com/40'}
+                              <img
 
-                              alt=""
+                                src={user.avatar}
 
-                              className="rounded-circle border"
+                                alt=""
 
-                              style={{ width: 40, height: 40, objectFit: "cover" }}
+                                className="rounded-circle border"
 
-                            />
+                                style={{ width: 40, height: 40, objectFit: "cover" }}
+
+                              />
+
+                            ) : (
+
+                              <div
+
+                                className="rounded-circle border d-flex align-items-center justify-content-center bg-light text-primary fw-bold"
+
+                                style={{ width: 40, height: 40, fontSize: 16, flexShrink: 0 }}
+
+                              >
+
+                                {(user.fullname || '?').charAt(0).toUpperCase()}
+
+                              </div>
+
+                            )}
 
                             <div>
 
@@ -351,17 +369,35 @@ const UserManagement = () => {
 
                   <div className="position-relative d-inline-block mb-3">
 
-                    <img
+                    {selectedItem.avatar ? (
 
-                      src={selectedItem.avatar || 'https://via.placeholder.com/150'}
+                      <img
 
-                      alt=""
+                        src={selectedItem.avatar}
 
-                      className="rounded-circle border"
+                        alt=""
 
-                      style={{ width: 150, height: 150, objectFit: "cover", borderWidth: 4, borderColor: '#f8f9fa' }}
+                        className="rounded-circle border"
 
-                    />
+                        style={{ width: 150, height: 150, objectFit: "cover", borderWidth: 4, borderColor: '#f8f9fa' }}
+
+                      />
+
+                    ) : (
+
+                      <div
+
+                        className="rounded-circle border d-flex align-items-center justify-content-center bg-light text-primary fw-bold"
+
+                        style={{ width: 150, height: 150, fontSize: 56, borderWidth: 4, borderColor: '#f8f9fa' }}
+
+                      >
+
+                        {(selectedItem.fullname || '?').charAt(0).toUpperCase()}
+
+                      </div>
+
+                    )}
 
                     <div className="position-absolute bottom-0 end-0">
 

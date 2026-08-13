@@ -37,7 +37,7 @@ const UserManagement = () => {
           birthday: found.birthday ?? '',
           points: found.points ?? 0,
           status: found.status ?? 1,
-          avatar: found.avatar || 'https://via.placeholder.com/160',
+          avatar: found.avatar || '',
         });
       }
     } catch {
@@ -176,7 +176,8 @@ const UserManagement = () => {
                     <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
                       <div className="d-flex align-items-center gap-3">
-                        <div className="admin-table-icon-tile">
+                        <div className="admin-table-avatar">
+                          {(user.fullname || '?').charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <div className="fw-semibold text-dark">{user.fullname}</div>
@@ -252,12 +253,21 @@ const UserManagement = () => {
           ) : (
             <Row className="g-4 align-items-start">
               <Col md={4} className="text-center">
-                <img
-                  src={detailUser.avatar}
-                  alt={detailUser.fullname}
-                  className="rounded-circle border"
-                  style={{ width: 140, height: 140, objectFit: 'cover' }}
-                />
+                {detailUser.avatar ? (
+                  <img
+                    src={detailUser.avatar}
+                    alt={detailUser.fullname}
+                    className="rounded-circle border"
+                    style={{ width: 140, height: 140, objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div
+                    className="rounded-circle border d-inline-flex align-items-center justify-content-center bg-light text-primary fw-bold mx-auto"
+                    style={{ width: 140, height: 140, fontSize: 48 }}
+                  >
+                    {(detailUser.fullname || '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <h5 className="fw-bold mt-3 mb-1">{detailUser.fullname}</h5>
                 <Badge bg={Number(detailUser.status) === 1 ? 'success' : 'danger'}>
                   {Number(detailUser.status) === 1 ? 'Hoạt động' : 'Khóa'}
