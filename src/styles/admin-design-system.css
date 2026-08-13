@@ -233,6 +233,13 @@
   overflow: hidden;
 }
 
+/* Cards chứa dropdown position-absolute (vd: chọn thể loại phim) can overflow
+   visible, neu khong panel se bi .admin-card overflow:hidden cat mat phan
+   tran ra ngoai, khien chuot khong cuon toi duoc cac muc o duoi. */
+.admin-card--dropdown-visible {
+  overflow: visible;
+}
+
 .admin-card-header {
   padding: 0.75rem 1rem;
   background: var(--admin-bg-card);
