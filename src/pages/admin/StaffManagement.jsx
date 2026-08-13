@@ -369,8 +369,6 @@ const StaffManagement = () => {
 
       status: s.status,
 
-      image: s.avatar ?? "https://via.placeholder.com/40",
-
     }));
 
   }, [staffDtos]);
@@ -818,17 +816,35 @@ const StaffManagement = () => {
 
               <Col lg={4} className="text-center mb-3 mb-lg-0">
 
-                <img
+                {detailStaff.avatar ? (
 
-                  src={detailStaff.avatar || 'https://via.placeholder.com/180'}
+                  <img
 
-                  alt={detailStaff.fullname ?? ''}
+                    src={detailStaff.avatar}
 
-                  className="rounded-circle shadow-sm mb-2 border"
+                    alt={detailStaff.fullname ?? ''}
 
-                  style={{ width: 160, height: 160, objectFit: 'cover' }}
+                    className="rounded-circle shadow-sm mb-2 border"
 
-                />
+                    style={{ width: 160, height: 160, objectFit: 'cover' }}
+
+                  />
+
+                ) : (
+
+                  <div
+
+                    className="rounded-circle shadow-sm mb-2 border d-flex align-items-center justify-content-center bg-light text-primary fw-bold mx-auto"
+
+                    style={{ width: 160, height: 160, fontSize: 56 }}
+
+                  >
+
+                    {(detailStaff.fullname || '?').charAt(0).toUpperCase()}
+
+                  </div>
+
+                )}
 
                 <h5 className="fw-bold mb-1">{detailStaff.fullname ?? '—'}</h5>
 

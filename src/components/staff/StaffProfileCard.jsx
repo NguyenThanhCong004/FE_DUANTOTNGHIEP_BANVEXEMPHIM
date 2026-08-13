@@ -410,7 +410,12 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
                       src={(editing ? avatarPreview : model.avatar)?.trim() || DEFAULT_AVATAR_PLACEHOLDER}
                       alt=""
                       style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      onError={(ev) => { ev.target.src = DEFAULT_AVATAR_PLACEHOLDER; }}
+                      onError={(ev) => {
+                        if (ev.target.src !== DEFAULT_AVATAR_PLACEHOLDER) {
+                          showToast("Ảnh đại diện không hiển thị được (định dạng không hỗ trợ) — vui lòng thử ảnh JPG/PNG khác", "warning");
+                        }
+                        ev.target.src = DEFAULT_AVATAR_PLACEHOLDER;
+                      }}
                     />
                   </div>
                   <div style={{ paddingBottom: 4 }}>

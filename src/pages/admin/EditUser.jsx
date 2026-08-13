@@ -39,7 +39,7 @@ export default function EditUser() {
           birthday: found.birthday ?? "",
           status: found.status ?? 1,
           points: found.points ?? 0,
-          avatar: found.avatar || "https://via.placeholder.com/160",
+          avatar: found.avatar || "",
           totalSpending: found.totalSpending ?? 0,
         };
         setUser(nextUser);

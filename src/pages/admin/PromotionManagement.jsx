@@ -218,12 +218,9 @@ const PromotionManagement = () => {
                   <tr key={promo.id}>
                     <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
-                      <div className="d-flex align-items-center gap-3">
-                        <div className="admin-table-icon-tile"></div>
-                        <div>
-                          <div className="fw-semibold text-dark">{promo.title}</div>
-                          <small className="text-muted">Chương trình ưu đãi</small>
-                        </div>
+                      <div>
+                        <div className="fw-semibold text-dark">{promo.title}</div>
+                        <small className="text-muted">Chương trình ưu đãi</small>
                       </div>
                     </td>
                     <td><Badge bg="success" className="px-2 py-1">{promo.discount}</Badge></td>
