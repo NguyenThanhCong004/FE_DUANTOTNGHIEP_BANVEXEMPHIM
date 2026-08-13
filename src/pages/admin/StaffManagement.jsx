@@ -555,21 +555,11 @@ const StaffManagement = () => {
 
                       <td>
 
-                        <div className="d-flex align-items-center gap-3">
+                        <div>
 
-                          <div className="admin-table-avatar">
+                          <div className="fw-semibold text-dark">{staff.name}</div>
 
-                            {staff.name.charAt(0).toUpperCase()}
-
-                          </div>
-
-                          <div>
-
-                            <div className="fw-semibold text-dark">{staff.name}</div>
-
-                            <small className="text-muted">{staff.email}</small>
-
-                          </div>
+                          <small className="text-muted">{staff.email}</small>
 
                         </div>
 
