@@ -42,7 +42,13 @@ const getWeekDays = (startDate) => {
 
 const toIso = (d) => {
   if (!d || isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
+  // Dung thanh phan ngay LOCAL (khong qua toISOString, vi no doi sang UTC va
+  // lam lui 1 ngay o mui gio UTC+7 khi gio local la 00:00-06:59) de dateStr
+  // luon khop voi nhan Thu trong tuan (DAY_NAMES[day.getDay()]).
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
 
 const formatSyncTime = (date) => {
