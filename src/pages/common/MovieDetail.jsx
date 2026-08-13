@@ -514,10 +514,11 @@ const MovieDetail = () => {
         /* ── LAYOUT ── */
         .md-layout {
           display: grid;
-          grid-template-columns: 280px 1fr;
+          grid-template-columns: 280px minmax(0, 1fr);
           gap: 40px;
           align-items: start;
         }
+        .md-info-col { min-width: 0; }
         @media (max-width: 767px) { .md-layout { grid-template-columns: 1fr; } }
 
         /* ── POSTER ── */
@@ -595,6 +596,7 @@ const MovieDetail = () => {
           font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 500;
           line-height: 1.8; color: rgba(240,240,255,0.55);
           white-space: pre-line; margin-bottom: 24px;
+          overflow-wrap: anywhere;
         }
 
         /* ── BOOKING PANEL ── */
@@ -976,7 +978,7 @@ const MovieDetail = () => {
                 </div>
 
                 {/* Info */}
-                <div>
+                <div className="md-info-col">
                   <div className="md-strip" />
 
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
