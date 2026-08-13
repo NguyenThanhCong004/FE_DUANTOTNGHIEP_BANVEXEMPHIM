@@ -98,77 +98,57 @@ const CreateCinema = () => {
     name: '',
     status: 'Active',
     province: '',
-    district: '',
     ward: '',
     street: ''
   });
 
   const [provinces, setProvinces] = useState([]);
-  const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
 
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
 
-  // 1. Tải danh sách Tỉnh/Thành phố
+  // 1. Tải danh sách Tỉnh/Thành phố (API v2: sau sáp nhập, chỉ còn 2 cấp Tỉnh -> Phường/Xã, không còn Quận/Huyện)
   useEffect(() => {
-    fetch('https://provinces.open-api.vn/api/p/')
+    fetch('https://provinces.open-api.vn/api/v2/p/')
       .then(res => res.json())
       .then(data => setProvinces(data))
       .catch(err => console.error('Lỗi fetch tỉnh:', err));
   }, []);
 
-  // 2. Tải danh sách Quận/Huyện khi chọn Tỉnh
+  // 2. Tải danh sách Phường/Xã khi chọn Tỉnh
   useEffect(() => {
     if (formData.province) {
       const selectedProvince = provinces.find(p => p.name === formData.province);
       if (selectedProvince) {
-        fetch(`https://provinces.open-api.vn/api/p/${selectedProvince.code}?depth=2`)
+        fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvince.code}?depth=2`)
           .then(res => res.json())
-          .then(data => setDistricts(data.districts))
-          .catch(err => console.error('Lỗi fetch huyện:', err));
+          .then(data => setWards(data.wards || []))
+          .catch(err => console.error('Lỗi fetch phường xã:', err));
       }
     } else {
-      setDistricts([]);
       setWards([]);
     }
   }, [formData.province, provinces]);
-
-  // 3. Tải danh sách Phường/Xã khi chọn Huyện
-  useEffect(() => {
-    if (formData.district) {
-      const selectedDistrict = districts.find(d => d.name === formData.district);
-      if (selectedDistrict) {
-        fetch(`https://provinces.open-api.vn/api/d/${selectedDistrict.code}?depth=2`)
-          .then(res => res.json())
-          .then(data => setWards(data.wards))
-          .catch(err => console.error('Lỗi fetch xã:', err));
-      }
-    } else {
-      setWards([]);
-    }
-  }, [formData.district, districts]);
 
   // --- Logic tách địa chỉ khi Sửa (Edit) ---
   useEffect(() => {
     if (editData && provinces.length > 0) {
       const fullAddr = editData.address || '';
       const parts = fullAddr.split(',').map(p => p.trim());
-      
-      // Giả sử cấu trúc BE lưu: "Số nhà, Phường, Quận, Tỉnh"
-      if (parts.length >= 4) {
+
+      // Cấu trúc mới BE lưu: "Số nhà, Phường/Xã, Tỉnh/Thành"
+      if (parts.length >= 3) {
         const provinceName = parts[parts.length - 1];
-        const districtName = parts[parts.length - 2];
-        const wardName = parts[parts.length - 3];
-        const streetName = parts.slice(0, parts.length - 3).join(', ');
+        const wardName = parts[parts.length - 2];
+        const streetName = parts.slice(0, parts.length - 2).join(', ');
 
         setFormData(prev => ({
           ...prev,
           name: editData.name || '',
           status: codeToAdminStatus(editData.status, { allowUpcoming: true }),
           province: provinceName,
-          district: districtName,
           ward: wardName,
           street: streetName
         }));
@@ -184,11 +164,10 @@ const CreateCinema = () => {
   }, [editData, provinces]);
 
   const handleChange = (name, value) => {
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       [name]: value,
-      ...(name === 'province' ? { district: '', ward: '' } : {}),
-      ...(name === 'district' ? { ward: '' } : {})
+      ...(name === 'province' ? { ward: '' } : {})
     }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
@@ -199,7 +178,6 @@ const CreateCinema = () => {
     let newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Vui lòng nhập tên rạp';
     if (!formData.province) newErrors.province = 'Chọn tỉnh thành';
-    if (!formData.district) newErrors.district = 'Chọn quận huyện';
     if (!formData.ward) newErrors.ward = 'Chọn phường xã';
     if (!formData.street.trim()) newErrors.street = 'Nhập địa chỉ chi tiết';
 
@@ -210,7 +188,7 @@ const CreateCinema = () => {
 
     setSubmitting(true);
     setServerError('');
-    const fullAddress = `${formData.street.trim()}, ${formData.ward}, ${formData.district}, ${formData.province}`;
+    const fullAddress = `${formData.street.trim()}, ${formData.ward}, ${formData.province}`;
 
     const body = {
       name: formData.name.trim(),
@@ -333,8 +311,8 @@ const CreateCinema = () => {
             </div>
 
             <div className="row">
-              <div className="col-md-4">
-                <SearchableSelect 
+              <div className="col-md-6">
+                <SearchableSelect
                   label="Tỉnh / Thành phố"
                   options={provinces}
                   value={formData.province}
@@ -344,25 +322,14 @@ const CreateCinema = () => {
                   error={errors.province}
                 />
               </div>
-              <div className="col-md-4">
-                <SearchableSelect 
-                  label="Quận / Huyện"
-                  options={districts}
-                  value={formData.district}
-                  onChange={(val) => handleChange('district', val)}
-                  placeholder="Tìm quận huyện..."
-                  disabled={!formData.province || submitting}
-                  error={errors.district}
-                />
-              </div>
-              <div className="col-md-4">
-                <SearchableSelect 
+              <div className="col-md-6">
+                <SearchableSelect
                   label="Phường / Xã"
                   options={wards}
                   value={formData.ward}
                   onChange={(val) => handleChange('ward', val)}
                   placeholder="Tìm phường xã..."
-                  disabled={!formData.district || submitting}
+                  disabled={!formData.province || submitting}
                   error={errors.ward}
                 />
               </div>

@@ -477,7 +477,7 @@ const CreateMovie = () => {
           </div>
 
           <div className="col-12">
-            <div className="admin-card admin-slide-up">
+            <div className="admin-card admin-slide-up admin-card--dropdown-visible">
               <div className="admin-card-header">
                 <h4 className="mb-0">Thông tin cơ bản</h4>
               </div>
