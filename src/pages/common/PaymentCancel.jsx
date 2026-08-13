@@ -10,6 +10,7 @@ import { getAccessToken } from "../../utils/authStorage";
  */
 const PaymentCancel = () => {
   const [cancelNote, setCancelNote] = useState("Đang hủy đơn chờ và trả ghế (nếu có)…");
+  const [orderKind, setOrderKind] = useState("ticket");
 
   useEffect(() => {
     let alive = true;
@@ -48,6 +49,7 @@ const PaymentCancel = () => {
       } catch {
         kind = "ticket";
       }
+      if (alive) setOrderKind(kind);
       const path = kind === "food" ? FOOD_ORDERS.CANCEL_PENDING : TICKET_ORDERS.CANCEL_PENDING;
 
       try {
@@ -99,12 +101,20 @@ const PaymentCancel = () => {
           <h2 className="fw-bold mb-3">Đã hủy thanh toán</h2>
           {cancelNote ? <p className="text-muted mb-4">{cancelNote}</p> : null}
           <p className="text-muted mb-4">
-            Bạn có thể chọn suất khác hoặc thanh toán lại. Ghế không còn bị giữ bởi đơn chờ (sau khi hệ thống xử lý hủy).
+            {orderKind === "food"
+              ? "Bạn có thể đặt lại đơn bắp nước hoặc thanh toán lại. Đơn chờ đã được hủy."
+              : "Bạn có thể chọn suất khác hoặc thanh toán lại. Ghế không còn bị giữ bởi đơn chờ (sau khi hệ thống xử lý hủy)."}
           </p>
           <div className="d-grid gap-2">
-            <Link to="/movies" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
-              CHỌN SUẤT KHÁC
-            </Link>
+            {orderKind === "food" ? (
+              <Link to="/foodorder" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+                ĐẶT LẠI BẮP NƯỚC
+              </Link>
+            ) : (
+              <Link to="/movies" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+                CHỌN SUẤT KHÁC
+              </Link>
+            )}
             <Link to="/" className="btn btn-outline-secondary rounded-pill py-2 fw-bold border-0">
               Về trang chủ
             </Link>
