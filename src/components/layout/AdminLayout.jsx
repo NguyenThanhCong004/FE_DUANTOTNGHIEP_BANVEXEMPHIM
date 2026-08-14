@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,12 +14,23 @@ import {
   Ticket,
 } from "lucide-react";
 
-import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
+import { AUTH_SESSION_CHANGED, clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import { useSuperAdminCinema } from "./useSuperAdminCinema";
 import CinemaPicker from "./CinemaPicker";
 import ThemeToggle from "./ThemeToggle";
+import { apiUrl } from "../../utils/apiClient";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
 import "../../styles/admin-shell.css";
 import "../../styles/admin-design-system.css";
+
+function resolveAvatarSrc(value) {
+  const src = String(value || "").trim();
+  if (!isDisplayableImageSrc(src)) return "";
+  if (src.startsWith("http") || src.startsWith("data:image") || src.startsWith("./") || src.startsWith("../")) {
+    return src;
+  }
+  return apiUrl(src);
+}
 
 const sectionsGeneral = [
   {
@@ -60,7 +71,18 @@ const sectionsRest = [
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const staff = getStoredStaff();
+  const [staff, setStaff] = useState(() => getStoredStaff());
+
+  useEffect(() => {
+    const syncStaff = () => setStaff(getStoredStaff());
+    window.addEventListener(AUTH_SESSION_CHANGED, syncStaff);
+    window.addEventListener("storage", syncStaff);
+    return () => {
+      window.removeEventListener(AUTH_SESSION_CHANGED, syncStaff);
+      window.removeEventListener("storage", syncStaff);
+    };
+  }, []);
+
   const {
     selectedCinemaId,
     selectedCinemaName,
@@ -78,6 +100,7 @@ export default function AdminLayout() {
   }, [staff?.cinemaId, selectedCinemaId, setSelectedCinemaId]);
 
   const staffName = useMemo(() => staff?.fullname || "Quản trị viên", [staff]);
+  const staffAvatarSrc = useMemo(() => resolveAvatarSrc(staff?.avatar), [staff]);
 
   const handleLogout = () => {
     clearAuthSession();
@@ -179,9 +202,18 @@ export default function AdminLayout() {
             <NavLink to="/admin/profile" className="text-decoration-none">
               <div className="app-shell-profile-chip">
                 <img
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    staffName
-                  )}&background=1f2937&color=fff`}
+                  src={
+                    staffAvatarSrc ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      staffName
+                    )}&background=1f2937&color=fff`
+                  }
+                  onError={(ev) => {
+                    ev.target.onerror = null;
+                    ev.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      staffName
+                    )}&background=1f2937&color=fff`;
+                  }}
                   alt=""
                 />
                 <div>

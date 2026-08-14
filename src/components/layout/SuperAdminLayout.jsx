@@ -1,18 +1,40 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { clearAuthSession, getStoredStaff } from "../../utils/authStorage";
+import { AUTH_SESSION_CHANGED, clearAuthSession, getStoredStaff } from "../../utils/authStorage";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import CinemaPicker from "./CinemaPicker";
 import ThemeToggle from "./ThemeToggle";
+import { apiUrl } from "../../utils/apiClient";
+import { isDisplayableImageSrc } from "../../utils/mediaFiles";
 import "../../styles/admin-shell.css";
 import "../../styles/admin-design-system.css";
 
+function resolveAvatarSrc(value) {
+  const src = String(value || "").trim();
+  if (!isDisplayableImageSrc(src)) return "";
+  if (src.startsWith("http") || src.startsWith("data:image") || src.startsWith("./") || src.startsWith("../")) {
+    return src;
+  }
+  return apiUrl(src);
+}
+
 export default function SuperAdminLayout({ children }) {
   const navigate = useNavigate();
-  const staff = getStoredStaff();
+  const [staff, setStaff] = useState(() => getStoredStaff());
+
+  useEffect(() => {
+    const syncStaff = () => setStaff(getStoredStaff());
+    window.addEventListener(AUTH_SESSION_CHANGED, syncStaff);
+    window.addEventListener("storage", syncStaff);
+    return () => {
+      window.removeEventListener(AUTH_SESSION_CHANGED, syncStaff);
+      window.removeEventListener("storage", syncStaff);
+    };
+  }, []);
 
   const staffName = useMemo(() => staff?.fullname || "Super Admin", [staff]);
+  const staffAvatarSrc = useMemo(() => resolveAvatarSrc(staff?.avatar), [staff]);
 
   const handleLogout = () => {
     clearAuthSession();
@@ -38,9 +60,18 @@ export default function SuperAdminLayout({ children }) {
             <NavLink to="/super-admin/profile" className="text-decoration-none">
               <div className="app-shell-profile-chip">
                 <img
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    staffName
-                  )}&background=1f2937&color=fff`}
+                  src={
+                    staffAvatarSrc ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      staffName
+                    )}&background=1f2937&color=fff`
+                  }
+                  onError={(ev) => {
+                    ev.target.onerror = null;
+                    ev.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      staffName
+                    )}&background=1f2937&color=fff`;
+                  }}
                   alt=""
                 />
                 <div>
