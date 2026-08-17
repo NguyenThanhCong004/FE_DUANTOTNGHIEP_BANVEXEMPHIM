@@ -220,6 +220,7 @@ const Booking = () => {
   const [payError, setPayError] = useState(null);
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [seatSelectionError, setSeatSelectionError] = useState(null);
+  const [abuseWarning, setAbuseWarning] = useState(false);
   const [snackProducts, setSnackProducts] = useState([]);
   const [snackMenuError, setSnackMenuError] = useState(null);
   const [snackCart, setSnackCart] = useState({});
@@ -476,7 +477,10 @@ const Booking = () => {
           holderId,
           seatIds: selectedSeatIds,
         }),
-      }).catch(() => {});
+      })
+        .then((res) => res.json().catch(() => null))
+        .then((body) => setAbuseWarning(Boolean(body?.data?.warning)))
+        .catch(() => {});
     }, 400);
     return () => clearTimeout(handle);
   }, [showtimeId, selectedSeatIds, showEnded]);
@@ -1273,6 +1277,14 @@ const Booking = () => {
                       <div className="alert alert-warning border-0 small mt-3 mb-0 d-flex align-items-start gap-2">
                         <i className="fas fa-exclamation-triangle mt-1" />
                         <span>{seatSelectionError}</span>
+                      </div>
+                    ) : null}
+                    {abuseWarning ? (
+                      <div className="alert alert-danger border-0 small mt-3 mb-0 d-flex align-items-start gap-2">
+                        <i className="fas fa-triangle-exclamation mt-1" />
+                        <span>
+                          Bạn đang giữ/huỷ ghế nhiều lần liên tục trong thời gian ngắn. Nếu tiếp tục, tài khoản sẽ bị khoá.
+                        </span>
                       </div>
                     ) : null}
                   </>
