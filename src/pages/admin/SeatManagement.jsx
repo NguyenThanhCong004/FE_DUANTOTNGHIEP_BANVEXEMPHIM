@@ -911,7 +911,7 @@ export default function SeatManagement() {
 
           type: apiSeatTypeNameToUi(s.seatTypeName),
 
-          isActive: true,
+          isActive: s.status !== "locked" && s.status !== "maintenance",
 
           typeColor: normalizeHex(s.seatTypeColor ?? s.seat_type_color) || undefined,
 
@@ -1243,6 +1243,8 @@ export default function SeatManagement() {
 
             seatTypeName: uiSeatTypeToApi(cell.type),
 
+            status: cell.isActive === false ? "locked" : "available",
+
           });
 
         }
@@ -1293,7 +1295,7 @@ export default function SeatManagement() {
 
         type: apiSeatTypeNameToUi(s.seatTypeName),
 
-        isActive: true,
+        isActive: s.status !== "locked" && s.status !== "maintenance",
 
         typeColor: normalizeHex(s.seatTypeColor ?? s.seat_type_color) || undefined,
 
@@ -1399,7 +1401,7 @@ export default function SeatManagement() {
 
           </Button>
 
-          <Button variant="light" className="fw-semibold text-primary" disabled={!selectedRoomId || isLocked || saving} onClick={handleSave}> {saving ? "Đang lưu…" : "Lưu sơ đồ"}
+          <Button variant="light" className="fw-semibold text-primary" disabled={!selectedRoomId || saving} onClick={handleSave}> {saving ? "Đang lưu…" : "Lưu sơ đồ"}
 
           </Button>
 
