@@ -3,7 +3,7 @@ import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, 
 import { getAccessToken, getStoredStaff } from '../../utils/authStorage';
 import { apiUrl, withQuery } from '../../utils/apiClient';
 import { MOVIES, SHOWTIMES, CINEMAS, SEATS, COUNTER_ORDERS, SEAT_TYPES, SHOWTIME_SEAT_HOLDS, STAFF_DASHBOARD } from '../../constants/apiEndpoints';
-import { checkNoSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
+import { checkNoNewSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
 import { isCoupleTypeName, resolveSeatDisplayColor, resolveSeatTypeColor } from "../../utils/seatTypeColors";
 
 // Grid constants
@@ -573,9 +573,16 @@ const Sales = () => {
       nextSelected = [...selectedSeats, seat];
     }
 
-    // Kiểm tra ghế trống lẻ
-    const blockedIds = new Set([...bookedSeatIdSet, ...peerHeldSeatIdSet, ...nextSelected.map(s => Number(s.seatId)).filter(Number.isFinite)]);
-    const check = checkNoSingleSeatOrphanInRows(seats, blockedIds);
+    // Kiểm tra ghế trống lẻ (ghế đôi được loại trừ — cho phép chọn cách quãng)
+    const existingBlockedIds = new Set([...bookedSeatIdSet, ...peerHeldSeatIdSet]);
+    const newlySelectedIds = nextSelected.map(s => Number(s.seatId)).filter(Number.isFinite);
+    const isCoupleSeatOf = (s) => {
+      if (!s?.seatTypeName) return false;
+      const st = seatTypes.find(t => String(t.name).trim().toLowerCase() === String(s.seatTypeName).trim().toLowerCase());
+      if (st && st.coupleSeat !== undefined) return st.coupleSeat === true;
+      return isCoupleTypeName(s.seatTypeName);
+    };
+    const check = checkNoNewSingleSeatOrphanInRows(seats, existingBlockedIds, newlySelectedIds, isCoupleSeatOf);
     if (!check.ok) {
       showToast(check.message, "warning");
       return;

@@ -5,7 +5,7 @@ import Layout from "../../components/layout/Layout";
 import { apiFetch } from "../../utils/apiClient";
 import { SHOWTIMES, SEATS, TICKET_ORDERS, CINEMAS, SHOWTIME_SEAT_HOLDS, SEAT_TYPES, ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
-import { checkNoSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
+import { checkNoNewSingleSeatOrphanInRows } from "../../utils/seatLayoutRules";
 import {
   isCoupleTypeName,
   resolveSeatDisplayColor,
@@ -851,8 +851,13 @@ const Booking = () => {
       setPayError("Hệ thống đang tính lại giá, vui lòng chờ một chút.");
       return;
     }
-    const blocked = new Set([...bookedSet, ...peerHeldSet, ...selectedSeatIds]);
-    const check = checkNoSingleSeatOrphanInRows(seats, blocked);
+    const existingBlocked = new Set([...bookedSet, ...peerHeldSet]);
+    const check = checkNoNewSingleSeatOrphanInRows(
+      seats,
+      existingBlocked,
+      selectedSeatIds,
+      (seat) => isCoupleSeatByType(seat.seatTypeName)
+    );
     if (!check.ok) {
       setSeatSelectionError(check.message);
       return;
