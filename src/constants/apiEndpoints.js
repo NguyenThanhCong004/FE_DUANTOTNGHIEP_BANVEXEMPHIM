@@ -26,6 +26,7 @@ export const STAFF = {
   LIST: `${API_V1}/staff`,
   ME: `${API_V1}/staff/me`,
   ME_PASSWORD: `${API_V1}/staff/me/password`,
+  ME_PASSWORD_SEND_OTP: `${API_V1}/staff/me/password/send-otp`,
   SUPER_ADMIN_VIEW: `${API_V1}/staff/super-admin-view`,
   BY_ID: (id) => `${API_V1}/staff/${id}`,
   /** PUT body: { currentPassword, newPassword } — chỉ đổi mật khẩu của chính mình */

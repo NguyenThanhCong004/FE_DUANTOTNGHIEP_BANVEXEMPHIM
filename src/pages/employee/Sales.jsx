@@ -555,9 +555,16 @@ const Sales = () => {
   };
 
   const sortedShowtimes = useMemo(() => {
-    // Chỉ bán vé cho suất sắp chiếu — suất đã bắt đầu/đã chiếu xong không cho chọn tại quầy.
+    const now = new Date();
     return [...showtimes]
-      .filter((st) => st.status === "Sắp chiếu")
+      .filter((st) => {
+        if (st.status !== "Sắp chiếu") return false;
+        // Double-check client-side để tránh status stale khi để trang mở lâu
+        if (st.date && st.time) {
+          return new Date(`${st.date}T${st.time}:00`) > now;
+        }
+        return true;
+      })
       .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
   }, [showtimes]);
 
@@ -570,15 +577,21 @@ const Sales = () => {
       return;
     }
     if (seat.status === 'maintenance' || seat.status === 'locked') return;
-    
+
     const isSelected = selectedSeats.find(s => Number(s.seatId) === id);
-    // Chỉ chặn ghế đã bán/đang bị giữ — không chặn luật "ghế trống lẻ" ngay lúc chọn
-    // (giống web khách hàng: cho chọn tự do, chỉ báo lỗi khi bấm nút xác nhận).
-    if (isSelected) {
-      setSelectedSeats(selectedSeats.filter(s => Number(s.seatId) !== id));
-    } else {
-      setSelectedSeats([...selectedSeats, seat]);
+    const nextSeats = isSelected
+      ? selectedSeats.filter(s => Number(s.seatId) !== id)
+      : [...selectedSeats, seat];
+
+    const existingBlockedIds = new Set([...bookedSeatIdSet, ...peerHeldSeatIdSet]);
+    const newlySelectedIds = nextSeats.map(s => Number(s.seatId)).filter(Number.isFinite);
+    const check = checkNoNewSingleSeatOrphanInRows(seats, existingBlockedIds, newlySelectedIds, isCoupleSeatOf);
+    if (!check.ok) {
+      showToast(check.message, "warning");
+      return;
     }
+
+    setSelectedSeats(nextSeats);
   };
 
   const isCoupleSeatOf = useCallback((s) => {
@@ -752,18 +765,6 @@ const Sales = () => {
       return;
     }
     if (selectedSeats.length === 0 && selectedProducts.length === 0) return;
-
-    // Chỉ kiểm tra luật "không chừa 1 ghế trống lẻ giữa hàng" ở bước xác nhận cuối
-    // (khớp hành vi web khách hàng: chọn tự do, chặn khi bấm nút).
-    if (selectedSeats.length > 0) {
-      const existingBlockedIds = new Set([...bookedSeatIdSet, ...peerHeldSeatIdSet]);
-      const newlySelectedIds = selectedSeats.map(s => Number(s.seatId)).filter(Number.isFinite);
-      const check = checkNoNewSingleSeatOrphanInRows(seats, existingBlockedIds, newlySelectedIds, isCoupleSeatOf);
-      if (!check.ok) {
-        showToast(check.message, "warning");
-        return;
-      }
-    }
 
     setShowConfirmModal(true);
   };
@@ -1096,9 +1097,10 @@ const Sales = () => {
                 {sortedShowtimes.map(st => (
                   <button key={`st-${st.id}`} className={`st-btn ${selectedShowtime?.id === st.id ? 'active' : ''}`} onClick={() => handleSelectShowtime(st)}>
                     <div className="st-time-range">{st.time} - {st.endTime || '??:??'}</div>
+                    {(st.room_name || st.roomName) && <div className="st-room-name">{st.room_name || st.roomName}</div>}
                   </button>
                 ))}
-                {selectedMovie && showtimes.length === 0 && <p className="text-white-50">Không có suất chiếu hôm nay.</p>}
+                {selectedMovie && sortedShowtimes.length === 0 && <p className="text-white-50">Không có suất chiếu còn lại hôm nay.</p>}
               </div>
             </div>
           )}
