@@ -9,7 +9,7 @@ function findOrphanSeatIds(allSeats, blockedSeatIds, isCoupleSeat) {
   const byRow = new Map();
   for (const s of allSeats) {
     if (s.seatId == null) continue;
-    const row = s.row != null ? String(s.row) : "?";
+    const row = s.y != null ? String(s.y) : (s.row != null ? String(s.row) : "?");
     if (!byRow.has(row)) byRow.set(row, []);
     byRow.get(row).push(s);
   }

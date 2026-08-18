@@ -14,7 +14,7 @@ import {
   setAuthSession,
 } from "../../utils/authStorage";
 import { apiFetch } from "../../utils/apiClient";
-import { STAFF } from "../../constants/apiEndpoints";
+import { STAFF, CINEMAS } from "../../constants/apiEndpoints";
 import { fileToDataUrl, IMAGE_FILE_ACCEPT } from "../../utils/mediaFiles";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 import { toDateInputValue } from "../../utils/formatters";
@@ -173,13 +173,17 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const [errors, setErrors] = useState({});
   const { showToast, ToastComponent } = useAdminToast();
 
-  const [pw, setPw] = useState({ current: "", newPw: "", confirm: "" });
+  const [pw, setPw] = useState({ current: "", newPw: "", confirm: "", otpCode: "" });
   const [showPw, setShowPw] = useState({ current: false, newPw: false, confirm: false });
   const [pwErrors, setPwErrors] = useState({});
   const [pwSaving, setPwSaving] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState("");
+  const [cinemaName, setCinemaName] = useState(null);
 
   const load = useCallback(async () => {
     if (!staffId) { setLoading(false); return; }
@@ -204,6 +208,15 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   }, [staffId, showToast]);
 
   useEffect(() => { load(); }, [load]);
+
+  const cinemaId = model?.cinemaId ?? stored?.cinemaId;
+  useEffect(() => {
+    if (cinemaId == null) { setCinemaName(null); return; }
+    apiFetch(CINEMAS.BY_ID(cinemaId))
+      .then(r => r.json().catch(() => null))
+      .then(json => { if (json?.data?.name) setCinemaName(json.data.name); })
+      .catch(() => {});
+  }, [cinemaId]);
 
   const startEdit = () => {
     if (!model) return;
@@ -320,7 +333,27 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
     if (!pw.current) e.current = "Nhập mật khẩu hiện tại";
     if (!STRONG_PASSWORD_REGEX.test(pw.newPw || "")) e.newPw = PASSWORD_RULE_MESSAGE;
     if (pw.newPw !== pw.confirm) e.confirm = "Mật khẩu xác nhận không khớp";
+    if (!pw.otpCode || pw.otpCode.trim().length !== 6) e.otpCode = "Nhập mã 6 số được gửi về email";
     return e;
+  };
+
+  const sendOtp = async () => {
+    if (otpSending || otpCooldown > 0) return;
+    setOtpSending(true);
+    try {
+      const res = await apiFetch(STAFF.ME_PASSWORD_SEND_OTP, { method: "POST" });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) { showToast(apiMessage(json, "Không gửi được mã"), "danger"); return; }
+      setOtpSent(true);
+      showToast("Mã xác nhận đã gửi về email của bạn", "success");
+      let s = 60;
+      setOtpCooldown(s);
+      const t = setInterval(() => { s--; setOtpCooldown(s); if (s <= 0) clearInterval(t); }, 1000);
+    } catch {
+      showToast(MESSAGES.networkError, "danger");
+    } finally {
+      setOtpSending(false);
+    }
   };
 
   const savePassword = async () => {
@@ -332,12 +365,14 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
     try {
       const res = await apiFetch(STAFF.ME_PASSWORD, {
         method: "PUT",
-        body: JSON.stringify({ currentPassword: pw.current, newPassword: pw.newPw }),
+        body: JSON.stringify({ currentPassword: pw.current, newPassword: pw.newPw, otpCode: pw.otpCode.trim() }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) { showToast(apiMessage(json, "Đổi mật khẩu thất bại"), "danger"); return; }
-      setPw({ current: "", newPw: "", confirm: "" });
-      showToast("Đã đổi mật khẩu");
+      setPw({ current: "", newPw: "", confirm: "", otpCode: "" });
+      setOtpSent(false);
+      setOtpCooldown(0);
+      showToast("Đã đổi mật khẩu thành công");
     } catch {
       showToast(MESSAGES.networkError, "danger");
     } finally {
@@ -351,7 +386,6 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
   const role = model ? normalizeRole(model.role) : normalizeRole(stored?.role);
   const name = model?.fullname || stored?.fullname || stored?.email || "—";
   const email = model?.email || stored?.email || "—";
-  const cinemaId = model?.cinemaId ?? stored?.cinemaId;
 
   const cardStyle = {
     background: light ? "var(--admin-bg-card)" : "rgba(15, 23, 42, 0.9)",
@@ -576,7 +610,7 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
 
               <InfoRow icon={Building2} iconColor="#38bdf8" iconBg="rgba(56,189,248,0.1)" label="Rạp phụ trách" noBorder>
                 <div style={{ fontWeight: 600, color: textValue }}>
-                  {cinemaId != null ? `Rạp #${cinemaId}` : "Chưa gán rạp"}
+                  {cinemaName ?? (cinemaId != null ? `Rạp #${cinemaId}` : "Chưa gán rạp")}
                 </div>
               </InfoRow>
             </>
@@ -640,6 +674,41 @@ export default function StaffProfileCard({ title, roleLabel, hideHeader = false,
               error={pwErrors.confirm}
               inputDark={inputDark}
             />
+
+            {/* OTP Section */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="Nhập mã 6 số từ email"
+                  value={pw.otpCode}
+                  onChange={(e) => { setPw((p) => ({ ...p, otpCode: e.target.value.replace(/\D/g, "") })); setPwErrors((err) => ({ ...err, otpCode: undefined })); }}
+                  className={`form-control ${inputDark}`}
+                  style={{ flex: 1, letterSpacing: 6, fontWeight: 700, fontSize: 16 }}
+                />
+                <button
+                  type="button"
+                  onClick={sendOtp}
+                  disabled={otpSending || otpCooldown > 0}
+                  style={{
+                    padding: "8px 14px", borderRadius: 9, border: "1px solid rgba(245,158,11,0.4)",
+                    background: "rgba(245,158,11,0.1)", color: "#f59e0b",
+                    fontSize: 12, fontWeight: 700, cursor: (otpSending || otpCooldown > 0) ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6,
+                    opacity: (otpSending || otpCooldown > 0) ? 0.6 : 1,
+                  }}
+                >
+                  <Mail size={13} />
+                  {otpCooldown > 0 ? `Gửi lại (${otpCooldown}s)` : otpSending ? "Đang gửi…" : otpSent ? "Gửi lại mã" : "Gửi mã"}
+                </button>
+              </div>
+              {pwErrors.otpCode && <div style={{ fontSize: 12, color: "#f87171" }}>{pwErrors.otpCode}</div>}
+              {otpSent && !pwErrors.otpCode && (
+                <div style={{ fontSize: 12, color: "#4ade80" }}>Mã đã gửi — kiểm tra hộp thư email của bạn.</div>
+              )}
+            </div>
 
             <button
               onClick={savePassword}
