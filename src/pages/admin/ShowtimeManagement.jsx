@@ -207,6 +207,7 @@ export default function ShowtimeManagement() {
   const [weeklySurcharge, setWeeklySurcharge] = useState(readStoredWeeklySurcharge);
   const [addSlot, setAddSlot] = useState(null); // { roomId, time }
   const [addSlotMovieId, setAddSlotMovieId] = useState("");
+  const [pendingScrollTarget, setPendingScrollTarget] = useState(null); // { roomId, time }
   const pointerDragRef = useRef(null);
   const nativeDragActiveRef = useRef(false);
   const globalDateRef = useRef(globalDate);
@@ -375,6 +376,19 @@ export default function ShowtimeManagement() {
   }, [effectiveCinemaId]);
 
   useEffect(() => { loadShowtimeData(); }, [loadShowtimeData]);
+
+  // Lưới giờ trải dài 07:00 - 01:00 sáng, rộng hơn màn hình rất nhiều — suất chiếu mới thêm có thể
+  // bị đẩy giờ ra sau (né trùng giờ) và nằm ngoài vùng đang cuộn, nhìn như "biến mất". Tự cuộn tới
+  // đúng vị trí vừa thêm để admin luôn thấy ngay.
+  useEffect(() => {
+    if (!pendingScrollTarget) return;
+    const { roomId, time } = pendingScrollTarget;
+    const el = document.querySelector(
+      `[data-showtime-drop-cell="true"][data-room-id="${roomId}"][data-time="${time}"]`
+    );
+    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    setPendingScrollTarget(null);
+  }, [pendingScrollTarget]);
 
   const hasUnsaved = pendingDeleteIds.length > 0 || state.events.some(e =>
     (!e.serverId || e.dirty) && !isPastShowtime(e.businessDate, e.startTime)
@@ -643,6 +657,8 @@ export default function ShowtimeManagement() {
     // Tất cả hợp lệ — cập nhật state một lần duy nhất
     setState(prev => ({ ...prev, events: updatedEvents }));
     setDragData(null);
+    // Vị trí thực tế có thể lệch so với ô vừa bấm/thả (do bị đẩy giờ né trùng lịch) — cuộn tới đó.
+    setPendingScrollTarget({ roomId, time: dropTimeStr });
   };
 
   const onDropCell = (e, roomId, time) => {
