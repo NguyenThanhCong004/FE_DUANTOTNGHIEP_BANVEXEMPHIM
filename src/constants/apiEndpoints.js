@@ -53,6 +53,16 @@ export const ROOMS = {
   BY_ID: (id) => `${API_V1}/rooms/${id}`,
 };
 
+/** Đóng phòng tạm thời (hỏng ghế/sự cố) + dời vé đã bán sang suất khác — status phòng: 0 Ngừng, 1 Hoạt động, 2 Đóng tạm thời. */
+export const ROOM_CLOSURE = {
+  CLOSE: (roomId) => `${API_V1}/rooms/${roomId}/close`,
+  REOPEN: (roomId) => `${API_V1}/rooms/${roomId}/reopen`,
+  AFFECTED_ORDERS: (roomId) => `${API_V1}/rooms/${roomId}/closure/affected-orders`,
+  SUGGESTIONS: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/suggestions`,
+  MOVE: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/move`,
+  CANCEL: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/cancel`,
+};
+
 export const MOVIES = {
   LIST: `${API_V1}/movies`,
   BY_ID: (id) => `${API_V1}/movies/${id}`,
