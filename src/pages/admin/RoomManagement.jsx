@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminToast } from '../../components/admin/AdminToast';
 import { apiFetch, withQuery } from '../../utils/apiClient';
-import { ROOMS } from '../../constants/apiEndpoints';
+import { ROOMS, ROOM_CLOSURE } from '../../constants/apiEndpoints';
 import { getStoredStaff } from '../../utils/authStorage';
 import { useSuperAdminCinema } from '../../components/layout/useSuperAdminCinema';
-import { isActiveStatus } from '../../utils/statusFormat';
 import { apiMessage, MESSAGES } from '../../utils/uiMessages';
 import AdminPagination from '../../components/admin/AdminPagination';
+
+const ROOM_STATUS_CLOSED = 2;
 
 const RoomManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,10 +21,16 @@ const RoomManagement = () => {
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState('');
   const location = useLocation();
+  const navigate = useNavigate();
   const isSuperAdmin = location.pathname.startsWith("/super-admin");
   const prefix = isSuperAdmin ? "/super-admin" : "/admin";
   const staffSession = getStoredStaff();
   const { selectedCinemaId } = useSuperAdminCinema();
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [roomToClose, setRoomToClose] = useState(null);
+  const [closeReason, setCloseReason] = useState('');
+  const [closeError, setCloseError] = useState('');
+  const [closingBusy, setClosingBusy] = useState(false);
 
   const effectiveCinemaId = staffSession?.cinemaId ?? selectedCinemaId ?? null;
 
@@ -44,7 +51,7 @@ const RoomManagement = () => {
           arr.map((r) => ({
             id: r.id ?? r.roomId,
             name: r.name ?? '',
-            status: isActiveStatus(r.status) ? 1 : 0,
+            status: Number.isFinite(Number(r.status)) ? Number(r.status) : 0,
           }))
         );
       } catch {
@@ -81,6 +88,57 @@ const RoomManagement = () => {
       showToast('Xóa phòng chiếu thành công');
     } catch {
       setDeleteError(MESSAGES.networkError);
+    }
+  };
+
+  const submitCloseRoom = async () => {
+    if (!roomToClose) return;
+    if (!closeReason.trim()) {
+      setCloseError('Vui lòng nhập lý do đóng phòng');
+      return;
+    }
+    setClosingBusy(true);
+    setCloseError('');
+    try {
+      const res = await apiFetch(ROOM_CLOSURE.CLOSE(roomToClose.id), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: closeReason.trim() }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setCloseError(apiMessage(json, 'Đóng phòng thất bại'));
+        return;
+      }
+      setRoomsFromStore((prev) => prev.map((r) => (
+        String(r.id) === String(roomToClose.id) ? { ...r, status: ROOM_STATUS_CLOSED } : r
+      )));
+      setShowCloseModal(false);
+      setRoomToClose(null);
+      setCloseReason('');
+      showToast('Đã đóng phòng tạm thời');
+      navigate(`${prefix}/rooms/${roomToClose.id}/closure`);
+    } catch {
+      setCloseError(MESSAGES.networkError);
+    } finally {
+      setClosingBusy(false);
+    }
+  };
+
+  const handleReopenRoom = async (room) => {
+    try {
+      const res = await apiFetch(ROOM_CLOSURE.REOPEN(room.id), { method: 'POST' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        showToast(apiMessage(json, 'Mở lại phòng thất bại'), 'error');
+        return;
+      }
+      setRoomsFromStore((prev) => prev.map((r) => (
+        String(r.id) === String(room.id) ? { ...r, status: 1 } : r
+      )));
+      showToast(json?.message || 'Đã mở lại phòng');
+    } catch {
+      showToast(MESSAGES.networkError, 'error');
     }
   };
 
@@ -169,16 +227,22 @@ const RoomManagement = () => {
                     <td>
                       <span
                         className={
-                          isActiveStatus(room.status)
-                            ? 'admin-badge admin-badge-success'
-                            : 'admin-badge admin-badge-danger'
+                          room.status === ROOM_STATUS_CLOSED
+                            ? 'admin-badge admin-badge-warning'
+                            : room.status === 1
+                              ? 'admin-badge admin-badge-success'
+                              : 'admin-badge admin-badge-danger'
                         }
                       >
-                        {isActiveStatus(room.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
+                        {room.status === ROOM_STATUS_CLOSED
+                          ? 'Đóng tạm thời (bảo trì)'
+                          : room.status === 1
+                            ? 'Hoạt động'
+                            : 'Ngừng hoạt động'}
                       </span>
                     </td>
                     <td>
-                      <div className="d-flex justify-content-center gap-2">
+                      <div className="d-flex justify-content-center gap-2 flex-wrap">
                         <Link
                           to={`${prefix}/seats`}
                           state={{ roomId: room.id }}
@@ -190,6 +254,33 @@ const RoomManagement = () => {
                           className="admin-btn admin-btn-sm admin-btn-primary"
                           title="Chỉnh sửa"
                         >Sửa</Link>
+                        {room.status === ROOM_STATUS_CLOSED ? (
+                          <>
+                            <Link
+                              to={`${prefix}/rooms/${room.id}/closure`}
+                              className="admin-btn admin-btn-sm admin-btn-warning"
+                              title="Xử lý dời/hủy vé bị ảnh hưởng"
+                            >Xử lý dời vé</Link>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-sm admin-btn-outline"
+                              title="Mở lại phòng"
+                              onClick={() => handleReopenRoom(room)}
+                            >Mở lại phòng</button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn-sm admin-btn-outline"
+                            title="Đóng phòng tạm thời (hỏng ghế/sự cố)"
+                            onClick={() => {
+                              setRoomToClose(room);
+                              setCloseReason('');
+                              setCloseError('');
+                              setShowCloseModal(true);
+                            }}
+                          >Đóng phòng</button>
+                        )}
                         <button
                           type="button"
                           className="admin-btn admin-btn-sm admin-btn-danger"
@@ -241,6 +332,42 @@ const RoomManagement = () => {
             <div className="admin-modal-footer">
               <button type="button" className="admin-btn admin-btn-outline" onClick={() => setShowDeleteModal(false)}>Hủy</button>
               <button type="button" className="admin-btn admin-btn-danger" onClick={() => handleDelete(roomToDelete.id)}>Xóa phòng</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showCloseModal && roomToClose && (
+        <div className="admin-modal-overlay" role="presentation" onClick={() => !closingBusy && setShowCloseModal(false)}>
+          <div className="admin-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3 className="mb-0">Đóng phòng tạm thời</h3>
+              <button type="button" className="admin-modal-close" onClick={() => setShowCloseModal(false)}>×</button>
+            </div>
+            <div className="admin-modal-body">
+              <div className="alert alert-warning">
+                <strong>Phòng:</strong> {roomToClose.name}
+              </div>
+              <p className="text-muted small">
+                Phòng sẽ ngừng nhận đặt/bán vé mới ngay lập tức. Sau khi đóng, bạn sẽ được chuyển sang màn hình
+                xử lý dời/hủy các vé đã bán cho các suất sắp chiếu trong phòng này.
+              </p>
+              <label className="form-label fw-semibold">Lý do đóng phòng</label>
+              <textarea
+                className="form-control"
+                rows={3}
+                value={closeReason}
+                onChange={(e) => setCloseReason(e.target.value)}
+                placeholder="VD: Ghế C5, C6 bị hỏng, cần sửa chữa"
+              />
+              {closeError && (
+                <div className="alert alert-danger mt-3 mb-0">{closeError}</div>
+              )}
+            </div>
+            <div className="admin-modal-footer">
+              <button type="button" className="admin-btn admin-btn-outline" onClick={() => setShowCloseModal(false)} disabled={closingBusy}>Hủy</button>
+              <button type="button" className="admin-btn admin-btn-warning" onClick={submitCloseRoom} disabled={closingBusy}>
+                {closingBusy ? 'Đang đóng...' : 'Xác nhận đóng phòng'}
+              </button>
             </div>
           </div>
         </div>
