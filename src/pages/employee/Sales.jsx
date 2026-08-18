@@ -487,7 +487,10 @@ const Sales = () => {
     const timeoutId = setTimeout(() => {
       fetch(apiUrl(SHOWTIME_SEAT_HOLDS.REFRESH), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           showtimeId: selectedShowtimeId,
           holderId: seatHolderRef.current,
@@ -505,7 +508,10 @@ const Sales = () => {
     return () => {
       fetch(apiUrl(SHOWTIME_SEAT_HOLDS.REFRESH), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           showtimeId: selectedShowtimeId,
           holderId: seatHolderRef.current,
@@ -549,7 +555,10 @@ const Sales = () => {
   };
 
   const sortedShowtimes = useMemo(() => {
-    return [...showtimes].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    // Chỉ bán vé cho suất sắp chiếu — suất đã bắt đầu/đã chiếu xong không cho chọn tại quầy.
+    return [...showtimes]
+      .filter((st) => st.status === "Sắp chiếu")
+      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
   }, [showtimes]);
 
   const toggleSeat = (seat) => {
@@ -563,33 +572,21 @@ const Sales = () => {
     if (seat.status === 'maintenance' || seat.status === 'locked') return;
     
     const isSelected = selectedSeats.find(s => Number(s.seatId) === id);
-    let nextSelected = [];
-    
+    // Chỉ chặn ghế đã bán/đang bị giữ — không chặn luật "ghế trống lẻ" ngay lúc chọn
+    // (giống web khách hàng: cho chọn tự do, chỉ báo lỗi khi bấm nút xác nhận).
     if (isSelected) {
-      nextSelected = selectedSeats.filter(s => Number(s.seatId) !== id);
-      setSelectedSeats(nextSelected);
-      return;
+      setSelectedSeats(selectedSeats.filter(s => Number(s.seatId) !== id));
     } else {
-      nextSelected = [...selectedSeats, seat];
+      setSelectedSeats([...selectedSeats, seat]);
     }
-
-    // Kiểm tra ghế trống lẻ (ghế đôi được loại trừ — cho phép chọn cách quãng)
-    const existingBlockedIds = new Set([...bookedSeatIdSet, ...peerHeldSeatIdSet]);
-    const newlySelectedIds = nextSelected.map(s => Number(s.seatId)).filter(Number.isFinite);
-    const isCoupleSeatOf = (s) => {
-      if (!s?.seatTypeName) return false;
-      const st = seatTypes.find(t => String(t.name).trim().toLowerCase() === String(s.seatTypeName).trim().toLowerCase());
-      if (st && st.coupleSeat !== undefined) return st.coupleSeat === true;
-      return isCoupleTypeName(s.seatTypeName);
-    };
-    const check = checkNoNewSingleSeatOrphanInRows(seats, existingBlockedIds, newlySelectedIds, isCoupleSeatOf);
-    if (!check.ok) {
-      showToast(check.message, "warning");
-      return;
-    }
-
-    setSelectedSeats(nextSelected);
   };
+
+  const isCoupleSeatOf = useCallback((s) => {
+    if (!s?.seatTypeName) return false;
+    const st = seatTypes.find(t => String(t.name).trim().toLowerCase() === String(s.seatTypeName).trim().toLowerCase());
+    if (st && st.coupleSeat !== undefined) return st.coupleSeat === true;
+    return isCoupleTypeName(s.seatTypeName);
+  }, [seatTypes]);
 
   const availableSeats = useMemo(() => {
     return seats.filter((seat) => {
@@ -755,6 +752,19 @@ const Sales = () => {
       return;
     }
     if (selectedSeats.length === 0 && selectedProducts.length === 0) return;
+
+    // Chỉ kiểm tra luật "không chừa 1 ghế trống lẻ giữa hàng" ở bước xác nhận cuối
+    // (khớp hành vi web khách hàng: chọn tự do, chặn khi bấm nút).
+    if (selectedSeats.length > 0) {
+      const existingBlockedIds = new Set([...bookedSeatIdSet, ...peerHeldSeatIdSet]);
+      const newlySelectedIds = selectedSeats.map(s => Number(s.seatId)).filter(Number.isFinite);
+      const check = checkNoNewSingleSeatOrphanInRows(seats, existingBlockedIds, newlySelectedIds, isCoupleSeatOf);
+      if (!check.ok) {
+        showToast(check.message, "warning");
+        return;
+      }
+    }
+
     setShowConfirmModal(true);
   };
 
