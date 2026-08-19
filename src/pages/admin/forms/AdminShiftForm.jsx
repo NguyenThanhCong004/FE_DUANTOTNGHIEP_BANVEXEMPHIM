@@ -252,13 +252,14 @@ export default function AdminShiftForm({ mode = "add" }) {
       <style>{`
         .shift-input {
           border-radius: 12px !important;
-          border: 1.5px solid #eee !important;
+          border: 1.5px solid var(--admin-border) !important;
           padding: 12px 15px !important;
-          color: #000 !important;
+          color: var(--admin-text) !important;
+          background-color: var(--admin-bg-card) !important;
         }
         .role-card {
           border-left: 4px solid #0d6efd;
-          background: #f8faff;
+          background: var(--admin-bg-subtle);
           transition: all 0.3s ease;
         }
         .role-card:hover {

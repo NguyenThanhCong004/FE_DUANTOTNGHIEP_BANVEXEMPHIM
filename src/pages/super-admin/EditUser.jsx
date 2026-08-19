@@ -293,7 +293,7 @@ export default function EditUser() {
 
                         className="admin-search-input w-100 border-primary"
 
-                        style={{ background: 'white', padding: '0 15px', height: '50px', border: '2px solid' }}
+                        style={{ background: 'var(--admin-bg-card)', padding: '0 15px', height: '50px', border: '2px solid' }}
 
                         value={formData.status}
 

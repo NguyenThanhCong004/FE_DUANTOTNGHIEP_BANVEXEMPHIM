@@ -976,7 +976,7 @@ export default function ShowtimeManagement() {
                           className="showtime-add-btn position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center fw-bold"
                           style={{
                             width: "22px", height: "22px", borderRadius: "50%",
-                            border: "1px solid #0d6efd", background: "#fff", color: "#0d6efd",
+                            border: "1px solid #0d6efd", background: "var(--admin-bg-card)", color: "#0d6efd",
                             fontSize: "0.9rem", lineHeight: 1, cursor: "pointer", zIndex: 2, padding: 0,
                           }}
                           title="Thêm suất chiếu"

@@ -481,7 +481,7 @@ export default function ShiftManagement() {
             <table className="table table-bordered mb-0 shift-grid-table">
               <thead className="bg-light">
                 <tr>
-                  <th className="text-center align-middle" style={{ width: '100px', background: '#f8f9fa' }}>Ca / Thứ</th>
+                  <th className="text-center align-middle" style={{ width: '100px', background: 'var(--admin-bg-subtle)' }}>Ca / Thứ</th>
                   {weekDays.map((day, idx) => (
                     <th key={idx} className="text-center py-2" style={{ minWidth: '150px' }}>
                       <div className="fw-bold text-primary" style={{ fontSize: '0.85rem' }}>{DAY_NAMES[day.getDay()]}</div>
@@ -616,7 +616,7 @@ export default function ShiftManagement() {
                                         <div 
                                           key={assignment.id || idx} 
                                           className={`d-flex align-items-center gap-2 p-1 rounded ${!isPast ? 'bg-light' : ''}`}
-                                          style={{ borderBottom: idx < assignments.length - 1 ? '1px solid #f1f5f9' : 'none' }}
+                                          style={{ borderBottom: idx < assignments.length - 1 ? '1px solid var(--admin-border)' : 'none' }}
                                         >
                                           <div className={`${isPast ? 'bg-secondary' : 'bg-success'} bg-opacity-10 ${isPast ? 'text-secondary' : 'text-success'} rounded-circle d-flex align-items-center justify-content-center staff-avatar-sm flex-shrink-0`}>
                                             {assignment.staffName.charAt(0).toUpperCase()}
@@ -667,14 +667,14 @@ export default function ShiftManagement() {
         }
         .shift-management-v2 .staff-item-horizontal:hover {
           border-color: #6366f1 !important;
-          background-color: #f5f3ff !important;
+          background-color: var(--admin-bg-subtle) !important;
           transform: translateY(-2px);
         }
         .staff-horizontal-list::-webkit-scrollbar {
           height: 6px;
         }
         .staff-horizontal-list::-webkit-scrollbar-track {
-          background: #f1f5f9;
+          background: var(--admin-bg-subtle);
         }
         .staff-horizontal-list::-webkit-scrollbar-thumb {
           background: #cbd5e1;
@@ -687,7 +687,7 @@ export default function ShiftManagement() {
         }
         .shift-management-v2 .position-slot-v2:hover {
           border-color: #6366f1 !important;
-          background-color: #f5f3ff !important;
+          background-color: var(--admin-bg-subtle) !important;
         }
         .shift-management-v2 .border-solid-v2 {
           border: 1px solid #e2e8f0 !important;
@@ -701,7 +701,7 @@ export default function ShiftManagement() {
           background-color: #f8fafc !important;
         }
         .shift-management-v2 .bg-past-assigned {
-          background-color: #f1f5f9 !important;
+          background-color: var(--admin-bg-subtle) !important;
         }
         .shift-management-v2 .border-dashed-past {
           border: 1px dashed #e2e8f0 !important;
@@ -713,7 +713,7 @@ export default function ShiftManagement() {
           font-weight: 800;
         }
         .shift-grid-table th, .shift-grid-table td {
-          border-color: #f1f5f9 !important;
+          border-color: var(--admin-border) !important;
         }
         .shift-management-v2 .hover-opacity-100:hover {
           opacity: 1 !important;

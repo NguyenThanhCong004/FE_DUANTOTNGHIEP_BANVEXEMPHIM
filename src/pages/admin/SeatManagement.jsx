@@ -1408,7 +1408,7 @@ export default function SeatManagement() {
           <button
             type="button"
             className="admin-btn text-nowrap"
-            style={{ background: "white", color: "#4f46e5" }}
+            style={{ background: "var(--admin-bg-card)", color: "#4f46e5" }}
             onClick={() => navigate(`${prefix}/rooms`)}
           >
             Danh sách phòng
@@ -1436,7 +1436,7 @@ export default function SeatManagement() {
 
           gap: 6px;
 
-          background: #fff;
+          background: var(--admin-bg-card);
 
           padding: 24px;
 
@@ -1514,7 +1514,7 @@ export default function SeatManagement() {
 
           border: 1px dashed #dee2e6;
 
-          background: #f8f9fa;
+          background: var(--admin-bg-subtle);
 
         }
 
@@ -1844,7 +1844,7 @@ export default function SeatManagement() {
 
               <div className="d-flex align-items-center gap-2 small fw-bold text-muted">
 
-                <div style={{ width: 14, height: 14, borderRadius: 4, border: "1px dashed #ccc", backgroundColor: "#f8f9fa" }} /> Ô trống
+                <div style={{ width: 14, height: 14, borderRadius: 4, border: "1px dashed #ccc", backgroundColor: "var(--admin-bg-subtle)" }} /> Ô trống
 
               </div>
 

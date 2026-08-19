@@ -139,7 +139,7 @@ const RoomClosureReview = () => {
             </div>
           ) : (
             orders.map((order) => (
-              <div key={order.orderOnlineId} className="admin-card mb-3" style={{ boxShadow: 'none', border: '1px solid #eee' }}>
+              <div key={order.orderOnlineId} className="admin-card mb-3" style={{ boxShadow: 'none', border: '1px solid var(--admin-border)' }}>
                 <div className="admin-card-body">
                   <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
                     <div>

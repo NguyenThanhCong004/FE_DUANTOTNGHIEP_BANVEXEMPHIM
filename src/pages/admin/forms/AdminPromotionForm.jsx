@@ -252,16 +252,16 @@ export default function AdminPromotionForm({ mode = "add" }) {
     >
       <ToastComponent />
       <style>{`
-        .promo-input { border-radius: 10px !important; border: 1.5px solid #eee !important; padding: 10px 15px !important; color: #000 !important; }
+        .promo-input { border-radius: 10px !important; border: 1.5px solid var(--admin-border) !important; padding: 10px 15px !important; color: var(--admin-text) !important; background-color: var(--admin-bg-card) !important; }
         /* Loại bỏ icon chấm than của Bootstrap */
-        .promo-input.is-invalid { 
-          background-image: none !important; 
+        .promo-input.is-invalid {
+          background-image: none !important;
           padding-right: 15px !important;
           border-color: #dc3545 !important;
         }
-        .movie-badge-item { cursor: pointer; transition: all 0.2s; border: 1px solid #eee; user-select: none; }
+        .movie-badge-item { cursor: pointer; transition: all 0.2s; border: 1px solid var(--admin-border); user-select: none; }
         .movie-badge-item.selected { background-color: #0d6efd !important; color: white !important; border-color: #0d6efd; transform: scale(1.05); }
-        .movie-list-container { max-height: 250px; overflow-y: auto; border: 1.5px solid #eee; border-radius: 12px; padding: 15px; min-height: 100px; }
+        .movie-list-container { max-height: 250px; overflow-y: auto; border: 1.5px solid var(--admin-border); border-radius: 12px; padding: 15px; min-height: 100px; }
         .error-msg { fontSize: 11px; marginTop: 4px; fontWeight: bold; color: #dc3545; }
       `}</style>
 
