@@ -863,7 +863,15 @@ export default function SeatManagement() {
 
         const arr = Array.isArray(list) ? list : [];
 
-        setRooms(arr.filter((r) => isActiveStatus(r.status)).map((r) => ({ id: r.id, name: r.name })));
+        setRooms(arr.filter((r) => isActiveStatus(r.status)).map((r) => ({
+          id: r.id,
+          name: r.name,
+          roomTypeId: r.roomTypeId ?? null,
+          roomTypeName: r.roomTypeName ?? null,
+          standardSeatCount: r.standardSeatCount ?? null,
+          vipSeatCount: r.vipSeatCount ?? null,
+          coupleSeatCount: r.coupleSeatCount ?? null,
+        })));
 
       } catch {
 
@@ -1215,6 +1223,35 @@ export default function SeatManagement() {
 
     }
 
+    if (selectedRoom && selectedRoom.roomTypeId != null) {
+      const typeMap = {};
+      _seatTypesData.forEach((st) => {
+        if (st.coupleSeat) typeMap[st.name] = "couple";
+        else if (st.name && st.name.toLowerCase().includes("vip")) typeMap[st.name] = "vip";
+        else typeMap[st.name] = "standard";
+      });
+      let stdCount = 0, vipCount = 0, coupleCount = 0;
+      for (const cell of seats) {
+        if (!isPlacedSeat(cell) || cell.type === "OccupiedByDouble") continue;
+        const cat = typeMap[cell.type];
+        if (cat === "couple") coupleCount++;
+        else if (cat === "vip") vipCount++;
+        else stdCount++;
+      }
+      const need = {
+        std: selectedRoom.standardSeatCount ?? 0,
+        vip: selectedRoom.vipSeatCount ?? 0,
+        couple: selectedRoom.coupleSeatCount ?? 0,
+      };
+      if (stdCount !== need.std || vipCount !== need.vip || coupleCount !== need.couple) {
+        showToast(
+          `Chưa đủ ghế theo loại phòng "${selectedRoom.roomTypeName}": cần ${need.std} thường, ${need.vip} VIP, ${need.couple} đôi. Hiện có: ${stdCount} thường, ${vipCount} VIP, ${coupleCount} đôi.`,
+          "danger"
+        );
+        return;
+      }
+    }
+
     const items = [];
 
     for (let r = 0; r < ROWS; r++) {
@@ -1425,6 +1462,60 @@ export default function SeatManagement() {
       <div className="seat-management-page-wrap">
 
       <ToastComponent />
+
+      {selectedRoom && selectedRoom.roomTypeId != null && (() => {
+        const typeMap = {};
+        _seatTypesData.forEach((st) => {
+          if (st.coupleSeat) typeMap[st.name] = "couple";
+          else if (st.name && st.name.toLowerCase().includes("vip")) typeMap[st.name] = "vip";
+          else typeMap[st.name] = "standard";
+        });
+        let stdCount = 0, vipCount = 0, coupleCount = 0;
+        for (const cell of seatGrid) {
+          if (!isPlacedSeat(cell) || cell.type === "OccupiedByDouble") continue;
+          const cat = typeMap[cell.type];
+          if (cat === "couple") coupleCount++;
+          else if (cat === "vip") vipCount++;
+          else stdCount++;
+        }
+        const need = {
+          std: selectedRoom.standardSeatCount ?? 0,
+          vip: selectedRoom.vipSeatCount ?? 0,
+          couple: selectedRoom.coupleSeatCount ?? 0,
+        };
+        const allOk = stdCount === need.std && vipCount === need.vip && coupleCount === need.couple;
+        const pill = (got, req, label) => {
+          const ok = got === req;
+          return (
+            <span key={label} style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "3px 10px", borderRadius: 20,
+              background: ok ? "#d1fae5" : "#fef9c3",
+              color: ok ? "#065f46" : "#713f12",
+              fontWeight: 600, fontSize: "0.78rem",
+            }}>
+              {label}: {got}/{req}
+            </span>
+          );
+        };
+        return (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+            padding: "8px 16px", marginBottom: 12, borderRadius: 10,
+            background: allOk ? "#ecfdf5" : "#fefce8",
+            border: `1px solid ${allOk ? "#6ee7b7" : "#fde68a"}`,
+            fontSize: "0.82rem",
+          }}>
+            <span style={{ fontWeight: 700, color: allOk ? "#065f46" : "#92400e" }}>
+              {selectedRoom.roomTypeName}:
+            </span>
+            {pill(stdCount, need.std, "Thường")}
+            {pill(vipCount, need.vip, "VIP")}
+            {pill(coupleCount, need.couple, "Đôi")}
+            {allOk && <span style={{ color: "#065f46", fontWeight: 600 }}>✓ Đủ ghế</span>}
+          </div>
+        );
+      })()}
 
       <style>{`
 

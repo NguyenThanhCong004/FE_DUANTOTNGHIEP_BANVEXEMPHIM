@@ -76,6 +76,7 @@ const AdminPromotionForm = lazy(() => import('../pages/admin/forms/AdminPromotio
 const AdminShiftForm = lazy(() => import('../pages/admin/forms/AdminShiftForm'));
 const AdminRoomForm = lazy(() => import('../pages/admin/forms/AdminRoomForm'));
 const RoomManagement = lazy(() => import('../pages/admin/RoomManagement'));
+const RoomTypeManagement = lazy(() => import('../pages/admin/RoomTypeManagement'));
 const RoomClosureReview = lazy(() => import('../pages/admin/RoomClosureReview'));
 const SeatManagement = lazy(() => import('../pages/admin/SeatManagement'));
 const AdminProfile = lazy(() => import('../pages/admin/AdminProfile'));
@@ -165,6 +166,7 @@ const AppRoutes = () => {
           <Route path="rooms/add" element={<AdminRoomForm mode="add" />} />
           <Route path="rooms/edit/:id" element={<AdminRoomForm mode="edit" />} />
           <Route path="rooms/:id/closure" element={<RoomClosureReview />} />
+          <Route path="room-types" element={<RoomTypeManagement />} />
           <Route path="invoices" element={<InvoiceManagement />} />
           <Route path="profile" element={<AdminProfile />} />
           <Route path="*" element={<NotFound />} />
@@ -225,6 +227,7 @@ const AppRoutes = () => {
           <Route path="rooms/add" element={<AdminRoomForm mode="add" />} />
           <Route path="rooms/edit/:id" element={<AdminRoomForm mode="edit" />} />
           <Route path="rooms/:id/closure" element={<RoomClosureReview />} />
+          <Route path="room-types" element={<RoomTypeManagement />} />
           <Route path="invoices" element={<InvoiceManagement />} />
           <Route path="profile" element={<SuperAdminProfile />} />
           <Route path="*" element={<NotFound />} />
