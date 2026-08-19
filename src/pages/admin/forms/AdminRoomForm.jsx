@@ -4,7 +4,7 @@ import { Card, Form, Button, Row, Col } from "react-bootstrap";
 
 import { getStoredStaff } from "../../../utils/authStorage";
 import { apiFetch } from "../../../utils/apiClient";
-import { ROOMS } from "../../../constants/apiEndpoints";
+import { ROOMS, ROOM_TYPES } from "../../../constants/apiEndpoints";
 import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCinema";
 import AdminPanelPage from "../../../components/admin/AdminPanelPage";
 import AdminFormListBack from "../../../components/admin/AdminFormListBack";
@@ -26,13 +26,28 @@ export default function AdminRoomForm({ mode = "add" }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
+  const [roomTypes, setRoomTypes] = useState([]);
   const originalRoomRef = useRef(null);
   const [room, setRoom] = useState(() => {
     if (isEdit) {
-      return { name: "", status: "" };
+      return { name: "", status: "", roomTypeId: "" };
     }
-    return { name: "", status: "1" };
+    return { name: "", status: "1", roomTypeId: "" };
   });
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiFetch(ROOM_TYPES.LIST);
+        const json = await res.json().catch(() => null);
+        if (mounted) setRoomTypes(Array.isArray(json?.data) ? json.data : []);
+      } catch {
+        if (mounted) setRoomTypes([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -52,12 +67,14 @@ export default function AdminRoomForm({ mode = "add" }) {
           name: data.name ?? "",
           status: isActiveStatus(data.status) ? "1" : "0",
           cinemaId: data.cinemaId ?? null,
+          roomTypeId: data.roomTypeId != null ? String(data.roomTypeId) : "",
         };
         setRoom(nextRoom);
         originalRoomRef.current = {
           name: String(nextRoom.name ?? "").trim(),
           status: Number(nextRoom.status),
           cinemaId: nextRoom.cinemaId != null ? Number(nextRoom.cinemaId) : null,
+          roomTypeId: data.roomTypeId != null ? Number(data.roomTypeId) : null,
         };
       } catch {
         if (mounted) setErrors({ name: MESSAGES.loadFailed });
@@ -73,11 +90,8 @@ export default function AdminRoomForm({ mode = "add" }) {
   const validate = () => {
     const newErrors = {};
     if (!room.name.trim()) newErrors.name = "Tên phòng chiếu không được để trống";
-
-    if (!room.status) {
-      newErrors.status = "Vui lòng chọn trạng thái phòng";
-    }
-
+    if (!room.status) newErrors.status = "Vui lòng chọn trạng thái phòng";
+    if (!isEdit && !room.roomTypeId) newErrors.roomTypeId = "Vui lòng chọn loại phòng chiếu";
     return newErrors;
   };
 
@@ -96,10 +110,12 @@ export default function AdminRoomForm({ mode = "add" }) {
 
     const roomCinemaId = isEdit ? (room.cinemaId ?? cinemaId ?? null) : cinemaId;
     const statusInt = Number(room.status) === 1 ? 1 : 0;
+    const roomTypeIdInt = room.roomTypeId ? Number(room.roomTypeId) : null;
     const body = {
       name: room.name.trim(),
       status: statusInt,
       cinemaId: roomCinemaId,
+      roomTypeId: roomTypeIdInt,
     };
     let payload = body;
     if (isEdit && originalRoomRef.current) {
@@ -110,6 +126,7 @@ export default function AdminRoomForm({ mode = "add" }) {
       if (body.name !== original.name) changedData.name = body.name;
       if (body.status !== original.status) changedData.status = body.status;
       if (nextCinemaId !== original.cinemaId) changedData.cinemaId = nextCinemaId;
+      if (roomTypeIdInt !== original.roomTypeId) changedData.roomTypeId = roomTypeIdInt;
 
       if (Object.keys(changedData).length === 0) {
         setErrors({ form: MESSAGES.noChanges });
@@ -251,6 +268,41 @@ export default function AdminRoomForm({ mode = "add" }) {
                         <div className="text-danger small mt-1 d-flex align-items-center gap-1"> {errors.name}
                         </div>
                       ) : null}
+                    </Form.Group>
+                  </Col>
+
+                  <Col md={12}>
+                    <Form.Group>
+                      <Form.Label>Loại phòng chiếu {!isEdit && <span className="text-danger">*</span>}</Form.Label>
+                      <Form.Select
+                        className={`custom-input ${errors.roomTypeId ? "is-invalid" : ""}`}
+                        value={room.roomTypeId}
+                        onChange={(e) => {
+                          setRoom((prev) => ({ ...prev, roomTypeId: e.target.value }));
+                          if (errors.roomTypeId || errors.form) setErrors((prev) => ({ ...prev, roomTypeId: null, form: null }));
+                        }}
+                      >
+                        <option value="">-- Chọn loại phòng --</option>
+                        {roomTypes.map((rt) => (
+                          <option key={rt.roomTypeId} value={rt.roomTypeId}>
+                            {rt.name} ({rt.standardSeatCount} thường · {rt.vipSeatCount} VIP · {rt.coupleSeatCount} đôi)
+                          </option>
+                        ))}
+                      </Form.Select>
+                      {errors.roomTypeId && (
+                        <div className="text-danger small mt-1">{errors.roomTypeId}</div>
+                      )}
+                      {room.roomTypeId && (() => {
+                        const rt = roomTypes.find((x) => String(x.roomTypeId) === String(room.roomTypeId));
+                        return rt ? (
+                          <div className="mt-2 p-2 rounded-2 bg-light border small text-muted">
+                            Yêu cầu khi setup ghế: <strong>{rt.standardSeatCount}</strong> ghế thường ·{" "}
+                            <strong>{rt.vipSeatCount}</strong> ghế VIP ·{" "}
+                            <strong>{rt.coupleSeatCount}</strong> ghế đôi
+                            (tổng <strong>{rt.standardSeatCount + rt.vipSeatCount + rt.coupleSeatCount}</strong> ghế)
+                          </div>
+                        ) : null;
+                      })()}
                     </Form.Group>
                   </Col>
 

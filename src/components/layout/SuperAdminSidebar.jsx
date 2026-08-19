@@ -28,6 +28,7 @@ const menuSections = [
       { path: "/super-admin/movie-types", icon: "bi-tags", label: "Thể loại phim" },
       { path: "/super-admin/news", icon: "bi-newspaper", label: "Tin tức" },
       { path: "/super-admin/seat-types", icon: "bi-grid-3x3-gap", label: "Loại ghế" },
+      { path: "/super-admin/room-types", icon: "bi-house-gear", label: "Loại phòng chiếu" },
       { path: "/super-admin/product-types", icon: "bi-box-seam", label: "Loại sản phẩm" },
       { path: "/super-admin/catalog-products", icon: "bi-bag", label: "Sản phẩm" },
       { path: "/super-admin/membership-levels", icon: "bi-award", label: "Hạng thành viên" },

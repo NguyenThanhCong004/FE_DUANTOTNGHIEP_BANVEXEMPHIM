@@ -54,6 +54,11 @@ export const ROOMS = {
   BY_ID: (id) => `${API_V1}/rooms/${id}`,
 };
 
+export const ROOM_TYPES = {
+  LIST: `${API_V1}/room-types`,
+  BY_ID: (id) => `${API_V1}/room-types/${id}`,
+};
+
 /** Đóng phòng tạm thời (hỏng ghế/sự cố) + dời vé đã bán sang suất khác — status phòng: 0 Ngừng, 1 Hoạt động, 2 Đóng tạm thời. */
 export const ROOM_CLOSURE = {
   CLOSE: (roomId) => `${API_V1}/rooms/${roomId}/close`,
