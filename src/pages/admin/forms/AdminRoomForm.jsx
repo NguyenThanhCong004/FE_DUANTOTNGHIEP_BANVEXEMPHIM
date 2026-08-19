@@ -156,6 +156,11 @@ export default function AdminRoomForm({ mode = "add" }) {
             name: room.name,
             status: statusInt,
             cinemaId: roomCinemaId,
+            roomTypeId: saved?.roomTypeId ?? null,
+            roomTypeName: saved?.roomTypeName ?? null,
+            standardSeatCount: saved?.standardSeatCount ?? null,
+            vipSeatCount: saved?.vipSeatCount ?? null,
+            coupleSeatCount: saved?.coupleSeatCount ?? null,
           },
         },
       });
