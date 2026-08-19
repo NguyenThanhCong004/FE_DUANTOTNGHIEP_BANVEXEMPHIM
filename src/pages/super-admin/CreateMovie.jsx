@@ -373,17 +373,7 @@ const CreateMovie = () => {
           return;
         }
       } else {
-        payload = {};
-        if (body.genreIds.length > 0) payload.genreIds = body.genreIds;
-        if (body.title != null && body.title.trim() !== "") payload.title = body.title;
-        if (body.description != null && body.description.trim() !== "") payload.description = body.description;
-        if (body.duration != null) payload.duration = body.duration;
-        if (body.ageLimit != null) payload.ageLimit = body.ageLimit;
-        if (body.releaseDate != null) payload.releaseDate = body.releaseDate;
-        if (body.poster != null) payload.poster = body.poster;
-        if (body.status != null) payload.status = body.status;
-        if (body.basePrice != null) payload.basePrice = body.basePrice;
-        if (body.banner != null) payload.banner = body.banner;
+        payload = body;
       }
 
       const url = movieId ? MOVIES.BY_ID(movieId) : MOVIES.LIST;
@@ -418,9 +408,7 @@ const CreateMovie = () => {
   if (loading) return <AdminPanelPage title="Đang tải..."><div className="text-center py-5"><div className="spinner-border text-primary"></div></div></AdminPanelPage>;
 
   return (
-    <>
-      <ToastComponent />
-      <AdminPanelPage
+    <AdminPanelPage
         icon={editData ? "bi-film" : "bi-plus-circle-dotted"}
         title={editData ? "Cập nhật phim" : "Thêm phim mới"}
         headerRight={<AdminFormListBack to="/super-admin/movies" />}
@@ -657,8 +645,8 @@ const CreateMovie = () => {
           box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
       `}</style>
+      <ToastComponent />
     </AdminPanelPage>
-    </>
   );
 };
 

@@ -13,8 +13,6 @@ const MembershipLevelManagement = () => {
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 5;
 
   const { showToast, ToastComponent } = useAdminToast();
@@ -108,7 +106,6 @@ const MembershipLevelManagement = () => {
                     <th className="text-center">Giảm giá (%)</th>
                     <th className="text-center">Điểm thưởng cộng thêm</th>
                     <th className="text-center">Trạng thái</th>
-                    <th className="text-center">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -145,27 +142,6 @@ const MembershipLevelManagement = () => {
                           {isActiveStatus(level.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
                         </span>
                       </td>
-                      <td className="text-center">
-                        <div className="d-flex gap-1 justify-content-center">
-                          <button 
-                            className="admin-btn admin-btn-sm admin-btn-outline"
-                            onClick={() => {
-                              setSelectedItem(level);
-                              setShowModal(true);
-                            }}
-                            title="Xem chi tiết"
-                          >Xem</button>
-                          <button
-                            className="admin-btn admin-btn-sm admin-btn-primary"
-                            onClick={() => navigate("/super-admin/membership-levels/create", { state: { editData: level } })}
-                            title={level.is_default ? "Không thể sửa hạng mặc định" : "Sửa hạng"}
-                            disabled={level.is_default}
-                            style={level.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                          >
-                            Sửa
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -183,83 +159,6 @@ const MembershipLevelManagement = () => {
           </>
         )}
       </div>
-
-      {/* Detail Modal */}
-      {showModal && selectedItem && (
-        <div className="admin-modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="admin-modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-            <div className="admin-modal-header">
-              <h3>
-                Chi tiết hạng thành viên
-              </h3>
-              <button className="admin-modal-close" onClick={() => setShowModal(false)}>
-              </button>
-            </div>
-            <div className="admin-modal-body">
-              <div className="text-center mb-4">
-                <div className="display-6 fw-bold text-primary text-uppercase mb-2">{selectedItem.rank_name}</div>
-                <div className="text-muted">ID định danh: #{selectedItem.id}</div>
-              </div>
-              
-              <div className="row g-4">
-                <div className="col-sm-6">
-                  <div className="p-3 border rounded-4 bg-light">
-                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Chi tiêu tối thiểu</small>
-                    <div className="fs-5 fw-bold text-dark">{formatVnd(selectedItem.min_spending)}</div>
-                  </div>
-                </div>
-                <div className="col-sm-6">
-                  <div className="p-3 border rounded-4 bg-light">
-                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Ưu đãi giảm giá</small>
-                    <div className="fs-5 fw-bold text-success">{selectedItem.discount_percent}%</div>
-                  </div>
-                </div>
-                <div className="col-sm-12">
-                  <div className="p-3 border rounded-4 bg-light">
-                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Điểm thưởng cộng thêm</small>
-                    <div className="fs-5 fw-bold text-dark">+{selectedItem.bonus_point} điểm (Cộng thêm vào điểm tích lũy mỗi hóa đơn)</div>
-                  </div>
-                </div>
-                <div className="col-sm-12">
-                  <div className="p-3 border rounded-4 bg-light">
-                    <small className="text-muted d-block mb-1 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Trạng thái</small>
-                    <div>
-                      <span className={`admin-badge ${isActiveStatus(selectedItem.status) ? 'admin-badge-success' : 'admin-badge-warning'}`}>
-                        {isActiveStatus(selectedItem.status) ? 'Hoạt động' : 'Ngừng hoạt động'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="col-sm-12">
-                  <div className="p-3 border rounded-4">
-                    <small className="text-muted d-block mb-2 text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Mô tả đặc quyền</small>
-                    <div className="text-dark" style={{ lineHeight: '1.6' }}>
-                      {selectedItem.description || "Chưa có mô tả chi tiết cho hạng thành viên này."}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="admin-modal-footer">
-              <button className="admin-btn admin-btn-outline" onClick={() => setShowModal(false)}>
-                Đóng
-              </button>
-              <button 
-                className="admin-btn admin-btn-primary"
-                onClick={() => {
-                  setShowModal(false);
-                  navigate("/super-admin/membership-levels/create", { state: { editData: selectedItem } });
-                }}
-                disabled={selectedItem.is_default}
-                style={selectedItem.is_default ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
-                title={selectedItem.is_default ? "Không thể sửa hạng mặc định" : "Chỉnh sửa hạng"}
-              >
-                Chỉnh sửa hạng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <ToastComponent />
     </AdminPanelPage>

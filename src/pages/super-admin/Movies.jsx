@@ -12,6 +12,29 @@ import sanitizeHtml from '../../utils/sanitizeHtml';
 
 const PLACEHOLDER_POSTER = 'https://placehold.co/120x180?text=Poster';
 
+const mapMovie = (m) => {
+  const rd = m.releaseDate ? new Date(m.releaseDate) : null;
+  if (rd) rd.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
+  if (statusStr === 'Upcoming' && rd && rd <= today) statusStr = 'Active';
+  return {
+    id: m.id,
+    title: m.title ?? '',
+    duration: m.duration ?? 0,
+    release_date: m.releaseDate ?? '',
+    base_price: m.basePrice ?? 0,
+    status: statusStr,
+    age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
+    genre: Array.isArray(m.genres) && m.genres.length ? m.genres.join(', ') : '—',
+    description: m.description ?? '',
+    describe: m.content ?? '',
+    poster: m.posterUrl || PLACEHOLDER_POSTER,
+    banner: m.banner || m.posterUrl || PLACEHOLDER_POSTER,
+  };
+};
+
 const MovieManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,38 +70,7 @@ const MovieManagement = () => {
         const list = json?.data ?? json ?? [];
         const arr = Array.isArray(list) ? list : [];
         if (!mounted) return;
-        setAllMovies(
-          arr.map((m) => {
-            const rd = m.releaseDate ? new Date(m.releaseDate) : null;
-            if (rd) rd.setHours(0, 0, 0, 0);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            let statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
-            
-            // CHỈ tự động chuyển từ Sắp chiếu -> Đang chiếu nếu đã đến ngày
-            // Nếu là Ngưng chiếu (Inactive) thì giữ nguyên
-            if (statusStr === 'Upcoming' && rd && rd <= today) {
-              statusStr = 'Active';
-            }
-
-            return {
-              id: m.id,
-              title: m.title ?? '',
-              duration: m.duration ?? 0,
-              release_date: m.releaseDate ?? '',
-              base_price: m.basePrice ?? 0,
-              status: statusStr,
-              age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
-              genre: Array.isArray(m.genres) && m.genres.length ? m.genres.join(', ') : '—',
-              description: m.description ?? '',
-              describe: m.content ?? '',
-              poster: m.posterUrl || PLACEHOLDER_POSTER,
-              banner: m.banner || m.posterUrl || PLACEHOLDER_POSTER,
-              genre_id: '',
-            };
-          })
-        );
+        setAllMovies(arr.map(mapMovie));
       } catch {
         if (mounted) setAllMovies([]);
       } finally {
@@ -110,47 +102,11 @@ const MovieManagement = () => {
       });
       
       if (res.ok) {
-        showToast('Xóa phim thành công');
-        // Refresh danh sách
-        const refreshRes = await apiFetch(withQuery(MOVIES.LIST, { search: searchTerm }));
-        const json = await refreshRes.json().catch(() => null);
-        const list = json?.data ?? json ?? [];
-        const arr = Array.isArray(list) ? list : [];
-        setAllMovies(
-          arr.map((m) => {
-            const rd = m.releaseDate ? new Date(m.releaseDate) : null;
-            if (rd) rd.setHours(0, 0, 0, 0);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            let statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
-            
-            // CHỈ tự động chuyển từ Sắp chiếu -> Đang chiếu nếu đã đến ngày
-            // Nếu là Ngưng chiếu (Inactive) thì giữ nguyên
-            if (statusStr === 'Upcoming' && rd && rd <= today) {
-              statusStr = 'Active';
-            }
-
-            return {
-              id: m.id,
-              title: m.title ?? '',
-              duration: m.duration ?? 0,
-              release_date: m.releaseDate ?? '',
-              base_price: m.basePrice ?? 0,
-              status: statusStr,
-              age_limit: m.ageLimit != null ? `${m.ageLimit}+` : '—',
-              genre: Array.isArray(m.genres) && m.genres.length ? m.genres.join(', ') : '—',
-              description: m.description ?? '',
-              describe: m.content ?? '',
-              poster: m.posterUrl || PLACEHOLDER_POSTER,
-              banner: m.banner || m.posterUrl || PLACEHOLDER_POSTER,
-              genre_id: '',
-            };
-          })
-        );
+        setAllMovies((prev) => prev.filter((m) => m.id !== movie.id));
         setShowDeleteModal(false);
         setMovieToDelete(null);
         setDeleteError("");
+        showToast('Xóa phim thành công');
       } else {
         const errJson = await res.json().catch(() => null);
         setDeleteError(apiMessage(errJson, "Xóa phim thất bại"));
@@ -174,8 +130,7 @@ const MovieManagement = () => {
   };
 
   return (
-    <>
-      <AdminPanelPage
+    <AdminPanelPage
       icon="film"
       title="Quản lý phim"
       headerRight={
@@ -463,9 +418,8 @@ const MovieManagement = () => {
         </div>
       )}
 
-      </AdminPanelPage>
       <ToastComponent />
-    </>
+    </AdminPanelPage>
   );
 };
 

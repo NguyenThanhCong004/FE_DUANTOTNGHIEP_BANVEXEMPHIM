@@ -110,11 +110,11 @@ const CreateSystemStaff = () => {
     const tempErrors = {};
     if (!staff.name.trim()) tempErrors.name = "Họ tên không được để trống";
 
-    const emailRegex = /^[a-z0-9._%+-]+@gmail\.com$/i;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!staff.email) {
       tempErrors.email = "Email không được để trống";
     } else if (!emailRegex.test(staff.email)) {
-      tempErrors.email = "Email phải đúng định dạng Gmail (vd: abc@gmail.com)";
+      tempErrors.email = "Email không đúng định dạng (vd: abc@gmail.com, abc@moviezone.com)";
     }
 
     const phoneRegex = /^[0-9]{10}$/;
