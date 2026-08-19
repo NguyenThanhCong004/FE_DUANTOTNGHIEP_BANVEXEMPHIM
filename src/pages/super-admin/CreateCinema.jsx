@@ -290,7 +290,7 @@ const CreateCinema = () => {
                   className={`admin-search-input w-100 ${errors.name ? 'border-danger' : ''}`}
                   value={formData.name}
                   onChange={(e) => handleChange('name', e.target.value)}
-                  placeholder="Ví dụ: Cinema Duy Tân"
+                  placeholder="Ví dụ: MovieZone Cần Thơ"
                   disabled={submitting}
                 />
                 {errors.name && <small className="text-danger fw-medium">{errors.name}</small>}
