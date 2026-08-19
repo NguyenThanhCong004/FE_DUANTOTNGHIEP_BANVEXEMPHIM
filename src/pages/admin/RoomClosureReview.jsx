@@ -182,8 +182,18 @@ const RoomClosureReview = () => {
                       {loadingSuggestionsFor === order.orderOnlineId ? 'Đang tìm...' : 'Xem suất thay thế'}
                     </button>
                   ) : suggestionsByOrder[order.orderOnlineId].length === 0 ? (
-                    <div className="alert alert-warning py-2 small mb-0">
-                      Không tìm được suất chiếu nào còn đủ ghế đúng loại để dời đơn này.
+                    <div className="d-flex justify-content-between align-items-center border rounded p-2 flex-wrap gap-2 bg-warning bg-opacity-10">
+                      <div className="small text-muted">
+                        Không tìm được suất chiếu nào còn đủ ghế đúng loại để dời đơn này.
+                      </div>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn-sm admin-btn-danger"
+                        disabled={busyOrderId === order.orderOnlineId}
+                        onClick={() => cancelOrder(order.orderOnlineId)}
+                      >
+                        {busyOrderId === order.orderOnlineId ? 'Đang xử lý...' : 'Hủy đơn & hoàn tiền tại quầy'}
+                      </button>
                     </div>
                   ) : (
                     <div className="d-flex flex-column gap-2 mb-3">
@@ -205,18 +215,17 @@ const RoomClosureReview = () => {
                           </button>
                         </div>
                       ))}
+                      <div className="d-flex justify-content-end">
+                        <button
+                          type="button"
+                          className="admin-btn admin-btn-sm admin-btn-danger"
+                          disabled={busyOrderId === order.orderOnlineId}
+                          onClick={() => cancelOrder(order.orderOnlineId)}
+                        >
+                          Hủy đơn &amp; hoàn tiền tại quầy
+                        </button>
+                      </div>
                     </div>
-                  )}
-
-                  {suggestionsByOrder[order.orderOnlineId] && (
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn-sm admin-btn-danger mt-2"
-                      disabled={busyOrderId === order.orderOnlineId}
-                      onClick={() => cancelOrder(order.orderOnlineId)}
-                    >
-                      Hủy đơn &amp; hoàn tiền tại quầy
-                    </button>
                   )}
                 </div>
               </div>
