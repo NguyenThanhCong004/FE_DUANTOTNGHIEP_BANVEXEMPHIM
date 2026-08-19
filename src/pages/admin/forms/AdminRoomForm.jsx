@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Card, Form, Button, Row, Col, Breadcrumb } from "react-bootstrap";
+import { Card, Form, Button, Row, Col } from "react-bootstrap";
 
 import { getStoredStaff } from "../../../utils/authStorage";
 import { apiFetch } from "../../../utils/apiClient";
 import { ROOMS } from "../../../constants/apiEndpoints";
 import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCinema";
+import AdminPanelPage from "../../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../../components/admin/AdminFormListBack";
 import { isActiveStatus } from "../../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../../utils/uiMessages";
 
@@ -153,14 +155,19 @@ export default function AdminRoomForm({ mode = "add" }) {
 
   if (loading) {
     return (
-      <div className="text-dark py-5 d-flex justify-content-center fw-bold">
-        Đang tải phòng...
-      </div>
+      <AdminPanelPage title={isEdit ? "Chỉnh sửa phòng chiếu" : "Thêm phòng chiếu mới"}>
+        <div className="py-5 d-flex justify-content-center fw-bold">
+          Đang tải phòng...
+        </div>
+      </AdminPanelPage>
     );
   }
 
   return (
-    <div className={`${isEdit ? "edit-room-page" : "add-room-page"} text-dark`}>
+    <AdminPanelPage
+      title={isEdit ? `Chỉnh sửa: ${room.name}` : "Thêm phòng chiếu mới"}
+      headerRight={<AdminFormListBack to={`${prefix}/rooms`} />}
+    >
       <style>{`
         .custom-input {
           border-radius: 12px;
@@ -215,29 +222,6 @@ export default function AdminRoomForm({ mode = "add" }) {
           font-weight: 600;
         }
       `}</style>
-
-      <div className="mb-4">
-        <Breadcrumb className="small mb-2">
-          <Breadcrumb.Item onClick={() => navigate(`${prefix}/rooms`)} style={{ cursor: "pointer" }}>
-            Quản lý phòng chiếu
-          </Breadcrumb.Item>
-          <Breadcrumb.Item active>
-            {isEdit ? "Chỉnh sửa phòng chiếu" : "Thêm phòng chiếu mới"}
-          </Breadcrumb.Item>
-        </Breadcrumb>
-
-        <div className="d-flex align-items-center gap-3">
-          <Button
-            variant="light"
-            className="rounded-circle p-2 shadow-sm border"
-            onClick={() => navigate(`${prefix}/rooms`)}
-          >
-          </Button>
-          <h2 className="fw-bold mb-0">
-            {isEdit ? `Chỉnh sửa: ${room.name}` : "Thêm phòng chiếu mới"}
-          </h2>
-        </div>
-      </div>
 
       <Row className="justify-content-center">
         <Col lg={8}>
@@ -338,7 +322,7 @@ export default function AdminRoomForm({ mode = "add" }) {
           </Card>
         </Col>
       </Row>
-    </div>
+    </AdminPanelPage>
   );
 }
 

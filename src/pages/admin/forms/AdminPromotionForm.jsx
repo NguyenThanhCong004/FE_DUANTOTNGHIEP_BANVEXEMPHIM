@@ -6,6 +6,8 @@ import { getStoredStaff } from "../../../utils/authStorage";
 import { apiFetch } from "../../../utils/apiClient";
 import { MOVIES, PROMOTIONS } from "../../../constants/apiEndpoints";
 import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCinema";
+import AdminPanelPage from "../../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../../components/admin/AdminFormListBack";
 import { useAdminToast } from "../../../components/admin/AdminToast";
 
 export default function AdminPromotionForm({ mode = "add" }) {
@@ -233,15 +235,21 @@ export default function AdminPromotionForm({ mode = "add" }) {
 
   if (loading) {
     return (
-      <div className="add-promotion-page text-dark py-5 text-center">
-        <Spinner animation="border" variant="primary" />
-        <p className="mt-3 fw-bold">Đang tải dữ liệu...</p>
-      </div>
+      <AdminPanelPage title={isEdit ? "Chỉnh sửa khuyến mãi" : "Tạo khuyến mãi rạp"}>
+        <div className="py-5 text-center">
+          <Spinner animation="border" variant="primary" />
+          <p className="mt-3 fw-bold">Đang tải dữ liệu...</p>
+        </div>
+      </AdminPanelPage>
     );
   }
 
   return (
-    <div className={`${isEdit ? "edit-promotion-page" : "add-promotion-page"} text-dark pb-5`}>
+    <AdminPanelPage
+      title={isEdit ? `Chỉnh sửa khuyến mãi #${id}` : "Tạo khuyến mãi rạp"}
+      description="Thiết lập ưu đãi cho các phim có suất chiếu trong khoảng thời gian đã chọn"
+      headerRight={<AdminFormListBack to={`${prefix}/promotions`} />}
+    >
       <ToastComponent />
       <style>{`
         .promo-input { border-radius: 10px !important; border: 1.5px solid #eee !important; padding: 10px 15px !important; color: #000 !important; }
@@ -256,15 +264,6 @@ export default function AdminPromotionForm({ mode = "add" }) {
         .movie-list-container { max-height: 250px; overflow-y: auto; border: 1.5px solid #eee; border-radius: 12px; padding: 15px; min-height: 100px; }
         .error-msg { fontSize: 11px; marginTop: 4px; fontWeight: bold; color: #dc3545; }
       `}</style>
-
-      <div className="d-flex align-items-center gap-3 mb-4">
-        <Button variant="light" className="rounded-circle p-2 shadow-sm" onClick={() => navigate(`${prefix}/promotions`)}>
-        </Button>
-        <div>
-          <h3 className="mb-0 fw-bold">{isEdit ? `Chỉnh sửa khuyến mãi #${id}` : "Tạo khuyến mãi rạp"}</h3>
-          <p className="text-muted small mb-0">Thiết lập ưu đãi cho các phim có suất chiếu trong khoảng thời gian đã chọn</p>
-        </div>
-      </div>
 
       <Form onSubmit={handleSubmit}>
         <Row className="justify-content-center">
@@ -405,6 +404,6 @@ export default function AdminPromotionForm({ mode = "add" }) {
           </Col>
         </Row>
       </Form>
-    </div>
+    </AdminPanelPage>
   );
 }

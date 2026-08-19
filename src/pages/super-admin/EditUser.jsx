@@ -7,6 +7,7 @@ import { apiFetch } from "../../utils/apiClient";
 import { USERS } from "../../constants/apiEndpoints";
 
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../components/admin/AdminFormListBack";
 import { useAdminToast } from "../../components/admin/AdminToast";
 import { isActiveStatus } from "../../utils/statusFormat";
 import { apiMessage, MESSAGES, resultToastType } from "../../utils/uiMessages";
@@ -178,6 +179,8 @@ export default function EditUser() {
       icon="person-gear"
 
       title="Cập nhật trạng thái khách hàng"
+
+      headerRight={<AdminFormListBack to="/super-admin/users" />}
 
     >
 

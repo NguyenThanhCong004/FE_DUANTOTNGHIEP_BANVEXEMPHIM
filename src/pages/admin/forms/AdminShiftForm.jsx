@@ -6,6 +6,8 @@ import { getAccessToken, getStoredStaff } from "../../../utils/authStorage";
 import { SuperAdminCinemaContext } from "../../../components/layout/SuperAdminCinemaContext";
 import { apiUrl } from "../../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../../constants/apiEndpoints";
+import AdminPanelPage from "../../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../../components/admin/AdminFormListBack";
 import { MESSAGES } from "../../../utils/uiMessages";
 
 export default function AdminShiftForm({ mode = "add" }) {
@@ -242,7 +244,11 @@ export default function AdminShiftForm({ mode = "add" }) {
   }, [id, isEdit]);
 
   return (
-    <div className={`${isEdit ? "edit-shift-page" : "add-shift-page"} text-dark pb-5`}>
+    <AdminPanelPage
+      title={isEdit ? `Chỉnh sửa phân ca #${id}` : "Phân ca làm việc mới"}
+      description={isEdit ? "Cập nhật nhân sự cho các vị trí trong ca làm việc" : "Mỗi ca yêu cầu đủ 3 nhân viên cho 3 vị trí khác nhau"}
+      headerRight={<AdminFormListBack to={`${prefix}/shifts`} label="Danh sách ca" />}
+    >
       <style>{`
         .shift-input {
           border-radius: 12px !important;
@@ -259,20 +265,6 @@ export default function AdminShiftForm({ mode = "add" }) {
           box-shadow: 0 5px 15px rgba(0,0,0,0.05);
         }
       `}</style>
-
-      <div className="d-flex align-items-start justify-content-between gap-3 mb-4 flex-wrap">
-        <div>
-          <h2 className="mb-0 fw-bold">
-            {isEdit ? `Chỉnh sửa phân ca #${id}` : "Phân ca làm việc mới"}
-          </h2>
-          <p className="text-muted small mb-0">
-            {isEdit ? "Cập nhật nhân sự cho các vị trí trong ca làm việc" : "Mỗi ca yêu cầu đủ 3 nhân viên cho 3 vị trí khác nhau"}
-          </p>
-        </div>
-        <Button variant="light" className="shadow-sm text-nowrap" onClick={() => navigate(`${prefix}/shifts`)}>
-          Danh sách ca
-        </Button>
-      </div>
 
       {error ? <div className="text-center text-danger fw-bold mb-3">{error}</div> : null}
       {isSuperAdmin && selectedCinemaId == null ? (
@@ -415,7 +407,7 @@ export default function AdminShiftForm({ mode = "add" }) {
           </Col>
         </Row>
       </Form>
-    </div>
+    </AdminPanelPage>
   );
 }
 

@@ -15,6 +15,8 @@ import { getStoredStaff } from "../../../utils/authStorage";
 
 import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCinema";
 
+import AdminPanelPage from "../../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../../components/admin/AdminFormListBack";
 import { useAdminToast } from "../../../components/admin/AdminToast";
 
 import { staffStatusToCode } from "../../../utils/statusFormat";
@@ -477,7 +479,10 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
     return (
 
-      <div className="add-staff-page text-dark">
+      <AdminPanelPage
+        title={isEdit ? "Chỉnh sửa nhân viên" : "Thêm nhân viên mới"}
+        headerRight={<AdminFormListBack to={backPath} />}
+      >
 
         <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
 
@@ -485,7 +490,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
         </div>
 
-      </div>
+      </AdminPanelPage>
 
     );
 
@@ -495,9 +500,12 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
   return (
 
-    <>
+    <AdminPanelPage
+      title={isEdit ? `Chỉnh Sửa Nhân Viên #${id}` : "Thêm Nhân Viên Mới"}
+      headerRight={<AdminFormListBack to={backPath} />}
+    >
 
-      <div className={`${isEdit ? "edit-staff-page" : "add-staff-page"}`}>
+      <ToastComponent />
 
       <style>{`
 
@@ -554,32 +562,6 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
         }
 
       `}</style>
-
-
-
-      <div className="d-flex align-items-center gap-3 mb-4">
-
-        <Button
-
-          variant="link"
-
-          className="p-0 text-dark"
-
-          onClick={() => navigate(backPath)}
-
-        >
-
-          Quay lại
-
-        </Button>
-
-        <h2 className="mb-0 fw-bold text-dark">
-
-          {isEdit ? `Chỉnh Sửa Nhân Viên #${id}` : "Thêm Nhân Viên Mới"}
-
-        </h2>
-
-      </div>
 
 
 
@@ -799,11 +781,7 @@ export default function AdminStaffForm({ mode = "add", cinemaId }) {
 
       </Card>
 
-    </div>
-
-      <ToastComponent />
-
-    </>
+    </AdminPanelPage>
 
   );
 

@@ -3,6 +3,8 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button, Card, Col, Form, Row } from "react-bootstrap";
 import { apiFetch } from "../../utils/apiClient";
 import { USERS } from "../../constants/apiEndpoints";
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../components/admin/AdminFormListBack";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
 
 export default function EditUser() {
@@ -59,10 +61,18 @@ export default function EditUser() {
   }, [id]);
 
   if (loading) {
-    return <div className="text-dark fw-bold py-5">Đang tải...</div>;
+    return (
+      <AdminPanelPage title="Cập nhật thông tin khách hàng" headerRight={<AdminFormListBack to={`${prefix}/users`} />}>
+        <div className="fw-bold py-5">Đang tải...</div>
+      </AdminPanelPage>
+    );
   }
   if (!user) {
-    return <div className="text-dark fw-bold">{err || "Không tìm thấy khách hàng."}</div>;
+    return (
+      <AdminPanelPage title="Cập nhật thông tin khách hàng" headerRight={<AdminFormListBack to={`${prefix}/users`} />}>
+        <div className="fw-bold">{err || "Không tìm thấy khách hàng."}</div>
+      </AdminPanelPage>
+    );
   }
 
   const submit = async (e) => {
@@ -100,13 +110,10 @@ export default function EditUser() {
   };
 
   return (
-    <div className="text-dark">
-      <div className="d-flex align-items-center gap-3 mb-4">
-        <Button variant="link" className="p-0 text-dark" onClick={() => navigate(`${prefix}/users`)}>
-        </Button>
-        <h2 className="mb-0 fw-bold">Cập nhật thông tin khách hàng</h2>
-      </div>
-
+    <AdminPanelPage
+      title="Cập nhật thông tin khách hàng"
+      headerRight={<AdminFormListBack to={`${prefix}/users`} />}
+    >
       <Card className="border-0 shadow-sm p-4" style={{ borderRadius: 18 }}>
         <Form onSubmit={submit}>
           <div className="alert alert-info py-2 px-3 small border-0 mb-4 shadow-xs">
@@ -210,7 +217,7 @@ export default function EditUser() {
           </div>
         </Form>
       </Card>
-    </div>
+    </AdminPanelPage>
   );
 }
 
