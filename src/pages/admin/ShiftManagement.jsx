@@ -233,13 +233,20 @@ export default function ShiftManagement() {
 
   // Gán 1 nhân viên vào cùng ca/vị trí cho nhiều ngày đã chọn trong tuần.
   const assignStaffToDays = (days, shiftObj, posObj, staffId, staffName) => {
-    const todayStr = toIso(new Date());
+    const now = new Date();
+    const todayStr = toIso(now);
     const newShifts = [];
     let skippedPast = 0;
     let skippedDuplicate = 0;
 
     days.forEach(date => {
       if (date < todayStr) { skippedPast++; return; }
+      if (date === todayStr && shiftObj.start) {
+        const [h, m] = shiftObj.start.split(":").map(Number);
+        const shiftStart = new Date(date + "T00:00:00");
+        shiftStart.setHours(h, m, 0, 0);
+        if (shiftStart < now) { skippedPast++; return; }
+      }
       const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId)
         || newShifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
       if (alreadyInShift) { skippedDuplicate++; return; }
@@ -262,7 +269,7 @@ export default function ShiftManagement() {
     }
 
     const skippedParts = [];
-    if (skippedPast > 0) skippedParts.push(`${skippedPast} ngày đã qua`);
+    if (skippedPast > 0) skippedParts.push(`${skippedPast} ngày/giờ đã qua`);
     if (skippedDuplicate > 0) skippedParts.push(`${skippedDuplicate} ngày đã có ca`);
     const suffix = skippedParts.length > 0 ? ` (bỏ qua ${skippedParts.join(", ")})` : "";
 
