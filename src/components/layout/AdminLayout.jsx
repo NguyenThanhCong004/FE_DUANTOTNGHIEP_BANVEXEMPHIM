@@ -51,7 +51,6 @@ const sectionsCinema = [
       { path: "/admin/staff", label: "Nhân viên rạp", icon: UserRound },
       { path: "/admin/shifts", label: "Ca làm", icon: CalendarClock },
       { path: "/admin/rooms", label: "Phòng chiếu", icon: DoorOpen },
-      { path: "/admin/room-types", label: "Loại phòng chiếu", icon: Layers },
       { path: "/admin/seats", label: "Sơ đồ ghế", icon: Armchair },
       { path: "/admin/showtimes", label: "Suất chiếu", icon: Film },
       { path: "/admin/products", label: "Sản phẩm", icon: Package },
