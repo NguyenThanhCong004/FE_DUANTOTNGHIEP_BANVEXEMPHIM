@@ -135,7 +135,6 @@ const DAY_NAMES = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "
 
 const CLEANUP_TIME = 15; // Khoảng nghỉ 15 phút
 const SHOWTIME_LEAD_WARNING = "Suất chiếu phải bắt đầu sau thời điểm hiện tại ít nhất 1 giờ.";
-const ROOM_REACHED_END_WARNING = "Phòng này đã chạm mốc 01:00 sáng, không thể thêm suất chiếu mới.";
 const WEEKLY_SURCHARGE_STORAGE_KEY = "java6.showtime.weeklySurcharge";
 
 const DEFAULT_WEEKLY_SURCHARGE = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 0: 0 };
@@ -284,14 +283,6 @@ export default function ShowtimeManagement() {
     if (!movieId) return null;
     const movie = movieMap[movieId];
     const duration = movie?.durationMin || 120;
-    if (dragData.type === "movie") {
-      const roomReachedEnd = state.events.some(ev =>
-        ev.roomId === roomId &&
-        ev.businessDate === bDate &&
-        getEventEndBusinessMinutes(ev, movieMap) >= BUSINESS_END_MINUTES
-      );
-      if (roomReachedEnd) return null;
-    }
     let startMins = toBusinessMinutes(time);
     if (dragData.slotOffset) startMins -= dragData.slotOffset * SLOT_INTERVAL;
     if (startMins < 7 * 60) startMins = 7 * 60;
@@ -426,11 +417,6 @@ export default function ShowtimeManagement() {
 
     for (const roomEvents of groups.values()) {
       const sorted = [...roomEvents].sort((a, b) => toBusinessMinutes(a.startTime) - toBusinessMinutes(b.startTime));
-      const hasNewEvent = sorted.some(ev => !ev.serverId);
-      const hadSavedEventAtEnd = sorted.some(ev => ev.serverId && getEventEndBusinessMinutes(ev, movieMap) >= BUSINESS_END_MINUTES);
-      if (hasNewEvent && hadSavedEventAtEnd) {
-        return { ok: false, message: ROOM_REACHED_END_WARNING };
-      }
       for (let i = 0; i < sorted.length - 1; i++) {
         const cur = sorted[i];
         const next = sorted[i + 1];
@@ -550,17 +536,6 @@ export default function ShowtimeManagement() {
 
     const movie = movieMap[movieId];
     const duration = movie?.durationMin || 120;
-    if (activeDrag.type === "movie") {
-      const roomReachedEnd = state.events.some(ev =>
-        ev.roomId === roomId &&
-        ev.businessDate === bDate &&
-        getEventEndBusinessMinutes(ev, movieMap) >= BUSINESS_END_MINUTES
-      );
-      if (roomReachedEnd) {
-        showToast(ROOM_REACHED_END_WARNING, "warning");
-        return;
-      }
-    }
 
     // Snap về sau phim trước nếu quá gần
     if (activeDrag.type === "movie") {
