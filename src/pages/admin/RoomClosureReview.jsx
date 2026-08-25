@@ -18,6 +18,9 @@ const RoomClosureReview = () => {
   const [suggestionsByOrder, setSuggestionsByOrder] = useState({});
   const [loadingSuggestionsFor, setLoadingSuggestionsFor] = useState(null);
   const [busyOrderId, setBusyOrderId] = useState(null);
+  const [autoMoving, setAutoMoving] = useState(false);
+  // orders đã được backend sắp theo suất gần nhất trước — lấy vé đầu tiên của đơn đầu tiên.
+  const nearestTicket = orders[0]?.tickets?.[0] ?? null;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -81,6 +84,29 @@ const RoomClosureReview = () => {
     }
   };
 
+  const handleAutoMove = async () => {
+    if (autoMoving) return;
+    setAutoMoving(true);
+    try {
+      const res = await apiFetch(ROOM_CLOSURE.AUTO_MOVE_TO_SPARE_TYPE(id), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        showToast(apiMessage(json, 'Dời tự động thất bại'), 'error');
+        return;
+      }
+      showToast(json?.data?.summary || json?.message || 'Đã xử lý xong.', 'success');
+      await loadData();
+    } catch {
+      showToast(MESSAGES.networkError, 'error');
+    } finally {
+      setAutoMoving(false);
+    }
+  };
+
   const cancelOrder = async (orderId) => {
     if (busyOrderId) return;
     if (!window.confirm('Xác nhận hủy đơn này? Khách sẽ nhận email hướng dẫn đến quầy vé để nhận hoàn tiền trực tiếp.')) return;
@@ -117,6 +143,31 @@ const RoomClosureReview = () => {
           <Link to={`${prefix}/rooms`} className="admin-btn admin-btn-outline">
             Quay lại danh sách phòng
           </Link>
+        </div>
+      </div>
+
+      <div className="admin-card admin-slide-up mb-4">
+        <div className="admin-card-header">
+          <h4>Dời hàng loạt sang phòng trống cùng loại</h4>
+        </div>
+        <div className="admin-card-body">
+          <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
+            {nearestTicket ? (
+              <div className="small">
+                Suất gần nhất bị ảnh hưởng: <strong>{nearestTicket.movieTitle}</strong> &middot; {nearestTicket.showtimeStart}
+              </div>
+            ) : (
+              <div className="small text-muted">Không có suất chiếu nào bị ảnh hưởng.</div>
+            )}
+            <button
+              type="button"
+              className="admin-btn admin-btn-primary"
+              disabled={autoMoving || orders.length === 0}
+              onClick={handleAutoMove}
+            >
+              {autoMoving ? 'Đang xử lý...' : 'Dời tất cả sang phòng trống cùng loại'}
+            </button>
+          </div>
         </div>
       </div>
 

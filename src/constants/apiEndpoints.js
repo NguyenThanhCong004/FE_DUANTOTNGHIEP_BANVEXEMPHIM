@@ -67,6 +67,7 @@ export const ROOM_CLOSURE = {
   SUGGESTIONS: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/suggestions`,
   MOVE: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/move`,
   CANCEL: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/cancel`,
+  AUTO_MOVE_TO_SPARE_TYPE: (roomId) => `${API_V1}/rooms/${roomId}/closure/auto-move-to-spare-type`,
 };
 
 export const MOVIES = {
