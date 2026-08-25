@@ -65,13 +65,12 @@ export default function ShiftManagement() {
   const effectiveCinemaId = isSuperAdmin ? selectedCinemaId : staffSession?.cinemaId ?? null;
 
   const [staffList, setStaffList] = useState([]);
-  const [shifts, setShifts] = useState([]); 
+  const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [weekStart, setWeekStart] = useState(getWeekStart(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
   const [dragData, setDragData] = useState(null);
-  const [pendingDeleteIds, setPendingDeleteIds] = useState([]);
   const [pickerCell, setPickerCell] = useState(null); // { date, shiftName, posId }
   const [pickerDays, setPickerDays] = useState([]); // các ngày được chọn thêm để phân công cùng lúc
 
@@ -142,11 +141,9 @@ export default function ShiftManagement() {
         role: s.role,
         staffId: s.staffId ?? null,
         staffName: s.staffName || "Không tên",
-        dirty: false
       }));
 
       setShifts(loadedShifts);
-      setPendingDeleteIds([]);
     } catch (err) {
       console.error("❌ Lỗi tải dữ liệu ca làm:", err);
     } finally {
@@ -173,37 +170,79 @@ export default function ShiftManagement() {
     return shifts.filter(s => s.date === date && s.shiftType === shiftName && s.role === role);
   };
 
-  const assignStaffToCell = (date, shiftObj, posObj, staffId, staffName) => {
-    // Chặn thay đổi vào ngày quá khứ
-    const todayStr = toIso(new Date());
-    if (date < todayStr) {
-      showToast("Không thể thay đổi lịch làm việc của ngày đã qua.", "warning");
-      return;
+  // Gán 1 nhân viên vào cùng ca/vị trí cho nhiều ngày đã chọn — lưu ngay lập tức (không qua bước "Lưu" riêng).
+  const assignStaffToDays = async (days, shiftObj, posObj, staffId, staffName) => {
+    const now = new Date();
+    const todayStr = toIso(now);
+    let createdCount = 0;
+    let skippedPast = 0;
+    let skippedDuplicate = 0;
+    let failedCount = 0;
+
+    setSaving(true);
+    try {
+      for (const date of days) {
+        if (date < todayStr) { skippedPast++; continue; }
+        if (date === todayStr && shiftObj.start) {
+          const [h, m] = shiftObj.start.split(":").map(Number);
+          const shiftStart = new Date(date + "T00:00:00");
+          shiftStart.setHours(h, m, 0, 0);
+          if (shiftStart < now) { skippedPast++; continue; }
+        }
+        const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
+        if (alreadyInShift) { skippedDuplicate++; continue; }
+
+        try {
+          const res = await apiFetch(`${SHIFTS.LIST}/individual`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              staffId,
+              date,
+              shiftType: shiftObj.name,
+              startTime: shiftObj.start,
+              endTime: shiftObj.end,
+              role: posObj.role,
+              cinemaId: Number(effectiveCinemaId),
+            }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok) {
+            failedCount++;
+            continue;
+          }
+          const newId = json?.data;
+          setShifts(prev => [...prev, {
+            id: newId, serverId: newId, date,
+            shiftType: shiftObj.name, startTime: shiftObj.start, endTime: shiftObj.end,
+            role: posObj.role, staffId, staffName,
+          }]);
+          createdCount++;
+        } catch {
+          failedCount++;
+        }
+      }
+    } finally {
+      setSaving(false);
     }
 
-    // Kiểm tra xem nhân viên này đã có mặt trong CA này chưa (bất kể vị trí nào)
-    const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
+    if (createdCount > 0) notifySync("shifts:saved");
 
-    if (alreadyInShift) {
-      showToast(`Nhân viên ${staffName} đã có lịch làm trong ${shiftObj.name} (vị trí: ${alreadyInShift.role}).`, "warning");
-      return;
+    const skippedParts = [];
+    if (skippedPast > 0) skippedParts.push(`${skippedPast} ngày/giờ đã qua`);
+    if (skippedDuplicate > 0) skippedParts.push(`${skippedDuplicate} ngày đã có ca`);
+    if (failedCount > 0) skippedParts.push(`${failedCount} ngày lưu thất bại`);
+    const suffix = skippedParts.length > 0 ? ` (bỏ qua ${skippedParts.join(", ")})` : "";
+
+    if (createdCount > 0) {
+      showToast(`Đã phân công ${staffName} cho ${createdCount} ngày${suffix}.`, "success");
+    } else {
+      showToast(`Không thể phân công ${staffName} — tất cả ngày đã chọn đều không hợp lệ hoặc trùng ca.`, "warning");
     }
-
-    // Luôn tạo một bản ghi mới (hỗ trợ nhiều người cùng vị trí)
-    const newShift = {
-      id: `local-${Date.now()}-${Math.random()}`,
-      serverId: null,
-      date,
-      shiftType: shiftObj.name,
-      startTime: shiftObj.start,
-      endTime: shiftObj.end,
-      role: posObj.role,
-      staffId,
-      staffName,
-      dirty: true // Đánh dấu là mới/thay đổi để lưu
-    };
-    setShifts(prev => [...prev, newShift]);
   };
+
+  const assignStaffToCell = (date, shiftObj, posObj, staffId, staffName) =>
+    assignStaffToDays([date], shiftObj, posObj, staffId, staffName);
 
   const onDropStaff = (date, shiftObj, posObj) => {
     if (!dragData) return;
@@ -231,108 +270,22 @@ export default function ShiftManagement() {
       : [...prev, dateStr]);
   };
 
-  // Gán 1 nhân viên vào cùng ca/vị trí cho nhiều ngày đã chọn trong tuần.
-  const assignStaffToDays = (days, shiftObj, posObj, staffId, staffName) => {
-    const now = new Date();
-    const todayStr = toIso(now);
-    const newShifts = [];
-    let skippedPast = 0;
-    let skippedDuplicate = 0;
-
-    days.forEach(date => {
-      if (date < todayStr) { skippedPast++; return; }
-      if (date === todayStr && shiftObj.start) {
-        const [h, m] = shiftObj.start.split(":").map(Number);
-        const shiftStart = new Date(date + "T00:00:00");
-        shiftStart.setHours(h, m, 0, 0);
-        if (shiftStart < now) { skippedPast++; return; }
-      }
-      const alreadyInShift = shifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId)
-        || newShifts.find(s => s.date === date && s.shiftType === shiftObj.name && s.staffId === staffId);
-      if (alreadyInShift) { skippedDuplicate++; return; }
-      newShifts.push({
-        id: `local-${Date.now()}-${Math.random()}`,
-        serverId: null,
-        date,
-        shiftType: shiftObj.name,
-        startTime: shiftObj.start,
-        endTime: shiftObj.end,
-        role: posObj.role,
-        staffId,
-        staffName,
-        dirty: true
-      });
-    });
-
-    if (newShifts.length > 0) {
-      setShifts(prev => [...prev, ...newShifts]);
-    }
-
-    const skippedParts = [];
-    if (skippedPast > 0) skippedParts.push(`${skippedPast} ngày/giờ đã qua`);
-    if (skippedDuplicate > 0) skippedParts.push(`${skippedDuplicate} ngày đã có ca`);
-    const suffix = skippedParts.length > 0 ? ` (bỏ qua ${skippedParts.join(", ")})` : "";
-
-    if (newShifts.length > 0) {
-      showToast(`Đã phân công ${staffName} cho ${newShifts.length} ngày${suffix}.`, "success");
-    } else {
-      showToast(`Không thể phân công ${staffName} — tất cả ngày đã chọn đều không hợp lệ hoặc trùng ca.`, "warning");
-    }
-  };
-
-  const handleRemoveShift = (shift) => {
-    if (shift.serverId) {
-      setPendingDeleteIds(prev => [...prev, shift.serverId]);
-    }
+  // Gỡ phân công — xóa ngay trên server, không cần bước "Lưu" riêng.
+  const handleRemoveShift = async (shift) => {
     setShifts(prev => prev.filter(s => s.id !== shift.id));
-  };
-
-  const handleSave = async () => {
-    if (!effectiveCinemaId) return;
+    if (!shift.serverId) return;
     setSaving(true);
     try {
-      // Xóa các ca đã đánh dấu xóa
-      for (const id of pendingDeleteIds) {
-        await apiFetch(SHIFTS.BY_ID(id), { method: "DELETE" });
+      const res = await apiFetch(SHIFTS.BY_ID(shift.serverId), { method: "DELETE" });
+      if (!res.ok) {
+        showToast(`Bỏ phân công ${shift.staffName} thất bại, vui lòng thử lại.`, "danger");
+        await loadData();
+        return;
       }
-      
-      // Lưu hoặc cập nhật các ca
-      for (const s of shifts) {
-        if (!s.serverId || s.dirty) {
-          const body = {
-            staffId: s.staffId,
-            date: s.date,
-            shiftType: s.shiftType,
-            startTime: s.startTime,
-            endTime: s.endTime,
-            role: s.role,
-            cinemaId: Number(effectiveCinemaId)
-          };
-
-          if (s.serverId) {
-            await apiFetch(`${SHIFTS.BY_ID(s.serverId)}/individual`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-            });
-          } else {
-            await apiFetch(`${SHIFTS.LIST}/individual`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-            });
-          }
-        }
-      }
-
-      showToast("Đã lưu lịch làm việc thành công!", "success");
-
-      // Tải lại dữ liệu để hiển thị các ca đã lưu
-      await loadData();
       notifySync("shifts:saved");
-    } catch (err) {
-      console.error("❌ Lỗi khi lưu lịch làm việc:", err);
-      showToast("Lỗi khi lưu lịch làm việc: " + (err.message || "Vui lòng thử lại."), "danger");
+    } catch {
+      showToast("Lỗi kết nối khi bỏ phân công, vui lòng thử lại.", "danger");
+      await loadData();
     } finally {
       setSaving(false);
     }
@@ -352,16 +305,15 @@ export default function ShiftManagement() {
     }
   };
 
-  const hasChanges = pendingDeleteIds.length > 0 || shifts.some(s => !s.serverId || s.dirty);
   const { lastSyncedAt, syncing: realtimeSyncing, notifySync } = useRealtimeSync({
     enabled: Boolean(effectiveCinemaId),
     intervalMs: 10000,
-    hasPendingChanges: hasChanges || saving || Boolean(dragData),
+    hasPendingChanges: saving || Boolean(dragData),
     onSync: loadData,
     channelName: `java6-shifts-${effectiveCinemaId || "none"}`,
   });
-  const syncLabel = hasChanges
-    ? "Tạm dừng real-time"
+  const syncLabel = saving
+    ? "Đang lưu..."
     : realtimeSyncing
       ? "Đang đồng bộ"
       : lastSyncedAt
@@ -384,8 +336,8 @@ export default function ShiftManagement() {
       title="Quản lý Ca làm việc"
       headerRight={
         <div className="d-flex align-items-center gap-3">
-          {hasChanges && <Badge bg="warning" text="dark" className="admin-fade-in">Có thay đổi chưa lưu</Badge>}
-          <span className={`admin-realtime-pill ${hasChanges ? "is-paused" : realtimeSyncing ? "is-syncing" : ""}`}>
+          <span className={`admin-realtime-pill ${saving ? "is-paused" : realtimeSyncing ? "is-syncing" : ""}`}>
+            {saving && <Spinner animation="border" size="sm" className="me-1" />}
             {syncLabel}
           </span>
           <div className="d-flex align-items-center bg-white rounded shadow-sm px-2 py-1 border">
@@ -426,17 +378,6 @@ export default function ShiftManagement() {
               </Button>
             </div>
           </div>
-          
-          <Button 
-            variant="light" 
-            className="fw-bold text-primary shadow-sm d-flex align-items-center px-3"
-            disabled={saving || !hasChanges}
-            onClick={handleSave}
-            style={{ height: '38px' }}
-          >
-            {saving && <Spinner animation="border" size="sm" className="me-2" />}
-            Lưu lịch làm việc
-          </Button>
         </div>
       }
     >
