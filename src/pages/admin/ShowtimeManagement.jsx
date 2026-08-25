@@ -49,6 +49,12 @@ const fromBusinessMinutes = (totalMins) => {
   return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 
+/** Làm tròn LÊN bội số của SLOT_INTERVAL (5 phút) — thời lượng phim thực tế hiếm khi chia hết cho
+ * 5 (VD 127 phút), nên mọi giờ tính ra từ "cuối phim trước + dọn phòng" phải làm tròn về đúng ô
+ * lưới, nếu không suất đó sẽ có startTime không khớp bất kỳ ô nào trong TIME_SLOTS — nhìn như
+ * "biến mất" dù dữ liệu vẫn còn (không tìm được ở đâu để render). */
+const snapUpToSlot = (mins) => Math.ceil(mins / SLOT_INTERVAL) * SLOT_INTERVAL;
+
 const toIso = (d) => {
   if (!d) return "";
   const date = new Date(d);
@@ -134,6 +140,36 @@ const isTooSoonShowtime = (businessDate, startTime) => {
 const DAY_NAMES = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 
 const CLEANUP_TIME = 15; // Khoảng nghỉ 15 phút
+
+/** true nếu 2 suất (kể cả khoảng dọn phòng) chồng giờ nhau — dùng để quyết định suất nào phải lùi lại khi kéo-thả. */
+const eventsOverlap = (a, b, movieMap) => {
+  const aStart = toBusinessMinutes(a.startTime);
+  const aEnd = aStart + (movieMap[a.movieId]?.durationMin || 120) + CLEANUP_TIME;
+  const bStart = toBusinessMinutes(b.startTime);
+  const bEnd = bStart + (movieMap[b.movieId]?.durationMin || 120) + CLEANUP_TIME;
+  return aStart < bEnd && bStart < aEnd;
+};
+
+/**
+ * Sắp thứ tự các suất trong 1 phòng/ngày để chạy cascade đẩy lùi liên hoàn (vòng lặp cặp liền kề
+ * bên dưới): `target` (suất đang kéo/thêm) luôn giữ đúng giờ đã chọn và không bao giờ bị đẩy; suất
+ * nào chồng giờ với target — dù giờ gốc đứng trước hay sau — đều được xếp SAU target trong danh
+ * sách để cascade tự đẩy lùi; suất không liên quan giữ nguyên thứ tự thời gian gốc. Không dùng
+ * comparator "so sánh chồng giờ" trực tiếp trong Array.sort vì quan hệ chồng giờ không bắc cầu,
+ * dễ khiến kết quả sort không nhất quán và để sót suất chồng giờ (nguyên nhân suất "biến mất").
+ */
+const orderRoomEventsForCascade = (target, others, movieMap) => {
+  const targetStart = toBusinessMinutes(target.startTime);
+  const sorted = [...others].sort((a, b) => toBusinessMinutes(a.startTime) - toBusinessMinutes(b.startTime));
+  const before = [];
+  const after = [];
+  for (const ev of sorted) {
+    const staysBefore = toBusinessMinutes(ev.startTime) < targetStart && !eventsOverlap(target, ev, movieMap);
+    (staysBefore ? before : after).push(ev);
+  }
+  return [...before, target, ...after];
+};
+
 const SHOWTIME_LEAD_WARNING = "Suất chiếu phải bắt đầu sau thời điểm hiện tại ít nhất 1 giờ.";
 const WEEKLY_SURCHARGE_STORAGE_KEY = "java6.showtime.weeklySurcharge";
 
@@ -213,9 +249,12 @@ export default function ShowtimeManagement() {
   useEffect(() => { globalDateRef.current = globalDate; }, [globalDate]);
   const pointerCleanupRef = useRef(null);
   const lastScheduleWarningRef = useRef({ key: "", at: 0 });
+  const dragOverRafRef = useRef(null);
+  const pendingDragOverRef = useRef(null);
 
   useEffect(() => {
     return () => {
+      if (dragOverRafRef.current) cancelAnimationFrame(dragOverRafRef.current);
       if (pointerCleanupRef.current) pointerCleanupRef.current();
       document.body.style.userSelect = "";
     };
@@ -293,13 +332,12 @@ export default function ShowtimeManagement() {
     const prevEvent = existingRoomEvents.filter(ev => toBusinessMinutes(ev.startTime) <= startMins).slice(-1)[0];
     if (dragData.type === "movie" && prevEvent) {
       const prevEnd = toBusinessMinutes(prevEvent.startTime) + (movieMap[prevEvent.movieId]?.durationMin || 120);
-      if (startMins < prevEnd + CLEANUP_TIME) startMins = prevEnd + CLEANUP_TIME;
+      if (startMins < prevEnd + CLEANUP_TIME) startMins = snapUpToSlot(prevEnd + CLEANUP_TIME);
     }
     if (startMins + duration > BUSINESS_END_MINUTES) return null;
     const dropTimeStr = fromBusinessMinutes(startMins);
     const previewId = dragData.type === "event" ? dragData.eventId : "preview";
-    const list = existingRoomEvents.map(ev => ({ ...ev }));
-    list.push({
+    const previewTarget = {
       ...(sourceEvent || {}),
       id: previewId,
       serverId: sourceEvent?.serverId ?? null,
@@ -311,19 +349,15 @@ export default function ShowtimeManagement() {
       dirty: false,
       soldTicketsCount: sourceEvent?.soldTicketsCount ?? 0,
       isPreview: true
-    });
-    list.sort((a, b) => {
-      const diff = toBusinessMinutes(a.startTime) - toBusinessMinutes(b.startTime);
-      if (diff !== 0) return diff;
-      return a.id === previewId ? -1 : b.id === previewId ? 1 : 0;
-    });
+    };
+    const list = orderRoomEventsForCascade(previewTarget, existingRoomEvents.map(ev => ({ ...ev })), movieMap);
     let changed = true, iterations = 0;
     while (changed && iterations < 50) {
       changed = false;
       for (let i = 0; i < list.length - 1; i++) {
         const cur = list[i], nxt = list[i + 1];
         const curEnd = toBusinessMinutes(cur.startTime) + (movieMap[cur.movieId]?.durationMin || 120);
-        const minNext = curEnd + CLEANUP_TIME;
+        const minNext = snapUpToSlot(curEnd + CLEANUP_TIME);
         if (toBusinessMinutes(nxt.startTime) < minNext) {
           if (nxt.soldTicketsCount > 0) return null;
           nxt.startTime = fromBusinessMinutes(minNext);
@@ -479,7 +513,9 @@ export default function ShowtimeManagement() {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("application/json", JSON.stringify(payload));
     e.dataTransfer.setData("text/plain", type);
-    setDragData(payload);
+    // Trì hoãn 1 tick: nếu đổi luôn state ngay trong dragstart (khiến hộp nguồn tắt pointer-events
+    // ngay lập tức để không chặn ô bên dưới), một số trình duyệt sẽ hủy luôn thao tác kéo đang khởi tạo.
+    setTimeout(() => setDragData(payload), 0);
   };
 
   const notifyIfDropTimeBlocked = useCallback((roomId, time, activeDrag) => {
@@ -503,12 +539,24 @@ export default function ShowtimeManagement() {
     return true;
   }, [globalDate, roomDates, showToast]);
 
+  // Ô giờ chỉ rộng 12px nên "dragenter" bắn liên tục khi rê chuột — gom lại tối đa 1 lần cập nhật
+  // mỗi khung hình (rAF) thay vì tính lại previewEvents (cascade khá nặng) trên từng sự kiện, và bỏ
+  // qua nếu vẫn cùng 1 ô để tránh render thừa — đây là nguyên nhân chính gây "khựng" khi kéo.
   const handleDragOverCell = useCallback((roomId, time, activeDrag) => {
-    const payload = activeDrag || dragData;
-    if (payload?.type === "movie" || payload?.type === "event") {
-      notifyIfDropTimeBlocked(roomId, time, payload);
-    }
-    setDragOverCell({ roomId, time });
+    pendingDragOverRef.current = { roomId, time, activeDrag };
+    if (dragOverRafRef.current) return;
+    dragOverRafRef.current = requestAnimationFrame(() => {
+      dragOverRafRef.current = null;
+      const next = pendingDragOverRef.current;
+      if (!next) return;
+      const payload = next.activeDrag || dragData;
+      if (payload?.type === "movie" || payload?.type === "event") {
+        notifyIfDropTimeBlocked(next.roomId, next.time, payload);
+      }
+      setDragOverCell(prev =>
+        prev && prev.roomId === next.roomId && prev.time === next.time ? prev : { roomId: next.roomId, time: next.time }
+      );
+    });
   }, [dragData, notifyIfDropTimeBlocked]);
 
   const placeOnCell = (roomId, time, activeDrag) => {
@@ -546,7 +594,7 @@ export default function ShowtimeManagement() {
         .slice(-1)[0];
       if (prevEvent) {
         const prevEnd = toBusinessMinutes(prevEvent.startTime) + (movieMap[prevEvent.movieId]?.durationMin || 120);
-        if (startMins < prevEnd + CLEANUP_TIME) startMins = prevEnd + CLEANUP_TIME;
+        if (startMins < prevEnd + CLEANUP_TIME) startMins = snapUpToSlot(prevEnd + CLEANUP_TIME);
       }
     }
 
@@ -589,13 +637,10 @@ export default function ShowtimeManagement() {
       });
     }
 
-    const roomEvents = updatedEvents
-      .filter(ev => ev.roomId === roomId && ev.businessDate === bDate)
-      .sort((a, b) => {
-        const diff = toBusinessMinutes(a.startTime) - toBusinessMinutes(b.startTime);
-        if (diff !== 0) return diff;
-        return a.id === targetId ? -1 : b.id === targetId ? 1 : 0;
-      });
+    const roomEventsRaw = updatedEvents.filter(ev => ev.roomId === roomId && ev.businessDate === bDate);
+    const targetEvent = roomEventsRaw.find(ev => ev.id === targetId);
+    const otherRoomEvents = roomEventsRaw.filter(ev => ev.id !== targetId);
+    const roomEvents = orderRoomEventsForCascade(targetEvent, otherRoomEvents, movieMap);
 
     // Cascade: đẩy các suất sau nếu bị chồng giờ
     let changed = true;
@@ -606,7 +651,7 @@ export default function ShowtimeManagement() {
         const cur = roomEvents[i];
         const nxt = roomEvents[i + 1];
         const curEnd = toBusinessMinutes(cur.startTime) + (movieMap[cur.movieId]?.durationMin || 120);
-        const minNext = curEnd + CLEANUP_TIME;
+        const minNext = snapUpToSlot(curEnd + CLEANUP_TIME);
         if (toBusinessMinutes(nxt.startTime) < minNext) {
           if (nxt.soldTicketsCount > 0) {
             showToast(`Không thể lùi lịch suất chiếu "${movieMap[nxt.movieId]?.title}" vì đã có vé được bán.`, "danger");
@@ -932,6 +977,10 @@ export default function ShowtimeManagement() {
                   const isPreviewEv = ev?.isPreview;
                   const isPushedEv = isPreviewActive && ev && !isPreviewEv;
                   const isPast = ev && !isPreviewEv ? isPastShowtime(ev.businessDate, ev.startTime) : false;
+                  // Ô đang được kéo đi: hộp gốc (rộng theo thời lượng phim) vẫn còn nằm ở vị trí cũ
+                  // và chặn hết dragenter của các ô nó đè lên — phải tắt pointer-events ngay từ đầu,
+                  // không đợi tới lúc có preview, thì rê chuột mới mượt/phản hồi ngay từ pixel đầu tiên.
+                  const isDraggingSource = ev && !isPreviewEv && dragData?.type === "event" && dragData.eventId === ev.id;
 
                   return (
                     <td
@@ -986,9 +1035,9 @@ export default function ShowtimeManagement() {
                             cursor: isPreviewEv ? "default" : isPast ? "default" : "grab",
                             width: ((duration / SLOT_INTERVAL) * SLOT_WIDTH - 4) + "px",
                             borderWidth: "2px",
-                            opacity: isPreviewEv ? 0.75 : isPast ? 0.7 : 1,
+                            opacity: isPreviewEv ? 0.75 : isDraggingSource ? 0.35 : isPast ? 0.7 : 1,
                             borderStyle: isPreviewEv ? "dashed" : "solid",
-                            pointerEvents: isPreviewEv ? "none" : "auto"
+                            pointerEvents: (isPreviewEv || isDraggingSource) ? "none" : "auto"
                           }}
                         >
                           <div className="fw-bold text-truncate mb-1" style={{ fontSize: "0.75rem" }}>
