@@ -11,13 +11,23 @@ const menuSections = [
     ],
   },
   {
+    title: "Thống kê",
+    requiresCinema: false,
+    items: [
+      { path: "/super-admin/invoice-statistics", icon: "bi-receipt-cutoff", label: "Thống kê hóa đơn" },
+      { path: "/super-admin/movie-statistics", icon: "bi-bar-chart-line", label: "Thống kê phim" },
+      { path: "/super-admin/cinema-statistics", icon: "bi-building-check", label: "Thống kê rạp" },
+      { path: "/super-admin/customer-statistics", icon: "bi-person-lines-fill", label: "Thống kê khách hàng" },
+      { path: "/super-admin/product-statistics", icon: "bi-cup-straw", label: "Thống kê sản phẩm" },
+    ],
+  },
+  {
     title: "Hệ thống",
     requiresCinema: false,
     items: [
       { path: "/super-admin/cinemas", icon: "bi-building", label: "Quản lý rạp" },
       { path: "/super-admin/system-staff", icon: "bi-people-fill", label: "Nhân sự toàn hệ thống" },
       { path: "/super-admin/users", icon: "bi-people", label: "Người dùng" },
-      { path: "/super-admin/global-invoices", icon: "bi-receipt-cutoff", label: "Hóa đơn hệ thống" },
     ],
   },
   {
