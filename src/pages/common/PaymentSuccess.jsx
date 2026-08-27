@@ -27,13 +27,14 @@ const PaymentSuccess = () => {
   const appScheme = params.get("scheme");
 
   // Trang này được mở trong trình duyệt trong app mobile (không phải app tự nhận diện URL trả
-  // về được) — nếu có `scheme` (deep link app kèm theo lúc tạo returnUrl), tự điều hướng lại
-  // vào app sau 5s để không bị kẹt lại ở trang web.
+  // về được) — nếu có `scheme` (deep link app kèm theo lúc tạo returnUrl), tự điều hướng lại vào
+  // app gần như ngay lập tức, không cần dừng lại ở trang web. PayOS chỉ tự redirect đáng tin cậy
+  // tới URL http/https nên vẫn phải qua trang này, nhưng chỉ thoáng qua rồi chuyển thẳng vào app.
   useEffect(() => {
     if (!appScheme) return;
     const timer = setTimeout(() => {
       window.location.href = decodeURIComponent(appScheme);
-    }, 5000);
+    }, 300);
     return () => clearTimeout(timer);
   }, [appScheme]);
 

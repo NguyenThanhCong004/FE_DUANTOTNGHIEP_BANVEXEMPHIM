@@ -15,12 +15,13 @@ const PaymentCancel = () => {
   const [orderKind, setOrderKind] = useState("ticket");
 
   // Trang này được mở trong trình duyệt trong app mobile — nếu có `scheme` (deep link app kèm
-  // theo lúc tạo cancelUrl), tự điều hướng lại vào app sau 5s để không bị kẹt lại ở trang web.
+  // theo lúc tạo cancelUrl), tự điều hướng lại vào app gần như ngay lập tức thay vì dừng ở trang
+  // web (app tự hủy đơn chờ bằng cancelPendingOrder() của chính nó sau khi quay lại).
   useEffect(() => {
     if (!appScheme) return;
     const timer = setTimeout(() => {
       window.location.href = decodeURIComponent(appScheme);
-    }, 5000);
+    }, 300);
     return () => clearTimeout(timer);
   }, [appScheme]);
 
