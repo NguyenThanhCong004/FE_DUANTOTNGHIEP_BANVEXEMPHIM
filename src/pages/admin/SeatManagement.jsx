@@ -316,13 +316,11 @@ function maxSingleSeatRowInGrid(grid, exR, exC1, exC2) {
 
 
 
-/** Ghế đôi: cột nhãn lẻ (1,3,5…); ô phải trống; hàng đặt ghế đôi không được có ghế thường/VIP nào khác (không chung hàng); phải nằm sau (gần cuối rạp hơn) tất cả hàng có ghế thường/VIP. */
+/** Ghế đôi: ô kế bên (bất kỳ cột nào) phải trống; hàng đặt ghế đôi không được có ghế thường/VIP nào khác (không chung hàng); phải nằm sau (gần cuối rạp hơn) tất cả hàng có ghế thường/VIP. */
 
 function canPlaceCoupleAt(grid, r, c) {
 
   if (c + 1 >= COLS) return false;
-
-  if ((c + 1) % 2 !== 1) return false;
 
   const i2 = r * COLS + c + 1;
 
