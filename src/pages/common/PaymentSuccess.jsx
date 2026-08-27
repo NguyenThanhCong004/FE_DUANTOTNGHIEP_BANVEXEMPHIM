@@ -24,6 +24,18 @@ const PaymentSuccess = () => {
   const [ticketTx, setTicketTx] = useState(null);
   const [showTicketPopup, setShowTicketPopup] = useState(false);
   const queryOrderId = params.get("orderId") || null;
+  const appScheme = params.get("scheme");
+
+  // Trang này được mở trong trình duyệt trong app mobile (không phải app tự nhận diện URL trả
+  // về được) — nếu có `scheme` (deep link app kèm theo lúc tạo returnUrl), tự điều hướng lại
+  // vào app sau 5s để không bị kẹt lại ở trang web.
+  useEffect(() => {
+    if (!appScheme) return;
+    const timer = setTimeout(() => {
+      window.location.href = decodeURIComponent(appScheme);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [appScheme]);
 
   useEffect(() => {
     let alive = true;
@@ -152,6 +164,7 @@ const PaymentSuccess = () => {
             Giao dịch đã được ghi nhận. Hệ thống đang đồng bộ trạng thái thanh toán, vé và/hoặc đơn bắp nước của bạn.
           </p>
           {confirmNote ? <p className="text-muted mb-4">{confirmNote}</p> : null}
+          {appScheme ? <p className="text-muted mb-4">Đang tự động quay lại ứng dụng…</p> : null}
           {displayOrderCode ? (
             <div className="bg-light p-3 rounded-4 mb-3 border border-dashed">
               <small className="text-uppercase text-muted fw-bold">Mã giao dịch / đơn</small>

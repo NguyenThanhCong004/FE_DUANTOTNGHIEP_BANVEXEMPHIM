@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import { apiFetch } from "../../utils/apiClient";
 import { TICKET_ORDERS, FOOD_ORDERS } from "../../constants/apiEndpoints";
@@ -9,8 +9,20 @@ import { getAccessToken } from "../../utils/authStorage";
  * PayOS redirect khi hủy — gọi BE xóa đơn chờ + trả ghế (vé).
  */
 const PaymentCancel = () => {
+  const [params] = useSearchParams();
+  const appScheme = params.get("scheme");
   const [cancelNote, setCancelNote] = useState("Đang hủy đơn chờ và trả ghế (nếu có)…");
   const [orderKind, setOrderKind] = useState("ticket");
+
+  // Trang này được mở trong trình duyệt trong app mobile — nếu có `scheme` (deep link app kèm
+  // theo lúc tạo cancelUrl), tự điều hướng lại vào app sau 5s để không bị kẹt lại ở trang web.
+  useEffect(() => {
+    if (!appScheme) return;
+    const timer = setTimeout(() => {
+      window.location.href = decodeURIComponent(appScheme);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [appScheme]);
 
   useEffect(() => {
     let alive = true;
@@ -100,6 +112,7 @@ const PaymentCancel = () => {
           </div>
           <h2 className="fw-bold mb-3">Đã hủy thanh toán</h2>
           {cancelNote ? <p className="text-muted mb-4">{cancelNote}</p> : null}
+          {appScheme ? <p className="text-muted mb-4">Đang tự động quay lại ứng dụng…</p> : null}
           <p className="text-muted mb-4">
             {orderKind === "food"
               ? "Bạn có thể đặt lại đơn bắp nước hoặc thanh toán lại. Đơn chờ đã được hủy."
