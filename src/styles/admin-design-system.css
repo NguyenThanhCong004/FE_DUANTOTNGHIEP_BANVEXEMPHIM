@@ -1082,6 +1082,14 @@ html.admin-panel[data-theme="dark"] .text-secondary {
   color: var(--admin-text-muted) !important;
 }
 
+/* Cùng lý do như .text-dark ở trên: rất nhiều trang admin dùng trực tiếp class Bootstrap
+   .bg-white/.bg-light (màu cố định + !important) cho card/header/input thay vì
+   var(--admin-bg-card) — không tự đổi theo theme, để lại mảng nền trắng giữa nền tối. */
+html.admin-panel[data-theme="dark"] .bg-white,
+html.admin-panel[data-theme="dark"] .bg-light {
+  background-color: var(--admin-bg-card) !important;
+}
+
 /* ─────────────────────────────────────────────────────────
    Theme Toggle Button (header)
    ───────────────────────────────────────────────────────── */

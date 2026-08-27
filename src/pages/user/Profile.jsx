@@ -4,6 +4,7 @@ import Layout from "../../components/layout/Layout";
 import CustomerPageShell from "../../components/common/CustomerPageShell";
 import MovieCard from "../../components/common/MovieCard";
 import TicketPopup from "../../components/common/TicketPopup";
+import ProfilePagination from "../../components/user/ProfilePagination";
 import { Container, Row, Col } from "react-bootstrap";
 import { getAccessToken, getRefreshToken, getStoredUser, setAuthSession, getStoredStaff, getAuthSession } from "../../utils/authStorage";
 import { getUserIdFromToken } from "../../utils/jwt";
@@ -414,7 +415,7 @@ function TabInfo({ user, setUser, showToast }) {
 /* ─────────────────────────────────────────
    Tab: Điểm thưởng
 ───────────────────────────────────────── */
-function TabPoints({ user, pointRows, loading }) {
+function TabPoints({ user, pointRows, loading, page, totalPages, totalItems, pageSize, onPageChange }) {
   if (loading) return <LoadingSpinner text="Đang tải lịch sử điểm..." />;
 
   const totalEarned = pointRows.filter(e => e.delta > 0).reduce((s, e) => s + e.delta, 0);
@@ -428,21 +429,24 @@ function TabPoints({ user, pointRows, loading }) {
           {pointRows.length === 0 ? (
             <EmptyState text="Chưa có lịch sử điểm" />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {pointRows.map(ev => (
-                <div key={ev.id} className="pf-activity-item" style={{ borderBottom: "none", background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: ev.delta > 0 ? "#4caf50" : "#f44336", flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{ev.label}</div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{ev.date}</div>
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {pointRows.map(ev => (
+                  <div key={ev.id} className="pf-activity-item" style={{ borderBottom: "none", background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: "12px 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: ev.delta > 0 ? "#4caf50" : "#f44336", flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{ev.label}</div>
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{ev.date}</div>
+                    </div>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1, color: ev.delta > 0 ? "#81c784" : "#e57373" }}>
+                      {ev.delta > 0 ? "+" : ""}{formatNumber(ev.delta)}
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: 1, textTransform: "uppercase", textAlign: "right" }}>điểm</div>
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: 1, color: ev.delta > 0 ? "#81c784" : "#e57373" }}>
-                    {ev.delta > 0 ? "+" : ""}{formatNumber(ev.delta)}
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: 1, textTransform: "uppercase", textAlign: "right" }}>điểm</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <ProfilePagination page={page} totalPages={totalPages} totalItems={totalItems} pageSize={pageSize} onPageChange={onPageChange} />
+            </>
           )}
         </div>
       </Col>
@@ -491,7 +495,7 @@ function TabPoints({ user, pointRows, loading }) {
 /* ─────────────────────────────────────────
    Tab: Lịch sử giao dịch
 ───────────────────────────────────────── */
-function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) {
+function TabTransactions({ transactions, loading, searchTerm, onSearchChange, page, totalPages, totalItems, pageSize, onPageChange }) {
   const [filter, setFilter] = useState("all");
   const [openId, setOpenId] = useState(null);
   const [ticketPopupTx, setTicketPopupTx] = useState(null);
@@ -655,6 +659,7 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
           })}
         </div>
       )}
+      <ProfilePagination page={page} totalPages={totalPages} totalItems={totalItems} pageSize={pageSize} onPageChange={onPageChange} />
       <TicketPopup show={Boolean(ticketPopupTx)} onHide={() => setTicketPopupTx(null)} transaction={ticketPopupTx} />
     </>
   );
@@ -663,7 +668,7 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange }) 
 /* ─────────────────────────────────────────
    Tab: Voucher
 ───────────────────────────────────────── */
-function TabVouchers({ vouchers, loading }) {
+function TabVouchers({ vouchers, loading, page, totalPages, totalItems, pageSize, onPageChange }) {
   const [filter,   setFilter]   = useState("all");
   const [selected, setSelected] = useState(null);
 
@@ -778,6 +783,7 @@ function TabVouchers({ vouchers, loading }) {
           })}
         </Row>
       )}
+      <ProfilePagination page={page} totalPages={totalPages} totalItems={totalItems} pageSize={pageSize} onPageChange={onPageChange} />
     </>
   );
 }
@@ -882,7 +888,7 @@ function TabRank({ user, ranks, loading }) {
   );
 }
 
-function TabFavorites({ favorites, loading }) {
+function TabFavorites({ favorites, loading, page, totalPages, totalItems, pageSize, onPageChange }) {
   if (loading) return <LoadingSpinner text="Đang tải phim yêu thích..." />;
 
   return (
@@ -899,20 +905,23 @@ function TabFavorites({ favorites, loading }) {
           </Link>
         </EmptyState>
       ) : (
-        <Row className="g-3">
-          {favorites.slice(0, 8).map((fav) => (
-            <Col key={fav.favorite_id} xs={6} md={4} xl={3}>
-              <div className="pf-fav-card">
-                {fav.review && <div className="pf-review-badge">{fav.review.rating}.0</div>}
-                <MovieCard
-                  movie={fav.movie}
-                  isComingSoon={fav.movie?.type === "soon"}
-                  showBuyButton={false}
-                />
-              </div>
-            </Col>
-          ))}
-        </Row>
+        <>
+          <Row className="g-3">
+            {favorites.map((fav) => (
+              <Col key={fav.favorite_id} xs={6} md={4} xl={3}>
+                <div className="pf-fav-card">
+                  {fav.review && <div className="pf-review-badge">{fav.review.rating}.0</div>}
+                  <MovieCard
+                    movie={fav.movie}
+                    isComingSoon={fav.movie?.type === "soon"}
+                    showBuyButton={false}
+                  />
+                </div>
+              </Col>
+            ))}
+          </Row>
+          <ProfilePagination page={page} totalPages={totalPages} totalItems={totalItems} pageSize={pageSize} onPageChange={onPageChange} />
+        </>
       )}
     </div>
   );
@@ -952,6 +961,16 @@ export default function UserProfile() {
   const [loadingFav, setLoadingFav] = useState(false);
   const [loadingVou, setLoadingVou] = useState(false);
   const [loadingRnk, setLoadingRnk] = useState(false);
+
+  const PAGE_SIZE = 10;
+  const [txPage,  setTxPage]  = useState(1);
+  const [ptsPage, setPtsPage] = useState(1);
+  const [favPage, setFavPage] = useState(1);
+  const [vouPage, setVouPage] = useState(1);
+  const [txPaging,  setTxPaging]  = useState({ totalPages: 1, totalElements: 0 });
+  const [ptsPaging, setPtsPaging] = useState({ totalPages: 1, totalElements: 0 });
+  const [favPaging, setFavPaging] = useState({ totalPages: 1, totalElements: 0 });
+  const [vouPaging, setVouPaging] = useState({ totalPages: 1, totalElements: 0 });
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -999,42 +1018,55 @@ export default function UserProfile() {
 
     if (activeTab === "transactions") {
       setLoadingTx(true);
-      apiFetch(withQuery(ME.TRANSACTIONS, { search: txSearch })).then(r => r.json().catch(() => null)).then(body => {
-        if (c) return;
-        if (body?.data && Array.isArray(body.data)) setTransactions(body.data.map(mapMeTransactionToFe));
-        else setTransactions([]);
-      }).catch(() => {}).finally(() => { if (!c) setLoadingTx(false); });
+      apiFetch(withQuery(ME.TRANSACTIONS, { search: txSearch, page: txPage - 1, size: PAGE_SIZE }))
+        .then(r => r.json().catch(() => null)).then(body => {
+          if (c) return;
+          const paged = body?.data;
+          const content = Array.isArray(paged?.content) ? paged.content : [];
+          setTransactions(content.map(mapMeTransactionToFe));
+          setTxPaging({ totalPages: paged?.totalPages || 1, totalElements: paged?.totalElements || 0 });
+        }).catch(() => {}).finally(() => { if (!c) setLoadingTx(false); });
     }
 
-    if (activeTab === "points" && pointRows.length === 0) {
+    if (activeTab === "points") {
       setLoadingPts(true);
-      apiFetch(ME.POINTS_HISTORY).then(r => r.json().catch(() => null)).then(body => {
-        if (c) return;
-        if (body?.data && Array.isArray(body.data)) {
-          setPointRows(body.data.map(r => ({
+      apiFetch(withQuery(ME.POINTS_HISTORY, { page: ptsPage - 1, size: PAGE_SIZE }))
+        .then(r => r.json().catch(() => null)).then(body => {
+          if (c) return;
+          const paged = body?.data;
+          const content = Array.isArray(paged?.content) ? paged.content : [];
+          setPointRows(content.map(r => ({
             id: r.pointHistoryId,
             date: formatDate(r.date),
             label: r.description || "—",
             delta: Number(r.points ?? 0),
           })));
-        }
-      }).catch(() => {}).finally(() => { if (!c) setLoadingPts(false); });
+          setPtsPaging({ totalPages: paged?.totalPages || 1, totalElements: paged?.totalElements || 0 });
+        }).catch(() => {}).finally(() => { if (!c) setLoadingPts(false); });
     }
 
-    if (activeTab === "favorites" && favorites.length === 0) {
+    if (activeTab === "favorites") {
       setLoadingFav(true);
-      apiFetch(ME.FAVORITES).then(r => r.json().catch(() => null)).then(body => {
-        if (c) return;
-        if (body?.data && Array.isArray(body.data)) setFavorites(body.data.map(mapFavoriteRowToFavCard));
-      }).catch(() => {}).finally(() => { if (!c) setLoadingFav(false); });
+      apiFetch(withQuery(ME.FAVORITES, { page: favPage - 1, size: PAGE_SIZE }))
+        .then(r => r.json().catch(() => null)).then(body => {
+          if (c) return;
+          const paged = body?.data;
+          const content = Array.isArray(paged?.content) ? paged.content : [];
+          setFavorites(content.map(mapFavoriteRowToFavCard));
+          setFavPaging({ totalPages: paged?.totalPages || 1, totalElements: paged?.totalElements || 0 });
+        }).catch(() => {}).finally(() => { if (!c) setLoadingFav(false); });
     }
 
-    if (activeTab === "vouchers" && vouchers.length === 0) {
+    if (activeTab === "vouchers") {
       setLoadingVou(true);
-      apiFetch(ME.VOUCHERS).then(r => r.json().catch(() => null)).then(body => {
-        if (c) return;
-        if (body?.data && Array.isArray(body.data)) setVouchers(body.data.map(mapUserVoucherRow));
-      }).catch(() => {}).finally(() => { if (!c) setLoadingVou(false); });
+      apiFetch(withQuery(ME.VOUCHERS, { page: vouPage - 1, size: PAGE_SIZE }))
+        .then(r => r.json().catch(() => null)).then(body => {
+          if (c) return;
+          const paged = body?.data;
+          const content = Array.isArray(paged?.content) ? paged.content : [];
+          setVouchers(content.map(mapUserVoucherRow));
+          setVouPaging({ totalPages: paged?.totalPages || 1, totalElements: paged?.totalElements || 0 });
+        }).catch(() => {}).finally(() => { if (!c) setLoadingVou(false); });
     }
 
     if (activeTab === "rank" && ranks.length === 0) {
@@ -1049,7 +1081,9 @@ export default function UserProfile() {
 
     return () => { c = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, user, txSearch]);
+  }, [activeTab, user, txSearch, txPage, ptsPage, favPage, vouPage]);
+
+  const handleTxSearchChange = (value) => { setTxPage(1); setTxSearch(value); };
 
   const token = getAuthSession().accessToken;
 
@@ -1234,6 +1268,11 @@ export default function UserProfile() {
         .pf-filter-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); color: rgba(255,255,255,0.4); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.3px; border-radius: 8px; padding: 7px 14px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .pf-filter-btn:hover { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.2); }
         .pf-filter-btn.active { background: linear-gradient(135deg, var(--purple), var(--pink)); border-color: transparent; color: #fff; }
+
+        /* PAGINATION */
+        .pf-pagination-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
+        .pf-pagination-meta { color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 600; }
+        .pf-pagination { display: flex; gap: 6px; margin-left: auto; }
 
         /* SEARCH INPUT */
         .pf-search-input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 8px; padding: 7px 14px; color: #fff; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 400; outline: none; transition: border-color 0.2s; min-width: 200px; margin-left: auto; }
@@ -1651,15 +1690,54 @@ export default function UserProfile() {
           {activeTab === "transactions" && (
             <div className="pf-card">
               <div className="pf-card-title">LỊCH SỬ <span>GIAO DỊCH</span></div>
-              <TabTransactions transactions={transactions} loading={loadingTx} searchTerm={txSearch} onSearchChange={setTxSearch} />
+              <TabTransactions
+                transactions={transactions}
+                loading={loadingTx}
+                searchTerm={txSearch}
+                onSearchChange={handleTxSearchChange}
+                page={txPage}
+                totalPages={txPaging.totalPages}
+                totalItems={txPaging.totalElements}
+                pageSize={PAGE_SIZE}
+                onPageChange={setTxPage}
+              />
             </div>
           )}
-          {activeTab === "points"   && <TabPoints user={user} pointRows={pointRows} loading={loadingPts} />}
-          {activeTab === "favorites" && <TabFavorites favorites={favorites} loading={loadingFav} />}
+          {activeTab === "points"   && (
+            <TabPoints
+              user={user}
+              pointRows={pointRows}
+              loading={loadingPts}
+              page={ptsPage}
+              totalPages={ptsPaging.totalPages}
+              totalItems={ptsPaging.totalElements}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPtsPage}
+            />
+          )}
+          {activeTab === "favorites" && (
+            <TabFavorites
+              favorites={favorites}
+              loading={loadingFav}
+              page={favPage}
+              totalPages={favPaging.totalPages}
+              totalItems={favPaging.totalElements}
+              pageSize={PAGE_SIZE}
+              onPageChange={setFavPage}
+            />
+          )}
           {activeTab === "vouchers" && (
             <div className="pf-card">
               <div className="pf-card-title">KHO <span>VOUCHER</span></div>
-              <TabVouchers vouchers={vouchers} loading={loadingVou} />
+              <TabVouchers
+                vouchers={vouchers}
+                loading={loadingVou}
+                page={vouPage}
+                totalPages={vouPaging.totalPages}
+                totalItems={vouPaging.totalElements}
+                pageSize={PAGE_SIZE}
+                onPageChange={setVouPage}
+              />
             </div>
           )}
               {activeTab === "rank"     && <TabRank user={user} ranks={ranks} loading={loadingRnk} />}

@@ -12,6 +12,7 @@ import {
   ReceiptText,
   Users,
   Ticket,
+  Layers,
 } from "lucide-react";
 
 import { AUTH_SESSION_CHANGED, clearAuthSession, getStoredStaff } from "../../utils/authStorage";

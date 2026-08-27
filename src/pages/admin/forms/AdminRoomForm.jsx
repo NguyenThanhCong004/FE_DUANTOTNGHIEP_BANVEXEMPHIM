@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Card, Form, Button, Row, Col, Breadcrumb } from "react-bootstrap";
+import { Card, Form, Button, Row, Col } from "react-bootstrap";
 
 import { getStoredStaff } from "../../../utils/authStorage";
 import { apiFetch } from "../../../utils/apiClient";
-import { ROOMS } from "../../../constants/apiEndpoints";
+import { ROOMS, ROOM_TYPES } from "../../../constants/apiEndpoints";
 import { useSuperAdminCinema } from "../../../components/layout/useSuperAdminCinema";
+import AdminPanelPage from "../../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../../components/admin/AdminFormListBack";
 import { isActiveStatus } from "../../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../../utils/uiMessages";
 
@@ -24,13 +26,28 @@ export default function AdminRoomForm({ mode = "add" }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
+  const [roomTypes, setRoomTypes] = useState([]);
   const originalRoomRef = useRef(null);
   const [room, setRoom] = useState(() => {
     if (isEdit) {
-      return { name: "", status: "" };
+      return { name: "", status: "", roomTypeId: "" };
     }
-    return { name: "", status: "1" };
+    return { name: "", status: "1", roomTypeId: "" };
   });
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiFetch(ROOM_TYPES.LIST);
+        const json = await res.json().catch(() => null);
+        if (mounted) setRoomTypes(Array.isArray(json?.data) ? json.data : []);
+      } catch {
+        if (mounted) setRoomTypes([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -50,12 +67,14 @@ export default function AdminRoomForm({ mode = "add" }) {
           name: data.name ?? "",
           status: isActiveStatus(data.status) ? "1" : "0",
           cinemaId: data.cinemaId ?? null,
+          roomTypeId: data.roomTypeId != null ? String(data.roomTypeId) : "",
         };
         setRoom(nextRoom);
         originalRoomRef.current = {
           name: String(nextRoom.name ?? "").trim(),
           status: Number(nextRoom.status),
           cinemaId: nextRoom.cinemaId != null ? Number(nextRoom.cinemaId) : null,
+          roomTypeId: data.roomTypeId != null ? Number(data.roomTypeId) : null,
         };
       } catch {
         if (mounted) setErrors({ name: MESSAGES.loadFailed });
@@ -71,11 +90,8 @@ export default function AdminRoomForm({ mode = "add" }) {
   const validate = () => {
     const newErrors = {};
     if (!room.name.trim()) newErrors.name = "Tên phòng chiếu không được để trống";
-
-    if (!room.status) {
-      newErrors.status = "Vui lòng chọn trạng thái phòng";
-    }
-
+    if (!room.status) newErrors.status = "Vui lòng chọn trạng thái phòng";
+    if (!isEdit && !room.roomTypeId) newErrors.roomTypeId = "Vui lòng chọn loại phòng chiếu";
     return newErrors;
   };
 
@@ -94,10 +110,12 @@ export default function AdminRoomForm({ mode = "add" }) {
 
     const roomCinemaId = isEdit ? (room.cinemaId ?? cinemaId ?? null) : cinemaId;
     const statusInt = Number(room.status) === 1 ? 1 : 0;
+    const roomTypeIdInt = room.roomTypeId ? Number(room.roomTypeId) : null;
     const body = {
       name: room.name.trim(),
       status: statusInt,
       cinemaId: roomCinemaId,
+      roomTypeId: roomTypeIdInt,
     };
     let payload = body;
     if (isEdit && originalRoomRef.current) {
@@ -108,6 +126,7 @@ export default function AdminRoomForm({ mode = "add" }) {
       if (body.name !== original.name) changedData.name = body.name;
       if (body.status !== original.status) changedData.status = body.status;
       if (nextCinemaId !== original.cinemaId) changedData.cinemaId = nextCinemaId;
+      if (roomTypeIdInt !== original.roomTypeId) changedData.roomTypeId = roomTypeIdInt;
 
       if (Object.keys(changedData).length === 0) {
         setErrors({ form: MESSAGES.noChanges });
@@ -137,6 +156,11 @@ export default function AdminRoomForm({ mode = "add" }) {
             name: room.name,
             status: statusInt,
             cinemaId: roomCinemaId,
+            roomTypeId: saved?.roomTypeId ?? null,
+            roomTypeName: saved?.roomTypeName ?? null,
+            standardSeatCount: saved?.standardSeatCount ?? null,
+            vipSeatCount: saved?.vipSeatCount ?? null,
+            coupleSeatCount: saved?.coupleSeatCount ?? null,
           },
         },
       });
@@ -153,25 +177,30 @@ export default function AdminRoomForm({ mode = "add" }) {
 
   if (loading) {
     return (
-      <div className="text-dark py-5 d-flex justify-content-center fw-bold">
-        Đang tải phòng...
-      </div>
+      <AdminPanelPage title={isEdit ? "Chỉnh sửa phòng chiếu" : "Thêm phòng chiếu mới"}>
+        <div className="py-5 d-flex justify-content-center fw-bold">
+          Đang tải phòng...
+        </div>
+      </AdminPanelPage>
     );
   }
 
   return (
-    <div className={`${isEdit ? "edit-room-page" : "add-room-page"} text-dark`}>
+    <AdminPanelPage
+      title={isEdit ? `Chỉnh sửa: ${room.name}` : "Thêm phòng chiếu mới"}
+      headerRight={<AdminFormListBack to={`${prefix}/rooms`} />}
+    >
       <style>{`
         .custom-input {
           border-radius: 12px;
           padding: 12px 15px;
-          border: 1px solid #eee;
-          background: #fcfcfc;
-          color: #000 !important;
+          border: 1px solid var(--admin-border);
+          background: var(--admin-bg-subtle);
+          color: var(--admin-text) !important;
         }
         .custom-input:focus {
-          color: #000 !important;
-          background: #fff;
+          color: var(--admin-text) !important;
+          background: var(--admin-bg-card);
           border-color: #0d6efd;
           box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.05);
         }
@@ -194,9 +223,9 @@ export default function AdminRoomForm({ mode = "add" }) {
           display: flex;
           gap: 20px;
           padding: 15px;
-          background: #f8f9fa;
+          background: var(--admin-bg-subtle);
           border-radius: 12px;
-          border: 1px solid #eee;
+          border: 1px solid var(--admin-border);
         }
         .radio-item {
           display: flex;
@@ -215,29 +244,6 @@ export default function AdminRoomForm({ mode = "add" }) {
           font-weight: 600;
         }
       `}</style>
-
-      <div className="mb-4">
-        <Breadcrumb className="small mb-2">
-          <Breadcrumb.Item onClick={() => navigate(`${prefix}/rooms`)} style={{ cursor: "pointer" }}>
-            Quản lý phòng chiếu
-          </Breadcrumb.Item>
-          <Breadcrumb.Item active>
-            {isEdit ? "Chỉnh sửa phòng chiếu" : "Thêm phòng chiếu mới"}
-          </Breadcrumb.Item>
-        </Breadcrumb>
-
-        <div className="d-flex align-items-center gap-3">
-          <Button
-            variant="light"
-            className="rounded-circle p-2 shadow-sm border"
-            onClick={() => navigate(`${prefix}/rooms`)}
-          >
-          </Button>
-          <h2 className="fw-bold mb-0">
-            {isEdit ? `Chỉnh sửa: ${room.name}` : "Thêm phòng chiếu mới"}
-          </h2>
-        </div>
-      </div>
 
       <Row className="justify-content-center">
         <Col lg={8}>
@@ -267,6 +273,41 @@ export default function AdminRoomForm({ mode = "add" }) {
                         <div className="text-danger small mt-1 d-flex align-items-center gap-1"> {errors.name}
                         </div>
                       ) : null}
+                    </Form.Group>
+                  </Col>
+
+                  <Col md={12}>
+                    <Form.Group>
+                      <Form.Label>Loại phòng chiếu {!isEdit && <span className="text-danger">*</span>}</Form.Label>
+                      <Form.Select
+                        className={`custom-input ${errors.roomTypeId ? "is-invalid" : ""}`}
+                        value={room.roomTypeId}
+                        onChange={(e) => {
+                          setRoom((prev) => ({ ...prev, roomTypeId: e.target.value }));
+                          if (errors.roomTypeId || errors.form) setErrors((prev) => ({ ...prev, roomTypeId: null, form: null }));
+                        }}
+                      >
+                        <option value="">-- Chọn loại phòng --</option>
+                        {roomTypes.map((rt) => (
+                          <option key={rt.roomTypeId} value={rt.roomTypeId}>
+                            {rt.name} ({rt.standardSeatCount} thường · {rt.vipSeatCount} VIP · {rt.coupleSeatCount} đôi)
+                          </option>
+                        ))}
+                      </Form.Select>
+                      {errors.roomTypeId && (
+                        <div className="text-danger small mt-1">{errors.roomTypeId}</div>
+                      )}
+                      {room.roomTypeId && (() => {
+                        const rt = roomTypes.find((x) => String(x.roomTypeId) === String(room.roomTypeId));
+                        return rt ? (
+                          <div className="mt-2 p-2 rounded-2 bg-light border small text-muted">
+                            Yêu cầu khi setup ghế: <strong>{rt.standardSeatCount}</strong> ghế thường ·{" "}
+                            <strong>{rt.vipSeatCount}</strong> ghế VIP ·{" "}
+                            <strong>{rt.coupleSeatCount}</strong> ghế đôi
+                            (tổng <strong>{rt.standardSeatCount + rt.vipSeatCount + rt.coupleSeatCount}</strong> ghế)
+                          </div>
+                        ) : null;
+                      })()}
                     </Form.Group>
                   </Col>
 
@@ -338,7 +379,7 @@ export default function AdminRoomForm({ mode = "add" }) {
           </Card>
         </Col>
       </Row>
-    </div>
+    </AdminPanelPage>
   );
 }
 

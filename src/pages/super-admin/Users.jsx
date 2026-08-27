@@ -298,7 +298,7 @@ const UserManagement = () => {
 
                             <button
 
-                              title="Sửa"
+                              title="Thay đổi trạng thái"
 
                               className="admin-btn admin-btn-sm admin-btn-primary"
 
@@ -306,7 +306,7 @@ const UserManagement = () => {
 
                             >
 
-                              Sửa
+                              Thay đổi trạng thái
 
                             </button>
 

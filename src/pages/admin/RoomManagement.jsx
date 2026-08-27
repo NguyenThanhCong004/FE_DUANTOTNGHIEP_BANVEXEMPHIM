@@ -52,6 +52,7 @@ const RoomManagement = () => {
             id: r.id ?? r.roomId,
             name: r.name ?? '',
             status: Number.isFinite(Number(r.status)) ? Number(r.status) : 0,
+            roomTypeName: r.roomTypeName ?? null,
           }))
         );
       } catch {
@@ -165,7 +166,7 @@ const RoomManagement = () => {
             <Link 
               to={`${prefix}/rooms/add`} 
               className="admin-btn shadow-sm d-flex align-items-center fw-bold" 
-              style={{ background: 'white', color: '#6366f1', height: '38px' }}
+              style={{ background: 'var(--admin-bg-card)', color: '#6366f1', height: '38px' }}
             >
               Thêm phòng chiếu
             </Link>
@@ -186,6 +187,7 @@ const RoomManagement = () => {
                 <tr>
                   <th style={{ width: 56 }}>STT</th>
                   <th>Tên phòng</th>
+                  <th>Loại phòng</th>
                   <th>Trạng thái</th>
                   <th className="text-center">Thao tác</th>
                 </tr>
@@ -193,7 +195,7 @@ const RoomManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="text-center py-4">
+                    <td colSpan={5} className="text-center py-4">
                       <div className="spinner-border text-primary me-2" role="status">
                         <span className="visually-hidden">Loading...</span>
                       </div>
@@ -202,7 +204,7 @@ const RoomManagement = () => {
                   </tr>
                 ) : filteredRooms.length === 0 ? (
                   <tr>
-                    <td colSpan={4}>
+                    <td colSpan={5}>
                       <div className="admin-empty">
                         <div className="admin-empty-icon">
                         </div>
@@ -219,10 +221,12 @@ const RoomManagement = () => {
                   <tr key={room.id}>
                     <td className="fw-semibold text-muted">{indexOfFirstItem + index + 1}</td>
                     <td>
-                      <div>
-                        <div className="fw-semibold text-dark">{room.name}</div>
-                        <small className="text-muted">Phòng chiếu {room.name}</small>
-                      </div>
+                      <div className="fw-semibold text-dark">{room.name}</div>
+                    </td>
+                    <td>
+                      {room.roomTypeName
+                        ? <span className="admin-badge admin-badge-info">{room.roomTypeName}</span>
+                        : <span className="text-muted small">Chưa phân loại</span>}
                     </td>
                     <td>
                       <span

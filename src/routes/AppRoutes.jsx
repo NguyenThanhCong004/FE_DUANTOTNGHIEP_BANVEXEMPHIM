@@ -39,6 +39,7 @@ const SuperAdminDashboard = lazy(() => import('../pages/super-admin/Dashboard'))
 const UserManagement = lazy(() => import('../pages/super-admin/Users'));
 const EditUserSuperAdmin = lazy(() => import('../pages/super-admin/EditUser'));
 const CinemaManagement = lazy(() => import('../pages/super-admin/Cinemas'));
+const CinemaStatistics = lazy(() => import('../pages/super-admin/CinemaStatistics'));
 const SystemStaffManagement = lazy(() => import('../pages/super-admin/SystemStaffManagement'));
 const CreateSystemStaff = lazy(() => import('../pages/super-admin/CreateSystemStaff'));
 const SuperMovies = lazy(() => import('../pages/super-admin/Movies'));
@@ -76,6 +77,7 @@ const AdminPromotionForm = lazy(() => import('../pages/admin/forms/AdminPromotio
 const AdminShiftForm = lazy(() => import('../pages/admin/forms/AdminShiftForm'));
 const AdminRoomForm = lazy(() => import('../pages/admin/forms/AdminRoomForm'));
 const RoomManagement = lazy(() => import('../pages/admin/RoomManagement'));
+const RoomTypeManagement = lazy(() => import('../pages/super-admin/RoomTypeManagement'));
 const RoomClosureReview = lazy(() => import('../pages/admin/RoomClosureReview'));
 const SeatManagement = lazy(() => import('../pages/admin/SeatManagement'));
 const AdminProfile = lazy(() => import('../pages/admin/AdminProfile'));
@@ -182,6 +184,7 @@ const AppRoutes = () => {
           <Route index element={<SuperAdminDashboard />} />
           <Route path="cinemas" element={<CinemaManagement />} />
           <Route path="cinemas/create" element={<CreateCinema />} />
+          <Route path="cinema-statistics" element={<CinemaStatistics />} />
           <Route path="system-staff" element={<SystemStaffManagement />} />
           <Route path="system-staff/create" element={<CreateSystemStaff />} />
           <Route path="system-staff/edit/:id" element={<CreateSystemStaff />} />
@@ -225,6 +228,7 @@ const AppRoutes = () => {
           <Route path="rooms/add" element={<AdminRoomForm mode="add" />} />
           <Route path="rooms/edit/:id" element={<AdminRoomForm mode="edit" />} />
           <Route path="rooms/:id/closure" element={<RoomClosureReview />} />
+          <Route path="room-types" element={<RoomTypeManagement />} />
           <Route path="invoices" element={<InvoiceManagement />} />
           <Route path="profile" element={<SuperAdminProfile />} />
           <Route path="*" element={<NotFound />} />

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import { apiFetch } from "../../utils/apiClient";
 import { TICKET_ORDERS, FOOD_ORDERS } from "../../constants/apiEndpoints";
@@ -9,8 +9,21 @@ import { getAccessToken } from "../../utils/authStorage";
  * PayOS redirect khi hủy — gọi BE xóa đơn chờ + trả ghế (vé).
  */
 const PaymentCancel = () => {
+  const [params] = useSearchParams();
+  const appScheme = params.get("scheme");
   const [cancelNote, setCancelNote] = useState("Đang hủy đơn chờ và trả ghế (nếu có)…");
   const [orderKind, setOrderKind] = useState("ticket");
+
+  // Trang này được mở trong trình duyệt trong app mobile — nếu có `scheme` (deep link app kèm
+  // theo lúc tạo cancelUrl), tự điều hướng lại vào app gần như ngay lập tức thay vì dừng ở trang
+  // web (app tự hủy đơn chờ bằng cancelPendingOrder() của chính nó sau khi quay lại).
+  useEffect(() => {
+    if (!appScheme) return;
+    const timer = setTimeout(() => {
+      window.location.href = decodeURIComponent(appScheme);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [appScheme]);
 
   useEffect(() => {
     let alive = true;
@@ -106,12 +119,21 @@ const PaymentCancel = () => {
               : "Bạn có thể chọn suất khác hoặc thanh toán lại. Ghế không còn bị giữ bởi đơn chờ (sau khi hệ thống xử lý hủy)."}
           </p>
           <div className="d-grid gap-2">
+            {appScheme ? (
+              <button
+                type="button"
+                className="btn btn-gradient rounded-pill py-3 fw-bold shadow"
+                onClick={() => { window.location.href = decodeURIComponent(appScheme); }}
+              >
+                QUAY LẠI ỨNG DỤNG
+              </button>
+            ) : null}
             {orderKind === "food" ? (
-              <Link to="/foodorder" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+              <Link to="/foodorder" className={`btn rounded-pill py-3 fw-bold ${appScheme ? "btn-outline-secondary border-0" : "btn-gradient shadow"}`}>
                 ĐẶT LẠI BẮP NƯỚC
               </Link>
             ) : (
-              <Link to="/movies" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+              <Link to="/movies" className={`btn rounded-pill py-3 fw-bold ${appScheme ? "btn-outline-secondary border-0" : "btn-gradient shadow"}`}>
                 CHỌN SUẤT KHÁC
               </Link>
             )}

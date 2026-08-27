@@ -7,6 +7,7 @@ import { apiFetch } from "../../utils/apiClient";
 import { USERS } from "../../constants/apiEndpoints";
 
 import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../components/admin/AdminFormListBack";
 import { useAdminToast } from "../../components/admin/AdminToast";
 import { isActiveStatus } from "../../utils/statusFormat";
 import { apiMessage, MESSAGES, resultToastType } from "../../utils/uiMessages";
@@ -179,6 +180,8 @@ export default function EditUser() {
 
       title="Cập nhật trạng thái khách hàng"
 
+      headerRight={<AdminFormListBack to="/super-admin/users" />}
+
     >
 
       <div className="admin-card admin-slide-up" style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -290,7 +293,7 @@ export default function EditUser() {
 
                         className="admin-search-input w-100 border-primary"
 
-                        style={{ background: 'white', padding: '0 15px', height: '50px', border: '2px solid' }}
+                        style={{ background: 'var(--admin-bg-card)', padding: '0 15px', height: '50px', border: '2px solid' }}
 
                         value={formData.status}
 

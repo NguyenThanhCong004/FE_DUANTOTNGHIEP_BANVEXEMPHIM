@@ -104,22 +104,19 @@ const SeatTypeManagement = () => {
                   <th className="text-end" style={{ minWidth: 140 }}>
                     Phụ thu (VNĐ)
                   </th>
-                  <th className="text-center" style={{ width: 120 }}>
-                    Thao tác
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-5 text-muted">
+                    <td colSpan={5} className="text-center py-5 text-muted">
                       <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden />
                       Đang tải…
                     </td>
                   </tr>
                 ) : filteredTypes.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-5 text-muted">
+                    <td colSpan={5} className="text-center py-5 text-muted">
                       {searchTerm ? "Không tìm thấy loại ghế phù hợp." : "Chưa có loại ghế."}
                     </td>
                   </tr>
@@ -152,15 +149,6 @@ const SeatTypeManagement = () => {
                       </td>
                       <td className="text-end fw-semibold align-middle">
                         {formatVnd(type.surcharge)}
-                      </td>
-                      <td className="text-center align-middle">
-                        <button
-                          type="button"
-                          className="admin-btn admin-btn-sm admin-btn-primary"
-                          onClick={() => navigate("/super-admin/seat-types/create", { state: { editData: type } })}
-                        >
-                          <span className="ms-1">Sửa</span>
-                        </button>
                       </td>
                     </tr>
                   ))

@@ -217,9 +217,15 @@ function nextApplicableSeatType(current, list, grid, r, c) {
 
     const cand = list[idx];
 
-    if (!isCoupleSeatByType(cand)) return cand;
+    if (isCoupleSeatByType(cand)) {
 
-    if (canPlaceCoupleAt(grid, r, c)) return cand;
+      if (canPlaceCoupleAt(grid, r, c)) return cand;
+
+    } else if (canPlaceSingleAt(grid, r, r, c, c + 1)) {
+
+      return cand;
+
+    }
 
   }
 
@@ -252,25 +258,13 @@ const isEmptyCell = (cell) => cell?.type === "Empty";
 
 
 
-/** Cột lớn nhất (0-based) có ghế đơn trên hàng r; bỏ qua (excludeAnchor, excludeAnchor+1) khi đang thử đặt ghế đôi neo tại đó. */
+/** true nếu hàng r có ít nhất 1 ghế đơn (thường/VIP — không tính ghế đôi); bỏ qua 2 ô neo ghế đôi đang thử (exC1,exC2) nếu có. */
 
-function maxSingleSeatColInRow(grid, r, excludeCoupleAnchorCol) {
-
-  const skip = new Set();
-
-  if (excludeCoupleAnchorCol != null) {
-
-    skip.add(excludeCoupleAnchorCol);
-
-    if (excludeCoupleAnchorCol + 1 < COLS) skip.add(excludeCoupleAnchorCol + 1);
-
-  }
-
-  let mx = -1;
+function rowHasSingleSeat(grid, r, exC1, exC2) {
 
   for (let col = 0; col < COLS; col++) {
 
-    if (skip.has(col)) continue;
+    if (exC1 != null && (col === exC1 || col === exC2)) continue;
 
     const cell = grid[r * COLS + col];
 
@@ -280,21 +274,21 @@ function maxSingleSeatColInRow(grid, r, excludeCoupleAnchorCol) {
 
     if (isCoupleSeatByType(cell.type)) continue;
 
-    mx = Math.max(mx, col);
+    return true;
 
   }
 
-  return mx;
+  return false;
 
 }
 
 
 
-/** Hàng (0-based) cao nhất trên lưới có ít nhất một ghế đơn; bỏ qua hai ô neo ghế đôi đang thử (exR, exC1)(exR, exC2) nếu có. */
+/** Hàng (0-based) xa nhất (gần cuối rạp nhất) trên lưới có ghế đơn (thường/VIP); bỏ qua hai ô neo ghế đôi đang thử (exR, exC1)(exR, exC2) nếu có. */
 
-function minSingleSeatRowInGrid(grid, exR, exC1, exC2) {
+function maxSingleSeatRowInGrid(grid, exR, exC1, exC2) {
 
-  let minR = ROWS;
+  let maxR = -1;
 
   for (let r = 0; r < ROWS; r++) {
 
@@ -310,37 +304,33 @@ function minSingleSeatRowInGrid(grid, exR, exC1, exC2) {
 
       if (isCoupleSeatByType(cell.type)) continue;
 
-      minR = Math.min(minR, r);
+      maxR = Math.max(maxR, r);
 
     }
 
   }
 
-  return minR >= ROWS ? -1 : minR;
+  return maxR;
 
 }
 
 
 
-/** Ghế đôi: cột nhãn lẻ (1,3,5…); ô phải trống; sau mọi ghế đơn trên cùng hàng; không nằm trên hàng có ghế đơn (theo lưới: chỉ số hàng nhỏ hơn). */
+/** Ghế đôi: ô kế bên (bất kỳ cột nào) phải trống; hàng đặt ghế đôi không được có ghế thường/VIP nào khác (không chung hàng); phải nằm sau (gần cuối rạp hơn) tất cả hàng có ghế thường/VIP. */
 
 function canPlaceCoupleAt(grid, r, c) {
 
   if (c + 1 >= COLS) return false;
 
-  if ((c + 1) % 2 !== 1) return false;
-
   const i2 = r * COLS + c + 1;
 
   if (!isEmptyCell(grid[i2])) return false;
 
-  const maxSingle = maxSingleSeatColInRow(grid, r, c);
+  if (rowHasSingleSeat(grid, r, c, c + 1)) return false;
 
-  if (maxSingle >= 0 && c <= maxSingle) return false;
+  const maxSingleRow = maxSingleSeatRowInGrid(grid, r, c, c + 1);
 
-  const minSr = minSingleSeatRowInGrid(grid, r, c, c + 1);
-
-  if (minSr >= 0 && r < minSr) return false;
+  if (maxSingleRow >= 0 && r <= maxSingleRow) return false;
 
   return true;
 
@@ -348,47 +338,72 @@ function canPlaceCoupleAt(grid, r, c) {
 
 
 
-/** Kiểm tra toàn bộ lưới: ghế đôi sau ghế đơn trên cùng hàng; không có ghế đôi phía trên hàng có ghế đơn. */
+/** Hàng (0-based) gần màn hình nhất có ghế đôi; bỏ qua 1 cặp ô neo (exR,exC1)(exR,exC2) đang được xóa/thay đổi nếu có. */
+function minCoupleSeatRowInGrid(grid, exR, exC1, exC2) {
+  let minR = ROWS;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (exR != null && r === exR && (c === exC1 || c === exC2)) continue;
+      const cell = grid[r * COLS + c];
+      if (!isPlacedSeat(cell) || cell.type === "OccupiedByDouble") continue;
+      if (!isCoupleSeatByType(cell.type)) continue;
+      minR = Math.min(minR, r);
+    }
+  }
+  return minR >= ROWS ? -1 : minR;
+}
+
+/** Ghế thường/VIP: chỉ đặt được ở hàng nằm trước (gần màn hình hơn) mọi hàng đang có ghế đôi. */
+function canPlaceSingleAt(grid, r, exR, exC1, exC2) {
+  const minCoupleRow = minCoupleSeatRowInGrid(grid, exR, exC1, exC2);
+  return minCoupleRow < 0 || r < minCoupleRow;
+}
+
+/** Kiểm tra toàn bộ lưới: không hàng nào được xếp chung ghế đơn (thường/VIP) với ghế đôi; mọi hàng ghế đôi phải nằm sau tất cả hàng có ghế đơn. */
 
 function validateCoupleAfterSinglesLayout(grid) {
 
-  const globalMinSingleRow = minSingleSeatRowInGrid(grid, null, null, null);
+  const maxSingleRow = maxSingleSeatRowInGrid(grid, null, null, null);
 
   for (let r = 0; r < ROWS; r++) {
+
+    let hasSingle = false;
+
+    let hasCouple = false;
 
     for (let c = 0; c < COLS; c++) {
 
       const cell = grid[r * COLS + c];
 
-      if (!isPlacedSeat(cell) || !isCoupleSeatByType(cell.type)) continue;
+      if (!isPlacedSeat(cell) || cell.type === "OccupiedByDouble") continue;
 
-      if (globalMinSingleRow >= 0 && r < globalMinSingleRow) {
+      if (isCoupleSeatByType(cell.type)) hasCouple = true;
 
-        return {
+      else hasSingle = true;
 
-          ok: false,
+    }
 
-          message: `Hàng ${r + 1}: ghế đôi không được đặt phía trên (gần màn hình hơn) hàng có ghế đơn — kéo ghế đôi xuống dưới hàng ghế đơn cao nhất.`,
+    if (hasCouple && hasSingle) {
 
-        };
+      return {
 
-      }
+        ok: false,
 
-      const maxS = maxSingleSeatColInRow(grid, r, null);
+        message: `Hàng ${rowLetterForGridRow(grid, r)}: không được xếp ghế đôi chung hàng với ghế thường/VIP — mỗi hàng chỉ 1 loại: toàn ghế đơn hoặc toàn ghế đôi.`,
 
-      if (maxS < 0) continue;
+      };
 
-      if (c <= maxS) {
+    }
 
-        return {
+    if (hasCouple && maxSingleRow >= 0 && r <= maxSingleRow) {
 
-          ok: false,
+      return {
 
-          message: `Hàng ${r + 1}: ghế đôi không được đặt trước ghế đơn — kéo ghế đôi sang phải sau tất cả ghế đơn trên hàng.`,
+        ok: false,
 
-        };
+        message: `Hàng ${rowLetterForGridRow(grid, r)}: ghế đôi phải nằm ở các hàng phía sau (gần cuối rạp hơn) toàn bộ ghế thường/VIP — kéo xuống dưới hàng ghế đơn cuối cùng.`,
 
-      }
+      };
 
     }
 
@@ -537,6 +552,8 @@ const applyMoveSeat = (grid, fr, fc, tr, tc) => {
     const t = work[tr * COLS + tc];
 
     if (!isEmptyCell(t)) return grid;
+
+    if (!canPlaceSingleAt(work, tr)) return grid;
 
   }
 
@@ -742,8 +759,10 @@ export default function SeatManagement() {
                 label: "",
               };
             } else {
-              // Logic đặt ghế đơn
-              if (isCoupleSeatByType(cell.type)) clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
+              // Logic đặt ghế đơn — không được nằm cùng/sau hàng có ghế đôi
+              const wasCouple = isCoupleSeatByType(cell.type);
+              if (!canPlaceSingleAt(next, cell.rowIdx, cell.rowIdx, cell.colIdx, wasCouple ? cell.colIdx + 1 : null)) break;
+              if (wasCouple) clearSeatAtInPlace(next, cell.rowIdx, cell.colIdx);
               next[idx] = { ...next[idx], type: typeName, isActive: true, typeColor: undefined };
             }
             break;
@@ -863,7 +882,15 @@ export default function SeatManagement() {
 
         const arr = Array.isArray(list) ? list : [];
 
-        setRooms(arr.filter((r) => isActiveStatus(r.status)).map((r) => ({ id: r.id, name: r.name })));
+        setRooms(arr.filter((r) => isActiveStatus(r.status)).map((r) => ({
+          id: r.id,
+          name: r.name,
+          roomTypeId: r.roomTypeId ?? null,
+          roomTypeName: r.roomTypeName ?? null,
+          standardSeatCount: r.standardSeatCount ?? null,
+          vipSeatCount: r.vipSeatCount ?? null,
+          coupleSeatCount: r.coupleSeatCount ?? null,
+        })));
 
       } catch {
 
@@ -1111,6 +1138,14 @@ export default function SeatManagement() {
 
       }
 
+      if (!canPlaceSingleAt(seats, rowIdx)) {
+
+        showToast("Không thể thêm ghế thường/VIP ở đây — hàng này nằm cùng hoặc sau hàng đã có ghế đôi. Ghế đôi luôn phải ở (các) hàng cuối cùng.", "danger");
+
+        return;
+
+      }
+
       next[idx] = { ...cell, type: defaultT, label, isActive: true, typeColor: undefined };
 
     }
@@ -1213,6 +1248,35 @@ export default function SeatManagement() {
 
       return;
 
+    }
+
+    if (selectedRoom && selectedRoom.roomTypeId != null) {
+      const typeMap = {};
+      _seatTypesData.forEach((st) => {
+        if (st.coupleSeat) typeMap[st.name] = "couple";
+        else if (st.name && st.name.toLowerCase().includes("vip")) typeMap[st.name] = "vip";
+        else typeMap[st.name] = "standard";
+      });
+      let stdCount = 0, vipCount = 0, coupleCount = 0;
+      for (const cell of seats) {
+        if (!isPlacedSeat(cell) || cell.type === "OccupiedByDouble") continue;
+        const cat = typeMap[cell.type];
+        if (cat === "couple") coupleCount++;
+        else if (cat === "vip") vipCount++;
+        else stdCount++;
+      }
+      const need = {
+        std: selectedRoom.standardSeatCount ?? 0,
+        vip: selectedRoom.vipSeatCount ?? 0,
+        couple: selectedRoom.coupleSeatCount ?? 0,
+      };
+      if (stdCount !== need.std || vipCount !== need.vip || coupleCount !== need.couple) {
+        showToast(
+          `Chưa đủ ghế theo loại phòng "${selectedRoom.roomTypeName}": cần ${need.std} thường, ${need.vip} VIP, ${need.couple} đôi. Hiện có: ${stdCount} thường, ${vipCount} VIP, ${coupleCount} đôi.`,
+          "danger"
+        );
+        return;
+      }
     }
 
     const items = [];
@@ -1408,7 +1472,7 @@ export default function SeatManagement() {
           <button
             type="button"
             className="admin-btn text-nowrap"
-            style={{ background: "white", color: "#4f46e5" }}
+            style={{ background: "var(--admin-bg-card)", color: "#4f46e5" }}
             onClick={() => navigate(`${prefix}/rooms`)}
           >
             Danh sách phòng
@@ -1426,6 +1490,60 @@ export default function SeatManagement() {
 
       <ToastComponent />
 
+      {selectedRoom && selectedRoom.roomTypeId != null && (() => {
+        const typeMap = {};
+        _seatTypesData.forEach((st) => {
+          if (st.coupleSeat) typeMap[st.name] = "couple";
+          else if (st.name && st.name.toLowerCase().includes("vip")) typeMap[st.name] = "vip";
+          else typeMap[st.name] = "standard";
+        });
+        let stdCount = 0, vipCount = 0, coupleCount = 0;
+        for (const cell of seatGrid) {
+          if (!isPlacedSeat(cell) || cell.type === "OccupiedByDouble") continue;
+          const cat = typeMap[cell.type];
+          if (cat === "couple") coupleCount++;
+          else if (cat === "vip") vipCount++;
+          else stdCount++;
+        }
+        const need = {
+          std: selectedRoom.standardSeatCount ?? 0,
+          vip: selectedRoom.vipSeatCount ?? 0,
+          couple: selectedRoom.coupleSeatCount ?? 0,
+        };
+        const allOk = stdCount === need.std && vipCount === need.vip && coupleCount === need.couple;
+        const pill = (got, req, label) => {
+          const ok = got === req;
+          return (
+            <span key={label} style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "3px 10px", borderRadius: 20,
+              background: ok ? "#d1fae5" : "#fef9c3",
+              color: ok ? "#065f46" : "#713f12",
+              fontWeight: 600, fontSize: "0.78rem",
+            }}>
+              {label}: {got}/{req}
+            </span>
+          );
+        };
+        return (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+            padding: "8px 16px", marginBottom: 12, borderRadius: 10,
+            background: allOk ? "#ecfdf5" : "#fefce8",
+            border: `1px solid ${allOk ? "#6ee7b7" : "#fde68a"}`,
+            fontSize: "0.82rem",
+          }}>
+            <span style={{ fontWeight: 700, color: allOk ? "#065f46" : "#92400e" }}>
+              {selectedRoom.roomTypeName}:
+            </span>
+            {pill(stdCount, need.std, "Thường")}
+            {pill(vipCount, need.vip, "VIP")}
+            {pill(coupleCount, need.couple, "Đôi")}
+            {allOk && <span style={{ color: "#065f46", fontWeight: 600 }}>✓ Đủ ghế</span>}
+          </div>
+        );
+      })()}
+
       <style>{`
 
         .seat-grid-container {
@@ -1436,7 +1554,7 @@ export default function SeatManagement() {
 
           gap: 6px;
 
-          background: #fff;
+          background: var(--admin-bg-card);
 
           padding: 24px;
 
@@ -1514,7 +1632,7 @@ export default function SeatManagement() {
 
           border: 1px dashed #dee2e6;
 
-          background: #f8f9fa;
+          background: var(--admin-bg-subtle);
 
         }
 
@@ -1844,7 +1962,7 @@ export default function SeatManagement() {
 
               <div className="d-flex align-items-center gap-2 small fw-bold text-muted">
 
-                <div style={{ width: 14, height: 14, borderRadius: 4, border: "1px dashed #ccc", backgroundColor: "#f8f9fa" }} /> Ô trống
+                <div style={{ width: 14, height: 14, borderRadius: 4, border: "1px dashed #ccc", backgroundColor: "var(--admin-bg-subtle)" }} /> Ô trống
 
               </div>
 

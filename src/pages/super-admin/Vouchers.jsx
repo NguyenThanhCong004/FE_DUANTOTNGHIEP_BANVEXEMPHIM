@@ -147,7 +147,7 @@ const VoucherManagement = () => {
         <button
           type="button"
           className="admin-btn"
-          style={{ background: "white", color: "#6366f1" }}
+          style={{ background: "var(--admin-bg-card)", color: "#6366f1" }}
           onClick={() => navigate(`${basePath}/vouchers/create`)}
           disabled={!activeCinemaId}
           title={activeCinemaId ? "" : "Chọn rạp ở header trước khi tạo voucher"}

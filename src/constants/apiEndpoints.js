@@ -54,6 +54,11 @@ export const ROOMS = {
   BY_ID: (id) => `${API_V1}/rooms/${id}`,
 };
 
+export const ROOM_TYPES = {
+  LIST: `${API_V1}/room-types`,
+  BY_ID: (id) => `${API_V1}/room-types/${id}`,
+};
+
 /** Đóng phòng tạm thời (hỏng ghế/sự cố) + dời vé đã bán sang suất khác — status phòng: 0 Ngừng, 1 Hoạt động, 2 Đóng tạm thời. */
 export const ROOM_CLOSURE = {
   CLOSE: (roomId) => `${API_V1}/rooms/${roomId}/close`,
@@ -62,6 +67,7 @@ export const ROOM_CLOSURE = {
   SUGGESTIONS: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/suggestions`,
   MOVE: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/move`,
   CANCEL: (roomId, orderId) => `${API_V1}/rooms/${roomId}/closure/orders/${orderId}/cancel`,
+  AUTO_MOVE_TO_SPARE_TYPE: (roomId) => `${API_V1}/rooms/${roomId}/closure/auto-move-to-spare-type`,
 };
 
 export const MOVIES = {
@@ -196,6 +202,8 @@ export const SUPER_ADMIN_DASHBOARD = {
   PAYMENT_METHOD_REVENUE: `${API_V1}/super-admin/dashboard/payment-method-revenue`,
   RECENT_ADMIN_ACTIVITY: (limit) => `${API_V1}/super-admin/dashboard/recent-admin-activity${limit ? `?limit=${limit}` : ""}`,
   AUDIT_LOG: (limit) => `${API_V1}/super-admin/dashboard/audit-log${limit ? `?limit=${limit}` : ""}`,
+  CINEMA_STATS: `${API_V1}/super-admin/dashboard/cinema-stats`,
+  CINEMA_MOVIE_REVENUE: (cinemaId) => `${API_V1}/super-admin/dashboard/cinema-movie-revenue?cinemaId=${cinemaId}`,
 };
 
 export const ADMIN_DASHBOARD = {

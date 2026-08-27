@@ -373,17 +373,7 @@ const CreateMovie = () => {
           return;
         }
       } else {
-        payload = {};
-        if (body.genreIds.length > 0) payload.genreIds = body.genreIds;
-        if (body.title != null && body.title.trim() !== "") payload.title = body.title;
-        if (body.description != null && body.description.trim() !== "") payload.description = body.description;
-        if (body.duration != null) payload.duration = body.duration;
-        if (body.ageLimit != null) payload.ageLimit = body.ageLimit;
-        if (body.releaseDate != null) payload.releaseDate = body.releaseDate;
-        if (body.poster != null) payload.poster = body.poster;
-        if (body.status != null) payload.status = body.status;
-        if (body.basePrice != null) payload.basePrice = body.basePrice;
-        if (body.banner != null) payload.banner = body.banner;
+        payload = body;
       }
 
       const url = movieId ? MOVIES.BY_ID(movieId) : MOVIES.LIST;
@@ -418,9 +408,7 @@ const CreateMovie = () => {
   if (loading) return <AdminPanelPage title="Đang tải..."><div className="text-center py-5"><div className="spinner-border text-primary"></div></div></AdminPanelPage>;
 
   return (
-    <>
-      <ToastComponent />
-      <AdminPanelPage
+    <AdminPanelPage
         icon={editData ? "bi-film" : "bi-plus-circle-dotted"}
         title={editData ? "Cập nhật phim" : "Thêm phim mới"}
         headerRight={<AdminFormListBack to="/super-admin/movies" />}
@@ -439,7 +427,7 @@ const CreateMovie = () => {
                     <label className="admin-form-label d-block mb-2">Poster phim (2:3)</label>
                     <div
                       className={`mx-auto mb-2 border-2 d-flex align-items-center justify-content-center overflow-hidden ${errors.poster ? 'border-danger' : 'border-light'}`}
-                      style={{ width: '100%', maxWidth: '120px', aspectRatio: '2/3', cursor: 'pointer', background: '#f8fafc', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      style={{ width: '100%', maxWidth: '120px', aspectRatio: '2/3', cursor: 'pointer', background: 'var(--admin-bg-subtle)', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                       onClick={() => posterInputRef.current.click()}
                     >
                       {previewPoster ? (
@@ -457,7 +445,7 @@ const CreateMovie = () => {
                     <label className="admin-form-label d-block mb-2">Banner phim (16:9)</label>
                     <div
                       className="mx-auto mb-2 border-2 d-flex align-items-center justify-content-center overflow-hidden"
-                      style={{ width: '100%', maxWidth: '360px', aspectRatio: '16/9', cursor: 'pointer', background: '#f8fafc', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      style={{ width: '100%', maxWidth: '360px', aspectRatio: '16/9', cursor: 'pointer', background: 'var(--admin-bg-subtle)', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                       onClick={() => bannerInputRef.current.click()}
                     >
                       {previewBanner ? (
@@ -633,7 +621,7 @@ const CreateMovie = () => {
         .movie-quill-wrapper .movie-quill-mount .ql-toolbar {
           border-radius: 12px 12px 0 0;
           border-color: #e2e8f0 !important;
-          background: #f8fafc;
+          background: var(--admin-bg-subtle);
         }
         .movie-quill-wrapper .movie-quill-mount .ql-container {
           min-height: 220px;
@@ -657,8 +645,8 @@ const CreateMovie = () => {
           box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
       `}</style>
+      <ToastComponent />
     </AdminPanelPage>
-    </>
   );
 };
 

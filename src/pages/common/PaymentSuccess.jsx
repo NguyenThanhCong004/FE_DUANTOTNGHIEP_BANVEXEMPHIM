@@ -24,6 +24,19 @@ const PaymentSuccess = () => {
   const [ticketTx, setTicketTx] = useState(null);
   const [showTicketPopup, setShowTicketPopup] = useState(false);
   const queryOrderId = params.get("orderId") || null;
+  const appScheme = params.get("scheme");
+
+  // Trang này được mở trong trình duyệt trong app mobile (không phải app tự nhận diện URL trả
+  // về được) — nếu có `scheme` (deep link app kèm theo lúc tạo returnUrl), tự điều hướng lại vào
+  // app gần như ngay lập tức, không cần dừng lại ở trang web. PayOS chỉ tự redirect đáng tin cậy
+  // tới URL http/https nên vẫn phải qua trang này, nhưng chỉ thoáng qua rồi chuyển thẳng vào app.
+  useEffect(() => {
+    if (!appScheme) return;
+    const timer = setTimeout(() => {
+      window.location.href = decodeURIComponent(appScheme);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [appScheme]);
 
   useEffect(() => {
     let alive = true;
@@ -159,11 +172,20 @@ const PaymentSuccess = () => {
             </div>
           ) : null}
           <div className="d-grid gap-2">
+            {appScheme ? (
+              <button
+                type="button"
+                className="btn btn-gradient rounded-pill py-3 fw-bold shadow"
+                onClick={() => { window.location.href = decodeURIComponent(appScheme); }}
+              >
+                QUAY LẠI ỨNG DỤNG
+              </button>
+            ) : null}
             {ticketTx ? (
               <>
                 <button
                   type="button"
-                  className="btn btn-gradient rounded-pill py-3 fw-bold shadow"
+                  className={`btn rounded-pill py-3 fw-bold ${appScheme ? "btn-outline-secondary border-0" : "btn-gradient shadow"}`}
                   onClick={() => setShowTicketPopup(true)}
                 >
                   XEM VÉ CỦA TÔI
@@ -173,7 +195,7 @@ const PaymentSuccess = () => {
                 </Link>
               </>
             ) : (
-              <Link to="/" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+              <Link to="/" className={`btn rounded-pill py-3 fw-bold ${appScheme ? "btn-outline-secondary border-0" : "btn-gradient shadow"}`}>
                 VỀ TRANG CHỦ
               </Link>
             )}

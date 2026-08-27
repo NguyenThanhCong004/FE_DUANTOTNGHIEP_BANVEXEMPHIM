@@ -247,7 +247,7 @@ const CreateSeatType = () => {
               <Form.Label className="admin-form-label fw-semibold">Bảng màu (chọn 1)</Form.Label>
               <div
                 className="d-flex flex-wrap gap-2 p-3 rounded-3"
-                style={{ background: "#f8f9fa", border: "1px solid #e9ecef" }}
+                style={{ background: "var(--admin-bg-subtle)", border: "1px solid #e9ecef" }}
               >
                 {visiblePalette.map(({ n, hex, custom }) => {
                   const nHex = normalizeHex(hex);

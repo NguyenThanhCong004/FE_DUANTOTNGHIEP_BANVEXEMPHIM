@@ -3,6 +3,8 @@ import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { Form, Button, Row, Col, Card, Alert } from "react-bootstrap";
 import { apiFetch } from "../../utils/apiClient";
 import { STAFF, CINEMAS } from "../../constants/apiEndpoints";
+import AdminPanelPage from "../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../components/admin/AdminFormListBack";
 import { useAdminToast } from "../../components/admin/AdminToast";
 import { staffStatusToCode } from "../../utils/statusFormat";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
@@ -108,11 +110,11 @@ const CreateSystemStaff = () => {
     const tempErrors = {};
     if (!staff.name.trim()) tempErrors.name = "Họ tên không được để trống";
 
-    const emailRegex = /^[a-z0-9._%+-]+@gmail\.com$/i;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!staff.email) {
       tempErrors.email = "Email không được để trống";
     } else if (!emailRegex.test(staff.email)) {
-      tempErrors.email = "Email phải đúng định dạng Gmail (vd: abc@gmail.com)";
+      tempErrors.email = "Email không đúng định dạng (vd: abc@gmail.com, abc@moviezone.com)";
     }
 
     const phoneRegex = /^[0-9]{10}$/;
@@ -234,7 +236,10 @@ const CreateSystemStaff = () => {
 
   if (loading) {
     return (
-      <div className="add-staff-page text-dark p-3">
+      <AdminPanelPage
+        title={editId ? "Cập nhật nhân sự" : "Thêm nhân sự mới"}
+        headerRight={<AdminFormListBack to={backPath} />}
+      >
         <div
           style={{
             minHeight: "60vh",
@@ -246,19 +251,22 @@ const CreateSystemStaff = () => {
         >
           Đang tải dữ liệu...
         </div>
-      </div>
+      </AdminPanelPage>
     );
   }
 
   return (
-    <>
-      <div className={editId ? "edit-staff-page" : "add-staff-page"}>
+    <AdminPanelPage
+      title={editId ? `Cập nhật nhân sự #${editId}` : "Thêm nhân sự mới"}
+      headerRight={<AdminFormListBack to={backPath} />}
+    >
+      <ToastComponent />
       <style>{`
         .black-input {
           border: 1px solid rgba(0,0,0,0.1) !important;
-          color: #000 !important;
+          color: var(--admin-text) !important;
           font-weight: 500 !important;
-          background-color: #fff !important;
+          background-color: var(--admin-bg-card) !important;
           border-radius: 8px !important;
           min-height: 42px !important; /* Đảm bảo đủ chiều cao cho ô date */
         }
@@ -275,15 +283,6 @@ const CreateSystemStaff = () => {
           border-color: #dc3545 !important;
         }
       `}</style>
-
-      <div className="d-flex align-items-center justify-content-between gap-3 mb-4 flex-wrap">
-        <h2 className="mb-0 fw-bold text-dark">
-          {editId ? `Cập nhật nhân sự #${editId}` : "Thêm nhân sự mới"}
-        </h2>
-        <Button variant="outline-primary" className="text-nowrap" onClick={() => navigate(backPath)}>
-          Danh sách
-        </Button>
-      </div>
 
       {errors.form ? (
         <Alert variant="warning" className="border-0 shadow-sm mb-4 fw-bold" style={{ borderRadius: "12px" }}>
@@ -440,9 +439,7 @@ const CreateSystemStaff = () => {
           </div>
         </div>
       )}
-    </div>
-      <ToastComponent />
-    </>
+    </AdminPanelPage>
   );
 };
 

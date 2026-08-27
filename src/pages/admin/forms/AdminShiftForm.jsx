@@ -1,12 +1,25 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Form, Button, Row, Col, Card } from "react-bootstrap";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 import { getAccessToken, getStoredStaff } from "../../../utils/authStorage";
 import { SuperAdminCinemaContext } from "../../../components/layout/SuperAdminCinemaContext";
 import { apiUrl } from "../../../utils/apiClient";
 import { SHIFTS, STAFF } from "../../../constants/apiEndpoints";
+import AdminPanelPage from "../../../components/admin/AdminPanelPage";
+import AdminFormListBack from "../../../components/admin/AdminFormListBack";
 import { MESSAGES } from "../../../utils/uiMessages";
+
+const SHIFT_START_HOURS = { "Ca 1": 7, "Ca 2": 13, "Ca 3": 19 };
+
+function isShiftStarted(date, shiftType) {
+  if (!date || !shiftType) return false;
+  const startHour = SHIFT_START_HOURS[shiftType] ?? 7;
+  const shiftStart = new Date(date);
+  shiftStart.setHours(startHour, 0, 0, 0);
+  return shiftStart < new Date();
+}
 
 export default function AdminShiftForm({ mode = "add" }) {
   const location = useLocation();
@@ -25,6 +38,7 @@ export default function AdminShiftForm({ mode = "add" }) {
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isPastShift, setIsPastShift] = useState(false);
 
   const staffByRole = useMemo(
     () => {
@@ -62,13 +76,24 @@ export default function AdminShiftForm({ mode = "add" }) {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "date" || name === "shiftType") {
+        setIsPastShift(isShiftStarted(next.date, next.shiftType));
+      }
+      return next;
+    });
     if (error === MESSAGES.noChanges) setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (isPastShift) {
+      setError(`Ca làm này đã bắt đầu hoặc đã qua, không thể ${isEdit ? "sửa" : "tạo"}.`);
+      return;
+    }
 
     if (isSuperAdmin && !selectedCinemaId) {
       setError("Vui lòng chọn rạp trước khi phân ca.");
@@ -225,6 +250,7 @@ export default function AdminShiftForm({ mode = "add" }) {
           staff_soatve: data.staffSoatVeId != null ? String(data.staffSoatVeId) : "",
           staff_phucvu: data.staffPhucVuId != null ? String(data.staffPhucVuId) : "",
         };
+        setIsPastShift(isShiftStarted(nextFormData.date, nextFormData.shiftType));
         setFormData((prev) => {
           const merged = { ...prev, ...nextFormData };
           setOriginalFormData(merged);
@@ -242,17 +268,22 @@ export default function AdminShiftForm({ mode = "add" }) {
   }, [id, isEdit]);
 
   return (
-    <div className={`${isEdit ? "edit-shift-page" : "add-shift-page"} text-dark pb-5`}>
+    <AdminPanelPage
+      title={isEdit ? `Chỉnh sửa phân ca #${id}` : "Phân ca làm việc mới"}
+      description={isEdit ? "Cập nhật nhân sự cho các vị trí trong ca làm việc" : "Mỗi ca yêu cầu đủ 3 nhân viên cho 3 vị trí khác nhau"}
+      headerRight={<AdminFormListBack to={`${prefix}/shifts`} label="Danh sách ca" />}
+    >
       <style>{`
         .shift-input {
           border-radius: 12px !important;
-          border: 1.5px solid #eee !important;
+          border: 1.5px solid var(--admin-border) !important;
           padding: 12px 15px !important;
-          color: #000 !important;
+          color: var(--admin-text) !important;
+          background-color: var(--admin-bg-card) !important;
         }
         .role-card {
           border-left: 4px solid #0d6efd;
-          background: #f8faff;
+          background: var(--admin-bg-subtle);
           transition: all 0.3s ease;
         }
         .role-card:hover {
@@ -260,20 +291,11 @@ export default function AdminShiftForm({ mode = "add" }) {
         }
       `}</style>
 
-      <div className="d-flex align-items-start justify-content-between gap-3 mb-4 flex-wrap">
-        <div>
-          <h2 className="mb-0 fw-bold">
-            {isEdit ? `Chỉnh sửa phân ca #${id}` : "Phân ca làm việc mới"}
-          </h2>
-          <p className="text-muted small mb-0">
-            {isEdit ? "Cập nhật nhân sự cho các vị trí trong ca làm việc" : "Mỗi ca yêu cầu đủ 3 nhân viên cho 3 vị trí khác nhau"}
-          </p>
+      {isPastShift && (
+        <div className="alert alert-warning fw-semibold mb-3">
+          Ca làm này đã bắt đầu hoặc đã qua — không thể {isEdit ? "chỉnh sửa" : "tạo"}.
         </div>
-        <Button variant="light" className="shadow-sm text-nowrap" onClick={() => navigate(`${prefix}/shifts`)}>
-          Danh sách ca
-        </Button>
-      </div>
-
+      )}
       {error ? <div className="text-center text-danger fw-bold mb-3">{error}</div> : null}
       {isSuperAdmin && selectedCinemaId == null ? (
         <div className="text-center text-warning fw-bold mb-3">
@@ -406,7 +428,7 @@ export default function AdminShiftForm({ mode = "add" }) {
                   type="submit"
                   variant="primary"
                   className="px-5 py-2 fw-bold shadow-sm rounded-3"
-                  disabled={submitting || loadingStaff || (isSuperAdmin && selectedCinemaId == null)}
+                  disabled={submitting || loadingStaff || isPastShift || (isSuperAdmin && selectedCinemaId == null)}
                 >
                   {submitting ? "Đang lưu..." : isEdit ? "Cập nhật ca trực" : "Lưu phân ca"}
                 </Button>
@@ -415,7 +437,7 @@ export default function AdminShiftForm({ mode = "add" }) {
           </Col>
         </Row>
       </Form>
-    </div>
+    </AdminPanelPage>
   );
 }
 

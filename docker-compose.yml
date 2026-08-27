@@ -9,15 +9,22 @@ services:
     container_name: java6_frontend_app
     restart: unless-stopped
     ports:
-      # Bind 0.0.0.0 để máy khác cùng mạng LAN/Wi-Fi truy cập được:
-      # http://<IP-may-cua-ban>:3000
-      - "${FRONTEND_HOST:-0.0.0.0}:${FRONTEND_PORT:-3000}:80"
+      # Mặc định chỉ bind localhost (không public ra internet qua IP:3000 — chỉ Nginx
+      # hệ thống trên VPS mới gọi qua localhost). Đang dev trên LAN riêng và muốn máy
+      # khác cùng Wi-Fi truy cập http://<IP-may-cua-ban>:3000 thì đặt FRONTEND_HOST=0.0.0.0
+      # trong .env của máy đó.
+      - "${FRONTEND_HOST:-127.0.0.1}:${FRONTEND_PORT:-3000}:80"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-      - "backend-host:host-gateway"
     networks:
       - java6_frontend
+      - moviezone_shared
 
 networks:
   java6_frontend:
     driver: bridge
+  # Mạng dùng chung với project backend — container này gọi thẳng container backend
+  # qua tên host nội bộ (xem nginx.conf), không cần vòng ra host qua host-gateway nữa.
+  # Tạo 1 lần bằng `docker network create moviezone_shared` trước khi deploy.
+  moviezone_shared:
+    external: true
