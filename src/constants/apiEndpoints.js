@@ -202,6 +202,8 @@ export const SUPER_ADMIN_DASHBOARD = {
   PAYMENT_METHOD_REVENUE: `${API_V1}/super-admin/dashboard/payment-method-revenue`,
   RECENT_ADMIN_ACTIVITY: (limit) => `${API_V1}/super-admin/dashboard/recent-admin-activity${limit ? `?limit=${limit}` : ""}`,
   AUDIT_LOG: (limit) => `${API_V1}/super-admin/dashboard/audit-log${limit ? `?limit=${limit}` : ""}`,
+  CINEMA_STATS: `${API_V1}/super-admin/dashboard/cinema-stats`,
+  CINEMA_MOVIE_REVENUE: (cinemaId) => `${API_V1}/super-admin/dashboard/cinema-movie-revenue?cinemaId=${cinemaId}`,
 };
 
 export const ADMIN_DASHBOARD = {

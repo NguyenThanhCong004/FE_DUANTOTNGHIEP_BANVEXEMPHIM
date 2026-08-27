@@ -39,6 +39,7 @@ const SuperAdminDashboard = lazy(() => import('../pages/super-admin/Dashboard'))
 const UserManagement = lazy(() => import('../pages/super-admin/Users'));
 const EditUserSuperAdmin = lazy(() => import('../pages/super-admin/EditUser'));
 const CinemaManagement = lazy(() => import('../pages/super-admin/Cinemas'));
+const CinemaStatistics = lazy(() => import('../pages/super-admin/CinemaStatistics'));
 const SystemStaffManagement = lazy(() => import('../pages/super-admin/SystemStaffManagement'));
 const CreateSystemStaff = lazy(() => import('../pages/super-admin/CreateSystemStaff'));
 const SuperMovies = lazy(() => import('../pages/super-admin/Movies'));
@@ -183,6 +184,7 @@ const AppRoutes = () => {
           <Route index element={<SuperAdminDashboard />} />
           <Route path="cinemas" element={<CinemaManagement />} />
           <Route path="cinemas/create" element={<CreateCinema />} />
+          <Route path="cinema-statistics" element={<CinemaStatistics />} />
           <Route path="system-staff" element={<SystemStaffManagement />} />
           <Route path="system-staff/create" element={<CreateSystemStaff />} />
           <Route path="system-staff/edit/:id" element={<CreateSystemStaff />} />
