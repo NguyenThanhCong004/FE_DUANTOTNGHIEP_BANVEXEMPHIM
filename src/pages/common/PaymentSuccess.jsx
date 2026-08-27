@@ -165,7 +165,6 @@ const PaymentSuccess = () => {
             Giao dịch đã được ghi nhận. Hệ thống đang đồng bộ trạng thái thanh toán, vé và/hoặc đơn bắp nước của bạn.
           </p>
           {confirmNote ? <p className="text-muted mb-4">{confirmNote}</p> : null}
-          {appScheme ? <p className="text-muted mb-4">Đang tự động quay lại ứng dụng…</p> : null}
           {displayOrderCode ? (
             <div className="bg-light p-3 rounded-4 mb-3 border border-dashed">
               <small className="text-uppercase text-muted fw-bold">Mã giao dịch / đơn</small>
@@ -173,11 +172,20 @@ const PaymentSuccess = () => {
             </div>
           ) : null}
           <div className="d-grid gap-2">
+            {appScheme ? (
+              <button
+                type="button"
+                className="btn btn-gradient rounded-pill py-3 fw-bold shadow"
+                onClick={() => { window.location.href = decodeURIComponent(appScheme); }}
+              >
+                QUAY LẠI ỨNG DỤNG
+              </button>
+            ) : null}
             {ticketTx ? (
               <>
                 <button
                   type="button"
-                  className="btn btn-gradient rounded-pill py-3 fw-bold shadow"
+                  className={`btn rounded-pill py-3 fw-bold ${appScheme ? "btn-outline-secondary border-0" : "btn-gradient shadow"}`}
                   onClick={() => setShowTicketPopup(true)}
                 >
                   XEM VÉ CỦA TÔI
@@ -187,7 +195,7 @@ const PaymentSuccess = () => {
                 </Link>
               </>
             ) : (
-              <Link to="/" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+              <Link to="/" className={`btn rounded-pill py-3 fw-bold ${appScheme ? "btn-outline-secondary border-0" : "btn-gradient shadow"}`}>
                 VỀ TRANG CHỦ
               </Link>
             )}

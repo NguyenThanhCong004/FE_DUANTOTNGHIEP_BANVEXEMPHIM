@@ -113,19 +113,27 @@ const PaymentCancel = () => {
           </div>
           <h2 className="fw-bold mb-3">Đã hủy thanh toán</h2>
           {cancelNote ? <p className="text-muted mb-4">{cancelNote}</p> : null}
-          {appScheme ? <p className="text-muted mb-4">Đang tự động quay lại ứng dụng…</p> : null}
           <p className="text-muted mb-4">
             {orderKind === "food"
               ? "Bạn có thể đặt lại đơn bắp nước hoặc thanh toán lại. Đơn chờ đã được hủy."
               : "Bạn có thể chọn suất khác hoặc thanh toán lại. Ghế không còn bị giữ bởi đơn chờ (sau khi hệ thống xử lý hủy)."}
           </p>
           <div className="d-grid gap-2">
+            {appScheme ? (
+              <button
+                type="button"
+                className="btn btn-gradient rounded-pill py-3 fw-bold shadow"
+                onClick={() => { window.location.href = decodeURIComponent(appScheme); }}
+              >
+                QUAY LẠI ỨNG DỤNG
+              </button>
+            ) : null}
             {orderKind === "food" ? (
-              <Link to="/foodorder" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+              <Link to="/foodorder" className={`btn rounded-pill py-3 fw-bold ${appScheme ? "btn-outline-secondary border-0" : "btn-gradient shadow"}`}>
                 ĐẶT LẠI BẮP NƯỚC
               </Link>
             ) : (
-              <Link to="/movies" className="btn btn-gradient rounded-pill py-3 fw-bold shadow">
+              <Link to="/movies" className={`btn rounded-pill py-3 fw-bold ${appScheme ? "btn-outline-secondary border-0" : "btn-gradient shadow"}`}>
                 CHỌN SUẤT KHÁC
               </Link>
             )}
