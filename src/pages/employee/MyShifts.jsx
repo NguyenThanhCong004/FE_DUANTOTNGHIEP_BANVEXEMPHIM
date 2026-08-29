@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { Calendar, Clock, RefreshCw, CheckCircle2, History, X, Ticket, ShoppingBag, DollarSign, CreditCard, ChevronRight, Filter } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Calendar, Clock, RefreshCw, CheckCircle2, History, X, Ticket, ShoppingBag, DollarSign, CreditCard, ChevronRight, ChevronLeft } from "lucide-react";
 import { apiFetch } from "../../utils/apiClient";
+import InvoiceSummaryCard from "../../components/common/InvoiceSummaryCard";
 import { SHIFTS, STAFF_DASHBOARD } from "../../constants/apiEndpoints";
 import { withQuery } from "../../utils/apiClient";
 import { clearAuthSession } from "../../utils/authStorage";
@@ -13,39 +14,28 @@ export default function MyShifts() {
   const [error, setError] = useState(null);
   const [, setClockTick] = useState(0);
 
-  // Filter state
-  const [filterDate, setFilterDate] = useState('');
-  const [filterInput, setFilterInput] = useState('');
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
-  const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
-  const calRef = useRef(null);
+  // Filter state — lọc theo tháng/năm
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1); // 1–12
+  const [filterActive, setFilterActive] = useState(false);
 
-  const openCalendar = () => {
-    const base = filterDate ? new Date(filterDate + 'T00:00:00') : new Date();
-    setCalYear(base.getFullYear()); setCalMonth(base.getMonth());
-    setShowCalendar(v => !v);
+  const MONTH_NAMES = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+
+  const prevMonth = () => {
+    if (filterMonth === 1) { setFilterMonth(12); setFilterYear(y => y - 1); }
+    else setFilterMonth(m => m - 1);
   };
-
-  const clearFilter = () => { setFilterDate(''); setFilterInput(''); setShowCalendar(false); };
-
-  const handleFilterInput = (raw) => {
-    const digits = raw.replace(/\D/g, '').slice(0, 8);
-    let fmt = digits;
-    if (digits.length > 2) fmt = digits.slice(0, 2) + '/' + digits.slice(2);
-    if (digits.length > 4) fmt = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
-    setFilterInput(fmt);
-    if (digits.length === 8) {
-      const d = digits.slice(0, 2), m = digits.slice(2, 4), y = digits.slice(4, 8);
-      const obj = new Date(`${y}-${m}-${d}T00:00:00`);
-      if (!isNaN(obj) && obj.getDate() === +d && obj.getMonth() + 1 === +m) {
-        setFilterDate(`${y}-${m}-${d}`);
-        setCalYear(+y); setCalMonth(+m - 1);
-      }
-    } else {
-      setFilterDate('');
-    }
+  const nextMonth = () => {
+    if (filterMonth === 12) { setFilterMonth(1); setFilterYear(y => y + 1); }
+    else setFilterMonth(m => m + 1);
   };
+  const clearFilter = () => {
+    setFilterActive(false);
+    setFilterYear(now.getFullYear());
+    setFilterMonth(now.getMonth() + 1);
+  };
+  const applyFilter = () => setFilterActive(true);
 
   // Panel state
   const [selectedShift, setSelectedShift] = useState(null);
@@ -90,15 +80,6 @@ export default function MyShifts() {
     return () => clearInterval(interval);
   }, [load]);
 
-  useEffect(() => {
-    if (!showCalendar) return;
-    const handler = (e) => {
-      if (calRef.current && !calRef.current.contains(e.target)) setShowCalendar(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showCalendar]);
-
   const loadShiftDetail = useCallback(async (shift) => {
     setSelectedShift(shift);
     setPanelLoading(true);
@@ -129,6 +110,25 @@ export default function MyShifts() {
 
   const closePanel = () => setSelectedShift(null);
 
+  const [orderDetail, setOrderDetail] = useState(null);
+  const [orderDetailLoading, setOrderDetailLoading] = useState(false);
+
+  const openOrderDetail = useCallback(async (orderCode) => {
+    setOrderDetail({ orderCode, loading: true });
+    setOrderDetailLoading(true);
+    try {
+      const res = await apiFetch(STAFF_DASHBOARD.ORDER_DETAIL(orderCode));
+      const json = await res.json().catch(() => null);
+      setOrderDetail(json?.data ?? { orderCode });
+    } catch {
+      setOrderDetail({ orderCode });
+    } finally {
+      setOrderDetailLoading(false);
+    }
+  }, []);
+
+  const closeOrderDetail = () => setOrderDetail(null);
+
   const { upcomingShifts, pastShifts } = (() => {
     const now = new Date();
     const yyyy = now.getFullYear();
@@ -136,6 +136,14 @@ export default function MyShifts() {
     const dd = String(now.getDate()).padStart(2, '0');
     const todayStr = `${yyyy}-${mm}-${dd}`;
     const currentTimeStr = now.toTimeString().split(' ')[0].substring(0, 5);
+
+    // Tính ngày Chủ Nhật cuối tuần hiện tại (tuần T2–CN)
+    const dayOfWeek = now.getDay(); // 0=CN, 1=T2, ..., 6=T7
+    const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() + daysUntilSunday);
+    const endOfWeekStr = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+
     const upcoming = [];
     const past = [];
 
@@ -163,8 +171,10 @@ export default function MyShifts() {
         else if (isPastDate || (isToday && currentTimeStr > r.endTime)) status = 'COMPLETED';
       }
 
-      if (status === 'WORKING' || status === 'UPCOMING') {
+      if ((status === 'WORKING' || status === 'UPCOMING') && r.date <= endOfWeekStr) {
         upcoming.push({ ...r, status });
+      } else if (status === 'WORKING' || status === 'UPCOMING') {
+        // Ca tuần sau trở đi → không hiển thị, cũng không đưa vào lịch sử
       } else {
         past.push({ ...r, status: 'COMPLETED' });
       }
@@ -180,8 +190,11 @@ export default function MyShifts() {
     return { upcomingShifts: upcoming, pastShifts: past };
   })();
 
-  const filteredPastShifts = filterDate
-    ? pastShifts.filter(s => s.date === filterDate)
+  const filteredPastShifts = filterActive
+    ? pastShifts.filter(s => {
+        const [y, m] = String(s.date).split('-').map(Number);
+        return y === filterYear && m === filterMonth;
+      })
     : pastShifts;
 
   const fmt = (num) => new Intl.NumberFormat('vi-VN').format(num ?? 0);
@@ -248,71 +261,30 @@ export default function MyShifts() {
             <section className="shifts-section mt-5">
               <div className="history-section-header">
                 <h2 className="section-title history mb-0"><History size={18} /> LỊCH SỬ CA LÀM <span className="click-hint">— bấm vào ca để xem thống kê</span></h2>
-                <div className="cal-wrapper" ref={calRef}>
-                  <div className="date-filter-bar">
-                    <Filter size={14} className="filter-icon" />
-                    <input
-                      type="text"
-                      className="filter-text-input"
-                      placeholder="DD/MM/YYYY"
-                      value={filterInput}
-                      onChange={e => handleFilterInput(e.target.value)}
-                      maxLength={10}
-                    />
-                    <button className="cal-toggle-btn" onClick={openCalendar} title="Mở lịch">
-                      <Calendar size={14} />
-                    </button>
-                    {(filterInput || filterDate) && (
-                      <button className="clear-filter-btn" onClick={clearFilter} title="Xoá bộ lọc">
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
-
-                  {showCalendar && (() => {
-                    const today = new Date();
-                    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-                    const firstDow = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
-                    const cells = [...Array(firstDow).fill(null), ...Array.from({length: daysInMonth}, (_, i) => i + 1)];
-                    while (cells.length % 7 !== 0) cells.push(null);
-                    const selParts = filterDate ? filterDate.split('-').map(Number) : null;
-                    const isSelected = d => selParts && selParts[0] === calYear && selParts[1] === calMonth + 1 && selParts[2] === d;
-                    const isToday = d => today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d;
-                    const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); };
-                    const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); };
-                    const pickDay = d => { if (!d) return; const mm = String(calMonth+1).padStart(2,'0'); const dd = String(d).padStart(2,'0'); setFilterDate(`${calYear}-${mm}-${dd}`); setFilterInput(`${dd}/${mm}/${calYear}`); setShowCalendar(false); };
-                    const monthNames = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-                    return (
-                      <div className="cal-popup">
-                        <div className="cal-header">
-                          <button className="cal-nav" onClick={prevMonth}>‹</button>
-                          <span className="cal-month-label">{monthNames[calMonth]} {calYear}</span>
-                          <button className="cal-nav" onClick={nextMonth}>›</button>
-                        </div>
-                        <div className="cal-grid">
-                          {['T2','T3','T4','T5','T6','T7','CN'].map(d => <div key={d} className="cal-dow">{d}</div>)}
-                          {cells.map((d, i) => (
-                            <div key={i}
-                              className={`cal-day${d ? ' active' : ''}${d && isSelected(d) ? ' selected' : ''}${d && isToday(d) ? ' today' : ''}`}
-                              onClick={() => pickDay(d)}
-                            >{d || ''}</div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                <div className="month-filter-bar">
+                  <button className="month-nav-btn" onClick={prevMonth}><ChevronLeft size={14} /></button>
+                  <button
+                    className={`month-label-btn ${filterActive ? 'active' : ''}`}
+                    onClick={applyFilter}
+                  >
+                    <Calendar size={13} />
+                    {MONTH_NAMES[filterMonth - 1]} {filterYear}
+                  </button>
+                  <button className="month-nav-btn" onClick={nextMonth}><ChevronRight size={14} /></button>
+                  {filterActive && (
+                    <button className="clear-filter-btn" onClick={clearFilter} title="Xoá bộ lọc"><X size={13} /></button>
+                  )}
                 </div>
               </div>
-              {filterDate && (
+              {filterActive && (
                 <div className="filter-active-badge">
-                  Đang lọc: {filterDate.split('-').reverse().join('/')}
-                  {' '}· {filteredPastShifts.length} ca
+                  {MONTH_NAMES[filterMonth - 1]} {filterYear} · {filteredPastShifts.length} ca
                 </div>
               )}
               <div className="shifts-grid">
                 {filteredPastShifts.length > 0
                   ? filteredPastShifts.map(s => <ShiftCard key={s.id} shift={s} isPast={true} />)
-                  : <div className="empty-mini">{filterDate ? `Không có ca làm nào vào ngày đã chọn.` : 'Chưa có lịch sử làm việc.'}</div>}
+                  : <div className="empty-mini">{filterActive ? `Không có ca làm nào trong ${MONTH_NAMES[filterMonth - 1]} ${filterYear}.` : 'Chưa có lịch sử làm việc.'}</div>}
               </div>
             </section>
           </div>
@@ -378,13 +350,14 @@ export default function MyShifts() {
                   ) : (
                     <div className="orders-list">
                       {recentOrders.map((o, i) => (
-                        <div key={i} className="order-row">
+                        <div key={i} className="order-row clickable" onClick={() => openOrderDetail(o.orderCode)}>
                           <div className="order-code">{o.orderCode}</div>
                           <div className="order-meta">
                             <span className={`order-status-dot ${o.status === 1 ? 'paid' : 'other'}`} />
                             {o.status === 1 ? 'Đã thanh toán' : 'Khác'}
                           </div>
                           <div className="order-amount">{fmtCurrency(o.finalAmount)}</div>
+                          <ChevronRight size={13} style={{ color: '#475569', flexShrink: 0 }} />
                         </div>
                       ))}
                     </div>
@@ -395,6 +368,23 @@ export default function MyShifts() {
           </>
         )}
       </div>
+
+      {/* Order Detail Modal */}
+      {orderDetail && (
+        <div className="pos-overlay" onClick={closeOrderDetail}>
+          <div className="detail-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Chi tiết hóa đơn</h3>
+              <button className="close-btn" onClick={closeOrderDetail}><X size={20} /></button>
+            </div>
+            <div className="modal-body custom-scrollbar">
+              {orderDetailLoading
+                ? <div className="text-center py-5"><div className="spinner-border text-info" role="status" /></div>
+                : <InvoiceSummaryCard order={orderDetail} />}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .my-shifts-wrapper { display: flex; height: calc(100vh - 64px); background: #0f172a; overflow: hidden; }
@@ -453,34 +443,17 @@ export default function MyShifts() {
         .empty-mini { padding: 30px; text-align: center; background: rgba(15,23,42,0.3); border-radius: 16px; color: #64748b; font-size: 14px; border: 1px dashed rgba(255,255,255,0.1); }
         .alert-custom { background: rgba(239,68,68,0.1); color: #ef4444; padding: 16px; border-radius: 12px; border: 1px solid rgba(239,68,68,0.2); font-weight: 600; }
 
-        /* Date filter */
+        /* Month filter */
         .history-section-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
-        .cal-wrapper { position: relative; }
-        .date-filter-bar { display: flex; align-items: center; gap: 6px; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 5px 10px; transition: border-color 0.2s; }
-        .date-filter-bar:focus-within { border-color: rgba(56,189,248,0.4); }
-        .filter-icon { color: #64748b; flex-shrink: 0; }
-        .filter-text-input { background: transparent; border: none; outline: none; color: #f1f5f9; font-size: 13px; font-weight: 600; width: 92px; letter-spacing: 0.5px; }
-        .filter-text-input::placeholder { color: #475569; font-weight: 400; letter-spacing: 0; }
-        .cal-toggle-btn { background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.15); color: #38bdf8; border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; padding: 0; flex-shrink: 0; }
-        .cal-toggle-btn:hover { background: rgba(56,189,248,0.2); }
-        .clear-filter-btn { background: rgba(239,68,68,0.15); border: none; color: #ef4444; border-radius: 6px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; padding: 0; flex-shrink: 0; }
+        .month-filter-bar { display: flex; align-items: center; gap: 4px; }
+        .month-nav-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: #94a3b8; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; padding: 0; flex-shrink: 0; }
+        .month-nav-btn:hover { background: rgba(56,189,248,0.1); color: #38bdf8; border-color: rgba(56,189,248,0.3); }
+        .month-label-btn { display: flex; align-items: center; gap: 6px; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.08); color: #94a3b8; border-radius: 8px; padding: 5px 12px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .month-label-btn:hover { border-color: rgba(56,189,248,0.4); color: #38bdf8; }
+        .month-label-btn.active { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.4); color: #38bdf8; }
+        .clear-filter-btn { background: rgba(239,68,68,0.15); border: none; color: #ef4444; border-radius: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; padding: 0; flex-shrink: 0; margin-left: 2px; }
         .clear-filter-btn:hover { background: rgba(239,68,68,0.3); }
         .filter-active-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(129,140,248,0.1); border: 1px solid rgba(129,140,248,0.2); color: #818cf8; font-size: 12px; font-weight: 600; border-radius: 8px; padding: 5px 12px; margin-bottom: 14px; }
-
-        /* Calendar popup */
-        .cal-popup { position: absolute; top: calc(100% + 8px); right: 0; z-index: 200; background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 16px; width: 260px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-        .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .cal-month-label { font-size: 14px; font-weight: 800; color: #f1f5f9; }
-        .cal-nav { background: rgba(255,255,255,0.06); border: none; color: #94a3b8; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; line-height: 1; }
-        .cal-nav:hover { background: rgba(56,189,248,0.15); color: #38bdf8; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-        .cal-dow { text-align: center; font-size: 10px; font-weight: 800; color: #475569; padding: 4px 0; text-transform: uppercase; }
-        .cal-day { text-align: center; font-size: 13px; font-weight: 500; color: #64748b; padding: 6px 2px; border-radius: 8px; }
-        .cal-day.active { color: #cbd5e1; cursor: pointer; transition: all 0.15s; }
-        .cal-day.active:hover { background: rgba(56,189,248,0.15); color: #38bdf8; }
-        .cal-day.today { color: #38bdf8; font-weight: 800; }
-        .cal-day.today::after { content: '·'; display: block; font-size: 16px; line-height: 0; margin-top: 2px; color: #38bdf8; }
-        .cal-day.selected { background: #38bdf8 !important; color: #0f172a !important; font-weight: 800; }
 
         /* Detail Panel */
         .shift-detail-panel {
@@ -521,13 +494,24 @@ export default function MyShifts() {
         .breakdown-amount { font-weight: 700; color: #f59e0b; }
 
         .orders-list { display: flex; flex-direction: column; gap: 6px; }
-        .order-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; font-size: 12px; }
+        .order-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; font-size: 12px; border: 1px solid transparent; transition: all 0.15s; }
+        .order-row.clickable { cursor: pointer; }
+        .order-row.clickable:hover { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.2); }
         .order-code { font-weight: 700; color: #38bdf8; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .order-meta { display: flex; align-items: center; gap: 4px; color: #64748b; flex-shrink: 0; }
         .order-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
         .order-status-dot.paid { background: #10b981; }
         .order-status-dot.other { background: #64748b; }
         .order-amount { font-weight: 700; color: #f1f5f9; flex-shrink: 0; }
+
+        /* Order detail modal — giống Dashboard */
+        .pos-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 20px; }
+        .detail-modal { background: #1e293b; border-radius: 20px; width: 100%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .modal-header { padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: #f1f5f9; }
+        .modal-body { flex: 1; overflow-y: auto; padding: 24px; }
+        .close-btn { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 5px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .close-btn:hover { background: rgba(255,255,255,0.05); color: white; }
       `}</style>
     </div>
   );

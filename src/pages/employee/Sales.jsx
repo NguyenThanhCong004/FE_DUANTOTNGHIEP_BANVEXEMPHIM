@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize, Phone, UserCheck, UserPlus, Loader } from 'lucide-react';
+import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize, Phone, UserCheck, UserPlus, Loader, Home, Clock } from 'lucide-react';
 import { getAccessToken, getStoredStaff } from '../../utils/authStorage';
 import { apiUrl, withQuery } from '../../utils/apiClient';
 import { MOVIES, SHOWTIMES, CINEMAS, SEATS, COUNTER_ORDERS, SEAT_TYPES, SHOWTIME_SEAT_HOLDS, STAFF_DASHBOARD } from '../../constants/apiEndpoints';
@@ -182,6 +182,8 @@ const Sales = () => {
   const [movies, setMovies] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [showtimes, setShowtimes] = useState([]);
+  const [allShowtimesForHome, setAllShowtimesForHome] = useState([]);
+  const [showHome, setShowHome] = useState(false);
   const [selectedShowtime, setSelectedShowtime] = useState(null);
   const [seats, setSeats] = useState([]);
   const [seatTypes, setSeatTypes] = useState([]);
@@ -369,6 +371,14 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
+    if (!cinemaId) return;
+    fetch(apiUrl(withQuery(SHOWTIMES.LIST, { cinemaId })))
+      .then(r => r.json())
+      .then(json => { if (json?.data) setAllShowtimesForHome(json.data); })
+      .catch(err => console.error("Lỗi tải dữ liệu trang chủ:", err));
+  }, [cinemaId]);
+
+  useEffect(() => {
     if (cinemaId) {
       const fetchMoviesShowingToday = async () => {
         try {
@@ -376,8 +386,13 @@ const Sales = () => {
           const json = await res.json();
           
           if (json?.data && json.data.length > 0) {
+            const now = new Date();
+            const todayYmd = now.toLocaleDateString('sv-SE');
             const moviesMap = new Map();
             json.data.forEach(st => {
+              if (st.status !== "Sắp chiếu") return;
+              if (st.date && String(st.date).slice(0, 10) !== todayYmd) return;
+              if (st.date && st.time && new Date(`${st.date}T${st.time}:00`) <= now) return;
               const mId = st.movieId || st.movie_id || (st.movie && st.movie.id);
               if (mId && !moviesMap.has(mId)) {
                 moviesMap.set(mId, {
@@ -540,6 +555,7 @@ const Sales = () => {
   // --- Handlers ---
 
   const handleSelectMovie = (movie) => {
+    setShowHome(false);
     if (selectedMovie?.id === movie.id) {
       setActiveTab('showtimes');
       return;
@@ -569,6 +585,36 @@ const Sales = () => {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([time, group]) => ({ time, group }));
   }, [showtimes]);
+
+  const homeMoviesData = useMemo(() => {
+    const now = new Date();
+    const todayYmd = now.toLocaleDateString('sv-SE');
+    const movieMap = new Map();
+    allShowtimesForHome.forEach(st => {
+      if (st.status !== "Sắp chiếu") return;
+      if (st.date && String(st.date).slice(0, 10) !== todayYmd) return;
+      if (st.date && st.time && new Date(`${st.date}T${st.time}:00`) <= now) return;
+      const mId = st.movieId || st.movie_id || (st.movie && st.movie.id);
+      if (!mId) return;
+      if (!movieMap.has(mId)) {
+        movieMap.set(mId, {
+          id: mId,
+          title: st.movieTitle || st.movie_title || (st.movie && st.movie.title) || "Phim không tên",
+          duration: st.movieDuration || st.movie_duration || (st.movie && st.movie.duration) || 120,
+          slots: [],
+        });
+      }
+      const timeKey = String(st.time || "").slice(0, 5);
+      const entry = movieMap.get(mId);
+      if (!entry.slots.find(s => s.time === timeKey)) {
+        entry.slots.push({ time: timeKey, endTime: st.endTime || null, roomName: st.room_name || st.roomName || null });
+      }
+    });
+    const result = Array.from(movieMap.values());
+    result.forEach(m => m.slots.sort((a, b) => a.time.localeCompare(b.time)));
+    result.sort((a, b) => (a.slots[0]?.time || "99:99").localeCompare(b.slots[0]?.time || "99:99"));
+    return result;
+  }, [allShowtimesForHome]);
 
   const ROOM_SWITCH_OCCUPANCY_RATIO = 0.9;
 
@@ -1112,6 +1158,19 @@ const Sales = () => {
             <Search size={14} className="text-white-50" />
             <input ref={searchInputRef} type="text" placeholder="Tìm phim (F)..." value={searchTerm} onChange={(e) => setSearchText(e.target.value)} />
           </div>
+          <button
+            className={`pos-home-btn ${showHome ? 'active' : ''}`}
+            onClick={() => {
+              setShowHome(true);
+              setSelectedMovie(null);
+              setSelectedShowtime(null);
+              setShowtimes([]);
+              setActiveTab('showtimes');
+            }}
+          >
+            <Home size={13} />
+            Trang chủ
+          </button>
         </div>
         <div className="pos-movie-list custom-scrollbar">
           {filteredMovies.map(movie => (
@@ -1144,7 +1203,30 @@ const Sales = () => {
         </header>
 
         <section className="pos-view-area custom-scrollbar" style={{ paddingTop: '30px' }}>
-          {activeTab === 'showtimes' && (
+          {activeTab === 'showtimes' && showHome && (
+            <div className="view-home">
+              <h3 className="section-title"><Clock size={15} /> Suất chiếu hôm nay — gần nhất</h3>
+              {homeMoviesData.length === 0 && <p className="text-white-50" style={{ fontSize: 13, margin: 0 }}>Không còn suất chiếu nào hôm nay.</p>}
+              <div className="home-movies-grid">
+                {homeMoviesData.map(movie => (
+                  <div
+                    key={`home-${movie.id}`}
+                    className="home-movie-card"
+                    onClick={() => handleSelectMovie(movie)}
+                  >
+                    <div className="home-card-title">{movie.title}</div>
+                    <div className="home-card-duration">{movie.duration} phút</div>
+                    <div className="home-card-slots">
+                      {movie.slots.map(s => (
+                        <span key={s.time} className="home-slot-badge">{s.time}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {activeTab === 'showtimes' && !showHome && (
             <div className="view-showtimes">
               <h3 className="section-title">{selectedMovie ? `Suất chiếu: ${selectedMovie.title}` : "Chọn phim bên trái"}</h3>
               <div className="pos-showtimes-grid">
@@ -1161,9 +1243,6 @@ const Sales = () => {
                       disabled={resolvingSlotTime !== null}
                     >
                       <div className="st-time-range">{slot.time} - {sample.endTime || '??:??'}</div>
-                      {!isMerged && (sample.room_name || sample.roomName) && (
-                        <div className="st-room-name">{sample.room_name || sample.roomName}</div>
-                      )}
                       {isResolving && (
                         <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>Đang chọn phòng...</div>
                       )}
@@ -1523,11 +1602,32 @@ const Sales = () => {
           height: 100%;
           overflow: hidden;
         }
-        .pos-search { 
-          padding: 12px; 
-          background: rgba(15, 23, 42, 0.4); 
-          border-bottom: 1px solid rgba(255,255,255,0.05); 
+        .pos-search {
+          padding: 12px;
+          background: rgba(15, 23, 42, 0.4);
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
+        .pos-home-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 7px 10px;
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(15, 23, 42, 0.5);
+          color: #94a3b8;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .pos-home-btn:hover { background: rgba(255,255,255,0.05); color: #f1f5f9; border-color: rgba(255,255,255,0.2); }
+        .pos-home-btn.active { background: linear-gradient(135deg, #0f766e, #0d9488); color: #fff; border-color: #0d9488; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3); }
         .pos-search-box { 
           display: flex; 
           align-items: center; 
@@ -1772,6 +1872,39 @@ const Sales = () => {
           border-color: white !important;
         }
         .seat-number-text { color: #ffffff; font-weight: 900; text-shadow: 0 1px 1px rgba(0,0,0,0.6); }
+
+        /* Home View */
+        .view-home { padding: 0; }
+        .home-movies-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 12px;
+        }
+        .home-movie-card {
+          background: #1e293b;
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 12px;
+          padding: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .home-movie-card:hover { border-color: #0d9488; background: #1a2d3a; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13,148,136,0.2); }
+        .home-card-title { font-size: 13px; font-weight: 800; color: #f1f5f9; line-height: 1.35; }
+        .home-card-duration { font-size: 10px; font-weight: 600; color: #64748b; }
+        .home-card-slots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+        .home-slot-badge {
+          background: rgba(56,189,248,0.12);
+          color: #38bdf8;
+          border: 1px solid rgba(56,189,248,0.25);
+          border-radius: 6px;
+          padding: 3px 8px;
+          font-size: 11px;
+          font-weight: 800;
+          font-family: 'JetBrains Mono', monospace;
+        }
 
         /* Food Grid Styling */
         .food-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
