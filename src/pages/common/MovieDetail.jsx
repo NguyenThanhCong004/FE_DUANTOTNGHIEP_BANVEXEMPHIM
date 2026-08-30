@@ -370,7 +370,8 @@ const MovieDetail = () => {
   };
 
   const poster = movie?.posterUrl || movie?.poster || "";
-  const isStopped = movie && movie.status !== 1;
+  const isComingSoon = movie?.status === 2;
+  const isStopped = movie && movie.status !== 1 && movie.status !== 2;
 
   const metaLine = useMemo(() => {
     if (!movie) return "";
@@ -487,8 +488,8 @@ const MovieDetail = () => {
         }
         .md-back:hover { border-color: var(--yellow); background: rgba(212,255,0,0.05); color: var(--yellow); }
 
-        /* ── STOPPED BANNER ── */
-        .md-stopped {
+        /* ── STATUS BANNER ── */
+        .md-status-note {
           font-family: 'Syne', sans-serif;
           font-size: 13px;
           font-weight: 700;
@@ -499,7 +500,11 @@ const MovieDetail = () => {
           border-radius: 10px;
           margin-bottom: 28px;
         }
-        .md-stopped strong { color: var(--yellow); }
+        .md-status-note strong { color: var(--yellow); }
+        .md-status-note.soon {
+          background: rgba(212,255,0,0.05);
+          border-color: rgba(212,255,0,0.18);
+        }
 
         /* ── LOADING ── */
         .md-loading {
@@ -554,6 +559,20 @@ const MovieDetail = () => {
           line-height: 1.1;
           margin: 0 0 12px;
           text-transform: uppercase;
+        }
+
+        .md-title-row {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) max-content;
+          align-items: flex-start;
+          gap: 16px;
+          margin-bottom: 12px;
+        }
+
+        .md-title-row .md-title {
+          min-width: 0;
+          margin-bottom: 0 !important;
+          overflow-wrap: anywhere;
         }
 
         .md-fav-btn {
@@ -962,8 +981,14 @@ const MovieDetail = () => {
           {/* Content */}
           {!loading && movie && (
             <>
+              {isComingSoon && (
+                <div className="md-status-note soon">
+                  Phim này hiện đang ở trạng thái <strong>sắp chiếu</strong>. Lịch đặt vé sẽ hiển thị khi rạp mở suất chiếu.
+                </div>
+              )}
+
               {isStopped && (
-                <div className="md-stopped">
+                <div className="md-status-note">
                   Phim này đã <strong>ngừng chiếu</strong> — không hiển thị trên trang chủ / banner.
                 </div>
               )}
@@ -981,7 +1006,7 @@ const MovieDetail = () => {
                 <div className="md-info-col">
                   <div className="md-strip" />
 
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
+                  <div className="md-title-row">
                     <h1 className="md-title">{movie.title}</h1>
                     <button
                       type="button"

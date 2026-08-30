@@ -7,8 +7,10 @@ import { CINEMAS, FOOD_ORDERS } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { isDisplayableImageSrc } from "../../utils/mediaFiles";
 import { formatVnd } from "../../utils/formatters";
+import PublicPagination from "../../components/common/PublicPagination";
 
 const fmt = formatVnd;
+const FOOD_PAGE_SIZE = 8;
 
 function normalizeProduct(o) {
   const id = o.productId ?? o.product_id;
@@ -81,6 +83,7 @@ export function FoodOrderContent({ embedded = false }) {
   const [cart, setCart] = useState({});
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("Tất cả");
+  const [page, setPage] = useState(1);
   const [paying, setPaying] = useState(false);
   const [checkoutError, setCheckoutError] = useState(null);
 
@@ -141,6 +144,23 @@ export function FoodOrderContent({ embedded = false }) {
       return catOk;
     });
   }, [products, activeCategory]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [cinemaId, search, activeCategory]);
+
+  const foodPageSize = embedded ? Math.max(filtered.length, 1) : FOOD_PAGE_SIZE;
+  const foodTotalPages = Math.max(1, Math.ceil(filtered.length / foodPageSize));
+
+  useEffect(() => {
+    if (page > foodTotalPages) setPage(foodTotalPages);
+  }, [page, foodTotalPages]);
+
+  const pagedProducts = useMemo(() => {
+    const safePage = Math.min(page, foodTotalPages);
+    const start = (safePage - 1) * foodPageSize;
+    return filtered.slice(start, start + foodPageSize);
+  }, [filtered, foodPageSize, foodTotalPages, page]);
 
   const addItem    = (productId) => setCart((c) => ({ ...c, [productId]: (c[productId] || 0) + 1 }));
   const removeItem = (productId) => setCart((c) => {
@@ -556,7 +576,7 @@ export function FoodOrderContent({ embedded = false }) {
                     style={{ marginBottom: 20 }}
                   />
                   <Row className="g-3">
-                    {filtered.map((p) => (
+                    {pagedProducts.map((p) => (
                       <Col key={p.productId} xs={6} md={4} xl={3}>
                         <ProductCard
                           product={p}
@@ -567,6 +587,14 @@ export function FoodOrderContent({ embedded = false }) {
                       </Col>
                     ))}
                   </Row>
+                  {!embedded && (
+                    <PublicPagination
+                      page={page}
+                      totalItems={filtered.length}
+                      pageSize={FOOD_PAGE_SIZE}
+                      onPageChange={setPage}
+                    />
+                  )}
                 </>
               )}
             </Col>

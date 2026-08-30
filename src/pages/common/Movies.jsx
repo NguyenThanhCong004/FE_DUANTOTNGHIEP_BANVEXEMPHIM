@@ -3,11 +3,12 @@ import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import MovieCard from "../../components/common/MovieCard";
 import EmptyState from "../../components/common/EmptyState";
+import PublicPagination from "../../components/common/PublicPagination";
 import { apiFetch, withQuery } from "../../utils/apiClient";
-import { MOVIES } from "../../constants/apiEndpoints";
+import { GENRES, MOVIES } from "../../constants/apiEndpoints";
 import { mapMovieForCard } from "../../utils/movieApiMap";
 
-const GENRES = ["Hành động", "Hoạt hình", "Tình cảm", "Kinh dị", "Viễn tưởng"];
+const MOVIES_PAGE_SIZE = 12;
 
 const Movies = () => {
   const [searchParams] = useSearchParams();
@@ -15,6 +16,8 @@ const Movies = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [allMovies, setAllMovies] = useState([]);
+  const [genreOptions, setGenreOptions] = useState([]);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const q = searchParams.get("q") || "";
@@ -50,6 +53,34 @@ const Movies = () => {
     return () => { m = false; };
   }, [filter.keyword]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [filter.keyword, filter.genre, filter.status]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiFetch(GENRES.LIST);
+        const json = await res.json().catch(() => null);
+        if (!mounted || !res.ok) return;
+        const names = (Array.isArray(json?.data) ? json.data : [])
+          .map((g) => String(g.name ?? g.genreName ?? "").trim())
+          .filter(Boolean);
+        setGenreOptions([...new Set(names)].sort((a, b) => a.localeCompare(b, "vi")));
+      } catch {
+        if (mounted) setGenreOptions([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const genreFilterOptions = useMemo(() => {
+    const fromMovies = allMovies.flatMap((movie) => movie.genres || []);
+    return [...new Set([...genreOptions, ...fromMovies].map((g) => String(g).trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "vi"));
+  }, [allMovies, genreOptions]);
+
   const filteredMovies = useMemo(() => {
     const list = allMovies.filter((movie) => {
       const matchGenre   = filter.genre === "" || (movie.genres || []).includes(filter.genre);
@@ -66,6 +97,17 @@ const Movies = () => {
       return Number(b.id || 0) - Number(a.id || 0);
     });
   }, [allMovies, filter]);
+
+  const movieTotalPages = Math.max(1, Math.ceil(filteredMovies.length / MOVIES_PAGE_SIZE));
+
+  useEffect(() => {
+    if (page > movieTotalPages) setPage(movieTotalPages);
+  }, [page, movieTotalPages]);
+
+  const pagedMovies = useMemo(() => {
+    const start = (page - 1) * MOVIES_PAGE_SIZE;
+    return filteredMovies.slice(start, start + MOVIES_PAGE_SIZE);
+  }, [filteredMovies, page]);
 
   return (
     <Layout>
@@ -303,7 +345,7 @@ const Movies = () => {
                 onChange={(e) => setFilter({ ...filter, genre: e.target.value })}
               >
                 <option value="">Tất cả thể loại</option>
-                {GENRES.map((g) => (
+                {genreFilterOptions.map((g) => (
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
@@ -336,13 +378,21 @@ const Movies = () => {
           ) : error ? (
             <div className="mv-error">⚠ {error}</div>
           ) : filteredMovies.length > 0 ? (
-            <div className="row g-4">
-              {filteredMovies.map((movie) => (
-                <div key={movie.id} className="col-6 col-md-3">
-                  <MovieCard movie={movie} isComingSoon={movie.type === "soon"} />
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="row g-4">
+                {pagedMovies.map((movie) => (
+                  <div key={movie.id} className="col-6 col-md-3">
+                    <MovieCard movie={movie} isComingSoon={movie.type === "soon"} />
+                  </div>
+                ))}
+              </div>
+              <PublicPagination
+                page={page}
+                totalItems={filteredMovies.length}
+                pageSize={MOVIES_PAGE_SIZE}
+                onPageChange={setPage}
+              />
+            </>
           ) : (
             <div className="mv-empty">
               <div className="mv-empty-icon">🎬</div>

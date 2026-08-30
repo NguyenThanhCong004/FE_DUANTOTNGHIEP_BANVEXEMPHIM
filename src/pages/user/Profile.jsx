@@ -57,6 +57,27 @@ function resolveUserId(user) {
   return user?.user_id ?? user?.userId ?? user?.id ?? getUserIdFromToken(getAccessToken());
 }
 
+/**
+ * BE có thể trả `data` là Page thật ({content, totalPages, totalElements})
+ * hoặc mảng thuần (chưa phân trang server-side). Chuẩn hoá về cùng 1 dạng,
+ * tự cắt trang phía FE khi BE trả nguyên mảng.
+ */
+function extractPagedList(body, page, pageSize) {
+  const data = body?.data;
+  if (Array.isArray(data)) {
+    const totalElements = data.length;
+    const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
+    const start = (page - 1) * pageSize;
+    return { content: data.slice(start, start + pageSize), totalPages, totalElements };
+  }
+  const content = Array.isArray(data?.content) ? data.content : [];
+  return {
+    content,
+    totalPages: data?.totalPages || 1,
+    totalElements: data?.totalElements ?? content.length,
+  };
+}
+
 const fmtBirthday = (d) => {
   return formatDate(d, { day: "2-digit", month: "2-digit", year: "numeric" });
 };
@@ -939,6 +960,13 @@ const TABS = [
   { key: "transactions", label: "Lịch sử giao dịch" },
 ];
 
+const PROFILE_PAGE_SIZES = {
+  transactions: 5,
+  points: 5,
+  favorites: 8,
+  vouchers: 6,
+};
+
 export default function UserProfile() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -962,7 +990,6 @@ export default function UserProfile() {
   const [loadingVou, setLoadingVou] = useState(false);
   const [loadingRnk, setLoadingRnk] = useState(false);
 
-  const PAGE_SIZE = 10;
   const [txPage,  setTxPage]  = useState(1);
   const [ptsPage, setPtsPage] = useState(1);
   const [favPage, setFavPage] = useState(1);
@@ -1018,54 +1045,50 @@ export default function UserProfile() {
 
     if (activeTab === "transactions") {
       setLoadingTx(true);
-      apiFetch(withQuery(ME.TRANSACTIONS, { search: txSearch, page: txPage - 1, size: PAGE_SIZE }))
+      apiFetch(withQuery(ME.TRANSACTIONS, { search: txSearch, page: txPage - 1, size: PROFILE_PAGE_SIZES.transactions }))
         .then(r => r.json().catch(() => null)).then(body => {
           if (c) return;
-          const paged = body?.data;
-          const content = Array.isArray(paged?.content) ? paged.content : [];
+          const { content, totalPages, totalElements } = extractPagedList(body, txPage, PROFILE_PAGE_SIZES.transactions);
           setTransactions(content.map(mapMeTransactionToFe));
-          setTxPaging({ totalPages: paged?.totalPages || 1, totalElements: paged?.totalElements || 0 });
+          setTxPaging({ totalPages, totalElements });
         }).catch(() => {}).finally(() => { if (!c) setLoadingTx(false); });
     }
 
     if (activeTab === "points") {
       setLoadingPts(true);
-      apiFetch(withQuery(ME.POINTS_HISTORY, { page: ptsPage - 1, size: PAGE_SIZE }))
+      apiFetch(withQuery(ME.POINTS_HISTORY, { page: ptsPage - 1, size: PROFILE_PAGE_SIZES.points }))
         .then(r => r.json().catch(() => null)).then(body => {
           if (c) return;
-          const paged = body?.data;
-          const content = Array.isArray(paged?.content) ? paged.content : [];
+          const { content, totalPages, totalElements } = extractPagedList(body, ptsPage, PROFILE_PAGE_SIZES.points);
           setPointRows(content.map(r => ({
             id: r.pointHistoryId,
             date: formatDate(r.date),
             label: r.description || "—",
             delta: Number(r.points ?? 0),
           })));
-          setPtsPaging({ totalPages: paged?.totalPages || 1, totalElements: paged?.totalElements || 0 });
+          setPtsPaging({ totalPages, totalElements });
         }).catch(() => {}).finally(() => { if (!c) setLoadingPts(false); });
     }
 
     if (activeTab === "favorites") {
       setLoadingFav(true);
-      apiFetch(withQuery(ME.FAVORITES, { page: favPage - 1, size: PAGE_SIZE }))
+      apiFetch(withQuery(ME.FAVORITES, { page: favPage - 1, size: PROFILE_PAGE_SIZES.favorites }))
         .then(r => r.json().catch(() => null)).then(body => {
           if (c) return;
-          const paged = body?.data;
-          const content = Array.isArray(paged?.content) ? paged.content : [];
+          const { content, totalPages, totalElements } = extractPagedList(body, favPage, PROFILE_PAGE_SIZES.favorites);
           setFavorites(content.map(mapFavoriteRowToFavCard));
-          setFavPaging({ totalPages: paged?.totalPages || 1, totalElements: paged?.totalElements || 0 });
+          setFavPaging({ totalPages, totalElements });
         }).catch(() => {}).finally(() => { if (!c) setLoadingFav(false); });
     }
 
     if (activeTab === "vouchers") {
       setLoadingVou(true);
-      apiFetch(withQuery(ME.VOUCHERS, { page: vouPage - 1, size: PAGE_SIZE }))
+      apiFetch(withQuery(ME.VOUCHERS, { page: vouPage - 1, size: PROFILE_PAGE_SIZES.vouchers }))
         .then(r => r.json().catch(() => null)).then(body => {
           if (c) return;
-          const paged = body?.data;
-          const content = Array.isArray(paged?.content) ? paged.content : [];
+          const { content, totalPages, totalElements } = extractPagedList(body, vouPage, PROFILE_PAGE_SIZES.vouchers);
           setVouchers(content.map(mapUserVoucherRow));
-          setVouPaging({ totalPages: paged?.totalPages || 1, totalElements: paged?.totalElements || 0 });
+          setVouPaging({ totalPages, totalElements });
         }).catch(() => {}).finally(() => { if (!c) setLoadingVou(false); });
     }
 
@@ -1698,7 +1721,7 @@ export default function UserProfile() {
                 page={txPage}
                 totalPages={txPaging.totalPages}
                 totalItems={txPaging.totalElements}
-                pageSize={PAGE_SIZE}
+                pageSize={PROFILE_PAGE_SIZES.transactions}
                 onPageChange={setTxPage}
               />
             </div>
@@ -1711,7 +1734,7 @@ export default function UserProfile() {
               page={ptsPage}
               totalPages={ptsPaging.totalPages}
               totalItems={ptsPaging.totalElements}
-              pageSize={PAGE_SIZE}
+              pageSize={PROFILE_PAGE_SIZES.points}
               onPageChange={setPtsPage}
             />
           )}
@@ -1722,7 +1745,7 @@ export default function UserProfile() {
               page={favPage}
               totalPages={favPaging.totalPages}
               totalItems={favPaging.totalElements}
-              pageSize={PAGE_SIZE}
+              pageSize={PROFILE_PAGE_SIZES.favorites}
               onPageChange={setFavPage}
             />
           )}
@@ -1735,7 +1758,7 @@ export default function UserProfile() {
                 page={vouPage}
                 totalPages={vouPaging.totalPages}
                 totalItems={vouPaging.totalElements}
-                pageSize={PAGE_SIZE}
+                pageSize={PROFILE_PAGE_SIZES.vouchers}
                 onPageChange={setVouPage}
               />
             </div>
