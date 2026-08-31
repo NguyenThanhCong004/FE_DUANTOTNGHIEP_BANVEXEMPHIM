@@ -4,7 +4,7 @@ import Layout from '../../components/layout/Layout';
 import CustomerPageShell from '../../components/common/CustomerPageShell';
 import MovieCard from '../../components/common/MovieCard';
 import { Row, Col, Spinner } from 'react-bootstrap';
-import { apiFetch } from '../../utils/apiClient';
+import { apiFetch, withQuery } from '../../utils/apiClient';
 import { ME } from '../../constants/apiEndpoints';
 import { getAccessToken } from '../../utils/authStorage';
 import { mapFavoriteRowToFavCard } from '../../utils/customerMeApi';
@@ -59,7 +59,9 @@ export default function Favorites() {
       setLoading(true);
       setLoadError(null);
       try {
-        const res = await apiFetch(ME.FAVORITES);
+        // /me/favorites giờ trả dạng phân trang { content, totalPages,... } — trang này chưa có
+        // cuộn tải thêm riêng nên lấy size lớn để không bị mất phim yêu thích cũ.
+        const res = await apiFetch(withQuery(ME.FAVORITES, { size: 50 }));
         const body = await res.json().catch(() => null);
         if (c) return;
         if (res.status === 401) {
@@ -71,7 +73,7 @@ export default function Favorites() {
           setFavorites([]);
           return;
         }
-        const rows = Array.isArray(body?.data) ? body.data : [];
+        const rows = Array.isArray(body?.data?.content) ? body.data.content : Array.isArray(body?.data) ? body.data : [];
         setFavorites(rows.map(mapFavoriteRowToFavCard));
       } catch {
         if (!c) setLoadError('Lỗi kết nối');

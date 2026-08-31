@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
 import Layout from "../../components/layout/Layout";
 import EmptyState from "../../components/common/EmptyState";
-import { apiFetch } from "../../utils/apiClient";
+import { apiFetch, withQuery } from "../../utils/apiClient";
 import { MOVIES, CINEMAS, SHOWTIMES, SEATS, ME } from "../../constants/apiEndpoints";
 import { getAccessToken } from "../../utils/authStorage";
 import { releaseDateToYmd } from "../../utils/movieApiMap";
@@ -199,10 +199,12 @@ const MovieDetail = () => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await apiFetch(ME.FAVORITES);
+        // /me/favorites giờ trả dạng phân trang { content, totalPages,... } — lấy size lớn vì
+        // đây chỉ là kiểm tra tồn tại (không hiện danh sách), không cần phân trang thật.
+        const res = await apiFetch(withQuery(ME.FAVORITES, { size: 50 }));
         const body = await res.json().catch(() => null);
         if (cancelled || !res.ok) return;
-        const rows = Array.isArray(body?.data) ? body.data : [];
+        const rows = Array.isArray(body?.data?.content) ? body.data.content : Array.isArray(body?.data) ? body.data : [];
         setIsFavorite(rows.some((r) => Number(r.movieId) === movieId));
       } catch { if (!cancelled) setIsFavorite(false); }
     })();
