@@ -691,7 +691,8 @@ html.moviezone-public .md-slot-card {
 }
 
 html.moviezone-public .home-page .mySwiper img {
-  height: clamp(320px, 40vw, 520px) !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9 !important;
 }
 
 html.moviezone-public .row.g-4,
@@ -726,9 +727,5 @@ html.moviezone-public .row.g-3 {
   html.moviezone-public .pf-hero-stats,
   html.moviezone-public .stat-chip {
     width: 100%;
-  }
-
-  html.moviezone-public .home-page .mySwiper img {
-    height: 320px !important;
   }
 }
