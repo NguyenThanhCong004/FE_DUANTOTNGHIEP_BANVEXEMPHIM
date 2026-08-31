@@ -33,8 +33,8 @@ const HeroSlider = ({ banners }) => {
       >
         {slides.map((slide, index) => (
           <SwiperSlide key={slide.key}>
-            <div className="position-relative">
-              <img src={slide.imageUrl} className="d-block w-100" style={{ objectFit: 'cover' }} alt={`Banner ${index + 1}`} />
+            <div className="position-relative" style={{ background: '#0f102a' }}>
+              <img src={slide.imageUrl} className="d-block w-100" style={{ objectFit: 'contain' }} alt={`Banner ${index + 1}`} />
               <div className="carousel-caption d-none d-md-block text-start pb-5">
                 <h2 className="display-4 fw-black text-white text-uppercase tracking-tighter" style={{ textShadow: '4px 4px 0px rgba(0,0,0,0.5)', fontWeight: 900 }}>
                   {slide.title}
