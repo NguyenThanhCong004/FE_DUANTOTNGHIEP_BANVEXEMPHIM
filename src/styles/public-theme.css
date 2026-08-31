@@ -690,9 +690,8 @@ html.moviezone-public .md-slot-card {
   border-radius: var(--user-card-radius) !important;
 }
 
-html.moviezone-public .home-page .mySwiper img {
+html.moviezone-public .home-page .mySwiper .hero-slide-box {
   height: clamp(300px, 40vw, 600px) !important;
-  object-position: center !important;
 }
 
 html.moviezone-public .row.g-4,
