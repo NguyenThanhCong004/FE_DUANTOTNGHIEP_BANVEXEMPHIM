@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
-import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize, Phone, UserCheck, UserPlus, Loader } from 'lucide-react';
+import { ShoppingCart, Ticket, Utensils, CreditCard, User, Search, Plus, Minus, X, CheckCircle2, Banknote, RefreshCcw, ZoomIn, ZoomOut, Maximize, Phone, UserCheck, UserPlus, Loader, Home, Clock } from 'lucide-react';
 import { getAccessToken, getStoredStaff } from '../../utils/authStorage';
 import { apiUrl, withQuery } from '../../utils/apiClient';
 import { MOVIES, SHOWTIMES, CINEMAS, SEATS, COUNTER_ORDERS, SEAT_TYPES, SHOWTIME_SEAT_HOLDS, STAFF_DASHBOARD } from '../../constants/apiEndpoints';
@@ -182,6 +182,8 @@ const Sales = () => {
   const [movies, setMovies] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [showtimes, setShowtimes] = useState([]);
+  const [allShowtimesForHome, setAllShowtimesForHome] = useState([]);
+  const [showHome, setShowHome] = useState(false);
   const [selectedShowtime, setSelectedShowtime] = useState(null);
   const [seats, setSeats] = useState([]);
   const [seatTypes, setSeatTypes] = useState([]);
@@ -203,6 +205,7 @@ const Sales = () => {
   const [timeLeft, setTimeLeft] = useState(0); // Đếm ngược giây
   const [seatZoom, setSeatZoom] = useState(1);
   const [paymentQrImageUrl, setPaymentQrImageUrl] = useState(null);
+  const [resolvingSlotTime, setResolvingSlotTime] = useState(null);
 
   // Giỏ hàng
   const [selectedSeats, setSelectedSeats] = useState([]);
@@ -368,6 +371,14 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
+    if (!cinemaId) return;
+    fetch(apiUrl(withQuery(SHOWTIMES.LIST, { cinemaId })))
+      .then(r => r.json())
+      .then(json => { if (json?.data) setAllShowtimesForHome(json.data); })
+      .catch(err => console.error("Lỗi tải dữ liệu trang chủ:", err));
+  }, [cinemaId]);
+
+  useEffect(() => {
     if (cinemaId) {
       const fetchMoviesShowingToday = async () => {
         try {
@@ -375,8 +386,13 @@ const Sales = () => {
           const json = await res.json();
           
           if (json?.data && json.data.length > 0) {
+            const now = new Date();
+            const todayYmd = now.toLocaleDateString('sv-SE');
             const moviesMap = new Map();
             json.data.forEach(st => {
+              if (st.status !== "Sắp chiếu") return;
+              if (st.date && String(st.date).slice(0, 10) !== todayYmd) return;
+              if (st.date && st.time && new Date(`${st.date}T${st.time}:00`) <= now) return;
               const mId = st.movieId || st.movie_id || (st.movie && st.movie.id);
               if (mId && !moviesMap.has(mId)) {
                 moviesMap.set(mId, {
@@ -539,6 +555,7 @@ const Sales = () => {
   // --- Handlers ---
 
   const handleSelectMovie = (movie) => {
+    setShowHome(false);
     if (selectedMovie?.id === movie.id) {
       setActiveTab('showtimes');
       return;
@@ -549,24 +566,107 @@ const Sales = () => {
     setActiveTab('showtimes');
   };
 
-  const handleSelectShowtime = (st) => {
-    setSelectedShowtime(st);
-    setActiveTab('seats');
-  };
-
-  const sortedShowtimes = useMemo(() => {
+  const showtimeSlots = useMemo(() => {
     const now = new Date();
-    return [...showtimes]
-      .filter((st) => {
-        if (st.status !== "Sắp chiếu") return false;
-        // Double-check client-side để tránh status stale khi để trang mở lâu
-        if (st.date && st.time) {
-          return new Date(`${st.date}T${st.time}:00`) > now;
-        }
-        return true;
-      })
-      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    const todayYmd = now.toLocaleDateString('sv-SE'); // "YYYY-MM-DD"
+    const filtered = showtimes.filter((st) => {
+      if (st.status !== "Sắp chiếu") return false;
+      if (st.date && String(st.date).slice(0, 10) !== todayYmd) return false;
+      if (st.date && st.time) return new Date(`${st.date}T${st.time}:00`) > now;
+      return true;
+    });
+    const byTime = new Map();
+    for (const st of filtered) {
+      const key = String(st.time || "").slice(0, 5);
+      if (!byTime.has(key)) byTime.set(key, []);
+      byTime.get(key).push(st);
+    }
+    return [...byTime.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([time, group]) => ({ time, group }));
   }, [showtimes]);
+
+  const homeMoviesData = useMemo(() => {
+    const now = new Date();
+    const todayYmd = now.toLocaleDateString('sv-SE');
+    const movieMap = new Map();
+    allShowtimesForHome.forEach(st => {
+      if (st.status !== "Sắp chiếu") return;
+      if (st.date && String(st.date).slice(0, 10) !== todayYmd) return;
+      if (st.date && st.time && new Date(`${st.date}T${st.time}:00`) <= now) return;
+      const mId = st.movieId || st.movie_id || (st.movie && st.movie.id);
+      if (!mId) return;
+      if (!movieMap.has(mId)) {
+        movieMap.set(mId, {
+          id: mId,
+          title: st.movieTitle || st.movie_title || (st.movie && st.movie.title) || "Phim không tên",
+          duration: st.movieDuration || st.movie_duration || (st.movie && st.movie.duration) || 120,
+          slots: [],
+        });
+      }
+      const timeKey = String(st.time || "").slice(0, 5);
+      const entry = movieMap.get(mId);
+      if (!entry.slots.find(s => s.time === timeKey)) {
+        entry.slots.push({ time: timeKey, endTime: st.endTime || null, roomName: st.room_name || st.roomName || null });
+      }
+    });
+    const result = Array.from(movieMap.values());
+    result.forEach(m => m.slots.sort((a, b) => a.time.localeCompare(b.time)));
+    result.sort((a, b) => (a.slots[0]?.time || "99:99").localeCompare(b.slots[0]?.time || "99:99"));
+    return result;
+  }, [allShowtimesForHome]);
+
+  const ROOM_SWITCH_OCCUPANCY_RATIO = 0.9;
+
+  const handleSelectSlot = useCallback(async (slot) => {
+    if (slot.group.length === 1) {
+      setSelectedShowtime(slot.group[0]);
+      setActiveTab('seats');
+      return;
+    }
+
+    setResolvingSlotTime(slot.time);
+    try {
+      const candidatesWithFreeSeats = [];
+
+      for (const candidate of slot.group) {
+        const roomId = candidate.room_id || candidate.roomId;
+        const [stRes, seatRes] = await Promise.all([
+          fetch(apiUrl(SHOWTIMES.BY_ID(candidate.id))).then(r => r.json()),
+          fetch(apiUrl(SEATS.BY_ROOM(roomId))).then(r => r.json()),
+        ]);
+
+        const bookedIds = stRes.data?.bookedSeatIds || [];
+        const totalSeats = Array.isArray(seatRes.data) ? seatRes.data.length : 0;
+
+        if (totalSeats === 0) continue;
+
+        const ratio = bookedIds.length / totalSeats;
+        if (ratio < ROOM_SWITCH_OCCUPANCY_RATIO) {
+          setSelectedShowtime(candidate);
+          setActiveTab('seats');
+          return;
+        }
+
+        const freeSeats = totalSeats - bookedIds.length;
+        if (freeSeats > 0) candidatesWithFreeSeats.push({ candidate, freeSeats });
+      }
+
+      if (candidatesWithFreeSeats.length > 0) {
+        candidatesWithFreeSeats.sort((a, b) => b.freeSeats - a.freeSeats);
+        setSelectedShowtime(candidatesWithFreeSeats[0].candidate);
+        setActiveTab('seats');
+        return;
+      }
+
+      showToast("Suất chiếu này đã hết ghế ở tất cả các phòng.", "warning");
+    } catch (err) {
+      console.error("Lỗi chọn phòng tự động:", err);
+      showToast("Không thể chọn phòng. Vui lòng thử lại.", "error");
+    } finally {
+      setResolvingSlotTime(null);
+    }
+  }, [showToast]);
 
   const toggleSeat = (seat) => {
     const id = Number(seat.seatId);
@@ -1076,6 +1176,19 @@ const Sales = () => {
             <Search size={14} className="text-white-50" />
             <input ref={searchInputRef} type="text" placeholder="Tìm phim (F)..." value={searchTerm} onChange={(e) => setSearchText(e.target.value)} />
           </div>
+          <button
+            className={`pos-home-btn ${showHome ? 'active' : ''}`}
+            onClick={() => {
+              setShowHome(true);
+              setSelectedMovie(null);
+              setSelectedShowtime(null);
+              setShowtimes([]);
+              setActiveTab('showtimes');
+            }}
+          >
+            <Home size={13} />
+            Trang chủ
+          </button>
         </div>
         <div className="pos-movie-list custom-scrollbar">
           {filteredMovies.map(movie => (
@@ -1108,17 +1221,53 @@ const Sales = () => {
         </header>
 
         <section className="pos-view-area custom-scrollbar" style={{ paddingTop: '30px' }}>
-          {activeTab === 'showtimes' && (
+          {activeTab === 'showtimes' && showHome && (
+            <div className="view-home">
+              <h3 className="section-title"><Clock size={15} /> Suất chiếu hôm nay — gần nhất</h3>
+              {homeMoviesData.length === 0 && <p className="text-white-50" style={{ fontSize: 13, margin: 0 }}>Không còn suất chiếu nào hôm nay.</p>}
+              <div className="home-movies-grid">
+                {homeMoviesData.map(movie => (
+                  <div
+                    key={`home-${movie.id}`}
+                    className="home-movie-card"
+                    onClick={() => handleSelectMovie(movie)}
+                  >
+                    <div className="home-card-title">{movie.title}</div>
+                    <div className="home-card-duration">{movie.duration} phút</div>
+                    <div className="home-card-slots">
+                      {movie.slots.map(s => (
+                        <span key={s.time} className="home-slot-badge">{s.time}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {activeTab === 'showtimes' && !showHome && (
             <div className="view-showtimes">
               <h3 className="section-title">{selectedMovie ? `Suất chiếu: ${selectedMovie.title}` : "Chọn phim bên trái"}</h3>
               <div className="pos-showtimes-grid">
-                {sortedShowtimes.map(st => (
-                  <button key={`st-${st.id}`} className={`st-btn ${selectedShowtime?.id === st.id ? 'active' : ''}`} onClick={() => handleSelectShowtime(st)}>
-                    <div className="st-time-range">{st.time} - {st.endTime || '??:??'}</div>
-                    {(st.room_name || st.roomName) && <div className="st-room-name">{st.room_name || st.roomName}</div>}
-                  </button>
-                ))}
-                {selectedMovie && sortedShowtimes.length === 0 && <p className="text-white-50">Không có suất chiếu còn lại hôm nay.</p>}
+                {showtimeSlots.map(slot => {
+                  const isMerged = slot.group.length > 1;
+                  const sample = slot.group[0];
+                  const isActive = slot.group.some(st => selectedShowtime?.id === st.id);
+                  const isResolving = resolvingSlotTime === slot.time;
+                  return (
+                    <button
+                      key={`slot-${slot.time}`}
+                      className={`st-btn ${isActive ? 'active' : ''}`}
+                      onClick={() => handleSelectSlot(slot)}
+                      disabled={resolvingSlotTime !== null}
+                    >
+                      <div className="st-time-range">{slot.time} - {sample.endTime || '??:??'}</div>
+                      {isResolving && (
+                        <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>Đang chọn phòng...</div>
+                      )}
+                    </button>
+                  );
+                })}
+                {selectedMovie && showtimeSlots.length === 0 && <p className="text-white-50">Không có suất chiếu còn lại hôm nay.</p>}
               </div>
             </div>
           )}
@@ -1471,11 +1620,32 @@ const Sales = () => {
           height: 100%;
           overflow: hidden;
         }
-        .pos-search { 
-          padding: 12px; 
-          background: rgba(15, 23, 42, 0.4); 
-          border-bottom: 1px solid rgba(255,255,255,0.05); 
+        .pos-search {
+          padding: 12px;
+          background: rgba(15, 23, 42, 0.4);
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
+        .pos-home-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 7px 10px;
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(15, 23, 42, 0.5);
+          color: #94a3b8;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .pos-home-btn:hover { background: rgba(255,255,255,0.05); color: #f1f5f9; border-color: rgba(255,255,255,0.2); }
+        .pos-home-btn.active { background: linear-gradient(135deg, #0f766e, #0d9488); color: #fff; border-color: #0d9488; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3); }
         .pos-search-box { 
           display: flex; 
           align-items: center; 
@@ -1720,6 +1890,39 @@ const Sales = () => {
           border-color: white !important;
         }
         .seat-number-text { color: #ffffff; font-weight: 900; text-shadow: 0 1px 1px rgba(0,0,0,0.6); }
+
+        /* Home View */
+        .view-home { padding: 0; }
+        .home-movies-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 12px;
+        }
+        .home-movie-card {
+          background: #1e293b;
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 12px;
+          padding: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .home-movie-card:hover { border-color: #0d9488; background: #1a2d3a; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13,148,136,0.2); }
+        .home-card-title { font-size: 13px; font-weight: 800; color: #f1f5f9; line-height: 1.35; }
+        .home-card-duration { font-size: 10px; font-weight: 600; color: #64748b; }
+        .home-card-slots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+        .home-slot-badge {
+          background: rgba(56,189,248,0.12);
+          color: #38bdf8;
+          border: 1px solid rgba(56,189,248,0.25);
+          border-radius: 6px;
+          padding: 3px 8px;
+          font-size: 11px;
+          font-weight: 800;
+          font-family: 'JetBrains Mono', monospace;
+        }
 
         /* Food Grid Styling */
         .food-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
