@@ -27,7 +27,7 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 4 + i);
 const PAGE_SIZE = 10;
-const ADMIN_ACTIVITY_FETCH_LIMIT = 50;
+const ADMIN_ACTIVITY_FETCH_LIMIT = 500;
 
 function auditBadge(action) {
   if (!action) return "admin-badge-neutral";
@@ -76,7 +76,8 @@ const SuperAdminDashboard = () => {
   const [rangeTo, setRangeTo] = useState("");
   const [cinemaPage, setCinemaPage] = useState(1);
   const [adminActivityPage, setAdminActivityPage] = useState(1);
-  const [invoicePage, setInvoicePage] = useState(1);
+  const [activityFrom, setActivityFrom] = useState("");
+  const [activityTo, setActivityTo] = useState("");
 
   const isRangeActive = Boolean(rangeFrom && rangeTo);
 
@@ -122,8 +123,7 @@ const SuperAdminDashboard = () => {
   }, [summary.error, navigate]);
 
   useEffect(() => { setCinemaPage(1); }, [cinemaRankings.data]);
-  useEffect(() => { setAdminActivityPage(1); }, [recentAdminActivity.data]);
-  useEffect(() => { setInvoicePage(1); }, [recentInvoices.data]);
+  useEffect(() => { setAdminActivityPage(1); }, [recentAdminActivity.data, activityFrom, activityTo]);
 
   const revenueLabels = useMemo(() => {
     if (!revenue.data) return [];
@@ -150,16 +150,31 @@ const SuperAdminDashboard = () => {
     (cinemaPage - 1) * PAGE_SIZE,
     cinemaPage * PAGE_SIZE
   );
-  const adminActivityTotalPages = Math.max(1, Math.ceil((recentAdminActivity.data || []).length / PAGE_SIZE));
-  const pagedAdminActivity = (recentAdminActivity.data || []).slice(
+  const filteredAdminActivity = useMemo(() => {
+    let list = recentAdminActivity.data || [];
+    if (activityFrom) {
+      const from = new Date(activityFrom);
+      from.setHours(0, 0, 0, 0);
+      list = list.filter((r) => r.createdAt && new Date(r.createdAt) >= from);
+    }
+    if (activityTo) {
+      const to = new Date(activityTo);
+      to.setHours(23, 59, 59, 999);
+      list = list.filter((r) => r.createdAt && new Date(r.createdAt) <= to);
+    }
+    return list;
+  }, [recentAdminActivity.data, activityFrom, activityTo]);
+
+  const adminActivityTotalPages = Math.max(1, Math.ceil(filteredAdminActivity.length / PAGE_SIZE));
+  const pagedAdminActivity = filteredAdminActivity.slice(
     (adminActivityPage - 1) * PAGE_SIZE,
     adminActivityPage * PAGE_SIZE
   );
-  const invoiceTotalPages = Math.max(1, Math.ceil((recentInvoices.data || []).length / PAGE_SIZE));
-  const pagedInvoices = (recentInvoices.data || []).slice(
-    (invoicePage - 1) * PAGE_SIZE,
-    invoicePage * PAGE_SIZE
-  );
+  const top10Invoices = useMemo(() => {
+    const list = [...(recentInvoices.data || [])];
+    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return list.slice(0, 10);
+  }, [recentInvoices.data]);
 
   const revenueTitle = isRangeActive
     ? `Doanh thu từ ${formatDate(rangeFrom)} đến ${formatDate(rangeTo)}`
@@ -331,7 +346,7 @@ const SuperAdminDashboard = () => {
             title="Hóa đơn mới nhất"
             loading={recentInvoices.loading}
             error={recentInvoices.error}
-            rows={pagedInvoices}
+            rows={top10Invoices}
             rowKey={(r) => r.id}
             columns={[
               { key: "orderCode", label: "Mã đơn" },
@@ -341,19 +356,41 @@ const SuperAdminDashboard = () => {
               { key: "createdAt", label: "Thời gian", render: (r) => formatDateTime(r.createdAt) },
             ]}
           />
-          <AdminPagination
-            currentPage={invoicePage}
-            totalPages={invoiceTotalPages}
-            totalItems={(recentInvoices.data || []).length}
-            itemsPerPage={PAGE_SIZE}
-            onPageChange={setInvoicePage}
-            itemLabel="hóa đơn"
-          />
         </div>
 
         <div className="col-lg-6">
           <RecentListCard
             title="Admin hoạt động gần đây"
+            headerRight={
+              <div className="d-flex align-items-center gap-1 flex-wrap">
+                <input
+                  type="date"
+                  className="admin-search-input admin-filter-control"
+                  style={{ width: 140, height: 30, fontSize: 12 }}
+                  value={activityFrom}
+                  max={activityTo || undefined}
+                  onChange={(e) => setActivityFrom(e.target.value)}
+                />
+                <span className="text-muted small">–</span>
+                <input
+                  type="date"
+                  className="admin-search-input admin-filter-control"
+                  style={{ width: 140, height: 30, fontSize: 12 }}
+                  value={activityTo}
+                  min={activityFrom || undefined}
+                  onChange={(e) => setActivityTo(e.target.value)}
+                />
+                {(activityFrom || activityTo) && (
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-outline admin-btn-sm"
+                    onClick={() => { setActivityFrom(""); setActivityTo(""); }}
+                  >
+                    Xóa
+                  </button>
+                )}
+              </div>
+            }
             loading={recentAdminActivity.loading}
             error={recentAdminActivity.error}
             rows={pagedAdminActivity}
@@ -372,7 +409,7 @@ const SuperAdminDashboard = () => {
           <AdminPagination
             currentPage={adminActivityPage}
             totalPages={adminActivityTotalPages}
-            totalItems={(recentAdminActivity.data || []).length}
+            totalItems={filteredAdminActivity.length}
             itemsPerPage={PAGE_SIZE}
             onPageChange={setAdminActivityPage}
             itemLabel="hoạt động"

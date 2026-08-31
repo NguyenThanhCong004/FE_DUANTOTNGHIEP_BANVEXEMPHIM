@@ -49,7 +49,9 @@ const InvoiceStatistics = () => {
   const [filterYear, setFilterYear]       = useState(0);
   const [filterMonth, setFilterMonth]     = useState(0);
   const [filterCinema, setFilterCinema]   = useState("");
-  const [chartYear, setChartYear]         = useState(CURRENT_YEAR);
+  const [chartYear, setChartYear]                   = useState(CURRENT_YEAR);
+  const [chartPaymentYear, setChartPaymentYear]     = useState(0);
+  const [chartPaymentMonth, setChartPaymentMonth]   = useState(0);
 
   // Modal chi tiết
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -78,9 +80,13 @@ const InvoiceStatistics = () => {
 
   const paymentDist = useMemo(() => {
     let counter = 0, online = 0;
-    completed.forEach((o) => { o.isCounter ? counter++ : online++; });
+    allData.forEach((o) => {
+      if (chartPaymentYear > 0 && o.createdAt && new Date(o.createdAt).getFullYear() !== chartPaymentYear) return;
+      if (chartPaymentMonth > 0 && o.createdAt && (new Date(o.createdAt).getMonth() + 1) !== chartPaymentMonth) return;
+      o.isCounter ? counter++ : online++;
+    });
     return [["Mua tại quầy", counter], ["Mua online", online]].filter(([, v]) => v > 0);
-  }, [completed]);
+  }, [allData, chartPaymentYear, chartPaymentMonth]);
 
   const cinemaOptions = useMemo(() => {
     const fromList = (cinemaList.data || [])
@@ -147,6 +153,30 @@ const InvoiceStatistics = () => {
     </select>
   );
 
+  const paymentDistRight = (
+    <div className="d-flex gap-1">
+      <select
+        className="admin-search-input admin-filter-control"
+        style={{ width: 75, height: 30, fontSize: 12 }}
+        value={chartPaymentYear}
+        onChange={(e) => { setChartPaymentYear(Number(e.target.value)); setChartPaymentMonth(0); }}
+      >
+        <option value={0}>Tất cả</option>
+        {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
+      </select>
+      <select
+        className="admin-search-input admin-filter-control"
+        style={{ width: 90, height: 30, fontSize: 12 }}
+        value={chartPaymentMonth}
+        disabled={chartPaymentYear === 0}
+        onChange={(e) => setChartPaymentMonth(Number(e.target.value))}
+      >
+        <option value={0}>Tất cả tháng</option>
+        {MONTH_LABELS.map((label, i) => <option key={i + 1} value={i + 1}>{label}</option>)}
+      </select>
+    </div>
+  );
+
   return (
     <AdminPanelPage icon="receipt-cutoff" title="Thống kê hóa đơn">
       <div className="admin-stats-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
@@ -176,6 +206,7 @@ const InvoiceStatistics = () => {
         <div className="col-lg-5">
           <ChartCard
             title="Phân bổ phương thức thanh toán"
+            headerRight={paymentDistRight}
             loading={invoiceStats.loading}
             error={invoiceStats.error}
             isEmpty={!invoiceStats.loading && paymentDist.length === 0}
