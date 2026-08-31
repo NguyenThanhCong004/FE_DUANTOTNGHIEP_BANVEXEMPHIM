@@ -5,8 +5,11 @@ import { Spinner } from "react-bootstrap";
 import { ArrowRight, CalendarDays, Newspaper, Search } from "lucide-react";
 import EventCard from "../../components/common/EventCard";
 import EmptyState from "../../components/common/EmptyState";
+import PublicPagination from "../../components/common/PublicPagination";
 import { apiFetch, withQuery } from "../../utils/apiClient";
 import { NEWS } from "../../constants/apiEndpoints";
+
+const EVENT_PAGE_SIZE = 6;
 
 function toDate(value) {
   if (!value) return null;
@@ -73,6 +76,7 @@ const Events = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [raw, setRaw] = useState([]);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let c = false;
@@ -109,6 +113,21 @@ const Events = () => {
 
   const featured = filtered[0] ?? null;
   const remaining = featured ? filtered.slice(1) : filtered;
+  const eventTotalPages = Math.max(1, Math.ceil(remaining.length / EVENT_PAGE_SIZE));
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword]);
+
+  useEffect(() => {
+    if (page > eventTotalPages) setPage(eventTotalPages);
+  }, [eventTotalPages, page]);
+
+  const pagedRemaining = useMemo(() => {
+    const safePage = Math.min(page, eventTotalPages);
+    const start = (safePage - 1) * EVENT_PAGE_SIZE;
+    return remaining.slice(start, start + EVENT_PAGE_SIZE);
+  }, [eventTotalPages, page, remaining]);
 
   return (
     <Layout>
@@ -598,10 +617,16 @@ const Events = () => {
                     <p className="ev-section-note">{remaining.length} bài</p>
                   </div>
                   <div className="ev-grid">
-                    {remaining.map((e) => (
+                    {pagedRemaining.map((e) => (
                       <EventCard key={e.id} event={e} />
                     ))}
                   </div>
+                  <PublicPagination
+                    page={page}
+                    totalItems={remaining.length}
+                    pageSize={EVENT_PAGE_SIZE}
+                    onPageChange={setPage}
+                  />
                 </>
               )}
             </>
