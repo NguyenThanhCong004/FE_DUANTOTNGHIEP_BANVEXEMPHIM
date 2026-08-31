@@ -63,7 +63,6 @@ const SuperAdminProfile = lazy(() => import('../pages/super-admin/SuperAdminProf
 const GlobalInvoiceManagement = lazy(() => import('../pages/super-admin/InvoiceManagement'));
 const InvoiceStatistics = lazy(() => import('../pages/super-admin/InvoiceStatistics'));
 const MovieStatistics = lazy(() => import('../pages/super-admin/MovieStatistics'));
-const CinemaStatistics = lazy(() => import('../pages/super-admin/CinemaStatistics'));
 const CustomerStatistics = lazy(() => import('../pages/super-admin/CustomerStatistics'));
 const ProductStatistics = lazy(() => import('../pages/super-admin/ProductStatistics'));
 
@@ -215,7 +214,6 @@ const AppRoutes = () => {
           <Route path="global-invoices" element={<GlobalInvoiceManagement />} />
           <Route path="invoice-statistics" element={<InvoiceStatistics />} />
           <Route path="movie-statistics" element={<MovieStatistics />} />
-          <Route path="cinema-statistics" element={<CinemaStatistics />} />
           <Route path="customer-statistics" element={<CustomerStatistics />} />
           <Route path="product-statistics" element={<ProductStatistics />} />
           
