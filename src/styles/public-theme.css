@@ -691,8 +691,8 @@ html.moviezone-public .md-slot-card {
 }
 
 html.moviezone-public .home-page .mySwiper img {
-  height: auto !important;
-  aspect-ratio: 16 / 9 !important;
+  height: clamp(300px, 40vw, 600px) !important;
+  object-position: center !important;
 }
 
 html.moviezone-public .row.g-4,
