@@ -348,18 +348,18 @@ export default function ProductManagement() {
           box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
           border-radius: 12px;
           overflow: hidden;
-          background: #fff;
+          background: var(--admin-bg-card);
           height: 100%;
         }
         .pm-header {
           padding: 1rem;
-          background: #fff;
-          border-bottom: 1px solid #f0f0f0;
+          background: var(--admin-bg-card);
+          border-bottom: 1px solid var(--admin-border);
         }
         .pm-search-input {
           border-radius: 20px;
           padding-left: 2.5rem;
-          background-color: #f8f9fa;
+          background-color: var(--admin-bg-subtle);
           border: 1px solid #e9ecef;
         }
         .pm-search-wrapper {

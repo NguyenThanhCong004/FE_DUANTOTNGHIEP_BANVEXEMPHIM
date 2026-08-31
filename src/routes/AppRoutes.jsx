@@ -60,6 +60,11 @@ const CreateNews = lazy(() => import('../pages/super-admin/CreateNews'));
 const CreateCinema = lazy(() => import('../pages/super-admin/CreateCinema'));
 const SuperAdminProfile = lazy(() => import('../pages/super-admin/SuperAdminProfile'));
 const GlobalInvoiceManagement = lazy(() => import('../pages/super-admin/InvoiceManagement'));
+const InvoiceStatistics = lazy(() => import('../pages/super-admin/InvoiceStatistics'));
+const MovieStatistics = lazy(() => import('../pages/super-admin/MovieStatistics'));
+const CinemaStatistics = lazy(() => import('../pages/super-admin/CinemaStatistics'));
+const CustomerStatistics = lazy(() => import('../pages/super-admin/CustomerStatistics'));
+const ProductStatistics = lazy(() => import('../pages/super-admin/ProductStatistics'));
 
 // --- Lazy Loaded Admin Pages ---
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -206,6 +211,11 @@ const AppRoutes = () => {
           <Route path="news/create" element={<CreateNews />} />
           <Route path="news" element={<NewsAdmin />} />
           <Route path="global-invoices" element={<GlobalInvoiceManagement />} />
+          <Route path="invoice-statistics" element={<InvoiceStatistics />} />
+          <Route path="movie-statistics" element={<MovieStatistics />} />
+          <Route path="cinema-statistics" element={<CinemaStatistics />} />
+          <Route path="customer-statistics" element={<CustomerStatistics />} />
+          <Route path="product-statistics" element={<ProductStatistics />} />
           
           {/* Admin-level (rạp) management - super admin kế thừa UI */}
           <Route path="staff" element={<StaffManagement />} />

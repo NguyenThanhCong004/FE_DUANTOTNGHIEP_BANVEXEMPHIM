@@ -10,18 +10,12 @@ import ChartCard from "../../components/admin/dashboard/ChartCard";
 import RecentListCard from "../../components/admin/dashboard/RecentListCard";
 import BarChartWidget from "../../components/admin/dashboard/BarChartWidget";
 import PieChartWidget from "../../components/admin/dashboard/PieChartWidget";
-import DoughnutChartWidget from "../../components/admin/dashboard/DoughnutChartWidget";
 import { useApiData } from "../../components/admin/dashboard/useApiData";
 import { apiJson } from "../../utils/apiClient";
 import { SUPER_ADMIN_DASHBOARD, ORDERS_ONLINE } from "../../constants/apiEndpoints";
 import { getAccessToken, clearAuthSession } from "../../utils/authStorage";
 import { decodeJwtPayload } from "../../utils/jwt";
 import { formatNumber, formatVnd, formatDateTime, formatDate, formatPercent } from "../../utils/formatters";
-
-const PAYMENT_METHOD_LABELS = {
-  CASH: "Tiền mặt",
-  TRANSFER: "Chuyển khoản", // gồm cả PayOS — BE đã gộp chung
-};
 
 const GRANULARITY_OPTIONS = [
   { value: "day", label: "Theo ngày" },
@@ -82,6 +76,7 @@ const SuperAdminDashboard = () => {
   const [rangeTo, setRangeTo] = useState("");
   const [cinemaPage, setCinemaPage] = useState(1);
   const [adminActivityPage, setAdminActivityPage] = useState(1);
+  const [invoicePage, setInvoicePage] = useState(1);
 
   const isRangeActive = Boolean(rangeFrom && rangeTo);
 
@@ -113,8 +108,6 @@ const SuperAdminDashboard = () => {
     [selectedYear, selectedMonth]
   );
   const topMovies = useApiData(() => apiJson(SUPER_ADMIN_DASHBOARD.TOP_MOVIES(10)), []);
-  const seatOccupancy = useApiData(() => apiJson(SUPER_ADMIN_DASHBOARD.SEAT_OCCUPANCY), []);
-  const paymentRevenue = useApiData(() => apiJson(SUPER_ADMIN_DASHBOARD.PAYMENT_METHOD_REVENUE), []);
   const recentInvoices = useApiData(() => apiJson(ORDERS_ONLINE.LIST), []);
   const recentAdminActivity = useApiData(
     () => apiJson(SUPER_ADMIN_DASHBOARD.RECENT_ADMIN_ACTIVITY(ADMIN_ACTIVITY_FETCH_LIMIT)),
@@ -130,6 +123,7 @@ const SuperAdminDashboard = () => {
 
   useEffect(() => { setCinemaPage(1); }, [cinemaRankings.data]);
   useEffect(() => { setAdminActivityPage(1); }, [recentAdminActivity.data]);
+  useEffect(() => { setInvoicePage(1); }, [recentInvoices.data]);
 
   const revenueLabels = useMemo(() => {
     if (!revenue.data) return [];
@@ -160,6 +154,11 @@ const SuperAdminDashboard = () => {
   const pagedAdminActivity = (recentAdminActivity.data || []).slice(
     (adminActivityPage - 1) * PAGE_SIZE,
     adminActivityPage * PAGE_SIZE
+  );
+  const invoiceTotalPages = Math.max(1, Math.ceil((recentInvoices.data || []).length / PAGE_SIZE));
+  const pagedInvoices = (recentInvoices.data || []).slice(
+    (invoicePage - 1) * PAGE_SIZE,
+    invoicePage * PAGE_SIZE
   );
 
   const revenueTitle = isRangeActive
@@ -273,7 +272,7 @@ const SuperAdminDashboard = () => {
           </ChartCard>
         </div>
 
-        <div className="col-lg-5">
+        <div className="col-lg-6 d-flex flex-column">
           <ChartCard
             title="Top 10 phim doanh thu cao nhất"
             loading={topMovies.loading}
@@ -289,62 +288,34 @@ const SuperAdminDashboard = () => {
           </ChartCard>
         </div>
 
-        <div className="col-lg-3">
-          <ChartCard
-            title="Tỷ lệ ghế đã bán hôm nay"
-            loading={seatOccupancy.loading}
-            error={seatOccupancy.error}
-            isEmpty={!seatOccupancy.loading && !seatOccupancy.data?.totalSeats}
-            emptyText="Hôm nay chưa có suất chiếu"
-          >
-            <DoughnutChartWidget
-              sold={seatOccupancy.data?.soldSeats}
-              total={seatOccupancy.data?.totalSeats}
-              centerLabel={formatPercent(seatOccupancy.data?.ratio?.toFixed(1))}
-              colorSold="#2a78d6"
+        <div className="col-lg-6 d-flex flex-column">
+          <div className="flex-grow-1">
+            <RecentListCard
+              className="h-100"
+              title="Top rạp doanh thu cao"
+              headerRight={
+                <MonthYearPicker
+                  month={selectedMonth}
+                  year={selectedYear}
+                  onMonthChange={setSelectedMonth}
+                  onYearChange={setSelectedYear}
+                />
+              }
+              loading={cinemaRankings.loading}
+              error={cinemaRankings.error}
+              rows={pagedCinemaRankings}
+              rowKey={(r, i) => `${r.cinemaName}-${i}`}
+              columns={[
+                { key: "rank", label: "Hạng", render: (_r) => `#${(cinemaRankings.data || []).indexOf(_r) + 1}` },
+                { key: "cinemaName", label: "Tên rạp" },
+                { key: "revenue", label: "Doanh thu", align: "end", render: (r) => formatVN(r.revenue) },
+                {
+                  key: "pct", label: "Tỉ lệ", render: (r) =>
+                    totalCinemaRevenue > 0 ? `${((r.revenue / totalCinemaRevenue) * 100).toFixed(1)}%` : "0.0%",
+                },
+              ]}
             />
-          </ChartCard>
-        </div>
-
-        <div className="col-lg-4">
-          <ChartCard
-            title="Doanh thu theo phương thức thanh toán"
-            loading={paymentRevenue.loading}
-            error={paymentRevenue.error}
-            isEmpty={!paymentRevenue.loading && (paymentRevenue.data || []).length === 0}
-          >
-            <PieChartWidget
-              labels={(paymentRevenue.data || []).map((p) => PAYMENT_METHOD_LABELS[p.method] || p.method)}
-              values={(paymentRevenue.data || []).map((p) => p.total)}
-            />
-          </ChartCard>
-        </div>
-
-        <div className="col-12">
-          <RecentListCard
-            title="Top rạp doanh thu cao"
-            headerRight={
-              <MonthYearPicker
-                month={selectedMonth}
-                year={selectedYear}
-                onMonthChange={setSelectedMonth}
-                onYearChange={setSelectedYear}
-              />
-            }
-            loading={cinemaRankings.loading}
-            error={cinemaRankings.error}
-            rows={pagedCinemaRankings}
-            rowKey={(r, i) => `${r.cinemaName}-${i}`}
-            columns={[
-              { key: "rank", label: "Hạng", render: (_r) => `#${(cinemaRankings.data || []).indexOf(_r) + 1}` },
-              { key: "cinemaName", label: "Tên rạp" },
-              { key: "revenue", label: "Doanh thu", align: "end", render: (r) => formatVN(r.revenue) },
-              {
-                key: "pct", label: "Tỉ lệ", render: (r) =>
-                  totalCinemaRevenue > 0 ? `${((r.revenue / totalCinemaRevenue) * 100).toFixed(1)}%` : "0.0%",
-              },
-            ]}
-          />
+          </div>
           <AdminPagination
             currentPage={cinemaPage}
             totalPages={cinemaTotalPages}
@@ -360,7 +331,7 @@ const SuperAdminDashboard = () => {
             title="Hóa đơn mới nhất"
             loading={recentInvoices.loading}
             error={recentInvoices.error}
-            rows={(recentInvoices.data || []).slice(0, 10)}
+            rows={pagedInvoices}
             rowKey={(r) => r.id}
             columns={[
               { key: "orderCode", label: "Mã đơn" },
@@ -369,6 +340,14 @@ const SuperAdminDashboard = () => {
               { key: "finalAmount", label: "Tổng tiền", align: "end", render: (r) => formatVN(r.finalAmount) },
               { key: "createdAt", label: "Thời gian", render: (r) => formatDateTime(r.createdAt) },
             ]}
+          />
+          <AdminPagination
+            currentPage={invoicePage}
+            totalPages={invoiceTotalPages}
+            totalItems={(recentInvoices.data || []).length}
+            itemsPerPage={PAGE_SIZE}
+            onPageChange={setInvoicePage}
+            itemLabel="hóa đơn"
           />
         </div>
 

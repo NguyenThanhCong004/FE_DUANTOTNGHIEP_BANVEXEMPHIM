@@ -311,8 +311,12 @@
   color: var(--admin-text);
 }
 
-.admin-table tbody tr:hover {
-  background: var(--admin-bg-subtle);
+.admin-table tbody tr:hover td {
+  background: var(--admin-primary-bg);
+}
+
+.admin-table tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--admin-primary);
 }
 
 .admin-table tbody tr:last-child td {
@@ -965,6 +969,55 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────
+   Movie Statistics — div-list (tránh tr:hover issues)
+   ───────────────────────────────────────────────────────── */
+.mvstat-header,
+.mvstat-row {
+  display: flex;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  gap: 1rem;
+}
+
+.mvstat-header {
+  background: var(--admin-bg-subtle);
+  border-bottom: 2px solid var(--admin-border);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--admin-text);
+  letter-spacing: 0.02em;
+}
+
+.mvstat-row {
+  border-bottom: 1px solid var(--admin-border);
+  font-size: 0.84rem;
+  color: var(--admin-text);
+}
+
+.mvstat-row:last-child {
+  border-bottom: none;
+}
+
+.mvstat-row:hover {
+  background: var(--admin-primary-bg);
+}
+
+.mvstat-col-rank  { width: 36px;  flex-shrink: 0; }
+.mvstat-col-title { flex: 1;      min-width: 0;   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mvstat-col-sm    { width: 90px;  flex-shrink: 0; }
+.mvstat-col-num   { width: 130px; flex-shrink: 0; }
+.mvstat-col-status{ width: 130px; flex-shrink: 0; }
+
+.mvstat-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--admin-text-muted);
+  font-size: 0.875rem;
+}
+
+
 /* Form create/edit: rộng hơn, bỏ khoảng trống hai bên */
 .admin-form-page-wrap {
   width: 100%;
@@ -1080,6 +1133,14 @@ html.admin-panel[data-theme="dark"] .text-body {
 html.admin-panel[data-theme="dark"] .text-muted,
 html.admin-panel[data-theme="dark"] .text-secondary {
   color: var(--admin-text-muted) !important;
+}
+
+/* Cùng lý do như .text-dark ở trên: rất nhiều trang admin dùng trực tiếp class Bootstrap
+   .bg-white/.bg-light (màu cố định + !important) cho card/header/input thay vì
+   var(--admin-bg-card) — không tự đổi theo theme, để lại mảng nền trắng giữa nền tối. */
+html.admin-panel[data-theme="dark"] .bg-white,
+html.admin-panel[data-theme="dark"] .bg-light {
+  background-color: var(--admin-bg-card) !important;
 }
 
 /* ─────────────────────────────────────────────────────────

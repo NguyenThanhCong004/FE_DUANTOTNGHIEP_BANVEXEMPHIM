@@ -178,7 +178,7 @@ export default function EditUser() {
             </Col>
             <Col md={6}>
               <Form.Label className="small fw-bold text-muted text-uppercase">Trạng thái tài khoản</Form.Label>
-              <div className="d-flex gap-4 mt-1 p-2 bg-light rounded shadow-xs" style={{ border: '1px solid #eee' }}>
+              <div className="d-flex gap-4 mt-1 p-2 bg-light rounded shadow-xs" style={{ border: '1px solid var(--admin-border)' }}>
                 <Form.Check
                   type="radio"
                   id="status-active"

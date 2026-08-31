@@ -160,7 +160,7 @@ const PromotionManagement = () => {
                 aria-label="Tìm khuyến mãi"
               />
             </div>
-            <Link to={`${prefix}/promotions/add`} className="admin-btn" style={{ background: 'white', color: '#6366f1' }}>
+            <Link to={`${prefix}/promotions/add`} className="admin-btn" style={{ background: 'var(--admin-bg-card)', color: '#6366f1' }}>
               Tạo khuyến mãi
             </Link>
           </div>

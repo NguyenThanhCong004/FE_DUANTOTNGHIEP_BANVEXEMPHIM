@@ -7,9 +7,9 @@ import { Spinner } from "react-bootstrap";
  *
  * @param {{key:string,label:string,render?:(row)=>React.ReactNode,align?:'start'|'end'|'center'}[]} columns
  */
-export default function RecentListCard({ title, headerRight, columns, rows, loading, error, emptyText = "Chưa có dữ liệu", rowKey }) {
+export default function RecentListCard({ title, headerRight, columns, rows, loading, error, emptyText = "Chưa có dữ liệu", rowKey, className = "" }) {
   return (
-    <div className="admin-card admin-slide-up">
+    <div className={`admin-card admin-slide-up ${className}`}>
       <div className="admin-card-header">
         <h4 className="mb-0">{title}</h4>
         {headerRight}

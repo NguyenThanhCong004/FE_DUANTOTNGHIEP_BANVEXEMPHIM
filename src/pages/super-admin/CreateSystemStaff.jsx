@@ -264,9 +264,9 @@ const CreateSystemStaff = () => {
       <style>{`
         .black-input {
           border: 1px solid rgba(0,0,0,0.1) !important;
-          color: #000 !important;
+          color: var(--admin-text) !important;
           font-weight: 500 !important;
-          background-color: #fff !important;
+          background-color: var(--admin-bg-card) !important;
           border-radius: 8px !important;
           min-height: 42px !important; /* Đảm bảo đủ chiều cao cho ô date */
         }

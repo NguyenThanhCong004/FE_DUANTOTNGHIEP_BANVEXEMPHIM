@@ -116,7 +116,7 @@ const SystemStaffManagement = () => {
         <button
           type="button"
           className="admin-btn"
-          style={{ background: 'white', color: '#6366f1' }}
+          style={{ background: 'var(--admin-bg-card)', color: '#6366f1' }}
           onClick={() => navigate('/super-admin/system-staff/create')}
         >
           Thêm nhân sự
@@ -187,7 +187,7 @@ const SystemStaffManagement = () => {
                           <div className="d-flex align-items-center gap-2">
                             <div
                               className="bg-light rounded-circle overflow-hidden d-flex align-items-center justify-content-center"
-                              style={{ width: '32px', height: '32px', border: '1px solid #eee' }}
+                              style={{ width: '32px', height: '32px', border: '1px solid var(--admin-border)' }}
                             >
                               {emp.avatar
                                 ? <img src={emp.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

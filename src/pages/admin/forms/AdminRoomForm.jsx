@@ -194,13 +194,13 @@ export default function AdminRoomForm({ mode = "add" }) {
         .custom-input {
           border-radius: 12px;
           padding: 12px 15px;
-          border: 1px solid #eee;
-          background: #fcfcfc;
-          color: #000 !important;
+          border: 1px solid var(--admin-border);
+          background: var(--admin-bg-subtle);
+          color: var(--admin-text) !important;
         }
         .custom-input:focus {
-          color: #000 !important;
-          background: #fff;
+          color: var(--admin-text) !important;
+          background: var(--admin-bg-card);
           border-color: #0d6efd;
           box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.05);
         }
@@ -223,9 +223,9 @@ export default function AdminRoomForm({ mode = "add" }) {
           display: flex;
           gap: 20px;
           padding: 15px;
-          background: #f8f9fa;
+          background: var(--admin-bg-subtle);
           border-radius: 12px;
-          border: 1px solid #eee;
+          border: 1px solid var(--admin-border);
         }
         .radio-item {
           display: flex;

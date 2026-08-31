@@ -124,7 +124,7 @@ const CinemaManagement = () => {
         <button
           type="button"
           className="admin-btn"
-          style={{ background: 'white', color: '#6366f1' }}
+          style={{ background: 'var(--admin-bg-card)', color: '#6366f1' }}
           onClick={() => navigate('/super-admin/cinemas/create')}
         >
           Thêm rạp mới

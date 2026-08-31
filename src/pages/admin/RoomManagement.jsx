@@ -166,7 +166,7 @@ const RoomManagement = () => {
             <Link 
               to={`${prefix}/rooms/add`} 
               className="admin-btn shadow-sm d-flex align-items-center fw-bold" 
-              style={{ background: 'white', color: '#6366f1', height: '38px' }}
+              style={{ background: 'var(--admin-bg-card)', color: '#6366f1', height: '38px' }}
             >
               Thêm phòng chiếu
             </Link>
