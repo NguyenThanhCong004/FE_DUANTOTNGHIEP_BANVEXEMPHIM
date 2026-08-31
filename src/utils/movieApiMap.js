@@ -11,7 +11,11 @@ export function mapMovieForCard(m) {
   const releaseLabel = ymd ? formatDate(ymd, { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
   // Phân loại dựa vào status: 1=Đang chiếu, 2=Sắp chiếu
   const type = m.status === 2 ? "soon" : "now";
-  const genres = Array.isArray(m.genres) ? m.genres : [];
+  const genres = Array.isArray(m.genres)
+    ? m.genres
+    : typeof m.genre === "string"
+      ? m.genre.split(",").map((g) => g.trim()).filter(Boolean)
+      : [];
   return {
     id: m.id,
     title: m.title ?? "",

@@ -572,20 +572,38 @@ const Sales = () => {
     const id = Number(seat.seatId);
     if (!Number.isFinite(id)) return;
     if (bookedSeatIdSet.has(id)) return;
+
     if (peerHeldSeatIdSet.has(id)) {
       showToast("Ghế này đang được chọn ở web hoặc máy POS khác.", "warning");
       return;
     }
+
     if (seat.status === 'maintenance' || seat.status === 'locked') return;
 
-    const isSelected = selectedSeats.find(s => Number(s.seatId) === id);
+    const isSelected = selectedSeats.find(
+      s => Number(s.seatId) === id
+    );
+
     const nextSeats = isSelected
       ? selectedSeats.filter(s => Number(s.seatId) !== id)
       : [...selectedSeats, seat];
 
-    const existingBlockedIds = new Set([...bookedSeatIdSet, ...peerHeldSeatIdSet]);
-    const newlySelectedIds = nextSeats.map(s => Number(s.seatId)).filter(Number.isFinite);
-    const check = checkNoNewSingleSeatOrphanInRows(seats, existingBlockedIds, newlySelectedIds, isCoupleSeatOf);
+    const existingBlockedIds = new Set([
+      ...bookedSeatIdSet,
+      ...peerHeldSeatIdSet
+    ]);
+
+    const newlySelectedIds = nextSeats
+      .map(s => Number(s.seatId))
+      .filter(Number.isFinite);
+
+    const check = checkNoNewSingleSeatOrphanInRows(
+      seats,
+      existingBlockedIds,
+      newlySelectedIds,
+      isCoupleSeatOf
+    );
+
     if (!check.ok) {
       showToast(check.message, "warning");
       return;

@@ -7,9 +7,11 @@ import { getUserIdFromToken } from '../../utils/jwt';
 import { apiFetch, apiUrl, withQuery } from '../../utils/apiClient';
 import { VOUCHERS as VOUCHERS_API, ME, USERS, CINEMAS } from '../../constants/apiEndpoints';
 import { formatDate, formatNumber, formatVnd } from '../../utils/formatters';
+import PublicPagination from "../../components/common/PublicPagination";
 
 const fmt = formatVnd;
 const fmtDate = formatDate;
+const VOUCHER_PAGE_SIZE = 6;
 
 function normalizeCatalogVoucher(v) {
   const end = v.endDate ? new Date(`${String(v.endDate).slice(0, 10)}T23:59:59`) : null;
@@ -65,6 +67,7 @@ export default function VoucherExchange() {
   const [cinemas, setCinemas] = useState([]);
   const [cinemasLoading, setCinemasLoading] = useState(true);
   const [selectedCinemaId, setSelectedCinemaId] = useState("");
+  const [page, setPage] = useState(1);
 
   const loadWallet = useCallback(async () => {
     const token = getAccessToken();
@@ -155,6 +158,22 @@ export default function VoucherExchange() {
       (filter === "mine"    && redeemedIds.includes(v.Vouchers_id));
     return matchFilter;
   }), [catalog, filter, redeemedIds]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCinemaId, search, filter]);
+
+  const voucherTotalPages = Math.max(1, Math.ceil(filtered.length / VOUCHER_PAGE_SIZE));
+
+  useEffect(() => {
+    if (page > voucherTotalPages) setPage(voucherTotalPages);
+  }, [page, voucherTotalPages]);
+
+  const pagedVouchers = useMemo(() => {
+    const safePage = Math.min(page, voucherTotalPages);
+    const start = (safePage - 1) * VOUCHER_PAGE_SIZE;
+    return filtered.slice(start, start + VOUCHER_PAGE_SIZE);
+  }, [filtered, page, voucherTotalPages]);
 
   const handleRedeem = async () => {
     if (!selected) return;
@@ -406,7 +425,7 @@ export default function VoucherExchange() {
             <div className="empty-state"><div className="empty-icon">🎟</div><p>Không tìm thấy voucher nào</p></div>
           ) : (
             <Row className="g-3">
-              {filtered.map((v) => {
+              {pagedVouchers.map((v) => {
                 const isExpired  = v.status === "expired";
                 const isRedeemed = redeemedIds.includes(v.Vouchers_id);
                 const enough     = userPoints >= v.point_voucher;
@@ -464,6 +483,14 @@ export default function VoucherExchange() {
                   </Col>
                 );
               })}
+              <Col xs={12}>
+                <PublicPagination
+                  page={page}
+                  totalItems={filtered.length}
+                  pageSize={VOUCHER_PAGE_SIZE}
+                  onPageChange={setPage}
+                />
+              </Col>
             </Row>
           )}
         </Container>
