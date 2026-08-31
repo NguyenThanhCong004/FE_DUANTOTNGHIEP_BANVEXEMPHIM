@@ -202,8 +202,22 @@ export const SUPER_ADMIN_DASHBOARD = {
   PAYMENT_METHOD_REVENUE: `${API_V1}/super-admin/dashboard/payment-method-revenue`,
   RECENT_ADMIN_ACTIVITY: (limit) => `${API_V1}/super-admin/dashboard/recent-admin-activity${limit ? `?limit=${limit}` : ""}`,
   AUDIT_LOG: (limit) => `${API_V1}/super-admin/dashboard/audit-log${limit ? `?limit=${limit}` : ""}`,
-  CINEMA_STATS: `${API_V1}/super-admin/dashboard/cinema-stats`,
+  MOVIE_STATS: `${API_V1}/super-admin/dashboard/movie-stats`,
+  MOVIE_CINEMA_REVENUE: (movieId) => `${API_V1}/super-admin/dashboard/movie-cinema-revenue?movieId=${movieId}`,
   CINEMA_MOVIE_REVENUE: (cinemaId) => `${API_V1}/super-admin/dashboard/cinema-movie-revenue?cinemaId=${cinemaId}`,
+  CINEMA_STATS: `${API_V1}/super-admin/dashboard/cinema-stats`,
+  CUSTOMER_STATS: (cinemaId) =>
+    `${API_V1}/super-admin/dashboard/customer-stats${cinemaId ? `?cinemaId=${cinemaId}` : ""}`,
+  CUSTOMER_STATS_BY_CINEMA: `${API_V1}/super-admin/dashboard/customer-stats/by-cinema`,
+  INVOICE_STATS: `${API_V1}/super-admin/dashboard/invoice-stats`,
+  PRODUCT_STATS: `${API_V1}/super-admin/dashboard/product-stats`,
+  PRODUCT_CATEGORY_REVENUE: (year, month) => {
+    const q = new URLSearchParams();
+    if (year) q.set("year", String(year));
+    if (month !== undefined && month !== null) q.set("month", String(month));
+    const qs = q.toString();
+    return `${API_V1}/super-admin/dashboard/product-stats/category-revenue${qs ? `?${qs}` : ""}`;
+  },
 };
 
 export const ADMIN_DASHBOARD = {

@@ -11,6 +11,17 @@ const menuSections = [
     ],
   },
   {
+    title: "Thống kê",
+    requiresCinema: false,
+    items: [
+      { path: "/super-admin/invoice-statistics", icon: "bi-receipt-cutoff", label: "Thống kê hóa đơn" },
+      { path: "/super-admin/movie-statistics", icon: "bi-bar-chart-line", label: "Thống kê phim" },
+      { path: "/super-admin/cinema-statistics", icon: "bi-building-check", label: "Thống kê rạp" },
+      { path: "/super-admin/customer-statistics", icon: "bi-person-lines-fill", label: "Thống kê khách hàng" },
+      { path: "/super-admin/product-statistics", icon: "bi-cup-straw", label: "Thống kê sản phẩm" },
+    ],
+  },
+  {
     title: "Hệ thống",
     requiresCinema: false,
     items: [

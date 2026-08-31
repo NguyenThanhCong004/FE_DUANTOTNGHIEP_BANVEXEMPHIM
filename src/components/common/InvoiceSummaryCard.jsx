@@ -355,16 +355,20 @@ export default function InvoiceSummaryCard({ order, title = "Chi tiết hóa đ�
             </div>
           ) : null}
 
-          {membershipDiscountTotal > 0 ? (
+          {(data.rankName || membershipDiscountTotal > 0) ? (
             <div className="mb-1">
               <div className="d-flex justify-content-between small text-success">
                 <span>{rankLabel}</span>
-                <span className="fw-bold">-{formatVnd(membershipDiscountTotal)}</span>
+                <span className="fw-bold">
+                  {membershipDiscountTotal > 0 ? `-${formatVnd(membershipDiscountTotal)}` : "—"}
+                </span>
               </div>
-              <div className="d-flex justify-content-between" style={{ ...labelStyle, fontSize: 11 }}>
-                <span>Còn lại sau giảm hạng hội viên</span>
-                <span>{formatVnd(afterPromoTotal - membershipDiscountTotal)}</span>
-              </div>
+              {membershipDiscountTotal > 0 && (
+                <div className="d-flex justify-content-between" style={{ ...labelStyle, fontSize: 11 }}>
+                  <span>Còn lại sau giảm hạng hội viên</span>
+                  <span>{formatVnd(afterPromoTotal - membershipDiscountTotal)}</span>
+                </div>
+              )}
             </div>
           ) : null}
 
