@@ -158,6 +158,15 @@ function getOrCreateSeatHolderId() {
   }
 }
 
+function normalizeAgeLimit(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function isAgeRestrictionMessage(message) {
+  return /tuổi|ngày sinh|T\d+/i.test(String(message || ""));
+}
+
 function normalizeShowtime(st) {
   if (!st) return null;
   return {
@@ -166,6 +175,7 @@ function normalizeShowtime(st) {
     time: st.time,
     movieId: st.movie_id ?? st.movieId,
     movieTitle: st.movie_title ?? st.movieTitle ?? "—",
+    movieAgeLimit: normalizeAgeLimit(st.movie_age_limit ?? st.movieAgeLimit ?? st.ageLimit ?? st.age_limit),
     roomId: st.room_id ?? st.roomId,
     roomName: st.room_name ?? st.roomName ?? "—",
     cinemaId: st.cinema_id ?? st.cinemaId ?? null,
@@ -221,6 +231,8 @@ const Booking = () => {
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [seatSelectionError, setSeatSelectionError] = useState(null);
   const [abuseWarning, setAbuseWarning] = useState(false);
+  const [agePolicyAccepted, setAgePolicyAccepted] = useState(false);
+  const [ageRestrictionError, setAgeRestrictionError] = useState(null);
   const [snackProducts, setSnackProducts] = useState([]);
   const [snackMenuError, setSnackMenuError] = useState(null);
   const [snackCart, setSnackCart] = useState({});
@@ -247,6 +259,12 @@ const Booking = () => {
 
   const baseTicketPrice = showtime?.price ?? 0;
   const showEnded = showtime?.status === "Đã chiếu";
+  const restrictedAgeLimit = useMemo(() => normalizeAgeLimit(showtime?.movieAgeLimit), [showtime]);
+
+  useEffect(() => {
+    setAgePolicyAccepted(false);
+    setAgeRestrictionError(null);
+  }, [showtimeId, restrictedAgeLimit]);
 
   const seatById = useMemo(() => {
     const m = new Map();
@@ -393,6 +411,9 @@ const Booking = () => {
     setSnackProducts([]);
     setSnackMenuError(null);
     setSnackCart({});
+    setAgePolicyAccepted(false);
+    setAgeRestrictionError(null);
+    setShowPaymentConfirm(false);
     try {
       const stRes = await apiFetch(SHOWTIMES.BY_ID(showtimeId));
       const stBody = await stRes.json().catch(() => null);
@@ -614,12 +635,14 @@ const Booking = () => {
     const token = getAccessToken();
     if (!token) {
       setQuote(null);
+      setAgeRestrictionError(null);
       return;
     }
     if (!Number.isFinite(showtimeId) || showtimeId <= 0) return;
     if (showEnded) return;
     if (!selectedSeatIds.length && !Object.keys(snackCart || {}).length && !selectedVoucherId) {
       setQuote(null);
+      setAgeRestrictionError(null);
       return;
     }
     let cancelled = false;
@@ -643,11 +666,17 @@ const Booking = () => {
         if (cancelled) return;
         if (res.ok && body?.data) {
           setQuote(body.data);
+          setAgeRestrictionError(null);
         } else {
           setQuote(null);
+          const message = body?.message || "";
+          setAgeRestrictionError(isAgeRestrictionMessage(message) ? message : null);
         }
       } catch {
-        if (!cancelled) setQuote(null);
+        if (!cancelled) {
+          setQuote(null);
+          setAgeRestrictionError(null);
+        }
       } finally {
         if (!cancelled) setQuoteLoading(false);
       }
@@ -855,6 +884,10 @@ const Booking = () => {
       setPayError("Hệ thống đang tính lại giá, vui lòng chờ một chút.");
       return;
     }
+    if (ageRestrictionError) {
+      setPayError(ageRestrictionError);
+      return;
+    }
     const existingBlocked = new Set([...bookedSet, ...peerHeldSet]);
     const check = checkNoNewSingleSeatOrphanInRows(
       seats,
@@ -867,6 +900,9 @@ const Booking = () => {
       return;
     }
     setSeatSelectionError(null);
+    if (restrictedAgeLimit > 0) {
+      setAgePolicyAccepted(false);
+    }
     setShowPaymentConfirm(true);
   };
 
@@ -875,6 +911,11 @@ const Booking = () => {
     setPayError(null);
     if (!getAccessToken()) {
       navigate("/login", { state: { from: `/booking/${showtimeId}` } });
+      return;
+    }
+    if (restrictedAgeLimit > 0 && !agePolicyAccepted) {
+      setPayError(`Vui lòng xác nhận quy định độ tuổi T${restrictedAgeLimit} trước khi thanh toán.`);
+      setShowPaymentConfirm(true);
       return;
     }
     setShowPaymentConfirm(false);
@@ -911,7 +952,11 @@ const Booking = () => {
         return;
       }
       if (!res.ok) {
-        setPayError(body?.message || "Không tạo được link thanh toán");
+        const message = body?.message || "Không tạo được link thanh toán";
+        if (isAgeRestrictionMessage(message)) {
+          setAgeRestrictionError(message);
+        }
+        setPayError(message);
         return;
       }
       if (Number(body?.data?.amountVnd ?? payableAmount) <= 0) {
@@ -998,6 +1043,9 @@ const Booking = () => {
                 </span>
                 {showtime?.status ? (
                   <span className={`fw-bold ${showEnded ? "text-secondary" : "text-warning"}`}>• {showtime.status}</span>
+                ) : null}
+                {restrictedAgeLimit > 0 ? (
+                  <span className="badge rounded-pill bg-warning text-dark fw-bold">T{restrictedAgeLimit}</span>
                 ) : null}
               </div>
             </div>
@@ -1417,6 +1465,14 @@ const Booking = () => {
                     <div className="fw-bold lh-sm" style={{ color: "#fff" }}>
                       {showtime.movieTitle}
                     </div>
+                    {restrictedAgeLimit > 0 ? (
+                      <div
+                        className="small mt-3 p-2 rounded-3"
+                        style={{ background: "rgba(255,193,7,0.12)", color: "#ffd166", border: "1px solid rgba(255,193,7,0.28)" }}
+                      >
+                        <strong>Phim T{restrictedAgeLimit}</strong> chỉ dành cho khán giả từ {restrictedAgeLimit} tuổi trở lên. Rạp có thể kiểm tra giấy tờ khi vào phòng chiếu.
+                      </div>
+                    ) : null}
                     <div className="row g-2 mt-3">
                       <div className="col-6">
                         <div className="small" style={{ color: "rgba(255,255,255,0.52)" }}>Ngày</div>
@@ -1601,11 +1657,12 @@ const Booking = () => {
                   </section>
                 </div>
 
-                {payError ? <div className="alert alert-warning small py-2 mb-3 border-0">{payError}</div> : null}
+                {ageRestrictionError ? <div className="alert alert-danger small py-2 mb-3 border-0">{ageRestrictionError}</div> : null}
+                {payError && payError !== ageRestrictionError ? <div className="alert alert-warning small py-2 mb-3 border-0">{payError}</div> : null}
                 <button
                   type="button"
-                  disabled={selectedSeatIds.length === 0 || showEnded || paying || quoteLoading}
-                  className={`btn btn-gradient w-100 rounded-pill py-3 fw-bold shadow-lg ${selectedSeatIds.length === 0 || showEnded ? "disabled opacity-50" : ""}`}
+                  disabled={selectedSeatIds.length === 0 || showEnded || paying || quoteLoading || Boolean(ageRestrictionError)}
+                  className={`btn btn-gradient w-100 rounded-pill py-3 fw-bold shadow-lg ${selectedSeatIds.length === 0 || showEnded || ageRestrictionError ? "disabled opacity-50" : ""}`}
                   onClick={handleOpenPaymentConfirm}
                 >
                   {paying ? (
@@ -1617,6 +1674,8 @@ const Booking = () => {
                     "Đang tính lại giá..."
                   ) : showEnded ? (
                     "Suất chiếu đã kết thúc"
+                  ) : ageRestrictionError ? (
+                    "Không đủ điều kiện đặt vé"
                   ) : selectedSeatIds.length === 0 ? (
                     "Chọn ghế để tiếp tục"
                   ) : isFreeCheckout ? (
@@ -1679,6 +1738,29 @@ const Booking = () => {
                         </div>
                       </div>
 
+                      {restrictedAgeLimit > 0 ? (
+                        <div
+                          className="p-3 rounded-4"
+                          style={{ background: "rgba(255,193,7,0.1)", border: "1px solid rgba(255,193,7,0.28)" }}
+                        >
+                          <div className="fw-bold small text-uppercase mb-2" style={{ color: "#ffd166", letterSpacing: 0 }}>
+                            Quy định độ tuổi T{restrictedAgeLimit}
+                          </div>
+                          <div className="small" style={{ color: "rgba(255,255,255,0.78)" }}>
+                            Phim chỉ dành cho khán giả từ {restrictedAgeLimit} tuổi trở lên. Rạp có quyền từ chối vào phòng chiếu nếu khách không đủ tuổi hoặc không xuất trình được giấy tờ khi cần.
+                          </div>
+                          <label className="d-flex align-items-start gap-2 mt-3 small fw-bold" style={{ color: "#fff", cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              className="form-check-input mt-1"
+                              checked={agePolicyAccepted}
+                              onChange={(e) => setAgePolicyAccepted(e.target.checked)}
+                            />
+                            <span>Tôi xác nhận người xem đáp ứng quy định độ tuổi của phim.</span>
+                          </label>
+                        </div>
+                      ) : null}
+
                       {isFreeCheckout ? (
                         <div className="small rounded-3 p-3" style={{ background: "rgba(142,230,168,0.1)", color: "#9fe6b8", border: "1px solid rgba(142,230,168,0.22)" }}>
                           Tổng tiền còn 0đ nên hệ thống sẽ hoàn tất đặt vé ngay, không chuyển sang PayOS.
@@ -1690,7 +1772,7 @@ const Booking = () => {
                     <Button variant="link" className="text-white-50 text-decoration-none fw-bold" disabled={paying} onClick={() => setShowPaymentConfirm(false)}>
                       Kiểm tra lại
                     </Button>
-                    <Button className="btn-gradient rounded-pill px-4 fw-bold border-0" disabled={paying} onClick={handleCheckoutPayOS}>
+                    <Button className="btn-gradient rounded-pill px-4 fw-bold border-0" disabled={paying || (restrictedAgeLimit > 0 && !agePolicyAccepted)} onClick={handleCheckoutPayOS}>
                       {paying ? (
                         <>
                           <Spinner animation="border" size="sm" className="me-2" />
