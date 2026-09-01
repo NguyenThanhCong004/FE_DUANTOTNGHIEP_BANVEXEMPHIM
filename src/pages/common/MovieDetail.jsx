@@ -374,15 +374,19 @@ const MovieDetail = () => {
   const poster = movie?.posterUrl || movie?.poster || "";
   const isComingSoon = movie?.status === 2;
   const isStopped = movie && movie.status !== 1 && movie.status !== 2;
+  const movieAgeLimit = useMemo(() => {
+    const n = Number(movie?.ageLimit);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [movie]);
 
   const metaLine = useMemo(() => {
     if (!movie) return "";
     const parts = [];
     if (movie.genres?.length) parts.push(movie.genres.join(", "));
     if (movie.duration) parts.push(`${movie.duration} phút`);
-    if (movie.ageLimit != null) parts.push(`T${movie.ageLimit}`);
+    if (movieAgeLimit > 0) parts.push(`T${movieAgeLimit}`);
     return parts.join(" · ");
-  }, [movie]);
+  }, [movie, movieAgeLimit]);
 
   const averageRating = useMemo(() => {
     if (!reviews.length) return 0;
@@ -596,6 +600,19 @@ const MovieDetail = () => {
           color: rgba(240,240,255,0.35);
           margin-bottom: 16px;
           letter-spacing: 0.3px;
+        }
+
+        .md-age-note {
+          font-family: 'Syne', sans-serif;
+          font-size: 13px;
+          font-weight: 650;
+          line-height: 1.6;
+          color: var(--yellow);
+          background: rgba(212,255,0,0.08);
+          border: 1px solid rgba(212,255,0,0.18);
+          border-radius: 12px;
+          padding: 12px 14px;
+          margin-bottom: 16px;
         }
 
         .md-info-row {
@@ -1021,6 +1038,12 @@ const MovieDetail = () => {
                   </div>
 
                   {metaLine && <p className="md-meta">{metaLine}</p>}
+
+                  {movieAgeLimit > 0 && (
+                    <div className="md-age-note">
+                      Phim T{movieAgeLimit} chỉ dành cho khán giả từ {movieAgeLimit} tuổi trở lên. Vui lòng kiểm tra độ tuổi trước khi đặt vé.
+                    </div>
+                  )}
 
                   <div className="md-info-row">
                     <span className="md-info-label">Khởi chiếu:</span>
