@@ -634,8 +634,8 @@ export default function CinemaNavbar() {
 
             {/* Quick actions */}
             <div className="cn-quick-actions" style={{ display: "flex", gap: 8 }}>
-              <Link to="/movies"    className="cn-btn-ticket">🎫 Đặt vé ngay</Link>
-              <Link to="/foodorder" className="cn-btn-food">🍿 Đặt bắp nước</Link>
+              <Link to="/movies"    className="cn-btn-ticket"><i className="bi bi-ticket-perforated-fill me-2" aria-hidden="true" />Đặt vé ngay</Link>
+              <Link to="/foodorder" className="cn-btn-food"><i className="bi bi-cup-straw me-2" aria-hidden="true" />Đặt bắp nước</Link>
             </div>
 
             {/* Spacer */}
@@ -769,8 +769,8 @@ export default function CinemaNavbar() {
             <div className="cn-mobile-divider" />
 
             {/* Quick actions in mobile */}
-            <Link to="/movies"    className="cn-mobile-link" onClick={() => setMobileMenuOpen(false)}>🎫 Đặt vé ngay</Link>
-            <Link to="/foodorder" className="cn-mobile-link" onClick={() => setMobileMenuOpen(false)}>🍿 Đặt bắp nước</Link>
+            <Link to="/movies"    className="cn-mobile-link" onClick={() => setMobileMenuOpen(false)}><i className="bi bi-ticket-perforated-fill me-2" aria-hidden="true" />Đặt vé ngay</Link>
+            <Link to="/foodorder" className="cn-mobile-link" onClick={() => setMobileMenuOpen(false)}><i className="bi bi-cup-straw me-2" aria-hidden="true" />Đặt bắp nước</Link>
 
             <div className="cn-mobile-divider" />
 

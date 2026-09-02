@@ -13,12 +13,7 @@ import sanitizeHtml from '../../utils/sanitizeHtml';
 const PLACEHOLDER_POSTER = 'https://placehold.co/120x180?text=Poster';
 
 const mapMovie = (m) => {
-  const rd = m.releaseDate ? new Date(m.releaseDate) : null;
-  if (rd) rd.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
-  if (statusStr === 'Upcoming' && rd && rd <= today) statusStr = 'Active';
+  const statusStr = codeToAdminStatus(m.status, { allowUpcoming: true });
   return {
     id: m.id,
     title: m.title ?? '',

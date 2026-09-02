@@ -239,7 +239,7 @@ const Home = () => {
         {!loading && loadError && (
           <div className="container">
             <div className="home-error">
-              ⚠ {loadError}
+              <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />{loadError}
             </div>
           </div>
         )}
@@ -261,7 +261,7 @@ const Home = () => {
 
             {nowShowing.length === 0 ? (
               <div className="home-empty">
-                <div className="home-empty-icon">🎬</div>
+                <div className="home-empty-icon"><i className="bi bi-camera-reels-fill" aria-hidden="true" /></div>
                 <div className="home-empty-title">Chưa có phim đang chiếu</div>
                 <div className="home-empty-sub">Thêm phim trên admin hoặc kiểm tra ngày khởi chiếu / trạng thái phim.</div>
               </div>

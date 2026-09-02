@@ -1539,7 +1539,7 @@ export default function SeatManagement() {
             {pill(stdCount, need.std, "Thường")}
             {pill(vipCount, need.vip, "VIP")}
             {pill(coupleCount, need.couple, "Đôi")}
-            {allOk && <span style={{ color: "#065f46", fontWeight: 600 }}>✓ Đủ ghế</span>}
+            {allOk && <span style={{ color: "#065f46", fontWeight: 600 }}><i className="bi bi-check2-circle me-1" aria-hidden="true" />Đủ ghế</span>}
           </div>
         );
       })()}

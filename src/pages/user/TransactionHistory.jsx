@@ -10,9 +10,9 @@ import { mapMeTransactionToFe } from "../../utils/customerMeApi";
 import { formatDate, formatNumber, formatTime, formatVnd } from "../../utils/formatters";
 
 const TYPE_CONFIG = {
-  ticket_online: { label: "Vé Online",  color: "#7b1fa2", bg: "rgba(123,31,162,0.12)", icon: "🎫" },
-  food:          { label: "Bắp & Nước", color: "#e91e8c", bg: "rgba(233,30,140,0.12)", icon: "🍿" },
-  points:        { label: "Điểm",       color: "#d4e219", bg: "rgba(212,226,25,0.12)",  icon: "⭐" },
+  ticket_online: { label: "Vé Online",  color: "#7b1fa2", bg: "rgba(123,31,162,0.12)", iconClass: "bi bi-ticket-perforated-fill" },
+  food:          { label: "Bắp & Nước", color: "#e91e8c", bg: "rgba(233,30,140,0.12)", iconClass: "bi bi-cup-straw" },
+  points:        { label: "Điểm",       color: "#d4e219", bg: "rgba(212,226,25,0.12)", iconClass: "bi bi-star-fill" },
 };
 
 const STATUS_CONFIG = {
@@ -25,6 +25,16 @@ const fmt = (n) => formatVnd(Math.abs(Number(n) || 0));
 const fmtDate = (d) => formatDate(d, { day: "2-digit", month: "2-digit", year: "numeric" });
 const fmtTime = (d) => formatTime(d);
 
+function iconClassFor(icon, type) {
+  const raw = String(icon || "").trim();
+  if (raw.startsWith("bi ") || raw.startsWith("fa")) return raw;
+  return TYPE_CONFIG[type]?.iconClass || "bi bi-receipt";
+}
+
+function UiIcon({ icon, type, className = "", style }) {
+  return <i className={`${iconClassFor(icon, type)} ${className}`.trim()} style={style} aria-hidden="true" />;
+}
+
 /* ══ Detail Modal ══ */
 function DetailModal({ tx, onClose }) {
   if (!tx) return null;
@@ -36,7 +46,7 @@ function DetailModal({ tx, onClose }) {
         <button className="th-modal-close" onClick={onClose}>×</button>
 
         <div className="th-modal-header">
-          <span className="th-modal-icon">{tc.icon}</span>
+          <UiIcon icon={tc.iconClass} type={tx.type} className="th-modal-icon" style={{ color: tc.color }} />
           <div>
             <div className="th-modal-title">CHI TIẾT GIAO DỊCH</div>
             <div className="th-modal-code">{tx.order_code}</div>
@@ -51,7 +61,7 @@ function DetailModal({ tx, onClose }) {
         <div className="th-modal-items">
           {tx.items.map((item, i) => (
             <div key={i} className="th-modal-item">
-              <span className="th-mi-icon">{item.icon}</span>
+              <UiIcon icon={item.icon} type={tx.type} className="th-mi-icon" style={{ color: tc.color }} />
               <div className="th-mi-info">
                 <div className="th-mi-name">{item.label}</div>
                 <div className="th-mi-sub">{item.sub}</div>
@@ -474,7 +484,7 @@ export default function TransactionHistory() {
           <Row className="align-items-end mb-4 gy-3">
             <Col>
               <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
-                📋 Tài khoản của bạn
+                <i className="bi bi-person-lines-fill me-2" aria-hidden="true" />Tài khoản của bạn
               </p>
               <h1 className="th-title mb-0">LỊCH SỬ <span>GIAO DỊCH</span></h1>
             </Col>
@@ -491,7 +501,7 @@ export default function TransactionHistory() {
                   </div>
                   <div className="th-stat">
                     <div className="th-stat-num">{totalPts}</div>
-                    <div className="th-stat-lbl">Điểm ⭐</div>
+                    <div className="th-stat-lbl">Điểm</div>
                   </div>
                 </div>
               </Col>
@@ -504,11 +514,12 @@ export default function TransactionHistory() {
               <div className="th-filters">
                 {[
                   { key: "all",           label: "Tất cả" },
-                  { key: "ticket_online", label: "🎫 Vé" },
-                  { key: "food",          label: "🍿 Bắp Nước" },
-                  { key: "points",        label: "⭐ Điểm" },
-                ].map(({ key, label }) => (
+                  { key: "ticket_online", label: "Vé", iconClass: "bi bi-ticket-perforated-fill" },
+                  { key: "food",          label: "Bắp Nước", iconClass: "bi bi-cup-straw" },
+                  { key: "points",        label: "Điểm", iconClass: "bi bi-star-fill" },
+                ].map(({ key, label, iconClass }) => (
                   <button key={key} className={`th-filter-btn${filterType === key ? " active" : ""}`} onClick={() => setFilterType(key)}>
+                    {iconClass && <i className={`${iconClass} me-1`} aria-hidden="true" />}
                     {label}
                   </button>
                 ))}
@@ -548,20 +559,20 @@ export default function TransactionHistory() {
           {/* ── CONTENT ── */}
           {loading ? (
             <div className="th-state-box">
-              <div className="ei">⏳</div>
+              <div className="ei"><i className="bi bi-hourglass-split" aria-hidden="true" /></div>
               <p>Đang tải dữ liệu...</p>
             </div>
           ) : !getAccessToken() ? (
             <div className="th-state-box">
-              <div className="ei">🔒</div>
+              <div className="ei"><i className="bi bi-lock-fill" aria-hidden="true" /></div>
               <p>Vui lòng đăng nhập để xem lịch sử giao dịch</p>
               <Link to="/login">Đăng nhập ngay</Link>
             </div>
           ) : loadError ? (
-            <div className="th-err-box">⚠ {loadError}</div>
+            <div className="th-err-box"><i className="bi bi-exclamation-triangle-fill me-2" aria-hidden="true" />{loadError}</div>
           ) : filtered.length === 0 ? (
             <div className="th-state-box">
-              <div className="ei">📋</div>
+              <div className="ei"><i className="bi bi-list-ul" aria-hidden="true" /></div>
               <p>Không tìm thấy giao dịch nào</p>
             </div>
           ) : (
@@ -580,7 +591,7 @@ export default function TransactionHistory() {
                     <div className="th-row-main" onClick={() => setExpanded(isExpanded ? null : tx.id)}>
 
                       <div className="th-type-icon" style={{ background: tc.bg }}>
-                        {tc.icon}
+                        <UiIcon icon={tc.iconClass} type={tx.type} style={{ color: tc.color }} />
                       </div>
 
                       <div className="th-row-info">
@@ -611,7 +622,7 @@ export default function TransactionHistory() {
                         className={`th-expand-btn${isExpanded ? " open" : ""}`}
                         onClick={e => { e.stopPropagation(); setExpanded(isExpanded ? null : tx.id); }}
                       >
-                        ▼
+                        <i className="bi bi-chevron-down" aria-hidden="true" />
                       </button>
                     </div>
 
@@ -619,7 +630,7 @@ export default function TransactionHistory() {
                       <div className="th-row-detail">
                         {tx.items.map((item, i) => (
                           <div key={i} className="th-detail-item">
-                            <span className="th-di-icon">{item.icon}</span>
+                            <UiIcon icon={item.icon} type={tx.type} className="th-di-icon" style={{ color: tc.color }} />
                             <div className="th-di-info">
                               <div className="th-di-name">{item.label}</div>
                               <div className="th-di-sub">{item.sub}</div>
@@ -653,7 +664,7 @@ export default function TransactionHistory() {
                             )}
                           </div>
                           <button className="th-see-more" onClick={() => setSelected(tx)}>
-                            Xem chi tiết →
+                            Xem chi tiết <i className="bi bi-arrow-right" aria-hidden="true" />
                           </button>
                         </div>
                       </div>

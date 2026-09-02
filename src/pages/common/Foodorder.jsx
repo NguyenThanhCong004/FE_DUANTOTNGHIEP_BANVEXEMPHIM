@@ -40,9 +40,10 @@ function ProductCard({ product, qty, onAdd, onRemove }) {
           background: "rgba(255,255,255,0.04)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 40,
+          color: "rgba(255,255,255,0.24)",
         }}
       >
-        🍿
+        <i className="bi bi-cup-straw" aria-hidden="true" />
       </div>
     );
 
@@ -530,7 +531,7 @@ export function FoodOrderContent({ embedded = false }) {
           <Row className="align-items-end mb-4 gy-3">
             <Col>
               <p style={{ color:"rgba(255,255,255,0.35)", fontSize:11, fontWeight:700, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>
-                🍿 Đặt trước — nhận tại quầy rạp
+                <i className="bi bi-cup-straw me-2" aria-hidden="true" />Đặt trước — nhận tại quầy rạp
               </p>
               <h1 className="fd-title mb-0">
                 BẮP NƯỚC <span>ONLINE</span>
@@ -553,8 +554,8 @@ export function FoodOrderContent({ embedded = false }) {
             </Col>
           </Row>
 
-          {menuError    && <div className="fd-alert-warn">⚠ {menuError}</div>}
-          {checkoutError && <div className="fd-alert-danger">⚠ {checkoutError}</div>}
+          {menuError    && <div className="fd-alert-warn"><i className="bi bi-exclamation-triangle-fill me-2" aria-hidden="true" />{menuError}</div>}
+          {checkoutError && <div className="fd-alert-danger"><i className="bi bi-exclamation-triangle-fill me-2" aria-hidden="true" />{checkoutError}</div>}
 
           <Row className="g-4">
             {/* LEFT — menu */}
@@ -565,9 +566,9 @@ export function FoodOrderContent({ embedded = false }) {
                   <p style={{ marginTop:12 }}>Đang tải menu…</p>
                 </div>
               ) : !cinemaId ? (
-                <div className="fd-empty"><div className="ei">🎬</div><p>Chọn rạp để xem món đang bán.</p></div>
+                <div className="fd-empty"><div className="ei"><i className="bi bi-camera-reels-fill" aria-hidden="true" /></div><p>Chọn rạp để xem món đang bán.</p></div>
               ) : filtered.length === 0 ? (
-                <div className="fd-empty"><div className="ei">🔍</div><p>Không có món phù hợp hoặc menu trống.</p></div>
+                <div className="fd-empty"><div className="ei"><i className="bi bi-search" aria-hidden="true" /></div><p>Không có món phù hợp hoặc menu trống.</p></div>
               ) : (
                 <>
                   <div className="fd-cats">
@@ -659,7 +660,7 @@ export function FoodOrderContent({ embedded = false }) {
                   {paying ? (
                     <><Spinner size="sm" className="me-2" />Đang tạo link PayOS…</>
                   ) : (
-                    <>🍿 Thanh toán PayOS — {fmt(subtotal)}</>
+                    <><i className="bi bi-credit-card-fill me-2" aria-hidden="true" />Thanh toán PayOS — {fmt(subtotal)}</>
                   )}
                 </button>
 
@@ -667,7 +668,7 @@ export function FoodOrderContent({ embedded = false }) {
                   Cần đăng nhập tài khoản khách. Thanh toán xong nhận tại quầy rạp đã chọn.
                 </p>
                 <p style={{ fontSize:11, color:"#ffd166", fontWeight:600, textAlign:"center", marginTop:4, marginBottom:0 }}>
-                  ⏱ Bạn có 5 phút để hoàn tất thanh toán sau khi chuyển sang trang PayOS.
+                  <i className="bi bi-clock me-1" aria-hidden="true" />Bạn có 5 phút để hoàn tất thanh toán sau khi chuyển sang trang PayOS.
                 </p>
               </div>
             </Col>

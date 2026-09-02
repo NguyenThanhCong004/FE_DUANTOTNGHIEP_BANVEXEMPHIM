@@ -376,7 +376,7 @@ const Movies = () => {
               <p>Đang tải danh sách phim…</p>
             </div>
           ) : error ? (
-            <div className="mv-error">⚠ {error}</div>
+            <div className="mv-error"><i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />{error}</div>
           ) : filteredMovies.length > 0 ? (
             <>
               <div className="row g-4">
@@ -395,7 +395,7 @@ const Movies = () => {
             </>
           ) : (
             <div className="mv-empty">
-              <div className="mv-empty-icon">🎬</div>
+              <div className="mv-empty-icon"><i className="bi bi-camera-reels-fill" aria-hidden="true" /></div>
               <div className="mv-empty-title">Không có phim phù hợp</div>
               <div className="mv-empty-sub">Thử đổi bộ lọc hoặc thêm phim trên admin.</div>
             </div>
