@@ -323,6 +323,10 @@ const MovieDetail = () => {
   const ROOM_SWITCH_OCCUPANCY_RATIO = 0.9;
 
   const handleBookSlot = async (slot) => {
+    if (!getAccessToken()) {
+      navigate("/login", { state: { from: `/movie/${movieId}` } });
+      return;
+    }
     // Chỉ 1 suất trong ô này — đặt vé thẳng như cũ.
     if (slot.group.length === 1) {
       navigate(`/booking/${slot.group[0].id}`);

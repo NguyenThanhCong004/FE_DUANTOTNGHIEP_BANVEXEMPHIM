@@ -168,6 +168,11 @@ export function FoodOrderContent({ embedded = false }) {
     if (n[productId] <= 0) delete n[productId];
     return n;
   });
+  const clearItem  = (productId) => setCart((c) => {
+    const n = { ...c };
+    delete n[productId];
+    return n;
+  });
 
   const cartItems = useMemo(() => products.filter((p) => (cart[p.productId] || 0) > 0), [products, cart]);
   const totalQty  = useMemo(() => Object.values(cart).reduce((a, b) => a + b, 0), [cart]);
@@ -440,6 +445,14 @@ export function FoodOrderContent({ embedded = false }) {
         .fd-cart-item-name { color: #fff; font-weight: 700; }
         .fd-cart-item-sub { color: rgba(255,255,255,0.35); font-weight: 600; margin-top: 1px; }
         .fd-cart-item-total { color: var(--yellow); font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 1px; white-space: nowrap; }
+        .fd-cart-item-right { display: flex; align-items: center; gap: 8px; }
+        .fd-cart-item-remove {
+          background: rgba(255,255,255,0.06); border: none; color: rgba(255,255,255,0.55);
+          width: 18px; height: 18px; border-radius: 50%; font-size: 13px; line-height: 1;
+          display: flex; align-items: center; justify-content: center; cursor: pointer;
+          flex-shrink: 0; transition: background 0.15s, color 0.15s;
+        }
+        .fd-cart-item-remove:hover { background: rgba(233,30,140,0.25); color: #fff; }
 
         .fd-cart-scroll { max-height: 260px; overflow-y: auto; margin-bottom: 12px; }
         .fd-cart-scroll::-webkit-scrollbar { width: 3px; }
@@ -616,7 +629,18 @@ export function FoodOrderContent({ embedded = false }) {
                           <div className="fd-cart-item-name">{p.name}</div>
                           <div className="fd-cart-item-sub">{fmt(p.price)} × {cart[p.productId]}</div>
                         </div>
-                        <div className="fd-cart-item-total">{fmt(p.price * cart[p.productId])}</div>
+                        <div className="fd-cart-item-right">
+                          <div className="fd-cart-item-total">{fmt(p.price * cart[p.productId])}</div>
+                          <button
+                            type="button"
+                            className="fd-cart-item-remove"
+                            aria-label={`Bỏ ${p.name} khỏi giỏ hàng`}
+                            title="Bỏ khỏi giỏ hàng"
+                            onClick={() => clearItem(p.productId)}
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -641,6 +665,9 @@ export function FoodOrderContent({ embedded = false }) {
 
                 <p style={{ fontSize:11, color:"rgba(255,255,255,0.25)", fontWeight:600, textAlign:"center", marginTop:10, marginBottom:0 }}>
                   Cần đăng nhập tài khoản khách. Thanh toán xong nhận tại quầy rạp đã chọn.
+                </p>
+                <p style={{ fontSize:11, color:"#ffd166", fontWeight:600, textAlign:"center", marginTop:4, marginBottom:0 }}>
+                  ⏱ Bạn có 5 phút để hoàn tất thanh toán sau khi chuyển sang trang PayOS.
                 </p>
               </div>
             </Col>

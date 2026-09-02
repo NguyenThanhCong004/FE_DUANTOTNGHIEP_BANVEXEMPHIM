@@ -1,7 +1,7 @@
 import React from "react";
 import { Modal } from "react-bootstrap";
 import { apiUrl } from "../../utils/apiClient";
-import { TICKET_ORDERS } from "../../constants/apiEndpoints";
+import { TICKET_ORDERS, FOOD_ORDERS } from "../../constants/apiEndpoints";
 import { formatVnd } from "../../utils/formatters";
 
 function ticketQrSrc(item) {
@@ -16,6 +16,9 @@ export default function TicketPopup({ show, onHide, transaction }) {
   const items = transaction.items || [];
   const qrItems = items.filter((item) => ticketQrSrc(item));
   const qrLeadItem = qrItems[0] || null;
+  const foodQrSrc = !qrLeadItem && transaction.receipt_token
+    ? apiUrl(FOOD_ORDERS.RECEIPT_QR(transaction.receipt_token))
+    : "";
   const seatLabels = [...new Set(qrItems.map((item) => item.seat_label || item.sub).filter(Boolean))];
   const first = items[0];
 
@@ -59,6 +62,15 @@ export default function TicketPopup({ show, onHide, transaction }) {
               style={{ width: 180, height: 180, objectFit: "contain", background: "#fff", borderRadius: 12, padding: 8 }}
             />
             <div className="small mt-2" style={{ color: "rgba(240,240,255,0.5)" }}>1 QR dùng cho toàn bộ ghế trong đơn này.</div>
+          </>
+        ) : foodQrSrc ? (
+          <>
+            <img
+              src={foodQrSrc}
+              alt={`QR bắp nước ${transaction.order_code || ""}`}
+              style={{ width: 180, height: 180, objectFit: "contain", background: "#fff", borderRadius: 12, padding: 8 }}
+            />
+            <div className="small mt-2" style={{ color: "rgba(240,240,255,0.5)" }}>Xuất trình mã này tại quầy để nhận bắp nước.</div>
           </>
         ) : (
           <div className="small py-3" style={{ color: "rgba(240,240,255,0.5)" }}>Đơn này không có vé kèm mã QR.</div>

@@ -37,6 +37,7 @@ export function mapMeTransactionToFe(row) {
     created_at: created,
     points_earned: Number(row.pointsEarned ?? 0),
     voucher_code: row.voucherCode ?? null,
+    receipt_token: row.receiptToken ?? null,
   };
 }
 

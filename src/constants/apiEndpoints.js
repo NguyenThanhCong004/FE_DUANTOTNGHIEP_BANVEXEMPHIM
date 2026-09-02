@@ -139,6 +139,7 @@ export const FOOD_ORDERS = {
   CHECKOUT: `${API_V1}/food-orders/checkout`,
   CONFIRM_PAYOS: `${API_V1}/food-orders/confirm-payos`,
   CANCEL_PENDING: `${API_V1}/food-orders/cancel-pending`,
+  RECEIPT_QR: (receiptToken) => `${API_V1}/food-orders/receipt-qr/${encodeURIComponent(receiptToken || "")}`,
 };
 
 /** Đặt vé & bắp nước tại quầy (POS) — JWT nhân viên (STAFF/ADMIN) */
