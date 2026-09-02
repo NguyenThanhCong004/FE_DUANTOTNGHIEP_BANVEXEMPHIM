@@ -27,7 +27,9 @@ function StarRating({ rating, onRate, readonly = false }) {
           onMouseEnter={() => !readonly && setHovered(s)}
           onMouseLeave={() => !readonly && setHovered(0)}
           onClick={() => !readonly && onRate && onRate(s)}
-        >★</span>
+        >
+          <i className="bi bi-star-fill" aria-hidden="true" />
+        </span>
       ))}
     </div>
   );
@@ -528,7 +530,7 @@ export default function Favorites() {
             <Row className="align-items-end mb-4 gy-3">
               <Col>
                 <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
-                  ❤️ Danh sách cá nhân
+                  <i className="bi bi-heart-fill me-2" aria-hidden="true" />Danh sách cá nhân
                 </p>
                 <h1 className="fav-title mb-0">PHIM <span>YÊU THÍCH</span></h1>
               </Col>
@@ -566,7 +568,7 @@ export default function Favorites() {
             {/* ── GRID ── */}
             {filtered.length === 0 ? (
               <div className="fav-empty">
-                <div className="empty-icon">🎬</div>
+                <div className="empty-icon"><i className="bi bi-camera-reels-fill" aria-hidden="true" /></div>
                 <p>Không có phim nào trong danh sách này</p>
                 <Link to="/movies">Khám phá phim ngay</Link>
               </div>
@@ -577,7 +579,7 @@ export default function Favorites() {
                     <div className="fav-card-wrap">
 
                       {fav.review && (
-                        <div className="review-badge">★ {fav.review.rating}.0</div>
+                        <div className="review-badge"><i className="bi bi-star-fill" aria-hidden="true" />{fav.review.rating}.0</div>
                       )}
 
                       <MovieCard
@@ -596,14 +598,20 @@ export default function Favorites() {
                               : 'Chỉ đánh giá sau khi đã mua vé và thanh toán thành công'
                           }
                         >
-                          {!fav.canReview ? '🔒 Chưa mua vé' : (fav.review ? '✏️ Sửa' : '⭐ Đánh giá')}
+                          {!fav.canReview ? (
+                            <><i className="bi bi-lock-fill" aria-hidden="true" />Chưa mua vé</>
+                          ) : fav.review ? (
+                            <><i className="bi bi-pencil-square" aria-hidden="true" />Sửa</>
+                          ) : (
+                            <><i className="bi bi-star-fill" aria-hidden="true" />Đánh giá</>
+                          )}
                         </button>
                         <button
                           className="btn-action remove"
                           onClick={() => setRemoveConfirm(fav)}
                           title="Xóa khỏi yêu thích"
                         >
-                          🗑 Xóa
+                          <i className="bi bi-trash3-fill" aria-hidden="true" />Xóa
                         </button>
                       </div>
 
@@ -684,7 +692,7 @@ export default function Favorites() {
             <div className="d-flex align-items-center gap-2 justify-content-end">
               <button className="btn-modal-cancel" disabled={reviewSaving} onClick={() => setReviewModal(null)}>Hủy</button>
               <button className="btn-modal-save" disabled={!draftRating || reviewSaving} onClick={handleSaveReview}>
-                {reviewSaving ? 'Đang lưu...' : '✓ Lưu đánh giá'}
+                {reviewSaving ? 'Đang lưu...' : <><i className="bi bi-check2 me-1" aria-hidden="true" />Lưu đánh giá</>}
               </button>
             </div>
           </div>
@@ -695,7 +703,7 @@ export default function Favorites() {
       {removeConfirm && (
         <div className="fav-modal-overlay" onClick={() => setRemoveConfirm(null)}>
           <div className="fav-modal confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>🗑</div>
+            <div style={{ fontSize: 40, marginBottom: 8, color: 'var(--pink)' }}><i className="bi bi-trash3-fill" aria-hidden="true" /></div>
             <div className="fav-modal-title" style={{ fontSize: 18 }}>XÓA KHỎI YÊU THÍCH?</div>
             <p>Bạn có chắc muốn xóa <strong style={{ color: '#fff' }}>{removeConfirm.movie.title}</strong> khỏi danh sách yêu thích không?</p>
             <div className="d-flex gap-2 justify-content-center">
@@ -711,7 +719,7 @@ export default function Favorites() {
       )}
 
       {/* ── TOAST ── */}
-      {toast && <div className="fav-toast">✓ {toast}</div>}
+      {toast && <div className="fav-toast"><i className="bi bi-check-circle-fill me-2" aria-hidden="true" />{toast}</div>}
     </Layout>
   );
 }

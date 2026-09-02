@@ -145,7 +145,7 @@ export default function ShiftManagement() {
 
       setShifts(loadedShifts);
     } catch (err) {
-      console.error("❌ Lỗi tải dữ liệu ca làm:", err);
+      console.error("Lỗi tải dữ liệu ca làm:", err);
     } finally {
       setLoading(false);
     }

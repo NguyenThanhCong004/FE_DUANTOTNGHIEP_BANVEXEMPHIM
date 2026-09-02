@@ -83,6 +83,21 @@ function formatReviewDate(value) {
   }
 }
 
+function ReviewStars({ rating }) {
+  const active = Math.max(0, Math.min(5, Number(rating) || 0));
+  return (
+    <>
+      {STARS.map((star) => (
+        <i
+          key={star}
+          className={`bi ${star <= active ? "bi-star-fill" : "bi-star"}`}
+          aria-hidden="true"
+        />
+      ))}
+    </>
+  );
+}
+
 const MovieDetail = () => {
   const { id: idParam } = useParams();
   const navigate = useNavigate();
@@ -244,6 +259,7 @@ const MovieDetail = () => {
   useEffect(() => {
     if (!Number.isFinite(movieId) || movieId <= 0) return;
     if (!selectedCinemaId) { setShowtimes([]); setSlotsError(null); setSelectedDateYmd(""); return; }
+    if (movie && movie.status !== 1) { setShowtimes([]); setSlotsError(null); setSelectedDateYmd(""); return; }
     const cid = Number(selectedCinemaId);
     let cancelled = false;
     (async () => {
@@ -262,7 +278,7 @@ const MovieDetail = () => {
       finally { if (!cancelled) setSlotsLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [movieId, selectedCinemaId]);
+  }, [movieId, selectedCinemaId, movie?.status]);
 
   const todayYmd = useMemo(() => getTodayYmd(), []);
   // Hiển thị đúng 7 ngày tính từ hôm nay: hôm nay + 6 ngày tiếp theo.
@@ -327,6 +343,10 @@ const MovieDetail = () => {
       navigate("/login", { state: { from: `/movie/${movieId}` } });
       return;
     }
+    if (movie?.status !== 1) {
+      alert("Phim này chưa mở đặt vé online.");
+      return;
+    }
     // Chỉ 1 suất trong ô này — đặt vé thẳng như cũ.
     if (slot.group.length === 1) {
       navigate(`/booking/${slot.group[0].id}`);
@@ -378,6 +398,7 @@ const MovieDetail = () => {
   const poster = movie?.posterUrl || movie?.poster || "";
   const isComingSoon = movie?.status === 2;
   const isStopped = movie && movie.status !== 1 && movie.status !== 2;
+  const canBookMovie = movie?.status === 1;
   const movieAgeLimit = useMemo(() => {
     const n = Number(movie?.ageLimit);
     return Number.isFinite(n) && n > 0 ? n : 0;
@@ -649,6 +670,10 @@ const MovieDetail = () => {
           padding: 24px 28px;
           margin-top: 8px;
         }
+        .md-booking-panel.disabled {
+          border-color: rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.025);
+        }
 
         .md-panel-title {
           font-family: 'Bebas Neue', sans-serif;
@@ -831,6 +856,10 @@ const MovieDetail = () => {
           letter-spacing: 1px;
           line-height: 1;
         }
+        .md-review-score i {
+          font-size: 16px;
+          vertical-align: middle;
+        }
         .md-my-review {
           border: 1px solid rgba(212,255,0,0.14);
           border-radius: 14px;
@@ -969,8 +998,9 @@ const MovieDetail = () => {
         .md-review-stars {
           color: var(--yellow);
           font-size: 13px;
-          letter-spacing: 2px;
           margin-bottom: 8px;
+          display: flex;
+          gap: 4px;
         }
         .md-review-comment {
           color: rgba(240,240,255,0.62);
@@ -1006,7 +1036,7 @@ const MovieDetail = () => {
             <>
               {isComingSoon && (
                 <div className="md-status-note soon">
-                  Phim này hiện đang ở trạng thái <strong>sắp chiếu</strong>. Lịch đặt vé sẽ hiển thị khi rạp mở suất chiếu.
+                  Phim này hiện đang ở trạng thái <strong>sắp chiếu</strong>. Hệ thống sẽ mở đặt vé khi phim chuyển sang đang chiếu.
                 </div>
               )}
 
@@ -1037,7 +1067,8 @@ const MovieDetail = () => {
                       disabled={favBusy}
                       onClick={toggleFavorite}
                     >
-                      {isFavorite ? "♥ Đã thích" : "♡ Yêu thích"}
+                      <i className={`bi ${isFavorite ? "bi-heart-fill" : "bi-heart"}`} aria-hidden="true" />
+                      {isFavorite ? "Đã thích" : "Yêu thích"}
                     </button>
                   </div>
 
@@ -1067,6 +1098,7 @@ const MovieDetail = () => {
                   )}
 
                   {/* ── BOOKING PANEL ── */}
+                  {canBookMovie ? (
                   <div className="md-booking-panel">
                     <h5 className="md-panel-title">
                       <i className="fas fa-ticket-alt" /> Đặt vé theo rạp — ngày — suất
@@ -1180,6 +1212,18 @@ const MovieDetail = () => {
                       </>
                     )}
                   </div>
+                  ) : (
+                    <div className="md-booking-panel disabled">
+                      <h5 className="md-panel-title">
+                        <i className="fas fa-ticket-alt" /> Chưa mở đặt vé
+                      </h5>
+                      <p className="md-panel-hint" style={{ marginBottom: 0 }}>
+                        {isComingSoon
+                          ? "Phim đang ở trạng thái sắp chiếu. Khách hàng có thể xem thông tin phim, hệ thống sẽ mở đặt vé khi admin chuyển phim sang đang chiếu."
+                          : "Phim hiện đã ngừng chiếu nên không mở đặt vé online."}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1192,7 +1236,9 @@ const MovieDetail = () => {
                     </h5>
                   </div>
                   {reviews.length > 0 && (
-                    <div className="md-review-score">{averageRating}★ / {reviews.length} đánh giá</div>
+                    <div className="md-review-score">
+                      {averageRating}<i className="bi bi-star-fill mx-1" aria-hidden="true" /> / {reviews.length} đánh giá
+                    </div>
                   )}
                 </div>
 
@@ -1222,7 +1268,7 @@ const MovieDetail = () => {
                             onClick={() => setReviewRating(star)}
                             aria-label={`${star} sao`}
                           >
-                            ★
+                            <i className="bi bi-star-fill" aria-hidden="true" />
                           </button>
                         ))}
                       </div>
@@ -1275,10 +1321,7 @@ const MovieDetail = () => {
                           <span className="md-review-user">{r.userName || "Khách hàng"}</span>
                           <span className="md-review-date">{formatReviewDate(r.updatedAt || r.createdAt)}</span>
                         </div>
-                        <div className="md-review-stars">
-                          {"★".repeat(Number(r.rating || 0))}
-                          {"☆".repeat(Math.max(0, 5 - Number(r.rating || 0)))}
-                        </div>
+                        <div className="md-review-stars"><ReviewStars rating={r.rating} /></div>
                         {r.comment && <p className="md-review-comment">{r.comment}</p>}
                       </div>
                     ))}

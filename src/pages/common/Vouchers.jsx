@@ -238,6 +238,8 @@ export default function VoucherExchange() {
         .points-badge { background:linear-gradient(135deg,#7b1fa2,#e91e8c); border-radius:14px; padding:14px 24px; display:inline-flex; align-items:center; gap:12px; box-shadow:0 0 32px rgba(233,30,140,0.3); }
         .points-badge .pts-num { font-family:'Bebas Neue',sans-serif; font-size:36px; color:#d4e219; line-height:1; letter-spacing:2px; }
         .points-badge .pts-label { font-size:11px; font-weight:700; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:1.5px; }
+        .points-badge .pts-icon { font-size:28px; color:#d4e219; line-height:1; }
+        .icon-line { display:inline-flex; align-items:center; gap:8px; }
 
         .cinema-pick-box { display:flex; align-items:center; gap:14px; flex-wrap:wrap; background:rgba(212,226,25,0.06); border:1.5px solid rgba(212,226,25,0.25); border-radius:12px; padding:14px 20px; }
         .cinema-pick-label { font-family:'Syne',sans-serif; font-weight:700; font-size:13px; color:#d4e219; white-space:nowrap; }
@@ -272,6 +274,8 @@ export default function VoucherExchange() {
 
         .voucher-description { font-size:11px; color:rgba(255,255,255,0.35); font-weight:600; margin-bottom:10px; min-height:30px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
         .voucher-meta { display:grid; gap:6px; font-size:11.5px; color:rgba(255,255,255,0.42); font-weight:700; letter-spacing:0.2px; }
+        .voucher-meta .meta-row { display:flex; align-items:center; gap:7px; }
+        .voucher-meta .meta-row i { width:14px; color:#d4e219; opacity:0.82; text-align:center; }
         .voucher-meta strong { color:rgba(255,255,255,0.72); }
 
         .point-cost { display:inline-flex; align-items:center; gap:5px; background:rgba(212,226,25,0.1); border:1px solid rgba(212,226,25,0.25); border-radius:8px; padding:5px 12px; font-family:'Bebas Neue',sans-serif; font-size:18px; color:#d4e219; letter-spacing:1.5px; }
@@ -291,6 +295,7 @@ export default function VoucherExchange() {
         .empty-state { text-align:center; padding:80px 20px; color:rgba(255,255,255,0.25); }
         .empty-state .empty-icon { font-size:56px; margin-bottom:16px; opacity:0.5; }
         .empty-state p { font-size:14px; font-weight:600; }
+        .inline-info-icon { color:#d4e219; margin-right:8px; width:16px; text-align:center; }
         .result-count { font-size:12px; color:rgba(255,255,255,0.3); font-weight:600; letter-spacing:0.5px; }
 
         /* ════ MODAL ════ */
@@ -344,7 +349,7 @@ export default function VoucherExchange() {
           <Row className="align-items-end mb-4 gy-3">
             <Col>
               <p style={{ color:"rgba(255,255,255,0.4)", fontSize:12, fontWeight:700, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>
-                🎟 Nhận voucher & đổi điểm lấy ưu đãi
+                <span className="icon-line"><i className="bi bi-ticket-perforated-fill" aria-hidden="true" />Nhận voucher & đổi điểm lấy ưu đãi</span>
               </p>
               <h1 className="page-title mb-0">KHO <span>VOUCHER</span></h1>
             </Col>
@@ -355,7 +360,7 @@ export default function VoucherExchange() {
                   <div className="pts-num">{formatNumber(userPoints)}</div>
                   <div className="pts-label">điểm tích lũy</div>
                 </div>
-                <div style={{ fontSize:32 }}>⭐</div>
+                <div className="pts-icon"><i className="bi bi-star-fill" aria-hidden="true" /></div>
               </div>
             </Col>
           </Row>
@@ -364,7 +369,7 @@ export default function VoucherExchange() {
           <Row className="mb-4">
             <Col xs={12}>
               <div className="cinema-pick-box">
-                <span className="cinema-pick-label">🎬 Chọn rạp để xem voucher</span>
+                <span className="cinema-pick-label"><i className="bi bi-camera-reels-fill me-2" aria-hidden="true" />Chọn rạp để xem voucher</span>
                 <select
                   className="cinema-pick-select"
                   value={selectedCinemaId}
@@ -412,7 +417,7 @@ export default function VoucherExchange() {
           {/* SUCCESS BANNER */}
           {successCode && (
             <div className="mb-4 p-3" style={{ background:"rgba(212,226,25,0.08)", border:"1.5px solid rgba(212,226,25,0.3)", borderRadius:12, display:"flex", alignItems:"center", gap:12, color:"#d4e219", fontWeight:700, fontSize:14 }}>
-              <span style={{ fontSize:22 }}>🎉</span>
+              <i className="bi bi-check-circle-fill" style={{ fontSize:22 }} aria-hidden="true" />
               Nhận thành công! Mã <span style={{ fontFamily:"'Bebas Neue'", letterSpacing:2, fontSize:16, margin:"0 6px" }}>{successCode}</span> đã được thêm vào tài khoản.
               <button onClick={() => setSuccessCode(null)} style={{ marginLeft:"auto", background:"none", border:"none", color:"rgba(212,226,25,0.5)", cursor:"pointer", fontSize:18 }}>×</button>
             </div>
@@ -420,9 +425,9 @@ export default function VoucherExchange() {
 
           {/* VOUCHER GRID */}
           {!selectedCinemaId ? (
-            <div className="empty-state"><div className="empty-icon">🎬</div><p>Vui lòng chọn rạp ở trên để xem voucher</p></div>
+            <div className="empty-state"><div className="empty-icon"><i className="bi bi-camera-reels-fill" aria-hidden="true" /></div><p>Vui lòng chọn rạp ở trên để xem voucher</p></div>
           ) : filtered.length === 0 ? (
-            <div className="empty-state"><div className="empty-icon">🎟</div><p>Không tìm thấy voucher nào</p></div>
+            <div className="empty-state"><div className="empty-icon"><i className="bi bi-ticket-perforated-fill" aria-hidden="true" /></div><p>Không tìm thấy voucher nào</p></div>
           ) : (
             <Row className="g-3">
               {pagedVouchers.map((v) => {
@@ -451,18 +456,18 @@ export default function VoucherExchange() {
                         {v.description && <p className="voucher-description">{v.description}</p>}
                         <div className="card-divider" />
                         <div className="voucher-meta mb-3">
-                          <div>🛒 Đơn tối thiểu: <strong>{fmt(v.min_order_value)}</strong></div>
-                          <div>💸 Giảm tối đa: <strong>{formatMaxDiscount(v.max_discount_amount)}</strong></div>
-                          <div>⭐ Điểm đổi: <strong>{v.point_voucher > 0 ? `${formatNumber(v.point_voucher)} điểm` : "Miễn phí"}</strong></div>
-                          <div>📅 <strong>{fmtDate(v.start_date)}</strong> – <strong>{fmtDate(v.end_date)}</strong></div>
+                          <div className="meta-row"><i className="bi bi-cart3" aria-hidden="true" /><span>Đơn tối thiểu: <strong>{fmt(v.min_order_value)}</strong></span></div>
+                          <div className="meta-row"><i className="bi bi-cash-coin" aria-hidden="true" /><span>Giảm tối đa: <strong>{formatMaxDiscount(v.max_discount_amount)}</strong></span></div>
+                          <div className="meta-row"><i className="bi bi-star-fill" aria-hidden="true" /><span>Điểm đổi: <strong>{v.point_voucher > 0 ? `${formatNumber(v.point_voucher)} điểm` : "Miễn phí"}</strong></span></div>
+                          <div className="meta-row"><i className="bi bi-calendar-event" aria-hidden="true" /><span><strong>{fmtDate(v.start_date)}</strong> – <strong>{fmtDate(v.end_date)}</strong></span></div>
                         </div>
                         <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
                           {isFree
-                            ? <span style={{ fontSize:12, fontWeight:700, color:"#81c784" }}>🎁 Miễn phí</span>
-                            : <span className={`point-cost${!enough?" not-enough":""}`}>⭐ {formatNumber(v.point_voucher)} điểm</span>
+                            ? <span style={{ fontSize:12, fontWeight:700, color:"#81c784" }}><i className="bi bi-gift-fill me-1" aria-hidden="true" />Miễn phí</span>
+                            : <span className={`point-cost${!enough?" not-enough":""}`}><i className="bi bi-star-fill" aria-hidden="true" />{formatNumber(v.point_voucher)} điểm</span>
                           }
                           {isRedeemed ? (
-                            <button className="btn-redeemed" onClick={(e) => e.stopPropagation()}>✓ Đã đổi</button>
+                            <button className="btn-redeemed" onClick={(e) => e.stopPropagation()}><i className="bi bi-check2 me-1" aria-hidden="true" />Đã đổi</button>
                           ) : isExpired ? (
                             <button className="btn-redeem" disabled onClick={(e) => e.stopPropagation()}>Hết hạn</button>
                           ) : isFree ? (
@@ -470,12 +475,12 @@ export default function VoucherExchange() {
                           ) : !enough ? (
                             <button className="btn-redeem" disabled onClick={(e) => e.stopPropagation()}>Không đủ điểm</button>
                           ) : (
-                            <button className="btn-redeem" onClick={(e) => { e.stopPropagation(); setSelected(v); setShowModal(true); }}>Đổi ngay →</button>
+                            <button className="btn-redeem" onClick={(e) => { e.stopPropagation(); setSelected(v); setShowModal(true); }}>Đổi ngay <i className="bi bi-arrow-right" aria-hidden="true" /></button>
                           )}
                         </div>
                         {!isFree && !isExpired && !isRedeemed && !enough && (
                           <div style={{ marginTop:10, fontSize:11, color:"rgba(233,30,140,0.7)", fontWeight:600 }}>
-                            ⚠ Cần thêm {formatNumber(v.point_voucher - userPoints)} điểm
+                            <i className="bi bi-exclamation-triangle-fill me-1" aria-hidden="true" />Cần thêm {formatNumber(v.point_voucher - userPoints)} điểm
                           </div>
                         )}
                       </div>
@@ -522,14 +527,14 @@ export default function VoucherExchange() {
             </div>
 
             <div style={{ fontSize:13, lineHeight:2, fontWeight:600 }}>
-              <div>🛒 Đơn tối thiểu: <span className="c-white">{fmt(selected.min_order_value)}</span></div>
-              <div>💸 Giảm tối đa: <span className="c-white">{formatMaxDiscount(selected.max_discount_amount)}</span></div>
-              <div>📅 Hết hạn: <span className="c-white">{fmtDate(selected.end_date)}</span></div>
+              <div><i className="bi bi-cart3 inline-info-icon" aria-hidden="true" />Đơn tối thiểu: <span className="c-white">{fmt(selected.min_order_value)}</span></div>
+              <div><i className="bi bi-cash-coin inline-info-icon" aria-hidden="true" />Giảm tối đa: <span className="c-white">{formatMaxDiscount(selected.max_discount_amount)}</span></div>
+              <div><i className="bi bi-calendar-event inline-info-icon" aria-hidden="true" />Hết hạn: <span className="c-white">{fmtDate(selected.end_date)}</span></div>
               {selected.point_voucher > 0 && (
-                <div>⭐ Chi phí: <span className="c-yellow">{formatNumber(selected.point_voucher)} điểm</span></div>
+                <div><i className="bi bi-star-fill inline-info-icon" aria-hidden="true" />Chi phí: <span className="c-yellow">{formatNumber(selected.point_voucher)} điểm</span></div>
               )}
               {selected.point_voucher <= 0 && (
-                <div>🎁 Chi phí: <span className="c-yellow">0 điểm — nhận miễn phí</span></div>
+                <div><i className="bi bi-gift-fill inline-info-icon" aria-hidden="true" />Chi phí: <span className="c-yellow">0 điểm — nhận miễn phí</span></div>
               )}
             </div>
 
@@ -553,7 +558,7 @@ export default function VoucherExchange() {
             Hủy
           </Button>
           <Button className="btn-redeem" disabled={redeemBusy} onClick={handleRedeem}>
-            {redeemBusy ? "…" : selected?.point_voucher > 0 ? "✓ Xác nhận đổi" : "✓ Nhận miễn phí"}
+            {redeemBusy ? "…" : selected?.point_voucher > 0 ? <><i className="bi bi-check2 me-1" aria-hidden="true" />Xác nhận đổi</> : <><i className="bi bi-check2 me-1" aria-hidden="true" />Nhận miễn phí</>}
           </Button>
         </Modal.Footer>
       </Modal>

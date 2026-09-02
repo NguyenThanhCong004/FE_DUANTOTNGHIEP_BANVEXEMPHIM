@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import MoviePoster from './MoviePoster';
 
 const MovieCard = ({ movie, isComingSoon = false, showBuyButton = true }) => {
+  const ageLimit = Number(movie?.ageLimit);
+  const hasAgeLimit = Number.isFinite(ageLimit) && ageLimit > 0;
+
   return (
     <>
       <style>{`
@@ -185,8 +188,8 @@ const MovieCard = ({ movie, isComingSoon = false, showBuyButton = true }) => {
             <div className="mc-overlay" />
 
             {/* Age badge */}
-            {movie.ageLimit != null && !isComingSoon && (
-              <span className="mc-badge-age">T{movie.ageLimit}</span>
+            {hasAgeLimit && (
+              <span className="mc-badge-age">T{ageLimit}</span>
             )}
 
             {/* Coming soon badge */}
