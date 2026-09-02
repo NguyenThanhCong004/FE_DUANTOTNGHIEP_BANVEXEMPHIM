@@ -9,13 +9,12 @@ import KpiCard from "../../components/admin/dashboard/KpiCard";
 import ChartCard from "../../components/admin/dashboard/ChartCard";
 import RecentListCard from "../../components/admin/dashboard/RecentListCard";
 import BarChartWidget from "../../components/admin/dashboard/BarChartWidget";
-import PieChartWidget from "../../components/admin/dashboard/PieChartWidget";
 import { useApiData } from "../../components/admin/dashboard/useApiData";
 import { apiJson } from "../../utils/apiClient";
-import { SUPER_ADMIN_DASHBOARD, ORDERS_ONLINE } from "../../constants/apiEndpoints";
+import { SUPER_ADMIN_DASHBOARD } from "../../constants/apiEndpoints";
 import { getAccessToken, clearAuthSession } from "../../utils/authStorage";
 import { decodeJwtPayload } from "../../utils/jwt";
-import { formatNumber, formatVnd, formatDateTime, formatDate, formatPercent } from "../../utils/formatters";
+import { formatNumber, formatVnd, formatDate } from "../../utils/formatters";
 
 const GRANULARITY_OPTIONS = [
   { value: "day", label: "Theo ngày" },
@@ -27,16 +26,6 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 4 + i);
 const PAGE_SIZE = 10;
-const ADMIN_ACTIVITY_FETCH_LIMIT = 500;
-
-function auditBadge(action) {
-  if (!action) return "admin-badge-neutral";
-  if (action.startsWith("DELETE")) return "admin-badge-danger";
-  if (action.startsWith("CREATE")) return "admin-badge-success";
-  if (action.startsWith("UPDATE")) return "admin-badge-info";
-  if (action === "LOGIN") return "admin-badge-primary";
-  return "admin-badge-neutral";
-}
 
 function MonthYearPicker({ month, year, onMonthChange, onYearChange }) {
   return (
@@ -75,9 +64,6 @@ const SuperAdminDashboard = () => {
   const [rangeFrom, setRangeFrom] = useState("");
   const [rangeTo, setRangeTo] = useState("");
   const [cinemaPage, setCinemaPage] = useState(1);
-  const [adminActivityPage, setAdminActivityPage] = useState(1);
-  const [activityFrom, setActivityFrom] = useState("");
-  const [activityTo, setActivityTo] = useState("");
 
   const isRangeActive = Boolean(rangeFrom && rangeTo);
 
@@ -109,11 +95,6 @@ const SuperAdminDashboard = () => {
     [selectedYear, selectedMonth]
   );
   const topMovies = useApiData(() => apiJson(SUPER_ADMIN_DASHBOARD.TOP_MOVIES(10)), []);
-  const recentInvoices = useApiData(() => apiJson(ORDERS_ONLINE.LIST), []);
-  const recentAdminActivity = useApiData(
-    () => apiJson(SUPER_ADMIN_DASHBOARD.RECENT_ADMIN_ACTIVITY(ADMIN_ACTIVITY_FETCH_LIMIT)),
-    []
-  );
 
   useEffect(() => {
     if (summary.error === "401" || (summary.error && summary.error.toLowerCase().includes("token"))) {
@@ -123,7 +104,6 @@ const SuperAdminDashboard = () => {
   }, [summary.error, navigate]);
 
   useEffect(() => { setCinemaPage(1); }, [cinemaRankings.data]);
-  useEffect(() => { setAdminActivityPage(1); }, [recentAdminActivity.data, activityFrom, activityTo]);
 
   const revenueLabels = useMemo(() => {
     if (!revenue.data) return [];
@@ -150,32 +130,6 @@ const SuperAdminDashboard = () => {
     (cinemaPage - 1) * PAGE_SIZE,
     cinemaPage * PAGE_SIZE
   );
-  const filteredAdminActivity = useMemo(() => {
-    let list = recentAdminActivity.data || [];
-    if (activityFrom) {
-      const from = new Date(activityFrom);
-      from.setHours(0, 0, 0, 0);
-      list = list.filter((r) => r.createdAt && new Date(r.createdAt) >= from);
-    }
-    if (activityTo) {
-      const to = new Date(activityTo);
-      to.setHours(23, 59, 59, 999);
-      list = list.filter((r) => r.createdAt && new Date(r.createdAt) <= to);
-    }
-    return list;
-  }, [recentAdminActivity.data, activityFrom, activityTo]);
-
-  const adminActivityTotalPages = Math.max(1, Math.ceil(filteredAdminActivity.length / PAGE_SIZE));
-  const pagedAdminActivity = filteredAdminActivity.slice(
-    (adminActivityPage - 1) * PAGE_SIZE,
-    adminActivityPage * PAGE_SIZE
-  );
-  const top10Invoices = useMemo(() => {
-    const list = [...(recentInvoices.data || [])];
-    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    return list.slice(0, 10);
-  }, [recentInvoices.data]);
-
   const revenueTitle = isRangeActive
     ? `Doanh thu từ ${formatDate(rangeFrom)} đến ${formatDate(rangeTo)}`
     : `Doanh thu ${granularity === "day" ? "theo ngày (30 ngày)" : granularity === "year" ? "theo năm" : `năm ${selectedYear}`}`;
@@ -208,7 +162,7 @@ const SuperAdminDashboard = () => {
       </div>
 
       <div className="row g-4 mt-1">
-        <div className="col-lg-8">
+        <div className="col-12">
           <ChartCard
             title={revenueTitle}
             loading={revenue.loading}
@@ -261,28 +215,6 @@ const SuperAdminDashboard = () => {
                 highlightIndex: !isRangeActive && granularity === "month" ? selectedMonth - 1 : undefined,
               }]}
               onBarClick={handleBarClick}
-            />
-          </ChartCard>
-        </div>
-
-        <div className="col-lg-4">
-          <ChartCard
-            title="Doanh thu theo rạp"
-            loading={cinemaRankings.loading}
-            error={cinemaRankings.error}
-            isEmpty={!cinemaRankings.loading && (cinemaRankings.data || []).length === 0}
-            headerRight={
-              <MonthYearPicker
-                month={selectedMonth}
-                year={selectedYear}
-                onMonthChange={setSelectedMonth}
-                onYearChange={setSelectedYear}
-              />
-            }
-          >
-            <PieChartWidget
-              labels={(cinemaRankings.data || []).map((c) => c.cinemaName)}
-              values={(cinemaRankings.data || []).map((c) => c.revenue)}
             />
           </ChartCard>
         </div>
@@ -341,80 +273,6 @@ const SuperAdminDashboard = () => {
           />
         </div>
 
-        <div className="col-lg-6">
-          <RecentListCard
-            title="Hóa đơn mới nhất"
-            loading={recentInvoices.loading}
-            error={recentInvoices.error}
-            rows={top10Invoices}
-            rowKey={(r) => r.id}
-            columns={[
-              { key: "orderCode", label: "Mã đơn" },
-              { key: "customerName", label: "Khách hàng" },
-              { key: "cinemaName", label: "Rạp" },
-              { key: "finalAmount", label: "Tổng tiền", align: "end", render: (r) => formatVN(r.finalAmount) },
-              { key: "createdAt", label: "Thời gian", render: (r) => formatDateTime(r.createdAt) },
-            ]}
-          />
-        </div>
-
-        <div className="col-lg-6">
-          <RecentListCard
-            title="Admin hoạt động gần đây"
-            headerRight={
-              <div className="d-flex align-items-center gap-1 flex-wrap">
-                <input
-                  type="date"
-                  className="admin-search-input admin-filter-control"
-                  style={{ width: 140, height: 30, fontSize: 12 }}
-                  value={activityFrom}
-                  max={activityTo || undefined}
-                  onChange={(e) => setActivityFrom(e.target.value)}
-                />
-                <span className="text-muted small">–</span>
-                <input
-                  type="date"
-                  className="admin-search-input admin-filter-control"
-                  style={{ width: 140, height: 30, fontSize: 12 }}
-                  value={activityTo}
-                  min={activityFrom || undefined}
-                  onChange={(e) => setActivityTo(e.target.value)}
-                />
-                {(activityFrom || activityTo) && (
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn-outline admin-btn-sm"
-                    onClick={() => { setActivityFrom(""); setActivityTo(""); }}
-                  >
-                    Xóa
-                  </button>
-                )}
-              </div>
-            }
-            loading={recentAdminActivity.loading}
-            error={recentAdminActivity.error}
-            rows={pagedAdminActivity}
-            rowKey={(r) => r.id}
-            columns={[
-              { key: "actorName", label: "Admin" },
-              {
-                key: "action", label: "Hành động", render: (r) => (
-                  <span className={`admin-badge ${auditBadge(r.action)}`}>{r.action}</span>
-                ),
-              },
-              { key: "description", label: "Chi tiết" },
-              { key: "createdAt", label: "Thời gian", render: (r) => formatDateTime(r.createdAt) },
-            ]}
-          />
-          <AdminPagination
-            currentPage={adminActivityPage}
-            totalPages={adminActivityTotalPages}
-            totalItems={filteredAdminActivity.length}
-            itemsPerPage={PAGE_SIZE}
-            onPageChange={setAdminActivityPage}
-            itemLabel="hoạt động"
-          />
-        </div>
       </div>
     </AdminPanelPage>
   );
