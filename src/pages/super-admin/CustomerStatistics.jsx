@@ -37,12 +37,17 @@ const CustomerStatistics = () => {
         c.fullName?.toLowerCase().includes(search.toLowerCase()) ||
         c.email?.toLowerCase().includes(search.toLowerCase())
       );
-    if (sortBy === "orders")
-      data = [...data].sort((a, b) => b.totalOrders - a.totalOrders);
-    else if (sortBy === "points")
-      data = [...data].sort((a, b) => b.points - a.points);
-    else
-      data = [...data].sort((a, b) => b.totalSpending - a.totalSpending);
+    const metricDiff =
+      sortBy === "orders" ? (a, b) => b.totalOrders - a.totalOrders :
+      sortBy === "points" ? (a, b) => b.points - a.points :
+      (a, b) => b.totalSpending - a.totalSpending;
+    // Khách bị khóa (status 0) luôn đưa xuống cuối danh sách, bất kể tiêu chí sắp xếp.
+    data = [...data].sort((a, b) => {
+      const aLocked = a.status === 0 ? 1 : 0;
+      const bLocked = b.status === 0 ? 1 : 0;
+      if (aLocked !== bLocked) return aLocked - bLocked;
+      return metricDiff(a, b);
+    });
     return data;
   }, [customerStats.data, search, sortBy]);
 
