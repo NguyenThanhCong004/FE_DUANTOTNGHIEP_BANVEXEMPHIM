@@ -16,7 +16,8 @@ export default function TicketPopup({ show, onHide, transaction }) {
   const items = transaction.items || [];
   const qrItems = items.filter((item) => ticketQrSrc(item));
   const qrLeadItem = qrItems[0] || null;
-  const foodQrSrc = !qrLeadItem && transaction.receipt_token
+  // Đơn mua vé kèm bắp nước có 2 mã QR độc lập: 1 cho vé (soát tại rạp), 1 cho bắp nước (nhận tại quầy).
+  const foodQrSrc = transaction.receipt_token
     ? apiUrl(FOOD_ORDERS.RECEIPT_QR(transaction.receipt_token))
     : "";
   const seatLabels = [...new Set(qrItems.map((item) => item.seat_label || item.sub).filter(Boolean))];
@@ -54,24 +55,29 @@ export default function TicketPopup({ show, onHide, transaction }) {
         ) : null}
         <h5 className="fw-bold mb-3" style={{ color: "#f0f0ff" }}>{first?.label || "Đơn hàng"}</h5>
 
-        {qrLeadItem ? (
-          <>
-            <img
-              src={ticketQrSrc(qrLeadItem)}
-              alt={`QR vé ${transaction.order_code || ""}`}
-              style={{ width: 180, height: 180, objectFit: "contain", background: "#fff", borderRadius: 12, padding: 8 }}
-            />
-            <div className="small mt-2" style={{ color: "rgba(240,240,255,0.5)" }}>1 QR dùng cho toàn bộ ghế trong đơn này.</div>
-          </>
-        ) : foodQrSrc ? (
-          <>
-            <img
-              src={foodQrSrc}
-              alt={`QR bắp nước ${transaction.order_code || ""}`}
-              style={{ width: 180, height: 180, objectFit: "contain", background: "#fff", borderRadius: 12, padding: 8 }}
-            />
-            <div className="small mt-2" style={{ color: "rgba(240,240,255,0.5)" }}>Xuất trình mã này tại quầy để nhận bắp nước.</div>
-          </>
+        {qrLeadItem || foodQrSrc ? (
+          <div className="d-flex flex-wrap justify-content-center gap-4">
+            {qrLeadItem && (
+              <div>
+                <img
+                  src={ticketQrSrc(qrLeadItem)}
+                  alt={`QR vé ${transaction.order_code || ""}`}
+                  style={{ width: 180, height: 180, objectFit: "contain", background: "#fff", borderRadius: 12, padding: 8 }}
+                />
+                <div className="small mt-2" style={{ color: "rgba(240,240,255,0.5)" }}>QR vé — 1 mã dùng cho toàn bộ ghế trong đơn này.</div>
+              </div>
+            )}
+            {foodQrSrc && (
+              <div>
+                <img
+                  src={foodQrSrc}
+                  alt={`QR bắp nước ${transaction.order_code || ""}`}
+                  style={{ width: 180, height: 180, objectFit: "contain", background: "#fff", borderRadius: 12, padding: 8 }}
+                />
+                <div className="small mt-2" style={{ color: "rgba(240,240,255,0.5)" }}>QR bắp nước — xuất trình tại quầy để nhận.</div>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="small py-3" style={{ color: "rgba(240,240,255,0.5)" }}>Đơn này không có vé kèm mã QR.</div>
         )}
