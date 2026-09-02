@@ -9,7 +9,7 @@ import { Container, Row, Col } from "react-bootstrap";
 import { getAccessToken, getRefreshToken, getStoredUser, setAuthSession, getStoredStaff, getAuthSession } from "../../utils/authStorage";
 import { getUserIdFromToken } from "../../utils/jwt";
 import { apiFetch, apiUrl, withQuery } from "../../utils/apiClient";
-import { USERS, ME, MEMBERSHIP_RANKS, TICKET_ORDERS } from "../../constants/apiEndpoints";
+import { USERS, ME, MEMBERSHIP_RANKS, TICKET_ORDERS, FOOD_ORDERS } from "../../constants/apiEndpoints";
 import { mapFavoriteRowToFavCard, mapMeTransactionToFe, mapUserVoucherRow } from "../../utils/customerMeApi";
 import { fileToDataUrl, IMAGE_FILE_ACCEPT, isDisplayableImageSrc } from "../../utils/mediaFiles";
 import { apiMessage, MESSAGES } from "../../utils/uiMessages";
@@ -665,6 +665,42 @@ function TabTransactions({ transactions, loading, searchTerm, onSearchChange, pa
                         </div>
                         <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 700, marginTop: 10 }}>
                           QR này là token đã mã hóa từ BE; nhân viên quét sẽ thấy toàn bộ ghế của đơn.
+                        </div>
+                      </div>
+                    )}
+                    {tx.receipt_token && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ color: "#fff", fontSize: 12, fontWeight: 900, marginBottom: 10, letterSpacing: 0.4 }}>
+                          Mã QR bắp nước
+                        </div>
+                        <div
+                          style={{
+                            background: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            borderRadius: 14,
+                            padding: 12,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 14,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <img
+                            src={apiUrl(FOOD_ORDERS.RECEIPT_QR(tx.receipt_token))}
+                            alt={`QR bắp nước ${tx.order_code || ""}`}
+                            style={{
+                              width: 128,
+                              height: 128,
+                              objectFit: "contain",
+                              background: "#fff",
+                              borderRadius: 12,
+                              padding: 8,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div style={{ minWidth: 180, flex: 1, color: "rgba(255,255,255,0.42)", fontSize: 11, fontWeight: 700 }}>
+                            Xuất trình mã này tại quầy để nhận bắp nước.
+                          </div>
                         </div>
                       </div>
                     )}
