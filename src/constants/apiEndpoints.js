@@ -77,6 +77,8 @@ export const MOVIES = {
   REVIEWS: (id) => `${API_V1}/movies/${id}/reviews`,
   /** GET — danh sách URL ảnh banner (phim đang chiếu, ưu tiên doanh thu vé) */
   HOME_BANNERS: `${API_V1}/movies/home-banners`,
+  /** POST — chuyển phim Sắp chiếu sang Đang chiếu nếu đến ngày */
+  SYNC_STATUS: `${API_V1}/movies/sync-status`,
 };
 
 export const SHOWTIMES = {

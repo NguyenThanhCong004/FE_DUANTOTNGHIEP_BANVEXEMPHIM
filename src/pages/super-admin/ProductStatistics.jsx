@@ -64,8 +64,6 @@ const ProductStatistics = () => {
     }
     if (sortBy === "revenue")
       data = [...data].sort((a, b) => b.totalRevenue - a.totalRevenue);
-    else if (sortBy === "name")
-      data = [...data].sort((a, b) => (a.productName || "").localeCompare(b.productName || ""));
     else
       data = [...data].sort((a, b) => b.quantitySold - a.quantitySold);
     return data;
@@ -122,7 +120,7 @@ const ProductStatistics = () => {
       <div className="admin-stats-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <KpiCard title="Tổng sản phẩm"     value={formatNumber(allData.length)} color="#2a78d6" loading={productStats.loading} />
         <KpiCard title="Tổng số lượng bán" value={formatNumber(totalQty)}       color="#eb6834" loading={productStats.loading} />
-        <KpiCard title="Tổng doanh thu F&B" value={formatVN(totalRevenue)}      color="#1baf7a" loading={productStats.loading} />
+        <KpiCard title="Tổng doanh thu sản phẩm" value={formatVN(totalRevenue)}      color="#1baf7a" loading={productStats.loading} />
       </div>
 
       <div className="row g-4 mt-1">
@@ -179,7 +177,6 @@ const ProductStatistics = () => {
                 >
                   <option value="quantity">Sắp xếp: Số lượng</option>
                   <option value="revenue">Sắp xếp: Doanh thu</option>
-                  <option value="name">Sắp xếp: Tên</option>
                 </select>
               </div>
             </div>
