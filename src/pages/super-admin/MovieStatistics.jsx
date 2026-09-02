@@ -14,8 +14,8 @@ const PAGE_SIZE = 10;
 const COLS      = "36px 1fr 120px 140px 130px";
 const CIN_COLS  = "36px 1fr 120px 140px";
 
-const STATUS_LABELS = { 1: "Đang chiếu", 0: "Ngừng chiếu" };
-const STATUS_BADGE  = { 1: "admin-badge-success", 0: "admin-badge-neutral" };
+const STATUS_LABELS = { 1: "Đang chiếu", 2: "Sắp chiếu", 0: "Ngừng chiếu" };
+const STATUS_BADGE  = { 1: "admin-badge-success", 2: "admin-badge-warning", 0: "admin-badge-neutral" };
 
 const MovieStatistics = () => {
   const [page, setPage]               = useState(1);

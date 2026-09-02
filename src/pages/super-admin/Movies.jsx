@@ -60,6 +60,8 @@ const MovieManagement = () => {
     (async () => {
       setLoading(true);
       try {
+        // Đồng bộ trạng thái phim trước khi lấy danh sách
+        await apiFetch(MOVIES.SYNC_STATUS, { method: 'POST' }).catch(() => {});
         const res = await apiFetch(withQuery(MOVIES.LIST, { search: searchTerm }));
         const json = await res.json().catch(() => null);
         const list = json?.data ?? json ?? [];

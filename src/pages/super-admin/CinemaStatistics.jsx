@@ -47,9 +47,11 @@ const CinemaStatistics = () => {
     .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
     .map((c, i) => ({ ...c, _rank: (page - 1) * PAGE_SIZE + i + 1 }));
 
-  const totalRevenue = (cinemaStats.data || []).reduce((a, b) => a + (b.revenue || 0), 0);
-  const totalTickets = (cinemaStats.data || []).reduce((a, b) => a + (b.ticketCount || 0), 0);
-  const totalRooms   = (cinemaStats.data || []).reduce((a, b) => a + (b.totalRooms || 0), 0);
+  const { totalRevenue, totalTickets, totalRooms } = useMemo(() => ({
+    totalRevenue: (cinemaStats.data || []).reduce((a, b) => a + (b.revenue    || 0), 0),
+    totalTickets: (cinemaStats.data || []).reduce((a, b) => a + (b.ticketCount|| 0), 0),
+    totalRooms:   (cinemaStats.data || []).reduce((a, b) => a + (b.totalRooms || 0), 0),
+  }), [cinemaStats.data]);
 
   const top10 = useMemo(() =>
     [...(cinemaStats.data || [])].sort((a, b) => b.revenue - a.revenue).slice(0, 10),

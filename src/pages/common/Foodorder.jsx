@@ -667,9 +667,6 @@ export function FoodOrderContent({ embedded = false }) {
                 <p style={{ fontSize:11, color:"rgba(255,255,255,0.25)", fontWeight:600, textAlign:"center", marginTop:10, marginBottom:0 }}>
                   Cần đăng nhập tài khoản khách. Thanh toán xong nhận tại quầy rạp đã chọn.
                 </p>
-                <p style={{ fontSize:11, color:"#ffd166", fontWeight:600, textAlign:"center", marginTop:4, marginBottom:0 }}>
-                  <i className="bi bi-clock me-1" aria-hidden="true" />Bạn có 5 phút để hoàn tất thanh toán sau khi chuyển sang trang PayOS.
-                </p>
               </div>
             </Col>
           </Row>
