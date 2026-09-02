@@ -1765,12 +1765,7 @@ const Booking = () => {
                         <div className="small rounded-3 p-3" style={{ background: "rgba(142,230,168,0.1)", color: "#9fe6b8", border: "1px solid rgba(142,230,168,0.22)" }}>
                           Tổng tiền còn 0đ nên hệ thống sẽ hoàn tất đặt vé ngay, không chuyển sang PayOS.
                         </div>
-                      ) : (
-                        <div className="small rounded-3 p-3 d-flex align-items-center gap-2" style={{ background: "rgba(255,193,7,0.08)", color: "#ffd166", border: "1px solid rgba(255,193,7,0.22)" }}>
-                          <i className="fas fa-clock" />
-                          Bạn có <strong>5 phút</strong> để hoàn tất thanh toán sau khi chuyển sang trang PayOS — quá hạn đơn sẽ tự hủy và ghế được trả lại.
-                        </div>
-                      )}
+                      ) : (null)}
                     </div>
                   </Modal.Body>
                   <Modal.Footer style={{ background: "#12133a", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
