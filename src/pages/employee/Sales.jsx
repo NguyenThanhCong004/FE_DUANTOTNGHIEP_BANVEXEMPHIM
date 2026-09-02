@@ -183,7 +183,7 @@ const Sales = () => {
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [showtimes, setShowtimes] = useState([]);
   const [allShowtimesForHome, setAllShowtimesForHome] = useState([]);
-  const [showHome, setShowHome] = useState(false);
+  const [showHome, setShowHome] = useState(true);
   const [selectedShowtime, setSelectedShowtime] = useState(null);
   const [seats, setSeats] = useState([]);
   const [seatTypes, setSeatTypes] = useState([]);
@@ -257,6 +257,7 @@ const Sales = () => {
       setSeats([]);
       setSearchText("");
       setActiveTab('showtimes');
+      setShowHome(true);
     }
   }, [selectedShowtime]);
 
